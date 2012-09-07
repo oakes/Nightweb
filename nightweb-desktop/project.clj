@@ -7,4 +7,5 @@
                  [splendid/jfx "0.5.0"]
                  [com.oracle/javafx-runtime "2.2"]]
   :main nightweb.core
-  :java-source-paths ["../nightweb-core/java"])
+  :java-source-paths ["../nightweb-core/java"]
+  :resource-paths ["../nightweb-core/java"])
