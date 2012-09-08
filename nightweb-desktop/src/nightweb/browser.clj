@@ -6,7 +6,8 @@
            javafx.scene.layout.Priority
            javafx.geometry.Insets
            javafx.scene.text.Font
-           javafx.geometry.Pos))
+           javafx.geometry.Pos
+           javafx.beans.value.ChangeListener))
 
 (defn create-tab
   "Creates a new tab."
@@ -14,11 +15,14 @@
   (let [new-tab (Tab. "Main Page")
         tab-view (VBox.)
         nav-bar (HBox.)
+        reload-icon "⟳"
+        stop-icon "x"
         back-btn (Button. "<")
         for-btn (Button. ">")
-        reload-btn (Button. "⟳")
+        reload-btn (Button. reload-icon)
         url-field (TextField.)
         web-view (WebView.)
+        web-engine (.getEngine web-view)
         index (- (.size (.getTabs tab-bar)) 1)]
     ; resize the controls
     (.setFont back-btn (Font. 16))
@@ -26,8 +30,31 @@
     (.setFont reload-btn (Font. 16))
     (.setMinHeight url-field 28)
     (HBox/setHgrow url-field Priority/ALWAYS)
+    (VBox/setVgrow web-view Priority/ALWAYS)
+    ; set actions for the controls
+    (defhandler :onAction back-btn
+                (if (> (.getCurrentIndex (.getHistory web-engine)) 0)
+                  (.go (.getHistory web-engine) -1)))
+    (defhandler :onAction for-btn
+                (if (< (+ (.getCurrentIndex (.getHistory web-engine)) 1)
+                       (.size (.getEntries (.getHistory web-engine))))
+                  (.go (.getHistory web-engine) 1)))
+    (defhandler :onAction reload-btn
+                (if (= (.getText reload-btn) reload-icon)
+                  (.reload web-engine)
+                  (.cancel (.getLoadWorker web-engine))))
+    (defhandler :onAction url-field
+                (.load web-engine (.getText url-field)))
+    (.addListener (.stateProperty (.getLoadWorker web-engine))
+                  (proxy [ChangeListener] []
+                    (changed [ov oldState newState]
+                             (if (= newState javafx.concurrent.Worker$State/RUNNING)
+                               (do
+                                 (.setText url-field (.getLocation web-engine))
+                                 (.setText reload-btn stop-icon))
+                               (.setText reload-btn reload-icon)))))
     ; load the main page
-    (.load (.getEngine web-view) "http://localhost:8080")
+    (.load web-engine "http://localhost:8080")
     ; set spacing for the nav bar
     (.setAlignment nav-bar javafx.geometry.Pos/CENTER)
     (.setPadding nav-bar (Insets. 4))
