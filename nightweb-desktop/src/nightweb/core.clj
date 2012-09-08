@@ -1,24 +1,16 @@
 (ns nightweb.core
-  (:use splendid.jfx)
+  (:use splendid.jfx
+        nightweb.page)
   (:import javafx.scene.layout.VBox
            javafx.scene.control.TabPane
            javafx.scene.control.Tab
            javafx.scene.web.WebView
            javafx.scene.layout.Priority
-           net.i2p.router.Router
-           java.util.HashMap
-           winstone.Launcher)
+           net.i2p.router.Router)
   (:gen-class))
 
-(defn start-web-server
-  "Launch the Winstone server"
-  []
-  (let [args (HashMap.)]
-    (Launcher/initLogger args)
-    (Launcher. args)))
-
 (defn start-browser
-  "Launch the JavaFX browser"
+  "Launch the JavaFX browser (non-blocking)."
   []
   (jfx (let [vbox (VBox.)
              tp (TabPane.)
@@ -33,12 +25,12 @@
          (show vbox))))
 
 (defn start-router
-  "Launch the router"
+  "Launch the router (blocking)."
   []
   (Router/main nil))
 
 (defn -main
-  "Launch everything"
+  "Launch everything."
   [& args]
   (start-web-server)
   (start-browser)
