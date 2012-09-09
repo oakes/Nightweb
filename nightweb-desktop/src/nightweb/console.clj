@@ -1,11 +1,11 @@
-(ns nightweb.page
+(ns nightweb.console
   (:use noir.core)
   (:require [noir.server :as server]))
 
 (defpage "/" []
     "Welcome to Noir!")
 
-(defn start-main-page
+(defn start-console
   "Launch the Noir server (non-blocking)."
   []
-  (server/start 8080))
+  (server/start 4707))

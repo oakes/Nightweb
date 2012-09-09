@@ -1,29 +1,29 @@
 (ns nightweb.core
-  (:use nightweb.page
+  (:use nightweb.console
         nightweb.browser)
   (:import net.i2p.router.Router
            net.i2p.i2ptunnel.I2PTunnel)
   (:gen-class))
 
-(defn start-proxies
-  "Launch the proxies (non-blocking)."
+(defn start-http-proxy
+  "Launch the http proxy (non-blocking)."
   []
   (future (I2PTunnel/main
     (into-array java.lang.String
                 ["-nogui"
                  "-nocli"
                  "-e"
-                 "httpServer localhost 8081 localhost router.keys"]))))
+                 "httpclient 4708"]))))
 
 (defn start-router
   "Launch the router (blocking)."
   []
-  (Router/main (into-array java.lang.String [])))
+  (Router/main nil))
 
 (defn -main
   "Launch everything."
   [& args]
-  (start-main-page)
+  (start-console)
   (start-browser)
-  (start-proxies)
-  (comment (start-router)))
+  (start-http-proxy)
+  (start-router))

@@ -54,7 +54,7 @@
                                  (.setText reload-btn stop-icon))
                                (.setText reload-btn reload-icon)))))
     ; load the main page
-    (.load web-engine "http://localhost:8080")
+    (.load web-engine "http://localhost:4707")
     ; set spacing for the nav bar
     (.setAlignment nav-bar javafx.geometry.Pos/CENTER)
     (.setPadding nav-bar (Insets. 4))
