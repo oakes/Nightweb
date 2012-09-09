@@ -10,7 +10,7 @@
            javafx.beans.value.ChangeListener))
 
 (defn create-tab
-  "Creates a new tab."
+  "Create a new tab."
   [tab-bar]
   (let [new-tab (Tab. "Main Page")
         tab-view (VBox.)

@@ -5,7 +5,7 @@
 (defpage "/" []
     "Welcome to Noir!")
 
-(defn start-web-server
+(defn start-main-page
   "Launch the Noir server (non-blocking)."
   []
   (server/start 8080))
