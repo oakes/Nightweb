@@ -2,11 +2,10 @@
   (:use splendid.jfx)
   (:import (javafx.scene.layout VBox HBox)
            (javafx.scene.control TabPane Tab Button TextField)
+           (javafx.geometry Insets Pos)
            javafx.scene.web.WebView
            javafx.scene.layout.Priority
-           javafx.geometry.Insets
            javafx.scene.text.Font
-           javafx.geometry.Pos
            javafx.beans.value.ChangeListener))
 
 (defn create-tab
@@ -45,14 +44,18 @@
                   (.cancel (.getLoadWorker web-engine))))
     (defhandler :onAction url-field
                 (.load web-engine (.getText url-field)))
+    ; things to do the loading state changes
     (.addListener (.stateProperty (.getLoadWorker web-engine))
                   (proxy [ChangeListener] []
                     (changed [ov oldState newState]
                              (if (= newState javafx.concurrent.Worker$State/RUNNING)
                                (do
-                                 (.setText url-field (.getLocation web-engine))
-                                 (.setText reload-btn stop-icon))
-                               (.setText reload-btn reload-icon)))))
+                                 (.setText reload-btn stop-icon)
+                                 (.setText url-field (.getLocation web-engine)))
+                               (do
+                                 (.setText reload-btn reload-icon)
+                                 (if (.getTitle web-engine)
+                                   (.setText new-tab (.getTitle web-engine))))))))
     ; load the main page
     (.load web-engine "http://localhost:4707")
     ; set spacing for the nav bar

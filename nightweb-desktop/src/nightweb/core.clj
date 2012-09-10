@@ -8,12 +8,11 @@
 (defn start-http-proxy
   "Launch the http proxy (non-blocking)."
   []
+  (java.lang.System/setProperty "javafx.autoproxy.disable" "true")
+  (java.lang.System/setProperty "http.proxyHost" "localhost")
+  (java.lang.System/setProperty "http.proxyPort" "4708")
   (future (I2PTunnel/main
-    (into-array java.lang.String
-                ["-nogui"
-                 "-nocli"
-                 "-e"
-                 "httpclient 4708"]))))
+    (into-array java.lang.String ["-nogui" "-nocli" "-e" "httpclient 4708"]))))
 
 (defn start-router
   "Launch the router (blocking)."
@@ -23,7 +22,7 @@
 (defn -main
   "Launch everything."
   [& args]
+  (start-http-proxy)
   (start-console)
   (start-browser)
-  (start-http-proxy)
   (start-router))
