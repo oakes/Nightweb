@@ -1,11 +1,12 @@
 (ns nightweb.console
-  (:use noir.core)
-  (:require [noir.server :as server]))
+  (:use splendid.jfx)
+  (:import javafx.scene.layout.VBox
+           javafx.scene.control.Tab))
 
-(defpage "/" []
-    "Welcome to Noir!")
-
-(defn start-console
-  "Launch the Noir server (non-blocking)."
+(defn create-console-tab
+  "Create a new console tab."
   []
-  (server/start 4707))
+  (let [new-tab (Tab. "Console Tab")
+        tab-view (VBox.)]
+    (.setContent new-tab tab-view)
+    new-tab))

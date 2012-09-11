@@ -5,7 +5,6 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.4.0"]
                  [splendid/jfx "0.5.0"]
-                 [noir "1.2.1"]
                  [com.oracle/javafx-runtime "2.2"]]
   :main nightweb.core
   :java-source-paths ["../nightweb-core/java"])
