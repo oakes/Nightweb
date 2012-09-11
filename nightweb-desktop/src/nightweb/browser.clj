@@ -12,7 +12,7 @@
 (defn create-browser-tab
   "Create a new browser tab."
   []
-  (let [new-tab (Tab. "Browser Tab")
+  (let [new-tab (Tab. "Browser")
         tab-view (VBox.)
         nav-bar (HBox.)
         reload-icon "⟳"
