@@ -1,5 +1,5 @@
 (ns nightweb.core
-  (:use nightweb.browser)
+  (:use nightweb.console)
   (:import net.i2p.router.Router
            net.i2p.i2ptunnel.I2PTunnel
            net.i2p.util.EventDispatcher)
@@ -24,5 +24,5 @@
   "Launch everything."
   [& args]
   (start-http-proxy)
-  (start-browser)
+  (start-console)
   (comment (start-router)))

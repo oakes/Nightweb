@@ -1,6 +1,5 @@
 (ns nightweb.browser
-  (:use splendid.jfx
-        nightweb.console)
+  (:use splendid.jfx)
   (:import (javafx.scene.layout VBox HBox)
            (javafx.scene.control TabPane Tab Button TextField)
            (javafx.geometry Insets Pos)
@@ -8,6 +7,20 @@
            javafx.scene.layout.Priority
            javafx.scene.text.Font
            javafx.beans.value.ChangeListener))
+
+(defn truncate-title
+  "Limits how long the title can be."
+  [title max-size]
+  (if (> (.length title) max-size)
+    (str (subs title 0 max-size) "...")
+    title))
+
+(defn get-browser-title
+  "Returns the best title for the given browser."
+  [web-engine]
+  (if-let [title (.getTitle web-engine)]
+    title
+    (.getLocation web-engine)))
 
 (defn create-browser-tab
   "Create a new browser tab."
@@ -45,17 +58,19 @@
     (defhandler :onAction url-field
                 (.load web-engine (.getText url-field)))
     ; things to do the loading state changes
-    (.addListener (.stateProperty (.getLoadWorker web-engine))
-                  (proxy [ChangeListener] []
-                    (changed [ov oldState newState]
-                             (if (= newState javafx.concurrent.Worker$State/RUNNING)
-                               (do
-                                 (.setText reload-btn stop-icon)
-                                 (.setText url-field (.getLocation web-engine)))
-                               (do
-                                 (.setText reload-btn reload-icon)
-                                 (if (.getTitle web-engine)
-                                   (.setText new-tab (.getTitle web-engine))))))))
+    (.addListener
+      (.stateProperty
+        (.getLoadWorker web-engine))
+      (proxy [ChangeListener] []
+        (changed
+          [ov oldState newState]
+          (if (= newState javafx.concurrent.Worker$State/RUNNING)
+            (do
+              (.setText reload-btn stop-icon)
+              (.setText url-field (.getLocation web-engine)))
+            (do
+              (.setText reload-btn reload-icon)
+              (.setText new-tab (truncate-title (get-browser-title web-engine) 15)))))))
     ; set spacing for the nav bar
     (.setAlignment nav-bar javafx.geometry.Pos/CENTER)
     (.setPadding nav-bar (Insets. 4))
@@ -65,28 +80,3 @@
     (add tab-view [nav-bar web-view])
     (.setContent new-tab tab-view)
     new-tab))
-
-(defn add-tab
-  "Create a tab with the supplied function and add it to the tab bar."
-  [tab-bar create-tab]
-  (let [index (- (.size (.getTabs tab-bar)) 1)
-        new-tab (create-tab)]
-    (.add (.getTabs tab-bar) index new-tab)
-    (.select (.getSelectionModel tab-bar) index)))
-
-(defn start-browser
-  "Launch the JavaFX browser."
-  []
-  (jfx (let [window (VBox.)
-             tab-bar (TabPane.)
-             plus-tab (Tab. " + ")]
-         (.setTabClosingPolicy
-           tab-bar
-           javafx.scene.control.TabPane$TabClosingPolicy/ALL_TABS)
-         (.setClosable plus-tab false)
-         (.add (.getTabs tab-bar) plus-tab)
-         (defhandler :onSelectionChanged plus-tab (add-tab tab-bar create-console-tab))
-         (add-tab tab-bar create-console-tab)
-         (VBox/setVgrow tab-bar Priority/ALWAYS)
-         (add window [tab-bar])
-         (show window))))
