@@ -2,6 +2,7 @@ target/
 lib/
 classes/
 checkouts/
+logs/
 pom.xml
 *.jar
 *.class
