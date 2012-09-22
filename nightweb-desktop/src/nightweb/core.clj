@@ -15,7 +15,7 @@
                                  [(Proxy. java.net.Proxy$Type/HTTP
                                           (InetSocketAddress. "localhost" 4707))])
                          (connectFailed [uri socket exception]
-                                        (println "Connect failed.")))]
+                                        (println "Connect failed" (.toString uri))))]
     (ProxySelector/setDefault proxy-selector))
   (future (I2PTunnel/main
             (into-array java.lang.String ["-nogui" "-nocli" "-e" "httpclient 4707"]))))

@@ -1,5 +1,6 @@
 (ns nightweb.console
   (:use nightweb.browser
+        nightweb.db
         splendid.jfx)
   (:import javafx.scene.layout.VBox
            (javafx.scene.control TabPane Tab ScrollPane)
@@ -29,6 +30,7 @@
   (jfx (let [window (VBox.)
              tab-bar (TabPane.)
              plus-tab (Tab. " + ")]
+         (create-database)
          (.setTabClosingPolicy
            tab-bar
            javafx.scene.control.TabPane$TabClosingPolicy/ALL_TABS)
