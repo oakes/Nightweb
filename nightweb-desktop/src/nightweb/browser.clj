@@ -3,6 +3,7 @@
   (:import (javafx.scene.layout VBox HBox)
            (javafx.scene.control TabPane Tab Button TextField)
            (javafx.geometry Insets Pos)
+           javafx.scene.control.ToolBar
            javafx.scene.web.WebView
            javafx.scene.layout.Priority
            javafx.scene.text.Font
@@ -27,7 +28,7 @@
   []
   (let [new-tab (Tab. "Browser")
         tab-view (VBox.)
-        nav-bar (HBox.)
+        nav-bar (ToolBar.)
         reload-icon "⟳"
         stop-icon "x"
         back-btn (Button. "<")
@@ -71,12 +72,8 @@
             (do
               (.setText reload-btn reload-icon)
               (.setText new-tab (truncate-title (get-browser-title web-engine) 15)))))))
-    ; set spacing for the nav bar
-    (.setAlignment nav-bar javafx.geometry.Pos/CENTER)
-    (.setPadding nav-bar (Insets. 4))
-    (.setSpacing nav-bar 2)
     ; add everything to the window
-    (jfx/add nav-bar [back-btn for-btn reload-btn url-field])
+    (.setAll (.getItems nav-bar) [back-btn for-btn reload-btn url-field])
     (jfx/add tab-view [nav-bar web-view])
     (.setContent new-tab tab-view)
     new-tab))
