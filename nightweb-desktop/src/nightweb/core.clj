@@ -1,33 +1,12 @@
 (ns nightweb.core
-  (:require [nightweb.console :as console])
-  (:import net.i2p.router.Router
-           net.i2p.i2ptunnel.I2PTunnel
-           java.net.ProxySelector
-           java.net.Proxy
-           java.net.InetSocketAddress)
+  (:require [nightweb.console :as console]
+            [nightweb.router :as router])
+  (:import )
   (:gen-class))
-
-(defn start-http-proxy
-  "Launch the http proxy."
-  []
-  (let [proxy-selector (proxy [ProxySelector] []
-                         (select [uri]
-                                 [(Proxy. java.net.Proxy$Type/HTTP
-                                          (InetSocketAddress. "localhost" 4707))])
-                         (connectFailed [uri socket exception]
-                                        (println "Connect failed" (.toString uri))))]
-    (ProxySelector/setDefault proxy-selector))
-  (future (I2PTunnel/main
-            (into-array java.lang.String ["-nogui" "-nocli" "-e" "httpclient 4707"]))))
-
-(defn start-router
-  "Launch the router."
-  []
-  (Router/main nil))
 
 (defn -main
   "Launch everything."
   [& args]
-  (start-http-proxy)
+  (router/start-http-proxy)
   (console/start-console)
-  (comment (start-router)))
+  (comment (router/start-router)))
