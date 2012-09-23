@@ -1,5 +1,5 @@
 (ns nightweb.browser
-  (:use splendid.jfx)
+  (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox HBox)
            (javafx.scene.control TabPane Tab Button TextField)
            (javafx.geometry Insets Pos)
@@ -44,18 +44,18 @@
     (HBox/setHgrow url-field Priority/ALWAYS)
     (VBox/setVgrow web-view Priority/ALWAYS)
     ; set actions for the controls
-    (defhandler :onAction back-btn
+    (jfx/defhandler :onAction back-btn
                 (if (> (.getCurrentIndex (.getHistory web-engine)) 0)
                   (.go (.getHistory web-engine) -1)))
-    (defhandler :onAction for-btn
+    (jfx/defhandler :onAction for-btn
                 (if (< (+ (.getCurrentIndex (.getHistory web-engine)) 1)
                        (.size (.getEntries (.getHistory web-engine))))
                   (.go (.getHistory web-engine) 1)))
-    (defhandler :onAction reload-btn
+    (jfx/defhandler :onAction reload-btn
                 (if (= (.getText reload-btn) reload-icon)
                   (.reload web-engine)
                   (.cancel (.getLoadWorker web-engine))))
-    (defhandler :onAction url-field
+    (jfx/defhandler :onAction url-field
                 (.load web-engine (.getText url-field)))
     ; things to do the loading state changes
     (.addListener
@@ -76,7 +76,7 @@
     (.setPadding nav-bar (Insets. 4))
     (.setSpacing nav-bar 2)
     ; add everything to the window
-    (add nav-bar [back-btn for-btn reload-btn url-field])
-    (add tab-view [nav-bar web-view])
+    (jfx/add nav-bar [back-btn for-btn reload-btn url-field])
+    (jfx/add tab-view [nav-bar web-view])
     (.setContent new-tab tab-view)
     new-tab))

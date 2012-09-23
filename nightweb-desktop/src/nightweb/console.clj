@@ -1,7 +1,7 @@
 (ns nightweb.console
-  (:use nightweb.browser
-        nightweb.db
-        splendid.jfx)
+  (:require [nightweb.browser :as browser]
+            [nightweb.db :as db]
+            [splendid.jfx :as jfx])
   (:import javafx.scene.layout.VBox
            (javafx.scene.control TabPane Tab ScrollPane)
            javafx.scene.layout.Priority))
@@ -27,17 +27,17 @@
 (defn start-console
   "Launch the JavaFX browser."
   []
-  (jfx (let [window (VBox.)
+  (jfx/jfx (let [window (VBox.)
              tab-bar (TabPane.)
              plus-tab (Tab. " + ")]
-         (create-database)
+         (db/create-database)
          (.setTabClosingPolicy
            tab-bar
            javafx.scene.control.TabPane$TabClosingPolicy/ALL_TABS)
          (.setClosable plus-tab false)
          (.add (.getTabs tab-bar) plus-tab)
-         (defhandler :onSelectionChanged plus-tab (add-tab tab-bar create-console-tab))
+         (jfx/defhandler :onSelectionChanged plus-tab (add-tab tab-bar create-console-tab))
          (add-tab tab-bar create-console-tab)
          (VBox/setVgrow tab-bar Priority/ALWAYS)
-         (add window [tab-bar])
-         (show window))))
+         (jfx/add window [tab-bar])
+         (jfx/show window))))

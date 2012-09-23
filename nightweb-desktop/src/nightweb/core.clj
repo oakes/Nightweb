@@ -1,5 +1,5 @@
 (ns nightweb.core
-  (:use nightweb.console)
+  (:require [nightweb.console :as console])
   (:import net.i2p.router.Router
            net.i2p.i2ptunnel.I2PTunnel
            java.net.ProxySelector
@@ -29,5 +29,5 @@
   "Launch everything."
   [& args]
   (start-http-proxy)
-  (start-console)
+  (console/start-console)
   (comment (start-router)))
