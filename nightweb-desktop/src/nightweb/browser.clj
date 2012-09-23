@@ -1,9 +1,7 @@
 (ns nightweb.browser
   (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox HBox)
-           (javafx.scene.control TabPane Tab Button TextField)
-           (javafx.geometry Insets Pos)
-           javafx.scene.control.ToolBar
+           (javafx.scene.control ToolBar TabPane Tab Button TextField)
            javafx.scene.web.WebView
            javafx.scene.layout.Priority
            javafx.scene.text.Font
