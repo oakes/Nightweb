@@ -1,8 +1,5 @@
 target/
-lib/
-classes/
-checkouts/
-logs/
+gen/
 pom.xml
 *.jar
 *.class
