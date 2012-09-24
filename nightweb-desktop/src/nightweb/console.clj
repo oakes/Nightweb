@@ -7,37 +7,49 @@
            (javafx.scene.text Font TextAlignment)
            javafx.geometry.Insets))
 
-(defn create-grid-item
+(defn create-section-item
   [text]
-  (let [borders (BorderPane.)
+  (let [border-pane (BorderPane.)
         label (Label. text)]
     (.setFont label (Font. 18))
-    (.setPrefSize borders 250 50)
-    (.setPadding borders (Insets. 5))
-    (jfx/defhandler :onMouseEntered borders
-                    (.setStyle borders "-fx-background-color: gray"))
-    (jfx/defhandler :onMouseExited borders
-                    (.setStyle borders "-fx-background-color: lightgray"))
-    (.setTop borders label)
-    borders))
+    (.setPrefSize border-pane 250 50)
+    (.setPadding border-pane (Insets. 5))
+    (jfx/defhandler :onMouseEntered border-pane
+                    (.setStyle border-pane "-fx-background-color: gray"))
+    (jfx/defhandler :onMouseExited border-pane
+                    (.setStyle border-pane "-fx-background-color: lightgray"))
+    (.setTop border-pane label)
+    border-pane))
+
+(defn create-section
+  [title]
+  (let [vbox (VBox.)
+        label (Label. title)
+        tile-pane (TilePane.)]
+    (.setFont label (Font. 24))
+    (.addAll (.getChildren tile-pane)
+             [(create-section-item "Test1")
+              (create-section-item "Test2")
+              (create-section-item "Test3")
+              (create-section-item "Test4")
+              (create-section-item "Test5")
+              (create-section-item "Test6")
+              (create-section-item "Test7")
+              (create-section-item "Test8")])
+    (.setPadding vbox (Insets. 10))
+    (jfx/add vbox label)
+    (jfx/add vbox tile-pane)
+    vbox))
 
 (defn create-console-tab
   "Create a new console tab."
   []
   (let [new-tab (Tab. "Console")
-        tab-view (TilePane.)]
-    (.setStyle tab-view "-fx-background-color: lightgray")
-    (.setPadding tab-view (Insets. 10))
-    (.addAll (.getChildren tab-view)
-             [(create-grid-item "Test")
-              (create-grid-item "Test2")
-              (create-grid-item "Test3")
-              (create-grid-item "Test4")
-              (create-grid-item "Test5")
-              (create-grid-item "Test6")
-              (create-grid-item "Test7")
-              (create-grid-item "Test8")])
-    (.setContent new-tab tab-view)
+        vbox (VBox.)]
+    (jfx/add vbox (create-section "Websites"))
+    (jfx/add vbox (create-section "Settings"))
+    (.setStyle vbox "-fx-background-color: lightgray")
+    (.setContent new-tab vbox)
     new-tab))
 
 (defn add-tab
