@@ -2,26 +2,32 @@
   (:require [nightweb.browser :as browser]
             [nightweb.db :as db]
             [splendid.jfx :as jfx])
-  (:import (javafx.scene.layout VBox Priority TilePane ColumnConstraints)
+  (:import (javafx.scene.layout VBox BorderPane Priority TilePane ColumnConstraints)
            (javafx.scene.control TabPane Tab Label)
-           (javafx.geometry Insets Pos)
-           javafx.scene.text.Font))
+           (javafx.scene.text Font TextAlignment)
+           javafx.geometry.Insets))
 
 (defn create-grid-item
   [text]
-  (let [item (Label. text)]
-    (.setFont item (Font. 24))
-    item))
+  (let [borders (BorderPane.)
+        label (Label. text)]
+    (.setFont label (Font. 18))
+    (.setPrefSize borders 250 50)
+    (.setPadding borders (Insets. 5))
+    (jfx/defhandler :onMouseEntered borders
+                    (.setStyle borders "-fx-background-color: gray"))
+    (jfx/defhandler :onMouseExited borders
+                    (.setStyle borders "-fx-background-color: lightgray"))
+    (.setTop borders label)
+    borders))
 
 (defn create-console-tab
   "Create a new console tab."
   []
   (let [new-tab (Tab. "Console")
         tab-view (TilePane.)]
-    (.setPrefTileHeight tab-view 50)
-    (.setPrefTileWidth tab-view 150)
+    (.setStyle tab-view "-fx-background-color: lightgray")
     (.setPadding tab-view (Insets. 10))
-    (.setTileAlignment tab-view Pos/CENTER_LEFT)
     (.addAll (.getChildren tab-view)
              [(create-grid-item "Test")
               (create-grid-item "Test2")

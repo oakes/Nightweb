@@ -44,18 +44,18 @@
     (VBox/setVgrow web-view Priority/ALWAYS)
     ; set actions for the controls
     (jfx/defhandler :onAction back-btn
-                (if (> (.getCurrentIndex (.getHistory web-engine)) 0)
-                  (.go (.getHistory web-engine) -1)))
+                    (if (> (.getCurrentIndex (.getHistory web-engine)) 0)
+                      (.go (.getHistory web-engine) -1)))
     (jfx/defhandler :onAction for-btn
-                (if (< (+ (.getCurrentIndex (.getHistory web-engine)) 1)
-                       (.size (.getEntries (.getHistory web-engine))))
-                  (.go (.getHistory web-engine) 1)))
+                    (if (< (+ (.getCurrentIndex (.getHistory web-engine)) 1)
+                           (.size (.getEntries (.getHistory web-engine))))
+                      (.go (.getHistory web-engine) 1)))
     (jfx/defhandler :onAction reload-btn
-                (if (= (.getText reload-btn) reload-icon)
-                  (.reload web-engine)
-                  (.cancel (.getLoadWorker web-engine))))
+                    (if (= (.getText reload-btn) reload-icon)
+                      (.reload web-engine)
+                      (.cancel (.getLoadWorker web-engine))))
     (jfx/defhandler :onAction url-field
-                (.load web-engine (.getText url-field)))
+                    (.load web-engine (.getText url-field)))
     ; things to do the loading state changes
     (.addListener
       (.stateProperty
