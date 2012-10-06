@@ -7,15 +7,17 @@
 
   :warn-on-reflection true
 
-  :source-paths ["src/clojure"]
-  :java-source-paths ["src/java" "gen"]
+  :source-paths ["src/clojure" "../nightweb-core/clojure"]
+  :java-source-paths ["src/java" "../nightweb-core/java" "gen"]
   ;; The following two definitions are optional. The default
   ;; target-path is "target", but you can change it to whatever you like.
   ;; :target-path "bin"
   ;; :compile-path "bin/classes"
 
   :dependencies [[android/clojure "1.4.0"]
-                 [neko/neko "2.0.0-beta1"]]
+                 [neko/neko "2.0.0-beta1"]
+                 [org.clojure/java.jdbc "0.2.3"]
+                 [com.h2database/h2 "1.3.168"]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
              :release {:android
