@@ -26,5 +26,5 @@
   (fn [this]
     (fire (notification :icon (get-resource :drawable :ic_launcher)
                         :content-title "Nightweb is running"
-                        :content-text "Tap to shut down"
-                        :action [:service "notification"]))))
+                        :content-text ""
+                        :action [:activity "net.nightweb.MAINACTIVITY"]))))
