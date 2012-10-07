@@ -24,7 +24,9 @@
   :def s
   :on-create
   (fn [this]
-    (fire (notification :icon (get-resource :drawable :ic_launcher)
-                        :content-title "Nightweb is running"
-                        :content-text ""
-                        :action [:activity "net.nightweb.MAINACTIVITY"]))))
+    (start-foreground
+      this 1 (notification
+               :icon (get-resource :drawable :ic_launcher)
+               :content-title "Nightweb is running"
+               :content-text ""
+               :action [:activity "net.nightweb.MAINACTIVITY"]))))

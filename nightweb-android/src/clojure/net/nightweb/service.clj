@@ -9,6 +9,10 @@
     (.setClassName intent context class-name)
     (.startService context intent)))
 
+(defn start-foreground
+  [service id notification]
+  (.startForeground service id notification))
+
 (defmacro defservice
   [name & {:keys [extends prefix on-start-command def] :as options}]
   (let [options (or options {})
