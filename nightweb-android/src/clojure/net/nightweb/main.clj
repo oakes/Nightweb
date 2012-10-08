@@ -18,7 +18,9 @@
      (set-content-view! a
       (make-ui [:linear-layout {}
                 [:text-view {:text "Hello from Clojure!"}]])))
-    (start-service this "net.nightweb.MainService")))
+    (start-service this
+                   "net.nightweb.MainService"
+                   (fn [service] (.act service "Action!")))))
 
 (defservice net.nightweb.MainService
   :def s
@@ -29,4 +31,7 @@
                :icon (get-resource :drawable :ic_launcher)
                :content-title "Nightweb is running"
                :content-text ""
-               :action [:activity "net.nightweb.MAINACTIVITY"]))))
+               :action [:activity "net.nightweb.MAINACTIVITY"])))
+  :on-action
+  (fn [this action]
+    (println action)))
