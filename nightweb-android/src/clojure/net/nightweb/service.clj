@@ -4,7 +4,7 @@
            android.os.Binder)
   (:use neko.-utils))
 
-(defn start-service
+(defn bind-service
   [context class-name connected]
   (let [intent (Intent.)
         connection (proxy [ServiceConnection] []
@@ -13,7 +13,12 @@
                      (onServiceDisconnected [name] ()))]
     (.setClassName intent context class-name)
     (.startService context intent)
-    (.bindService context intent connection 0)))
+    (.bindService context intent connection 0)
+    connection))
+
+(defn unbind-service
+  [context connection]
+  (.unbindService context connection))
 
 (defn start-foreground
   [service id notification]
@@ -22,7 +27,6 @@
 (do
   (gen-class
     :name "CustomBinder"
-    :main false
     :extends android.os.Binder
     :state "state"
     :init "init"

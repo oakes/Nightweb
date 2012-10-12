@@ -19,10 +19,13 @@
      (set-content-view! a
       (make-ui [:linear-layout {}
                 [:text-view {:text "Hello from Clojure!"}]])))
-    (start-service this
-                   "net.nightweb.MainService"
-                   (fn [service] (.act service "Action!")))
-    (show-tab-bar this)))
+    (def conn (bind-service this
+                            "net.nightweb.MainService"
+                            (fn [service] (.act service "Action!"))))
+    (show-tab-bar this))
+  :on-destroy
+  (fn [this]
+    (unbind-service this conn)))
 
 (defservice net.nightweb.MainService
   :def s
