@@ -17,7 +17,7 @@
     android:layout_height="?android:attr/actionBarSize"
     android:orientation="horizontal"
     >
-    <net.nightweb.TabScrollView
+    <net.nightweb.tabs.TabScrollView
         android:id="@+id/tabs"
         android:layout_width="0dip"
         android:layout_height="match_parent"
