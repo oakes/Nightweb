@@ -5,7 +5,7 @@
 
 (defn set-state!
   [this mkey mval]
-  (swap! (.state this) (update-in (.state this) [mkey] mval)))
+  (swap! (.state this) assoc-in [mkey] mval))
 
 (defn get-state
   [this mkey]
@@ -24,27 +24,49 @@
                    [android.content.Context android.util.AttributeSet int] [android.content.Context android.util.AttributeSet int]}
     :methods []
     :exposes-methods {onMeasure superOnMeasure
-                      onLayout superOnLayout})
+                      onLayout superOnLayout
+                      setMeasuredDimension superSetMeasuredDimension})
   (defn tab-layout-create-state
     [context]
-    (atom {}))
+    (let [res (.getResources context)
+          tab-overlap (.getDimension res (get-resource :dimen :tab_overlap))]
+      (atom {:tab-overlap tab-overlap})))
   (defn tab-layout-init
     ([context] [[context] (tab-layout-create-state context)])
     ([context attrs] [[context attrs] (tab-layout-create-state context)])
     ([context attrs def-style] [[context attrs def-style] (tab-layout-create-state context)]))
   (defn tab-layout-post-init
     ([this context]
-      ;(.setChildrenDrawingOrderEnabled this true)
+;      (.setChildrenDrawingOrderEnabled this true)
       )
     ([this context attrs] (tab-layout-post-init this context))
     ([this context attrs def-style] (tab-layout-post-init this context)))
   (defn tab-layout-onMeasure
     [this hspec vspec]
-    (.superOnMeasure this hspec vspec))
+    (.superOnMeasure this hspec vspec)
+    (let [child-count (- (.getChildCount this) 1)
+          max (java.lang.Math/max 0 child-count)
+          tab-overlap (get-state this :tab-overlap)]
+;      (.superSetMeasuredDimension this
+;                                  (- (.getMeasuredWidth this) (* max tab-overlap))
+;                                  (.getMeasuredHeight this))
+      ))
   (defn tab-layout-onLayout
     [this changed l t r b]
-    (.superOnLayout this changed l t r b))
-  )
+    (.superOnLayout this changed l t r b)
+    (if (> (.getChildCount this) 0)
+      (for [i (range 1 (.getChildCount this))
+            :let [first-child (.getChildAt this 0)
+                  tab-overlap (get-state this :tab-overlap)
+                  left (- (.getRight first-child) tab-overlap)
+                  total-left (* left i)
+                  tab (.getChildAt this i)
+                  w (- (.getRight tab) (.getLeft tab))]]
+        (.layout tab total-left (.getTop tab) (+ total-left w) (.getBottom tab)))))
+  (defn tab-layout-getChildDrawingOrder
+    [this count i]
+    ())
+    )
 
 (do
   (gen-class
@@ -61,24 +83,26 @@
     :exposes-methods {onLayout superOnLayout})
   (defn tab-scroll-view-create-state
     [context]
-    (let [content-view (net.nightweb.tabs.TabLayout. context)
-          res (.getResources context)
-          tab-first-padding-left (.getDimension res (get-resource :dimen :tab_first_padding_left))]
-      (.setOrientation content-view android.widget.LinearLayout/HORIZONTAL)
-      (.setLayoutParams content-view
-                        (android.view.ViewGroup$LayoutParams.
-                          android.view.ViewGroup$LayoutParams/WRAP_CONTENT
-                          android.view.ViewGroup$LayoutParams/MATCH_PARENT))
-      (.setPadding content-view tab-first-padding-left 0 0 0)
-      (atom {:selected -1 :content-view content-view})))
+    (atom {:selected -1 :content-view (net.nightweb.tabs.TabLayout. context)}))
   (defn tab-scroll-view-init
     ([context] [[context] (tab-scroll-view-create-state context)])
     ([context attrs] [[context attrs] (tab-scroll-view-create-state context)])
     ([context attrs def-style] [[context attrs def-style] (tab-scroll-view-create-state context)]))
   (defn tab-scroll-view-post-init
     ([this context]
-      (.addView this (get-state this :content-view))
-      (.scrollTo this (.getScrollX this) (.getScrollY this)))
+      (let [res (.getResources context)
+            tab-first-padding-left (.getDimension res (get-resource :dimen :tab_first_padding_left))
+            content-view (get-state this :content-view)]
+        (.setHorizontalScrollBarEnabled this false)
+        (.setOverScrollMode this android.view.View/OVER_SCROLL_NEVER)
+        (.setOrientation content-view android.widget.LinearLayout/HORIZONTAL)
+        (.setLayoutParams content-view
+                          (android.view.ViewGroup$LayoutParams.
+                            android.view.ViewGroup$LayoutParams/WRAP_CONTENT
+                            android.view.ViewGroup$LayoutParams/MATCH_PARENT))
+        (.setPadding content-view tab-first-padding-left 0 0 0)
+        (.addView this content-view)
+        (.scrollTo this (.getScrollX this) (.getScrollY this))))
     ([this context attrs] (tab-scroll-view-post-init this context))
     ([this context attrs def-style] (tab-scroll-view-post-init this context)))
   (defn tab-scroll-view-onLayout
@@ -195,8 +219,8 @@
         (.setPadding this 0 tab-padding-top 0 0)
         (.setOnClickListener new-tab
                              (on-click (println "on-click")))
-        ;(set-state! this :tabs tabs)
-        ;(set-state! this :new-tab new-tab)
+        (set-state! this :tabs tabs)
+        (set-state! this :new-tab new-tab)
         ))
     ([this context attrs] (tab-bar-post-init this context))
     ([this context attrs def-style] (tab-bar-post-init this context)))
@@ -207,30 +231,27 @@
           res (.getResources context)
           tab-width (get-resource :dimen :tab_width)]
       (set-state! this :tab-width (.getDimension res tab-width))
-      (.updateLayout (get-state this :tabs))
-      ))
-  (comment
-  (defn tab-bar-onMeasure
-    [this hspec vspec]
-    (.superOnMeasure this hspec vspec)
-    (.superSetMeasuredDimension this
-                           (- (.getMeasuredWidth this)
-                              (get-state this :tab-add-overlap))
-                           (.getMeasuredHeight this))))
-  (comment
-  (defn tab-bar-onLayout
-    [this changed left top right bottom]
-    (let [new-tab (get-state this :new-tab)
-          tabs (get-state this :tabs)
-          pl (.getPaddingLeft this)
-          pt (.getPaddingTop this)
-          w (- right left pl)
-          tab-add-overlap (get-state this :tab-add-overlap)
-          button-width (- (.getMeasuredWidth new-tab) tab-add-overlap)
-          sw (- w button-width)]
-      (.layout tabs pl pt (+ pl sw) (- bottom top))
-      (.layout new-tab (- (+ pl sw) tab-add-overlap) pt
-               (- (+ pl sw button-width) tab-add-overlap) (- bottom top)))))
+      (.updateLayout (get-state this :tabs))))
+;  (defn tab-bar-onMeasure
+;    [this hspec vspec]
+;    (.superOnMeasure this hspec vspec)
+;    (.superSetMeasuredDimension this
+;                           (- (.getMeasuredWidth this)
+;                              (get-state this :tab-add-overlap))
+;                           (.getMeasuredHeight this)))
+;  (defn tab-bar-onLayout
+;    [this changed left top right bottom]
+;    (let [new-tab (get-state this :new-tab)
+;          tabs (get-state this :tabs)
+;          pl (.getPaddingLeft this)
+;          pt (.getPaddingTop this)
+;          w (- right left pl)
+;          tab-add-overlap (get-state this :tab-add-overlap)
+;          button-width (- (.getMeasuredWidth new-tab) tab-add-overlap)
+;          sw (- w button-width)]
+;      (.layout tabs pl pt (+ pl sw) (- bottom top))
+;      (.layout new-tab (- (+ pl sw) tab-add-overlap) pt
+;               (- (+ pl sw button-width) tab-add-overlap) (- bottom top))))
   )
 
 (defn show-tab-bar
