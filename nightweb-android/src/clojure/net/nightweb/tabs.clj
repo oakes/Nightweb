@@ -250,16 +250,17 @@
     (let [context (get-state this :context)
           title (get-state this :title)
           icon-view (get-state this :icon-view)
-          close (get-state this :close)
-          lp (.getLayoutParams this)]
+          close (get-state this :close)]
       (.setTextAppearance title context (if selected (get-resource :style :TabTitleSelected) (get-resource :style :TabTitleUnselected)))
       (.setVisibility icon-view (if selected android.view.View/GONE android.view.View/VISIBLE))
       (.setVisibility close (if selected android.view.View/VISIBLE android.view.View/GONE))
       (.setHorizontalFadingEdgeEnabled this (not selected))
       (.superSetActivated this selected)
-;      (set! (. lp width) (get-state this :tab-width))
-;      (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
-;      (.setLayoutParams this lp)
+      (if-let [lp (.getLayoutParams this)]
+        (do
+          (set! (. lp width) (get-state this :tab-width))
+          (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
+          (.setLayoutParams this lp)))
       (.setFocusable this (not selected))
       (.postInvalidate this)))
   (defn tab-view-setTitle
