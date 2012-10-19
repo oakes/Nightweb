@@ -89,7 +89,7 @@
                             android.view.ViewGroup$LayoutParams/MATCH_PARENT))
         (.setPadding content-view tab-first-padding-left 0 0 0)
         (.addView this content-view)
-        (.scrollTo this (.getScrollX this) (.getScrollY this))
+        ;(.scrollTo this (.getScrollX this) (.getScrollY this))
         (set-state! this :content-view content-view)
         (set-state! this :animation-duration animation-duration)))
     ([this context attrs] (tab-scroll-view-post-init this context))
@@ -113,8 +113,8 @@
           tab-view (net.nightweb.tabs.TabView. (get-state this :context))]
       (.setTitle tab-view "New Tab")
       (.setOnClickListener tab-view (on-click (.setSelectedTab this view)))
-      (.setActivated tab-view true)
-      (.addView content-view tab-view)))
+      (.addView content-view tab-view)
+      (.setActivated tab-view true)))
   (defn tab-scroll-view-setSelectedTab
     [this view]
     (let [content-view (get-state this :content-view)
@@ -134,8 +134,8 @@
   (defn tab-scroll-view-animateScroll
     [this new-scroll]
     (let [animator (android.animation.ObjectAnimator/ofInt
-                     this "scroll" (.getScrollX this))]
-      (.setDuration animator (get-state this :animation-duration))
+                     this "scroll" (int-array [(.getScrollX this) new-scroll]))]
+      (.setDuration animator ^int (get-state this :animation-duration))
       (.start animator)))
   )
 
@@ -165,7 +165,7 @@
   (defn tab-layout-onLayout
     [this changed l t r b]
     (.superOnLayout this changed l t r b)
-    (if (> (.getChildCount this) 0)
+    (if (> (.getChildCount this) 1)
       (for [i (range 1 (.getChildCount this))
             :let [first-child (.getChildAt this 0)
                   tab-overlap (get-state this :tab-overlap)
@@ -242,7 +242,7 @@
       (.reset focus-path)
       (.moveTo focus-path local-l local-b)
       (.lineTo focus-path local-l local-t)
-      (.lineTo focus-path (- local-r (get-state this :tab-slice-width)) local-t)
+      (.lineTo focus-path (- local-r tab-slice-width) local-t)
       (.lineTo focus-path local-r local-b)))
   (defn tab-view-setActivated
     [this selected]
@@ -251,7 +251,9 @@
           title (get-state this :title)
           icon-view (get-state this :icon-view)
           close (get-state this :close)]
-      (.setTextAppearance title context (if selected (get-resource :style :TabTitleSelected) (get-resource :style :TabTitleUnselected)))
+      (.setTextAppearance title context (if selected
+                                          (get-resource :style :TabTitleSelected)
+                                          (get-resource :style :TabTitleUnselected)))
       (.setVisibility icon-view (if selected android.view.View/GONE android.view.View/VISIBLE))
       (.setVisibility close (if selected android.view.View/VISIBLE android.view.View/GONE))
       (.setHorizontalFadingEdgeEnabled this (not selected))
@@ -314,7 +316,10 @@
           w (- right left pl)
           tab-add-overlap (get-state this :tab-add-overlap)
           button-width (- (.getMeasuredWidth new-tab) tab-add-overlap)
-          sw (- w button-width)]
+          tabs-width (.getMeasuredWidth tabs)
+          sw (if (< (- w tabs-width) button-width)
+               (- w button-width)
+               tabs-width)]
       (.layout tabs pl pt (+ pl sw) (- bottom top))
       (.layout new-tab (- (+ pl sw) tab-add-overlap) pt
                (- (+ pl sw button-width) tab-add-overlap) (- bottom top))))
