@@ -26,7 +26,8 @@
               ["setSelectedTab" [android.view.View] void]
               ["getSelectedTab" [] int]
               ["animateScroll" [int] void]]
-    :exposes-methods {onLayout superOnLayout})
+    :exposes-methods {onLayout superOnLayout
+                      onScrollChanged superOnScrollChanged})
   (gen-class
     :name "net.nightweb.tabs.TabLayout"
     :extends net.nightweb.LinearLayout
@@ -107,6 +108,13 @@
           (.animateScroll this childl)
           (if (> childr viewr)
             (.animateScroll this (+ (- childr viewr) viewl)))))))
+  (defn tab-scroll-view-onScrollChanged
+    [this l t oldl oldt]
+    (.superOnScrollChanged this l t oldl oldt)
+    (let [content-view (get-state this :content-view)]
+      (if (.isHardwareAccelerated this)
+        (for [i (range 0 (.getChildCount content-view))]
+          (.invalidate (.getChildAt content-view i))))))
   (defn tab-scroll-view-addTab
     [this]
     (let [content-view (get-state this :content-view)
@@ -114,7 +122,7 @@
       (.setTitle tab-view "New Tab")
       (.setOnClickListener tab-view (on-click (.setSelectedTab this view)))
       (.addView content-view tab-view)
-      (.setActivated tab-view true)))
+      (.setActivated tab-view false)))
   (defn tab-scroll-view-setSelectedTab
     [this view]
     (let [content-view (get-state this :content-view)
@@ -156,8 +164,8 @@
   (defn tab-layout-onMeasure
     [this hspec vspec]
     (.superOnMeasure this hspec vspec)
-    (let [child-count (- (.getChildCount this) 1)
-          max (java.lang.Math/max 0 child-count)
+    (let [child-count (.getChildCount this)
+          max (java.lang.Math/max 0 (- child-count 1))
           tab-overlap (get-state this :tab-overlap)]
       (.superSetMeasuredDimension this
                                   (- (.getMeasuredWidth this) (* max tab-overlap))
@@ -166,14 +174,15 @@
     [this changed l t r b]
     (.superOnLayout this changed l t r b)
     (if (> (.getChildCount this) 1)
-      (for [i (range 1 (.getChildCount this))
-            :let [first-child (.getChildAt this 0)
-                  tab-overlap (get-state this :tab-overlap)
-                  left (- (.getRight first-child) tab-overlap)
-                  total-left (* left i)
-                  tab (.getChildAt this i)
-                  w (- (.getRight tab) (.getLeft tab))]]
-        (.layout tab total-left (.getTop tab) (+ total-left w) (.getBottom tab)))))
+      (let [tab-overlap (get-state this :tab-overlap)
+            first-child (.getChildAt this 0)
+            next-left (atom (- (.getRight first-child) tab-overlap))]
+        (for [i (range 1 (.getChildCount this))
+              :let [tab (.getChildAt this i)
+                    w (- (.getRight tab) (.getLeft tab))]]
+          (do
+            (.layout @next-left (.getTop tab) (+ @next-left w) (.getBottom tab))
+            (swap! next-left (fn [old-value] (+ old-value (- w tab-overlap)))))))))
   (defn tab-layout-getChildDrawingOrder
     [this cnt i]
     (let [selected (.getSelectedTab (get-state this :tabs))
