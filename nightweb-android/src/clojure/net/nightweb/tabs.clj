@@ -25,7 +25,11 @@
     :methods [["addTab" [] void]
               ["setSelectedTab" [android.view.View] void]
               ["getSelectedTab" [] int]
-              ["animateScroll" [int] void]]
+              ["animateScroll" [int] void]
+              ["setScroll" [int] void]
+              ["getScroll" [] int]
+              ["updateLayout" [] void]
+              ["ensureChildVisible" [] void]]
     :exposes-methods {onLayout superOnLayout
                       onScrollChanged superOnScrollChanged})
   (gen-class
@@ -49,7 +53,8 @@
     :constructors {[android.content.Context] [android.content.Context]
                    [android.content.Context android.util.AttributeSet] [android.content.Context android.util.AttributeSet]
                    [android.content.Context android.util.AttributeSet int] [android.content.Context android.util.AttributeSet int]}
-    :methods [["setTitle" [String] void]]
+    :methods [["setTitle" [String] void]
+              ["updateLayoutParams" [] void]]
     :exposes-methods {onLayout superOnLayout
                       setActivated superSetActivated})
   (gen-class
@@ -90,7 +95,7 @@
                             android.view.ViewGroup$LayoutParams/MATCH_PARENT))
         (.setPadding content-view tab-first-padding-left 0 0 0)
         (.addView this content-view)
-        ;(.scrollTo this (.getScrollX this) (.getScrollY this))
+        ;(.setScroll this (.getScroll this))
         (set-state! this :content-view content-view)
         (set-state! this :animation-duration animation-duration)))
     ([this context attrs] (tab-scroll-view-post-init this context))
@@ -98,16 +103,7 @@
   (defn tab-scroll-view-onLayout
     [this changed l t r b]
     (.superOnLayout this changed l t r b)
-    (if-let [child (.getChildAt (get-state this :content-view)
-                                (get-state this :selected))]
-      (let [childl (.getLeft child)
-            childr (+ childl (.getWidth child))
-            viewl (.getScrollX this)
-            viewr (+ viewl (.getWidth this))]
-        (if (< childl viewl)
-          (.animateScroll this childl)
-          (if (> childr viewr)
-            (.animateScroll this (+ (- childr viewr) viewl)))))))
+    (.ensureChildVisible this))
   (defn tab-scroll-view-onScrollChanged
     [this l t oldl oldt]
     (.superOnScrollChanged this l t oldl oldt)
@@ -145,6 +141,30 @@
                      this "scroll" (int-array [(.getScrollX this) new-scroll]))]
       (.setDuration animator ^int (get-state this :animation-duration))
       (.start animator)))
+  (defn tab-scroll-view-setScroll
+    [this new-scroll]
+    (.scrollTo this new-scroll (.getScrollY this)))
+  (defn tab-scroll-view-getScroll
+    [this]
+    (.getScrollX this))
+  (defn tab-scroll-view-updateLayout
+    [this]
+    (for [i (range 0 (.getChildCount (get-state this :content-view)))
+          :let [child (.getChildAt (get-state this :content-view) i)]]
+      (.updateLayoutParams child))
+    (.ensureChildVisible this))
+  (defn tab-scroll-view-ensureChildVisible
+    [this]
+    (if-let [child (.getChildAt (get-state this :content-view)
+                                (get-state this :selected))]
+      (let [childl (.getLeft child)
+            childr (+ childl (.getWidth child))
+            viewl (.getScrollX this)
+            viewr (+ viewl (.getWidth this))]
+        (if (< childl viewl)
+          (.animateScroll this childl)
+          (if (> childr viewr)
+            (.animateScroll this (+ (- childr viewr) viewl)))))))
   )
 
 (do
@@ -267,17 +287,20 @@
       (.setVisibility close (if selected android.view.View/VISIBLE android.view.View/GONE))
       (.setHorizontalFadingEdgeEnabled this (not selected))
       (.superSetActivated this selected)
-      (if-let [lp (.getLayoutParams this)]
-        (do
-          (set! (. lp width) (get-state this :tab-width))
-          (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
-          (.setLayoutParams this lp)))
+      (.updateLayoutParams this)
       (.setFocusable this (not selected))
       (.postInvalidate this)))
   (defn tab-view-setTitle
     [this text]
     (let [title (get-state this :title)]
       (.setText title text)))
+  (defn tab-view-updateLayoutParams
+    [this]
+    (if-let [lp (.getLayoutParams this)]
+      (do
+        (set! (. lp width) (get-state this :tab-width))
+        (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
+        (.setLayoutParams this lp))))
   )
 
 (do
