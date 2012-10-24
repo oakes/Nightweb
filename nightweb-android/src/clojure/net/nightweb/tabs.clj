@@ -82,12 +82,12 @@
     ([context attrs def-style] [[context attrs def-style] (tab-scroll-view-create-state context)]))
   (defn tab-scroll-view-post-init
     ([this context]
+      (.setHorizontalScrollBarEnabled this false)
+      (.setOverScrollMode this android.view.View/OVER_SCROLL_NEVER)
       (let [res (.getResources context)
             tab-first-padding-left (.getDimension res (get-resource :dimen :tab_first_padding_left))
             content-view (net.nightweb.tabs.TabLayout. context this)
             animation-duration (.getInteger res (get-resource :integer :tab_animation_duration))]
-        (.setHorizontalScrollBarEnabled this false)
-        (.setOverScrollMode this android.view.View/OVER_SCROLL_NEVER)
         (.setOrientation content-view android.widget.LinearLayout/HORIZONTAL)
         (.setLayoutParams content-view
                           (android.view.ViewGroup$LayoutParams.
@@ -201,7 +201,7 @@
               :let [tab (.getChildAt this i)
                     w (- (.getRight tab) (.getLeft tab))]]
           (do
-            (.layout @next-left (.getTop tab) (+ @next-left w) (.getBottom tab))
+            (.layout tab @next-left (.getTop tab) (+ @next-left w) (.getBottom tab))
             (swap! next-left (fn [old-value] (+ old-value (- w tab-overlap)))))))))
   (defn tab-layout-getChildDrawingOrder
     [this cnt i]
@@ -296,11 +296,10 @@
       (.setText title text)))
   (defn tab-view-updateLayoutParams
     [this]
-    (if-let [lp (.getLayoutParams this)]
-      (do
-        (set! (. lp width) (get-state this :tab-width))
-        (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
-        (.setLayoutParams this lp))))
+    (let [lp (cast android.widget.LinearLayout$LayoutParams (.getLayoutParams this))]
+      (set! (. lp width) (get-state this :tab-width))
+      (set! (. lp height) android.view.ViewGroup$LayoutParams/MATCH_PARENT)
+      (.setLayoutParams this lp)))
   )
 
 (do
