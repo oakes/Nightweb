@@ -3,10 +3,4 @@
 
   <string name="app_name">Nightweb</string>
 
-
-  <!-- Content description for close tab button [CHAR LIMIT=NONE] -->
-  <string name="accessibility_button_closetab">Close tab</string>
-  <!-- Content description for new tab button [CHAR LIMIT=NONE] -->
-  <string name="accessibility_button_newtab">Open new tab</string>
-
 </resources>

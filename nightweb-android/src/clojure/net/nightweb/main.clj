@@ -5,8 +5,7 @@
         [neko.application :only [defapplication]]
         [neko.notify :only [notification fire]]
         [neko.resource :only [get-resource]]
-        net.nightweb.service
-        net.nightweb.tabs)
+        net.nightweb.service)
   (:require nightweb.router))
 
 (defapplication net.nightweb.Application)
@@ -21,8 +20,7 @@
                 [:text-view {:text "Hello from Clojure!"}]])))
     (def conn (bind-service this
                             "net.nightweb.MainService"
-                            (fn [service] (.act service "Action!"))))
-    (show-tab-bar this))
+                            (fn [service] (.act service "Action!")))))
   :on-destroy
   (fn [this]
     (unbind-service this conn)))
