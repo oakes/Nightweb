@@ -3,4 +3,15 @@
 
   <string name="app_name">Nightweb</string>
 
+  <string name="add">Add</string>
+  <string name="search">Search</string>
+  <string name="link">Link</string>
+  <string name="share">Share</string>
+
+  <string name="home">Home</string>
+  <string name="people">People</string>
+  <string name="photos">Photos</string>
+  <string name="audio">Audio</string>
+  <string name="videos">Videos</string>
+
 </resources>
