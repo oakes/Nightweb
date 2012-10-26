@@ -12,46 +12,37 @@
 (defapplication net.nightweb.Application)
 
 (defn create-tab
-  []
-  (proxy [android.app.ActionBar$TabListener] []
-    (onTabSelected [tab ft])
-    (onTabUnselected [tab ft])
-    (onTabReselected [tab ft])))
+  [action-bar title]
+  (let [tab (.newTab action-bar)
+        fragment (proxy [android.app.Fragment] []
+                   (onCreateView [layout-inflater viewgroup bundle]
+                                 (make-ui [:linear-layout {}
+                                           [:text-view {:text title}]])))
+        listener (proxy [android.app.ActionBar$TabListener] []
+                   (onTabSelected [tab ft]
+                                  (.add ft (get-resource :id :android/content) fragment))
+                   (onTabUnselected [tab ft]
+                                    (.remove ft fragment))
+                   (onTabReselected [tab ft]))]
+    (.setText tab title)
+    (.setTabListener tab listener)
+    (.addTab action-bar tab)))
 
 (defactivity net.nightweb.MainActivity
   :def a
   :on-create
   (fn [this bundle]
-    (on-ui
-     (set-content-view! a
-      (make-ui [:linear-layout {}
-                [:text-view {:text "Hello from Clojure!"}]])))
     (def conn (bind-service this
                             "net.nightweb.MainService"
                             (fn [service] (.act service "Action!"))))
-    (let [action-bar (.getActionBar this)
-          home-tab (.newTab action-bar)
-          people-tab (.newTab action-bar)
-          photos-tab (.newTab action-bar)
-          audio-tab (.newTab action-bar)
-          videos-tab (.newTab action-bar)]
+    (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
-      (.setText home-tab (get-resource :string :home))
-      (.setText people-tab (get-resource :string :people))
-      (.setText photos-tab (get-resource :string :photos))
-      (.setText audio-tab (get-resource :string :audio))
-      (.setText videos-tab (get-resource :string :videos))
-      (.setTabListener home-tab (create-tab))
-      (.setTabListener people-tab (create-tab))
-      (.setTabListener photos-tab (create-tab))
-      (.setTabListener audio-tab (create-tab))
-      (.setTabListener videos-tab (create-tab))
-      (.addTab action-bar home-tab)
-      (.addTab action-bar people-tab)
-      (.addTab action-bar photos-tab)
-      (.addTab action-bar audio-tab)
-      (.addTab action-bar videos-tab)))
+      (create-tab action-bar (get-resource :string :home))
+      (create-tab action-bar (get-resource :string :people))
+      (create-tab action-bar (get-resource :string :photos))
+      (create-tab action-bar (get-resource :string :audio))
+      (create-tab action-bar (get-resource :string :videos))))
   :on-destroy
   (fn [this]
     (unbind-service this conn))
