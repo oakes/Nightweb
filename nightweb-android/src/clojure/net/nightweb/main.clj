@@ -43,7 +43,8 @@
                :content-title "Nightweb is running"
                :content-text ""
                :action [:activity "net.nightweb.MAINACTIVITY"]))
-    (future (start-router this)))
+    (start-router this)
+    (def download-manager (start-download-manager)))
   :on-action
   (fn [this action]
     (if (= action :test)
