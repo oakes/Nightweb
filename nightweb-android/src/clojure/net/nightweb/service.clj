@@ -50,7 +50,7 @@
         :name ~name
         :main false
         :prefix ~prefix
-        :methods ~[["act" [String] 'void]]
+        :methods ~[["act" [clojure.lang.Keyword] 'void]]
         :extends ~(or extends Service)
         :exposes-methods {~'onCreate ~'superOnCreate
                           ~'onStartCommand ~'superOnStartCommand
@@ -72,7 +72,7 @@
        ~(when on-action
           `(defn ~(symbol (str prefix "act"))
              [~(vary-meta 'this assoc :tag name),
-              ^String ~'action]
+              ^clojure.lang.Keyword ~'action]
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-action ~'this ~'action)))
        ~@(map #(let [func (options %)

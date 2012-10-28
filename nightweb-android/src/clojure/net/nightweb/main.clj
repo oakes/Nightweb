@@ -6,8 +6,8 @@
         [neko.notify :only [notification fire]]
         [neko.resource :only [get-resource]]
         net.nightweb.service
-        net.nightweb.activity)
-  (:require nightweb.router))
+        net.nightweb.activity
+        nightweb.router))
 
 (defapplication net.nightweb.Application)
 
@@ -34,7 +34,7 @@
   (fn [this bundle]
     (def conn (bind-service this
                             "net.nightweb.MainService"
-                            (fn [service] (.act service "Action!"))))
+                            (fn [service] (.act service :test))))
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
@@ -59,7 +59,9 @@
                :icon (get-resource :drawable :ic_launcher)
                :content-title "Nightweb is running"
                :content-text ""
-               :action [:activity "net.nightweb.MAINACTIVITY"])))
+               :action [:activity "net.nightweb.MAINACTIVITY"]))
+    (future (start-router this)))
   :on-action
   (fn [this action]
-    (println action)))
+    (if (= action :test)
+      (println action))))
