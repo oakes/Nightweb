@@ -40,6 +40,7 @@ import net.i2p.router.startup.WorkingDir;
 import net.i2p.router.tasks.*;
 import net.i2p.router.transport.FIFOBandwidthLimiter;
 import net.i2p.router.transport.udp.UDPTransport;
+import net.i2p.router.util.EventLog;
 import net.i2p.stat.RateStat;
 import net.i2p.stat.StatManager;
 import net.i2p.util.ByteCache;
@@ -48,9 +49,11 @@ import net.i2p.util.FortunaRandomSource;
 import net.i2p.util.I2PAppThread;
 import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
+import net.i2p.util.OrderedProperties;
 import net.i2p.util.SecureFileOutputStream;
 import net.i2p.util.SimpleByteCache;
 import net.i2p.util.SimpleScheduler;
+import net.i2p.util.SystemVersion;
 
 /**
  * Main driver for the router.
@@ -64,6 +67,7 @@ public class Router implements RouterClock.ClockShiftListener {
     private String _configFilename;
     private RouterInfo _routerInfo;
     public final Object routerInfoFileLock = new Object();
+    private final Object _configFileLock = new Object();
     private long _started;
     private boolean _higherVersionSeen;
     //private SessionKeyPersistenceHelper _sessionKeyPersistenceHelper;
@@ -77,6 +81,7 @@ public class Router implements RouterClock.ClockShiftListener {
     private I2PThread _gracefulShutdownDetector;
     private RouterWatchdog _watchdog;
     private Thread _watchdogThread;
+    private final EventLog _eventLog;
     
     public final static String PROP_CONFIG_FILE = "router.configLocation";
     
@@ -100,6 +105,7 @@ public class Router implements RouterClock.ClockShiftListener {
     public final static String PROP_KEYS_FILENAME_DEFAULT = "router.keys";
     public final static String PROP_SHUTDOWN_IN_PROGRESS = "__shutdownInProgress";
     public final static String DNS_CACHE_TIME = "" + (5*60);
+    private static final String EVENTLOG = "eventlog.txt";
         
     private static final String originalTimeZoneID;
     static {
@@ -171,7 +177,7 @@ public class Router implements RouterClock.ClockShiftListener {
 
         // Do we copy all the data files to the new directory? default false
         String migrate = System.getProperty("i2p.dir.migrate");
-        boolean migrateFiles = Boolean.valueOf(migrate).booleanValue();
+        boolean migrateFiles = Boolean.parseBoolean(migrate);
         String userDir = WorkingDir.getWorkingDir(envProps, migrateFiles);
 
         // Use the router.config file specified in the router.configLocation property
@@ -191,7 +197,7 @@ public class Router implements RouterClock.ClockShiftListener {
         envProps.putAll(_config);
 
         // This doesn't work, guess it has to be in the static block above?
-        // if (Boolean.valueOf(envProps.getProperty("router.disableIPv6")).booleanValue())
+        // if (Boolean.parseBoolean(envProps.getProperty("router.disableIPv6")))
         //    System.setProperty("java.net.preferIPv4Stack", "true");
 
         if (envProps.getProperty("i2p.dir.config") == null)
@@ -204,7 +210,7 @@ public class Router implements RouterClock.ClockShiftListener {
         List<RouterContext> contexts = RouterContext.getContexts();
         if (contexts.isEmpty()) {
             RouterContext.killGlobalContext();
-        } else if (System.getProperty("java.vendor").contains("Android")) {
+        } else if (SystemVersion.isAndroid()) {
             System.err.println("Warning: Killing " + contexts.size() + " other routers in this JVM");
             contexts.clear();
             RouterContext.killGlobalContext();
@@ -219,12 +225,14 @@ public class Router implements RouterClock.ClockShiftListener {
         // i2p.dir.pid defaults to i2p.dir.router
         // i2p.dir.base defaults to user.dir == $CWD
         _context = new RouterContext(this, envProps);
+        _eventLog = new EventLog(_context, new File(_context.getRouterDir(), EVENTLOG));
 
         // This is here so that we can get the directory location from the context
         // for the ping file
         // Check for other router but do not start a thread yet so the update doesn't cause
         // a NCDFE
         if (!isOnlyRouterRunning()) {
+            _eventLog.addEvent(EventLog.ABORTED, "Another router running");
             System.err.println("ERROR: There appears to be another router already running!");
             System.err.println("       Please make sure to shut down old instances before starting up");
             System.err.println("       a new one.  If you are positive that no other instance is running,");
@@ -255,7 +263,7 @@ public class Router implements RouterClock.ClockShiftListener {
         // *********  Start no threads before here ********* //
         //
         // NOW we can start the ping file thread.
-        if (!System.getProperty("java.vendor").contains("Android"))
+        if (!SystemVersion.isAndroid())
             beginMarkingLiveliness();
 
         // Apps may use this as an easy way to determine if they are in the router JVM
@@ -407,9 +415,15 @@ public class Router implements RouterClock.ClockShiftListener {
      *  Most users will just call main() instead.
      *  @since public as of 0.9 for Android and other embedded uses
      */
-    public void runRouter() {
+    public synchronized void runRouter() {
         if (_isAlive)
             throw new IllegalStateException();
+        String last = _config.get("router.previousFullVersion");
+        if (last != null) {
+            _eventLog.addEvent(EventLog.UPDATED, "from " + last + " to " + RouterVersion.FULL_VERSION);
+            saveConfig("router.previousFullVersion", null);
+        }
+        _eventLog.addEvent(EventLog.STARTED, RouterVersion.FULL_VERSION);
         startupStuff();
         _isAlive = true;
         _started = _context.clock().now();
@@ -456,16 +470,19 @@ public class Router implements RouterClock.ClockShiftListener {
      *
      * This is synchronized with saveConfig()
      */
-    public synchronized void readConfig() {
-        String f = getConfigFilename();
-        Properties config = getConfig(_context, f);
-        // to avoid compiler errror
-        Map foo = _config;
-        foo.putAll(config);
+    public void readConfig() {
+        synchronized(_configFileLock) {
+            String f = getConfigFilename();
+            Properties config = getConfig(_context, f);
+            // to avoid compiler errror
+            Map foo = _config;
+            foo.putAll(config);
+        }
     }
     
     /**
      *  this does not use ctx.getConfigDir(), must provide a full path in filename
+     *  Caller must synchronize
      *
      *  @param ctx will be null at startup when called from constructor
      */
@@ -506,6 +523,7 @@ public class Router implements RouterClock.ClockShiftListener {
      * has changed.
      */
     public void rebuildRouterInfo() { rebuildRouterInfo(false); }
+
     public void rebuildRouterInfo(boolean blockingRebuild) {
         if (_log.shouldLog(Log.INFO))
             _log.info("Rebuilding new routerInfo");
@@ -613,7 +631,7 @@ public class Router implements RouterClock.ClockShiftListener {
             return true;
         String h = _context.getProperty(PROP_HIDDEN_HIDDEN);
         if (h != null)
-            return Boolean.valueOf(h).booleanValue();
+            return Boolean.parseBoolean(h);
         return _context.commSystem().isInBadCountry();
     }
 
@@ -632,6 +650,13 @@ public class Router implements RouterClock.ClockShiftListener {
     }
     
     /**
+     *  @since 0.9.3
+     */
+    public EventLog eventLog() {
+        return _eventLog;
+    }
+    
+    /**
      * Ugly list of files that we need to kill if we are building a new identity
      *
      */
@@ -646,7 +671,6 @@ public class Router implements RouterClock.ClockShiftListener {
                                                                  "sessionKeys.dat"     // no longer used
                                                                };
 
-    static final String IDENTLOG = "identlog.txt";
     public void killKeys() {
         //new Exception("Clearing identity files").printStackTrace();
         int remCount = 0;
@@ -671,24 +695,16 @@ public class Router implements RouterClock.ClockShiftListener {
         }
 
         if (remCount > 0) {
-            FileOutputStream log = null;
-            try {
-                log = new FileOutputStream(new File(_context.getRouterDir(), IDENTLOG), true);
-                log.write((new Date() + ": Old router identity keys cleared\n").getBytes());
-            } catch (IOException ioe) {
-                // ignore
-            } finally {
-                if (log != null)
-                    try { log.close(); } catch (IOException ioe) {}
-            }
+            _eventLog.addEvent(EventLog.REKEYED);
         }
     }
+
     /**
      * Rebuild a new identity the hard way - delete all of our old identity 
      * files, then reboot the router.
      *
      */
-    public void rebuildNewIdentity() {
+    public synchronized void rebuildNewIdentity() {
         if (_shutdownHook != null) {
             try {
                 Runtime.getRuntime().removeShutdownHook(_shutdownHook);
@@ -737,7 +753,7 @@ public class Router implements RouterClock.ClockShiftListener {
     /**
      *  Shutdown with no chance of cancellation
      */
-    public void shutdown(int exitCode) {
+    public synchronized void shutdown(int exitCode) {
         if (_shutdownInProgress)
             return;
         _shutdownInProgress = true;
@@ -755,7 +771,10 @@ public class Router implements RouterClock.ClockShiftListener {
      *  Called by the ShutdownHook.
      *  NOT to be called by others, use shutdown().
      */
-    public void shutdown2(int exitCode) {
+    public synchronized void shutdown2(int exitCode) {
+        // help us shut down esp. after OOM
+        int priority = (exitCode == EXIT_OOM) ? Thread.MAX_PRIORITY - 1 : Thread.NORM_PRIORITY + 2;
+        Thread.currentThread().setPriority(priority);
         _shutdownInProgress = true;
         _log.log(Log.CRIT, "Starting final shutdown(" + exitCode + ')');
         // So we can get all the way to the end
@@ -836,6 +855,7 @@ public class Router implements RouterClock.ClockShiftListener {
         // logManager shut down in finalShutdown()
         _watchdog.shutdown();
         _watchdogThread.interrupt();
+        _eventLog.addEvent(EventLog.STOPPED, Integer.toString(exitCode));
         finalShutdown(exitCode);
     }
 
@@ -848,7 +868,7 @@ public class Router implements RouterClock.ClockShiftListener {
     /**
      *  Cancel the JVM runtime hook before calling this.
      */
-    private void finalShutdown(int exitCode) {
+    private synchronized void finalShutdown(int exitCode) {
         clearCaches();
         _log.log(Log.CRIT, "Shutdown(" + exitCode + ") complete"  /* , new Exception("Shutdown") */ );
         try { _context.logManager().shutdown(); } catch (Throwable t) { }
@@ -878,7 +898,7 @@ public class Router implements RouterClock.ClockShiftListener {
             //Runtime.getRuntime().halt(exitCode);
             // allow the Runtime shutdown hooks to execute
             Runtime.getRuntime().exit(exitCode);
-        } else if (System.getProperty("java.vendor").contains("Android")) {
+        } else if (SystemVersion.isAndroid()) {
             Runtime.getRuntime().gc();
         }
     }
@@ -957,41 +977,23 @@ public class Router implements RouterClock.ClockShiftListener {
      * Save the current config options (returning true if save was 
      * successful, false otherwise)
      *
-     * Note that unlike DataHelper.storeProps(),
-     * this does escape the \r or \n that are unescaped in DataHelper.loadProps().
-     * Note that the escaping of \r or \n was probably a mistake and should be taken out.
-     *
      * Synchronized with file read in getConfig()
      */
-    public synchronized boolean saveConfig() {
-        FileOutputStream fos = null;
+    public boolean saveConfig() {
         try {
-            fos = new SecureFileOutputStream(_configFilename);
-            StringBuilder buf = new StringBuilder(8*1024);
-            buf.append("# NOTE: This I2P config file must use UTF-8 encoding\n");
-            TreeSet ordered = new TreeSet(_config.keySet());
-            for (Iterator iter = ordered.iterator() ; iter.hasNext(); ) {
-                String key = (String)iter.next();
-                String val = _config.get(key);
-                    // Escape line breaks before saving.
-                    // Remember: "\" needs escaping both for regex and string.
-                    // NOOO - see comments in DataHelper
-                    //val = val.replaceAll("\\r","\\\\r");
-                    //val = val.replaceAll("\\n","\\\\n");
-                buf.append(key).append('=').append(val).append('\n');
+            Properties ordered = new OrderedProperties();
+            synchronized(_configFileLock) {
+                ordered.putAll(_config);
+                DataHelper.storeProps(ordered, new File(_configFilename));
             }
-            fos.write(buf.toString().getBytes("UTF-8"));
-        } catch (IOException ioe) {
-            // warning, _log will be null when called from constructor
-            if (_log != null)
-                _log.error("Error saving the config to " + _configFilename, ioe);
-            else
-                System.err.println("Error saving the config to " + _configFilename + ": " + ioe);
-            return false;
-        } finally {
-            if (fos != null) try { fos.close(); } catch (IOException ioe) {}
+        } catch (Exception ioe) {
+                // warning, _log will be null when called from constructor
+                if (_log != null)
+                    _log.error("Error saving the config to " + _configFilename, ioe);
+                else
+                    System.err.println("Error saving the config to " + _configFilename + ": " + ioe);
+                return false;
         }
-        
         return true;
     }
     
@@ -1005,12 +1007,14 @@ public class Router implements RouterClock.ClockShiftListener {
      * @return success
      * @since 0.8.13
      */
-    public synchronized boolean saveConfig(String name, String value) {
-        if (value != null)
-            _config.put(name, value);
-        else
-            removeConfigSetting(name);
-        return saveConfig();
+    public boolean saveConfig(String name, String value) {
+        synchronized(_configFileLock) {
+            if (value != null)
+                _config.put(name, value);
+            else
+                removeConfigSetting(name);
+            return saveConfig();
+        }
     }
 
     /**
@@ -1023,15 +1027,17 @@ public class Router implements RouterClock.ClockShiftListener {
      * @return success
      * @since 0.8.13
      */
-    public synchronized boolean saveConfig(Map toAdd, Collection<String> toRemove) {
-        if (toAdd != null)
-            _config.putAll(toAdd);
-        if (toRemove != null) {
-            for (String s : toRemove) {
-                removeConfigSetting(s);
+    public boolean saveConfig(Map toAdd, Collection<String> toRemove) {
+        synchronized(_configFileLock) {
+            if (toAdd != null)
+                _config.putAll(toAdd);
+            if (toRemove != null) {
+                for (String s : toRemove) {
+                    removeConfigSetting(s);
+                }
             }
+            return saveConfig();
         }
-        return saveConfig();
     }
 
     /**
@@ -1045,6 +1051,7 @@ public class Router implements RouterClock.ClockShiftListener {
             return;
         if (delta > -60*1000 && delta < 60*1000)
             return;
+        _eventLog.addEvent(EventLog.CLOCK_SHIFT, Long.toString(delta));
         // update the routing key modifier
         _context.routingKeyGenerator().generateDateBasedModData();
         if (_context.commSystem().countActivePeers() <= 0)
@@ -1139,6 +1146,7 @@ public class Router implements RouterClock.ClockShiftListener {
                 _config.put("router.updateLastInstalled", "" + System.currentTimeMillis());
                 // Set the last version to the current version, since 0.8.13
                 _config.put("router.previousVersion", RouterVersion.VERSION);
+                _config.put("router.previousFullVersion", RouterVersion.FULL_VERSION);
                 saveConfig();
                 ok = FileUtil.extractZip(updateFile, _context.getBaseDir());
             }
@@ -1206,8 +1214,8 @@ public class Router implements RouterClock.ClockShiftListener {
             String osArch = System.getProperty("os.arch");
             boolean isX86 = osArch.contains("86") || osArch.equals("amd64");
             String osName = System.getProperty("os.name").toLowerCase(Locale.US);
-            boolean isWin = osName.startsWith("win");
-            boolean isMac = osName.startsWith("mac");
+            boolean isWin = SystemVersion.isWindows();
+            boolean isMac = SystemVersion.isMac();
             // only do this on these OSes
             boolean goodOS = isWin || isMac ||
                              osName.contains("linux") || osName.contains("freebsd");

@@ -324,14 +324,14 @@ public class InNetMessagePool implements Service {
     public void renderStatusHTML(Writer out) {}
 
     /** does nothing since we aren't threaded */
-    public void restart() { 
+    public synchronized void restart() { 
         shutdown(); 
         try { Thread.sleep(100); } catch (InterruptedException ie) {}
         startup(); 
     }
 
     /** does nothing since we aren't threaded */
-    public void shutdown() {
+    public synchronized void shutdown() {
         _alive = false;
         if (!DISPATCH_DIRECT) {
             synchronized (_pendingDataMessages) {
@@ -343,12 +343,12 @@ public class InNetMessagePool implements Service {
     }
     
     /** does nothing since we aren't threaded */
-    public void startup() {
+    public synchronized void startup() {
         _alive = true;
         _dispatchThreaded = DEFAULT_DISPATCH_THREADED;
         String threadedStr = _context.getProperty(PROP_DISPATCH_THREADED);
         if (threadedStr != null) {
-            _dispatchThreaded = Boolean.valueOf(threadedStr).booleanValue();
+            _dispatchThreaded = Boolean.parseBoolean(threadedStr);
         }
         if (_dispatchThreaded) {
             _context.statManager().createRateStat("pool.dispatchDataTime", "How long a tunnel dispatch takes", "Tunnels", new long[] { 10*60*1000l, 60*60*1000l, 24*60*60*1000l });

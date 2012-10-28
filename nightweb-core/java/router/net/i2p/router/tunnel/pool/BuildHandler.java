@@ -1,7 +1,7 @@
 package net.i2p.router.tunnel.pool;
 
 import java.util.List;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 
 import net.i2p.data.Base64;
 import net.i2p.data.ByteArray;
@@ -28,6 +28,8 @@ import net.i2p.router.tunnel.BuildMessageProcessor;
 import net.i2p.router.tunnel.BuildReplyHandler;
 import net.i2p.router.tunnel.HopConfig;
 import net.i2p.router.tunnel.TunnelDispatcher;
+import net.i2p.router.util.CDQEntry;
+import net.i2p.router.util.CoDelBlockingQueue;
 import net.i2p.stat.Rate;
 import net.i2p.stat.RateStat;
 import net.i2p.util.Log;
@@ -51,7 +53,7 @@ class BuildHandler implements Runnable {
     private final BuildExecutor _exec;
     private final Job _buildMessageHandlerJob;
     private final Job _buildReplyMessageHandlerJob;
-    private final LinkedBlockingQueue<BuildMessageState> _inboundBuildMessages;
+    private final BlockingQueue<BuildMessageState> _inboundBuildMessages;
     private final BuildMessageProcessor _processor;
     private final ParticipatingThrottler _throttler;
     private volatile boolean _isRunning;
@@ -61,6 +63,7 @@ class BuildHandler implements Runnable {
     private static final int MAX_QUEUE = 192;
 
     private static final int NEXT_HOP_LOOKUP_TIMEOUT = 15*1000;
+    private static final int PRIORITY = OutNetMessage.PRIORITY_BUILD_REPLY;
     
     /**
      *  This must be high, as if we timeout the send we remove the tunnel from
@@ -78,7 +81,7 @@ class BuildHandler implements Runnable {
         _exec = exec;
         // Queue size = 12 * share BW / 48K
         int sz = Math.min(MAX_QUEUE, Math.max(MIN_QUEUE, TunnelDispatcher.getShareBandwidth(ctx) * MIN_QUEUE / 48));
-        _inboundBuildMessages = new LinkedBlockingQueue(sz);
+        _inboundBuildMessages = new CoDelBlockingQueue(ctx, "BuildHandler", sz);
     
         _context.statManager().createRateStat("tunnel.reject.10", "How often we reject a tunnel probabalistically", "Tunnels", new long[] { 60*1000, 10*60*1000 });
         _context.statManager().createRateStat("tunnel.reject.20", "How often we reject a tunnel because of transient overload", "Tunnels", new long[] { 60*1000, 10*60*1000 });
@@ -133,10 +136,10 @@ class BuildHandler implements Runnable {
      *  @param numThreads the number of threads to be shut down
      *  @since 0.9
      */
-    public void shutdown(int numThreads) {
+    public synchronized void shutdown(int numThreads) {
         _isRunning = false;
         _inboundBuildMessages.clear();
-        BuildMessageState poison = new BuildMessageState(null, null, null);
+        BuildMessageState poison = new BuildMessageState(_context, null, null, null);
         for (int i = 0; i < numThreads; i++) {
             _inboundBuildMessages.offer(poison);
         }
@@ -178,12 +181,13 @@ class BuildHandler implements Runnable {
                 return;
             }
 
-            long dropBefore = System.currentTimeMillis() - (BuildRequestor.REQUEST_TIMEOUT/4);
+            long now = _context.clock().now();
+            long dropBefore = now - (BuildRequestor.REQUEST_TIMEOUT/4);
             if (state.recvTime <= dropBefore) {
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("Not even trying to handle/decrypt the request " + state.msg.getUniqueId() 
-                              + ", since we received it a long time ago: " + (System.currentTimeMillis() - state.recvTime));
-                _context.statManager().addRateData("tunnel.dropLoadDelay", System.currentTimeMillis() - state.recvTime, 0);
+                              + ", since we received it a long time ago: " + (now - state.recvTime));
+                _context.statManager().addRateData("tunnel.dropLoadDelay", now - state.recvTime, 0);
                 _context.throttle().setTunnelStatus(_x("Dropping tunnel requests: Too slow"));
                 return;
             }       
@@ -321,7 +325,7 @@ class BuildHandler implements Runnable {
     
     /** @return handle time or -1 if it wasn't completely handled */
     private long handleRequest(BuildMessageState state) {
-        long timeSinceReceived = System.currentTimeMillis()-state.recvTime;
+        long timeSinceReceived = _context.clock().now()-state.recvTime;
         if (_log.shouldLog(Log.DEBUG))
             _log.debug(state.msg.getUniqueId() + ": handling request after " + timeSinceReceived);
         
@@ -530,7 +534,7 @@ class BuildHandler implements Runnable {
         //    response = TunnelHistory.TUNNEL_REJECT_PROBABALISTIC_REJECT;
         
         int proactiveDrops = countProactiveDrops();
-        long recvDelay = System.currentTimeMillis()-state.recvTime;
+        long recvDelay = _context.clock().now()-state.recvTime;
         if (response == 0) {
             float pDrop = ((float) recvDelay) / (float) (BuildRequestor.REQUEST_TIMEOUT*3);
             pDrop = (float)Math.pow(pDrop, 16);
@@ -689,7 +693,7 @@ class BuildHandler implements Runnable {
             OutNetMessage msg = new OutNetMessage(_context);
             msg.setMessage(state.msg);
             msg.setExpiration(state.msg.getMessageExpiration());
-            msg.setPriority(300);
+            msg.setPriority(PRIORITY);
             msg.setTarget(nextPeerInfo);
             if (response == 0)
                 msg.setOnFailedSendJob(new TunnelBuildNextHopFailJob(_context, cfg));
@@ -722,7 +726,7 @@ class BuildHandler implements Runnable {
                 OutNetMessage outMsg = new OutNetMessage(_context);
                 outMsg.setExpiration(m.getMessageExpiration());
                 outMsg.setMessage(m);
-                outMsg.setPriority(300);
+                outMsg.setPriority(PRIORITY);
                 outMsg.setTarget(nextPeerInfo);
                 if (response == 0)
                     outMsg.setOnFailedSendJob(new TunnelBuildNextHopFailJob(_context, cfg));
@@ -764,29 +768,30 @@ class BuildHandler implements Runnable {
                     _context.statManager().addRateData("tunnel.buildReplyTooSlow", 1, 0);
                 } else {
                     int sz = _inboundBuildMessages.size();
+                    // Can probably remove this check, since CoDel is in use
                     BuildMessageState cur = _inboundBuildMessages.peek();
                     boolean accept = true;
                     if (cur != null) {
-                        long age = System.currentTimeMillis() - cur.recvTime;
+                        long age = _context.clock().now() - cur.recvTime;
                         if (age >= BuildRequestor.REQUEST_TIMEOUT/4) {
                             _context.statManager().addRateData("tunnel.dropLoad", age, sz);
                             _context.throttle().setTunnelStatus(_x("Dropping tunnel requests: High load"));
                             // if the queue is backlogged, stop adding new messages
-                            _context.statManager().addRateData("tunnel.dropLoadBacklog", sz, sz);
                             accept = false;
                         }
                     }
                     if (accept) {
-                        int queueTime = estimateQueueTime(sz);
-                        float pDrop = queueTime/((float)BuildRequestor.REQUEST_TIMEOUT*3);
-                        pDrop = (float)Math.pow(pDrop, 16); // steeeep
-                        float f = _context.random().nextFloat();
+                        // This is expensive and rarely seen, use CoDel instead
+                        //int queueTime = estimateQueueTime(sz);
+                        //float pDrop = queueTime/((float)BuildRequestor.REQUEST_TIMEOUT*3);
+                        //pDrop = (float)Math.pow(pDrop, 16); // steeeep
+                        //float f = _context.random().nextFloat();
                         //if ( (pDrop > f) && (allowProactiveDrop()) ) {
-                        if (pDrop > f) {
-                            _context.throttle().setTunnelStatus(_x("Dropping tunnel requests: Queue time"));
-                            _context.statManager().addRateData("tunnel.dropLoadProactive", queueTime, sz);
-                        } else {
-                            accept = _inboundBuildMessages.offer(new BuildMessageState(receivedMessage, from, fromHash));
+                        //if (pDrop > f) {
+                        //    _context.throttle().setTunnelStatus(_x("Dropping tunnel requests: Queue time"));
+                        //    _context.statManager().addRateData("tunnel.dropLoadProactive", queueTime, sz);
+                        //} else {
+                            accept = _inboundBuildMessages.offer(new BuildMessageState(_context, receivedMessage, from, fromHash));
                             if (accept) {
                                 // wake up the Executor to call handleInboundRequests()
                                 _exec.repoll();
@@ -794,7 +799,7 @@ class BuildHandler implements Runnable {
                                 _context.throttle().setTunnelStatus(_x("Dropping tunnel requests: High load"));
                                 _context.statManager().addRateData("tunnel.dropLoadBacklog", sz, sz);
                             }
-                        }
+                        //}
                     }
                 }
             }
@@ -811,6 +816,7 @@ class BuildHandler implements Runnable {
     }
 ****/
     
+/****
     private int estimateQueueTime(int numPendingMessages) {
         int decryptTime = 200;
         RateStat rs = _context.statManager().getRate("tunnel.decryptRequestTime");
@@ -831,8 +837,9 @@ class BuildHandler implements Runnable {
         estimatedQueueTime *= 1.2f; // lets leave some cpu to spare, 'eh?
         return (int)estimatedQueueTime;
     }
+****/
     
-    
+    /** */
     private class TunnelBuildReplyMessageHandlerJobBuilder implements HandlerJobBuilder {
         public Job createJob(I2NPMessage receivedMessage, RouterIdentity from, Hash fromHash) {
             if (_log.shouldLog(Log.DEBUG))
@@ -844,16 +851,32 @@ class BuildHandler implements Runnable {
     }
     
     /** normal inbound requests from other people */
-    private static class BuildMessageState {
+    private static class BuildMessageState implements CDQEntry {
+        private final RouterContext _ctx;
         final TunnelBuildMessage msg;
         final RouterIdentity from;
         final Hash fromHash;
         final long recvTime;
-        public BuildMessageState(I2NPMessage m, RouterIdentity f, Hash h) {
+
+        public BuildMessageState(RouterContext ctx, I2NPMessage m, RouterIdentity f, Hash h) {
+            _ctx = ctx;
             msg = (TunnelBuildMessage)m;
             from = f;
             fromHash = h;
-            recvTime = System.currentTimeMillis();
+            recvTime = ctx.clock().now();
+        }
+
+        public void setEnqueueTime(long time) {
+            // set at instantiation, which is just before enqueueing
+        }
+
+        public long getEnqueueTime() {
+            return recvTime;
+        }
+
+        public void drop() {
+            _ctx.throttle().setTunnelStatus(_x("Dropping tunnel requests: Queue time"));
+            _ctx.statManager().addRateData("tunnel.dropLoadProactive", _ctx.clock().now() - recvTime);
         }
     }
 

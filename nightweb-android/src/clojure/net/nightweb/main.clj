@@ -1,32 +1,15 @@
 (ns net.nightweb.main
   (:use [neko.activity :only [set-content-view!]]
         [neko.threading :only [on-ui]]
-        [neko.ui :only [make-ui]]
         [neko.application :only [defapplication]]
         [neko.notify :only [notification fire]]
         [neko.resource :only [get-resource]]
         net.nightweb.service
         net.nightweb.activity
+        net.nightweb.views
         nightweb.router))
 
 (defapplication net.nightweb.Application)
-
-(defn create-tab
-  [action-bar title]
-  (let [tab (.newTab action-bar)
-        fragment (proxy [android.app.Fragment] []
-                   (onCreateView [layout-inflater viewgroup bundle]
-                                 (make-ui [:linear-layout {}
-                                           [:text-view {:text title}]])))
-        listener (proxy [android.app.ActionBar$TabListener] []
-                   (onTabSelected [tab ft]
-                                  (.add ft (get-resource :id :android/content) fragment))
-                   (onTabUnselected [tab ft]
-                                    (.remove ft fragment))
-                   (onTabReselected [tab ft]))]
-    (.setText tab title)
-    (.setTabListener tab listener)
-    (.addTab action-bar tab)))
 
 (defactivity net.nightweb.MainActivity
   :def a

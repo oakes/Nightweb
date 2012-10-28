@@ -13,8 +13,10 @@ import java.io.Writer;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.client.I2PSessionException;
 import net.i2p.crypto.SessionKeyManager;
@@ -42,8 +44,14 @@ import net.i2p.util.Log;
 class ClientManager {
     private final Log _log;
     private ClientListenerRunner _listener;
-    private final HashMap<Destination, ClientConnectionRunner>  _runners;        // Destination --> ClientConnectionRunner
-    private final Set<ClientConnectionRunner> _pendingRunners; // ClientConnectionRunner for clients w/out a Dest yet
+    // Destination --> ClientConnectionRunner
+    // Locked for adds/removes but not lookups
+    private final Map<Destination, ClientConnectionRunner>  _runners;
+    // Same as what's in _runners, but for fast lookup by Hash
+    // Locked for adds/removes but not lookups
+    private final Map<Hash, ClientConnectionRunner>  _runnersByHash;
+    // ClientConnectionRunner for clients w/out a Dest yet
+    private final Set<ClientConnectionRunner> _pendingRunners;
     private final RouterContext _ctx;
     private volatile boolean _isStarted;
 
@@ -52,6 +60,8 @@ class ClientManager {
     /** SSL interface (only) @since 0.8.3 */
     private static final String PROP_ENABLE_SSL = "i2cp.SSL";
 
+    private static final int INTERNAL_QUEUE_SIZE = 256;
+
     public ClientManager(RouterContext context, int port) {
         _ctx = context;
         _log = context.logManager().getLog(ClientManager.class);
@@ -59,7 +69,8 @@ class ClientManager {
         //                                      "How large are messages received by the client?", 
         //                                      "ClientMessages", 
         //                                      new long[] { 60*1000l, 60*60*1000l, 24*60*60*1000l });
-        _runners = new HashMap();
+        _runners = new ConcurrentHashMap();
+        _runnersByHash = new ConcurrentHashMap();
         _pendingRunners = new HashSet();
         startListeners(port);
     }
@@ -78,7 +89,7 @@ class ClientManager {
         _isStarted = true;
     }
     
-    public void restart() {
+    public synchronized void restart() {
         shutdown("Router restart");
         
         // to let the old listener die
@@ -92,7 +103,7 @@ class ClientManager {
     /**
      *  @param msg message to send to the clients
      */
-    public void shutdown(String msg) {
+    public synchronized void shutdown(String msg) {
         _isStarted = false;
         _log.info("Shutting down the ClientManager");
         if (_listener != null)
@@ -114,6 +125,7 @@ class ClientManager {
             ClientConnectionRunner runner = iter.next();
             runner.disconnectClient(msg, Log.WARN);
         }
+        _runnersByHash.clear();
     }
     
     /**
@@ -125,9 +137,8 @@ class ClientManager {
     public I2CPMessageQueue internalConnect() throws I2PSessionException {
         if (!_isStarted)
             throw new I2PSessionException("Router client manager is shut down");
-        // for now we make these unlimited size
-        LinkedBlockingQueue<I2CPMessage> in = new LinkedBlockingQueue();
-        LinkedBlockingQueue<I2CPMessage> out = new LinkedBlockingQueue();
+        LinkedBlockingQueue<I2CPMessage> in = new LinkedBlockingQueue(INTERNAL_QUEUE_SIZE);
+        LinkedBlockingQueue<I2CPMessage> out = new LinkedBlockingQueue(INTERNAL_QUEUE_SIZE);
         I2CPMessageQueue myQueue = new I2CPMessageQueueImpl(in, out);
         I2CPMessageQueue hisQueue = new I2CPMessageQueueImpl(out, in);
         ClientConnectionRunner runner = new QueuedClientConnectionRunner(_ctx, this, myQueue);
@@ -140,10 +151,15 @@ class ClientManager {
     }
 
     public void registerConnection(ClientConnectionRunner runner) {
-        synchronized (_pendingRunners) {
-            _pendingRunners.add(runner);
+        try {
+            runner.startRunning();
+            synchronized (_pendingRunners) {
+                _pendingRunners.add(runner);
+            }
+        } catch (IOException ioe) {
+            _log.error("Error starting up the runner", ioe);
+            runner.stopRunning();
         }
-        runner.startRunning();
     }
     
     public void unregisterConnection(ClientConnectionRunner runner) {
@@ -153,8 +169,10 @@ class ClientManager {
         }
         if ( (runner.getConfig() != null) && (runner.getConfig().getDestination() != null) ) {
             // after connection establishment
+            Destination dest = runner.getConfig().getDestination();
             synchronized (_runners) {
-                _runners.remove(runner.getConfig().getDestination());
+                _runners.remove(dest);
+                _runnersByHash.remove(dest.calculateHash());
             }
         }
     }
@@ -172,9 +190,11 @@ class ClientManager {
         }
         boolean fail = false;
         synchronized (_runners) {
-            fail = _runners.containsKey(dest);
-            if (!fail)
+            fail = _runnersByHash.containsKey(dest.calculateHash());
+            if (!fail) {
                 _runners.put(dest, runner);
+                _runnersByHash.put(dest.calculateHash(), runner);
+            }
         }
         if (fail) {
             _log.log(Log.CRIT, "Client attempted to register duplicate destination " + dest.calculateHash().toBase64());
@@ -237,7 +257,9 @@ class ClientManager {
             _payload = payload;
             _msgId = id;
         }
+
         public String getName() { return "Distribute local message"; }
+
         public void runJob() {
             _to.receiveMessage(_toDest, _fromDest, _payload);
             if (_from != null) {
@@ -273,6 +295,7 @@ class ClientManager {
     }
 
     private static final int REQUEST_LEASESET_TIMEOUT = 120*1000;
+
     public void requestLeaseSet(Hash dest, LeaseSet ls) {
         ClientConnectionRunner runner = getRunner(dest);
         if (runner != null)  {
@@ -281,31 +304,19 @@ class ClientManager {
         }
     }
     
+    /**
+     *  Unsynchronized
+     */
     public boolean isLocal(Destination dest) { 
-        boolean rv = false;
-        long beforeLock = _ctx.clock().now();
-        long inLock = 0;
-        synchronized (_runners) {
-            inLock = _ctx.clock().now();
-            rv = _runners.containsKey(dest);
-        }
-        long afterLock = _ctx.clock().now();
-
-        if (afterLock - beforeLock > 50) {
-            _log.warn("isLocal(Destination).locking took too long: " + (afterLock-beforeLock)
-                      + " overall, synchronized took " + (inLock - beforeLock));
-        }
-        return rv;
+        return _runners.containsKey(dest);
     }
+
+    /**
+     *  Unsynchronized
+     */
     public boolean isLocal(Hash destHash) { 
         if (destHash == null) return false;
-        synchronized (_runners) {
-            for (Iterator iter = _runners.values().iterator(); iter.hasNext(); ) {
-                ClientConnectionRunner cur = (ClientConnectionRunner)iter.next();
-                if (destHash.equals(cur.getDestHash())) return true;
-            }
-        }
-        return false;
+        return _runnersByHash.containsKey(destHash);
     }
     
     /**
@@ -315,32 +326,24 @@ class ClientManager {
         if (destHash == null) return true;
         ClientConnectionRunner runner = getRunner(destHash);
         if (runner == null) return true;
-        return !Boolean.valueOf(runner.getConfig().getOptions().getProperty(ClientManagerFacade.PROP_CLIENT_ONLY)).booleanValue();
+        return !Boolean.parseBoolean(runner.getConfig().getOptions().getProperty(ClientManagerFacade.PROP_CLIENT_ONLY));
     }
 
+    /**
+     *  Unsynchronized
+     */
     public Set<Destination> listClients() {
         Set<Destination> rv = new HashSet();
-        synchronized (_runners) {
-            rv.addAll(_runners.keySet());
-        }
+        rv.addAll(_runners.keySet());
         return rv;
     }
 
     
+    /**
+     *  Unsynchronized
+     */
     ClientConnectionRunner getRunner(Destination dest) {
-        ClientConnectionRunner rv = null;
-        long beforeLock = _ctx.clock().now();
-        long inLock = 0;
-        synchronized (_runners) {
-            inLock = _ctx.clock().now();
-            rv = _runners.get(dest);
-        }
-        long afterLock = _ctx.clock().now();
-        if (afterLock - beforeLock > 50) {
-            _log.warn("getRunner(Dest).locking took too long: " + (afterLock-beforeLock)
-                      + " overall, synchronized took " + (inLock - beforeLock));
-        }
-        return rv;
+        return _runners.get(dest);
     }
     
     /**
@@ -368,17 +371,13 @@ class ClientManager {
             return null;
     }
     
+    /**
+     *  Unsynchronized
+     */
     private ClientConnectionRunner getRunner(Hash destHash) {
         if (destHash == null) 
             return null;
-        synchronized (_runners) {
-            for (Iterator<ClientConnectionRunner> iter = _runners.values().iterator(); iter.hasNext(); ) {
-                ClientConnectionRunner cur = iter.next();
-                if (cur.getDestHash().equals(destHash))
-                    return cur;
-	    }
-        }
-        return null;
+        return _runnersByHash.get(destHash);
     }
     
     public void messageDeliveryStatusUpdate(Destination fromDest, MessageId id, boolean delivered) {
@@ -397,18 +396,7 @@ class ClientManager {
     
     Set<Destination> getRunnerDestinations() {
         Set<Destination> dests = new HashSet();
-        long beforeLock = _ctx.clock().now();
-        long inLock = 0;
-        synchronized (_runners) {
-            inLock = _ctx.clock().now();
-            dests.addAll(_runners.keySet());
-        }
-        long afterLock = _ctx.clock().now();
-        if (afterLock - beforeLock > 50) {
-            _log.warn("getRunnerDestinations().locking took too long: " + (afterLock-beforeLock)
-                      + " overall, synchronized took " + (inLock - beforeLock));
-        }
-        
+        dests.addAll(_runners.keySet());
         return dests;
     }
     
@@ -479,18 +467,23 @@ class ClientManager {
     }
     
     public void messageReceived(ClientMessage msg) {
-        _ctx.jobQueue().addJob(new HandleJob(msg));
+        // This is fast and non-blocking, run in-line
+        //_ctx.jobQueue().addJob(new HandleJob(msg));
+        (new HandleJob(msg)).runJob();
     }
 
     private class HandleJob extends JobImpl {
-        private ClientMessage _msg;
+        private final ClientMessage _msg;
+
         public HandleJob(ClientMessage msg) {
             super(_ctx);
             _msg = msg;
         }
+
         public String getName() { return "Handle Inbound Client Messages"; }
+
         public void runJob() {
-            ClientConnectionRunner runner = null;
+            ClientConnectionRunner runner;
             if (_msg.getDestination() != null) 
                 runner = getRunner(_msg.getDestination());
             else 

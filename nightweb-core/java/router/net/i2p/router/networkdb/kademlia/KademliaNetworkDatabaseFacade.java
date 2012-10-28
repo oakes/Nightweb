@@ -198,7 +198,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         _context.statManager().addRateData("netDb.exploreKeySet", _exploreKeys.size(), 0);
     }
     
-    public void shutdown() {
+    public synchronized void shutdown() {
         _initialized = false;
         if (_kb != null)
             _kb.clear();
@@ -212,7 +212,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         // _exploreKeys = null;
     }
     
-    public void restart() {
+    public synchronized void restart() {
         _dbDir = _context.router().getConfigSetting(PROP_DB_DIR);
         if (_dbDir == null) {
             _log.info("No DB dir specified [" + PROP_DB_DIR + "], using [" + DEFAULT_DB_DIR + "]");
@@ -220,7 +220,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         }
         String enforce = _context.getProperty(PROP_ENFORCE_NETID);
         if (enforce != null) 
-            _enforceNetId = Boolean.valueOf(enforce).booleanValue();
+            _enforceNetId = Boolean.parseBoolean(enforce);
         else
             _enforceNetId = DEFAULT_ENFORCE_NETID;
         _ds.restart();
@@ -240,13 +240,13 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
 
     String getDbDir() { return _dbDir; }
     
-    public void startup() {
+    public synchronized void startup() {
         _log.info("Starting up the kademlia network database");
         RouterInfo ri = _context.router().getRouterInfo();
         String dbDir = _context.getProperty(PROP_DB_DIR, DEFAULT_DB_DIR);
         String enforce = _context.getProperty(PROP_ENFORCE_NETID);
         if (enforce != null) 
-            _enforceNetId = Boolean.valueOf(enforce).booleanValue();
+            _enforceNetId = Boolean.parseBoolean(enforce);
         else
             _enforceNetId = DEFAULT_ENFORCE_NETID;
         

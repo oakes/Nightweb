@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.I2PAppContext;
+import net.i2p.data.ByteArray;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Destination;
 import net.i2p.util.ConcurrentHashSet;
@@ -214,7 +215,7 @@ class PeerCoordinator implements PeerListener
 
   public Storage getStorage() { return storage; }
 
-  // for web page detailed stats
+  /** for web page detailed stats */
   public List<Peer> peerList()
   {
         return new ArrayList(peers);
@@ -445,6 +446,12 @@ class PeerCoordinator implements PeerListener
     synchronized (downloaded_old) {
         Arrays.fill(downloaded_old, 0);
     }
+    // failsafe
+    synchronized(wantedPieces) {
+        for (Piece pc : wantedPieces) {
+            pc.clear();
+        }
+    }
     timer.schedule((CHECK_PERIOD / 2) + _random.nextInt((int) CHECK_PERIOD));
   }
 
@@ -648,10 +655,15 @@ class PeerCoordinator implements PeerListener
     if (listener != null)
       listener.peerChange(this, peer);
 
-    synchronized(wantedPieces)
-      {
-        return wantedPieces.contains(new Piece(piece));
-      }
+    synchronized(wantedPieces) {
+        for (Piece pc : wantedPieces) {
+            if (pc.getId() == piece) {
+                pc.addPeer(peer);
+                return true;
+            }
+        }
+        return false;
+    }
   }
 
   /**
@@ -663,20 +675,17 @@ class PeerCoordinator implements PeerListener
     if (listener != null)
       listener.peerChange(this, peer);
 
-    synchronized(wantedPieces)
-      {
-        Iterator<Piece> it = wantedPieces.iterator();
-        while (it.hasNext())
-          {
-            Piece p = it.next();
+    boolean rv = false;
+    synchronized(wantedPieces) {
+        for (Piece p : wantedPieces) {
             int i = p.getId();
             if (bitfield.get(i)) {
               p.addPeer(peer);
-              return true;
+              rv = true;
             }
-          }
-      }
-    return false;
+        }
+    }
+    return rv;
   }
 
   /**
@@ -732,7 +741,19 @@ class PeerCoordinator implements PeerListener
                 break;
             if (havePieces.get(p.getId()) && !p.isRequested())
               {
-                piece = p;
+                // never ever choose one that's in partialPieces, or we
+                // will create a second one and leak
+                boolean hasPartial = false;
+                for (PartialPiece pp : partialPieces) {
+                    if (pp.getPiece() == p.getId()) {
+                        if (_log.shouldLog(Log.INFO))
+                            _log.info("wantPiece() skipping partial for " + peer + ": piece = " + pp);
+                        hasPartial = true;
+                        break;
+                    }
+                }
+                if (!hasPartial)
+                    piece = p;
               }
             else if (p.isRequested()) 
             {
@@ -747,8 +768,12 @@ class PeerCoordinator implements PeerListener
             // AND if there are almost no wanted pieces left (real end game).
             // If we do end game all the time, we generate lots of extra traffic
             // when the seeder is super-slow and all the peers are "caught up"
-            if (wantedSize > END_GAME_THRESHOLD)
+            if (wantedSize > END_GAME_THRESHOLD) {
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("Nothing to request, " + requested.size() + " being requested and " +
+                              wantedSize + " still wanted");
                 return null;  // nothing to request and not in end game
+            }
             // let's not all get on the same piece
             // Even better would be to sort by number of requests
             if (record)
@@ -784,7 +809,8 @@ class PeerCoordinator implements PeerListener
         }
         if (record) {
             if (_log.shouldLog(Log.INFO))
-                _log.info(peer + " is now requesting: piece " + piece + " priority " + piece.getPriority());
+                _log.info("Now requesting from " + peer + ": piece " + piece + " priority " + piece.getPriority() +
+                          " peers " + piece.getPeerCount() + '/' + peers.size());
             piece.setRequested(peer, true);
         }
         return piece;
@@ -874,7 +900,7 @@ class PeerCoordinator implements PeerListener
    *
    * @throws RuntimeException on IOE getting the data
    */
-  public byte[] gotRequest(Peer peer, int piece, int off, int len)
+  public ByteArray gotRequest(Peer peer, int piece, int off, int len)
   {
     if (halted)
       return null;
@@ -929,11 +955,14 @@ class PeerCoordinator implements PeerListener
    */
   public boolean gotPiece(Peer peer, PartialPiece pp)
   {
-    if (metainfo == null || storage == null)
+    if (metainfo == null || storage == null) {
+        pp.release();
         return true;
+    }
     int piece = pp.getPiece();
     if (halted) {
       _log.info("Got while-halted piece " + piece + "/" + metainfo.getPieces() +" from " + peer + " for " + metainfo.getName());
+      pp.release();
       return true; // We don't actually care anymore.
     }
     
@@ -948,8 +977,10 @@ class PeerCoordinator implements PeerListener
             // Assume we got a good piece, we don't really care anymore.
             // Well, this could be caused by a change in priorities, so
             // only return true if we already have it, otherwise might as well keep it.
-            if (storage.getBitField().get(piece))
+            if (storage.getBitField().get(piece)) {
+                pp.release();
                 return true;
+            }
           }
         
         try
@@ -1074,11 +1105,11 @@ class PeerCoordinator implements PeerListener
   /** Called when a peer is removed, to prevent it from being used in 
    * rarest-first calculations.
    */
-  public void removePeerFromPieces(Peer peer) {
+  private void removePeerFromPieces(Peer peer) {
       synchronized(wantedPieces) {
-          for(Iterator<Piece> iter = wantedPieces.iterator(); iter.hasNext(); ) {
-              Piece piece = iter.next();
+          for (Piece piece : wantedPieces) {
               piece.removePeer(peer);
+              piece.setRequested(peer, false);
           }
       } 
   }
@@ -1171,11 +1202,24 @@ class PeerCoordinator implements PeerListener
                  for(Piece piece : wantedPieces) {
                      if (piece.getId() == savedPiece) {
                          if (peer.isCompleted() && piece.getPeerCount() > 1) {
-                             // Try to preserve rarest-first when we have only one seeder
-                             // by not preferring a partial piece that others have too
+                             // Try to preserve rarest-first
+                             // by not requesting a partial piece that non-seeders also have
                              // from a seeder
-                             skipped = true;
-                             break;
+                             boolean nonSeeds = false;
+                             for (Peer pr : peers) {
+                                 PeerState state = pr.state;
+                                 if (state == null) continue;
+                                 BitField bf = state.bitfield;
+                                 if (bf == null) continue;
+                                 if (bf.get(savedPiece) && !pr.isCompleted()) {
+                                     nonSeeds = true;
+                                     break;
+                                 }
+                             }
+                             if (nonSeeds) {
+                                 skipped = true;
+                                 break;
+                             }
                          }
                          iter.remove();
                          piece.setRequested(peer, true);
@@ -1250,6 +1294,7 @@ class PeerCoordinator implements PeerListener
               PartialPiece pp = iter.next();
               if (pp.getPiece() == piece) {
                   iter.remove();
+                  pp.release();
                   // there should be only one but keep going to be sure
               }
           }

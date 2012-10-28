@@ -28,7 +28,7 @@ class ACKSender implements Runnable {
     private static final long POISON_PS = -9999999999l;
     
     /** how frequently do we want to send ACKs to a peer? */
-    static final int ACK_FREQUENCY = 500;
+    static final int ACK_FREQUENCY = 350;
     
     public ACKSender(RouterContext ctx, UDPTransport transport) {
         _context = ctx;
@@ -53,14 +53,14 @@ class ACKSender implements Runnable {
             _peersToACK.offer(peer);
     }
     
-    public void startup() {
+    public synchronized void startup() {
         _alive = true;
         _peersToACK.clear();
         I2PThread t = new I2PThread(this, "UDP ACK sender", true);
         t.start();
     }
     
-    public void shutdown() { 
+    public synchronized void shutdown() { 
         _alive = false;
         PeerState poison = new PeerState(_context, _transport, null, 0, null, false);
         poison.setTheyRelayToUsAs(POISON_PS);
@@ -73,12 +73,12 @@ class ACKSender implements Runnable {
         _peersToACK.clear();
     }
     
-    private long ackFrequency(long timeSinceACK, long rtt) {
+    private static long ackFrequency(long timeSinceACK, long rtt) {
         // if we are actively pumping lots of data to them, we can depend upon
         // the unsentACKThreshold to figure out when to send an ACK instead of
         // using the timer, so we can set the timeout/frequency higher
         if (timeSinceACK < 2*1000)
-            return Math.max(rtt/2, 500);
+            return Math.max(rtt/2, ACK_FREQUENCY);
         else
             return ACK_FREQUENCY;
     }
@@ -162,15 +162,15 @@ class ACKSender implements Runnable {
                 }
                 
                 if (!ackBitfields.isEmpty()) {
-                    _context.statManager().addRateData("udp.sendACKCount", ackBitfields.size(), 0);
+                    _context.statManager().addRateData("udp.sendACKCount", ackBitfields.size());
                     if (remaining > 0)
-                        _context.statManager().addRateData("udp.sendACKRemaining", remaining, 0);
+                        _context.statManager().addRateData("udp.sendACKRemaining", remaining);
                     // set above before the break
                     //now = _context.clock().now();
                     if (lastSend < 0)
                         lastSend = now - 1;
                     _context.statManager().addRateData("udp.ackFrequency", now-lastSend, now-wanted);
-                    //_context.statManager().getStatLog().addData(peer.getRemoteHostId().toString(), "udp.peer.sendACKCount", ackBitfields.size(), 0);
+                    //_context.statManager().getStatLog().addData(peer.getRemoteHostId().toString(), "udp.peer.sendACKCount", ackBitfields.size());
                     UDPPacket ack = _builder.buildACK(peer, ackBitfields);
                     ack.markType(1);
                     ack.setFragmentCount(-1);
@@ -178,7 +178,9 @@ class ACKSender implements Runnable {
                     
                     if (_log.shouldLog(Log.INFO))
                         _log.info("Sending ACK for " + ackBitfields);
-                    peer.allocateSendingBytes(ack.getPacket().getLength(), true);
+                    // locking issues, we ignore the result, and acks are small,
+                    // so don't even bother allocating
+                    //peer.allocateSendingBytes(ack.getPacket().getLength(), true);
                     // ignore whether its ok or not, its a bloody ack.  this should be fixed, probably.
                     _transport.send(ack);
                     
@@ -191,7 +193,7 @@ class ACKSender implements Runnable {
                         ackPeer(peer);
                     }
                 } else {
-                    _context.statManager().addRateData("udp.abortACK", 1, 0);
+                    _context.statManager().addRateData("udp.abortACK", 1);
                 }
             }
         }

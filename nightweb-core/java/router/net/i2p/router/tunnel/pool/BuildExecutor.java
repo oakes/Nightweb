@@ -86,7 +86,7 @@ class BuildExecutor implements Runnable {
     /**
      *  @since 0.9
      */
-    public void restart() {
+    public synchronized void restart() {
         synchronized (_recentBuildIds) { 
             _recentBuildIds.clear();
         }
@@ -98,7 +98,7 @@ class BuildExecutor implements Runnable {
      *  Cannot be restarted.
      *  @since 0.9
      */
-    public void shutdown() {
+    public synchronized void shutdown() {
         _isRunning = false;
         restart();
     }
@@ -392,6 +392,7 @@ class BuildExecutor implements Runnable {
                 pools.clear();
             } catch (RuntimeException e) {
                     _log.log(Log.CRIT, "B0rked in the tunnel builder", e);
+                    try { Thread.sleep(LOOP_TIME); } catch (InterruptedException ie) {}
             }
         }
         

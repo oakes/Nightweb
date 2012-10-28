@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.I2PAppContext;
+import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
 
 /**
@@ -14,7 +15,7 @@ import net.i2p.util.Log;
  *
  * Note that this class is not fully Thread safe!
  * The following methods must be synchronized externally, they are not
- * sycned here or in super():
+ * synced here or in super():
  *   addRandomByte(), addRandomBytes(), nextByte(), nextBytes(), seed()
  *
  */
@@ -53,7 +54,7 @@ public class AsyncFortunaStandalone extends FortunaStandalone implements Runnabl
         for (int i = 0; i < _bufferCount; i++)
             _emptyBuffers.offer(new AsyncBuffer(_bufferSize));
         _isRunning = true;
-        _refillThread = new Thread(this, "PRNG");
+        _refillThread = new I2PThread(this, "PRNG");
         _refillThread.setDaemon(true);
         _refillThread.setPriority(Thread.MIN_PRIORITY+1);
         _refillThread.start();

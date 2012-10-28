@@ -32,17 +32,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.crypto.SHA1;
+import net.i2p.data.ByteArray;
+import net.i2p.util.ByteCache;
 import net.i2p.util.Log;
 import net.i2p.util.SecureFile;
+import net.i2p.util.SystemVersion;
 
 /**
  * Maintains pieces on disk. Can be used to store and retrieve pieces.
  */
 public class Storage
 {
-  private MetaInfo metainfo;
+  private final MetaInfo metainfo;
   private long[] lengths;
   private RandomAccessFile[] rafs;
   private String[] names;
@@ -66,6 +70,8 @@ public class Storage
   private final int pieces;
   private final long total_length;
   private boolean changed;
+  private volatile boolean _isChecking;
+  private final AtomicInteger _allocateCount = new AtomicInteger();
 
   /** The default piece size. */
   private static final int MIN_PIECE_SIZE = 256*1024;
@@ -77,23 +83,24 @@ public class Storage
 
   private static final Map<String, String> _filterNameCache = new ConcurrentHashMap();
 
-  private static final boolean _isWindows = System.getProperty("os.name").startsWith("Win");
+  private static final boolean _isWindows = SystemVersion.isWindows();
+
+  private static final int BUFSIZE = PeerState.PARTSIZE;
+  private static final ByteCache _cache = ByteCache.getInstance(16, BUFSIZE);
 
   /**
    * Creates a new storage based on the supplied MetaInfo.  This will
    * try to create and/or check all needed files in the MetaInfo.
    *
-   * @exception IOException when creating and/or checking files fails.
+   * Does not check storage. Caller MUST call check()
    */
   public Storage(I2PSnarkUtil util, MetaInfo metainfo, StorageListener listener)
-    throws IOException
   {
     _util = util;
     _log = util.getContext().logManager().getLog(Storage.class);
     this.metainfo = metainfo;
     this.listener = listener;
     needed = metainfo.getPieces();
-    _probablyComplete = false;
     bitfield = new BitField(needed);
     piece_size = metainfo.getPieceLength(0);
     pieces = needed;
@@ -101,12 +108,15 @@ public class Storage
   }
 
   /**
-   * Creates a storage from the existing file or directory together
-   * with an appropriate MetaInfo file as can be announced on the
-   * given announce String location.
+   * Creates a storage from the existing file or directory.
+   * Creates an in-memory metainfo but does not save it to
+   * a file, caller must do that.
+   *
+   * Creates the metainfo, this may take a LONG time. BLOCKING.
    *
    * @param announce may be null
    * @param listener may be null
+   * @throws IOException when creating and/or checking files fails.
    */
   public Storage(I2PSnarkUtil util, File baseFile, String announce,
                  boolean privateTorrent, StorageListener listener)
@@ -129,6 +139,8 @@ public class Storage
 
     if (total <= 0)
         throw new IOException("Torrent contains no data");
+    if (total > MAX_TOTAL_SIZE)
+        throw new IOException("Torrent too big (" + total + " bytes), max is " + MAX_TOTAL_SIZE);
 
     int pc_size = MIN_PIECE_SIZE;
     int pcs = (int) ((total - 1)/pc_size) + 1;
@@ -164,6 +176,7 @@ public class Storage
         lengthsList = null;
       }
 
+    // TODO thread this so we can return and show something on the UI
     byte[] piece_hashes = fast_digestCreate();
     metainfo = new MetaInfo(announce, baseFile.getName(), null, files,
                             lengthsList, piece_size, piece_hashes, total, privateTorrent);
@@ -199,6 +212,8 @@ public class Storage
 
   private void getFiles(File base) throws IOException
   {
+    if (base.getAbsolutePath().equals("/"))
+        throw new IOException("Don't seed root");
     ArrayList files = new ArrayList();
     addFiles(files, base);
 
@@ -227,12 +242,15 @@ public class Storage
       }
   }
 
-  private void addFiles(List l, File f)
-  {
-    if (!f.isDirectory())
-      l.add(f);
-    else
-      {
+  /**
+   *  @throws IOException if too many total files
+   */
+  private void addFiles(List l, File f) throws IOException {
+    if (!f.isDirectory()) {
+        if (l.size() >= SnarkManager.MAX_FILES_PER_TORRENT)
+            throw new IOException("Too many files, limit is " + SnarkManager.MAX_FILES_PER_TORRENT + ", zip them?");
+        l.add(f);
+    } else {
         File[] files = f.listFiles();
         if (files == null)
           {
@@ -276,6 +294,23 @@ public class Storage
    */
   public boolean isChanged() {
       return changed;
+  }
+
+  /**
+   *  File checking in progress.
+   *  @since 0.9.3
+   */
+  public boolean isChecking() {
+      return _isChecking;
+  }
+
+  /**
+   *  Disk allocation (ballooning) in progress.
+   *  Always false on Windows.
+   *  @since 0.9.3
+   */
+  public boolean isAllocating() {
+      return _allocateCount.get() > 0;
   }
 
   /**
@@ -697,11 +732,25 @@ public class Storage
    * This is called at the beginning, and at presumed completion,
    * so we have to be careful about locking.
    *
+   * TODO thread the checking so we can return and display
+   * something on the UI
+   *
    * @param recheck if true, this is a check after we downloaded the
    *        last piece, and we don't modify the global bitfield unless
    *        the check fails.
    */
-  private void checkCreateFiles(boolean recheck) throws IOException
+  private void checkCreateFiles(boolean recheck) throws IOException {
+      synchronized(this) {
+          _isChecking = true;
+          try {
+              locked_checkCreateFiles(recheck);
+          } finally {
+              _isChecking = false;
+          }
+      }
+  }
+
+  private void locked_checkCreateFiles(boolean recheck) throws IOException
   {
     // Whether we are resuming or not,
     // if any of the files already exists we assume we are resuming.
@@ -861,10 +910,19 @@ public class Storage
     final int ZEROBLOCKSIZE = (int) Math.min(remaining, 32*1024);
     byte[] zeros = new byte[ZEROBLOCKSIZE];
     rafs[nr].seek(0);
-    while (remaining > 0) {
-        int size = (int) Math.min(remaining, ZEROBLOCKSIZE);
-        rafs[nr].write(zeros, 0, size);
-        remaining -= size;
+    // don't bother setting flag for small files
+    if (remaining > 20*1024*1024)
+        _allocateCount.incrementAndGet();
+    try {
+        while (remaining > 0) {
+            int size = (int) Math.min(remaining, ZEROBLOCKSIZE);
+            rafs[nr].write(zeros, 0, size);
+            remaining -= size;
+        }
+    } finally {
+        remaining = lengths[nr];
+        if (remaining > 20*1024*1024)
+            _allocateCount.decrementAndGet();
     }
     isSparse[nr] = false;
   }
@@ -898,22 +956,28 @@ public class Storage
    * Returns a byte array containing a portion of the requested piece or null if
    * the storage doesn't contain the piece yet.
    */
-  public byte[] getPiece(int piece, int off, int len) throws IOException
+  public ByteArray getPiece(int piece, int off, int len) throws IOException
   {
     if (!bitfield.get(piece))
       return null;
 
     //Catch a common place for OOMs esp. on 1MB pieces
+    ByteArray rv;
     byte[] bs;
     try {
-      bs = new byte[len];
+        // Will be restored to cache in Message.sendMessage()
+        if (len == BUFSIZE)
+            rv = _cache.acquire();
+        else
+            rv = new ByteArray(new byte[len]);
     } catch (OutOfMemoryError oom) {
       if (_log.shouldLog(Log.WARN))
           _log.warn("Out of memory, can't honor request for piece " + piece, oom);
       return null;
     }
+    bs = rv.getData();
     getUncheckedPiece(piece, bs, off, len);
-    return bs;
+    return rv;
   }
 
   /**

@@ -65,7 +65,7 @@ public class MessageHistory {
     }
     
     /** @since 0.8.12 */
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (_doLog)
             addEntry(getPrefix() + "** Router shutdown");
         _doPause = false;
@@ -80,7 +80,7 @@ public class MessageHistory {
     String getFilename() { return _historyFile; }
     
     private void updateSettings() {
-        _doLog = Boolean.valueOf(_context.getProperty(PROP_KEEP_MESSAGE_HISTORY)).booleanValue();
+        _doLog = _context.getBooleanProperty(PROP_KEEP_MESSAGE_HISTORY);
         _historyFile = _context.getProperty(PROP_MESSAGE_HISTORY_FILENAME, DEFAULT_MESSAGE_HISTORY_FILENAME);
     }
     
@@ -89,7 +89,7 @@ public class MessageHistory {
      * Call this whenever the router identity changes.
      *
      */
-    public void initialize(boolean forceReinitialize) {
+    public synchronized void initialize(boolean forceReinitialize) {
         if (!forceReinitialize) return;
 
         if (_context.router().getRouterInfo() == null) {

@@ -25,9 +25,9 @@ import java.util.Queue;
 class LogWriter implements Runnable {
     /** every 10 seconds? why? Just have the gui force a reread after a change?? */
     private final static long CONFIG_READ_INTERVAL = 50 * 1000;
-    private final static long FLUSH_INTERVAL = 9 * 1000;
-    private long _lastReadConfig = 0;
-    private long _numBytesInCurrentFile = 0;
+    private final static long FLUSH_INTERVAL = 29 * 1000;
+    private long _lastReadConfig;
+    private long _numBytesInCurrentFile;
     // volatile as it changes on log file rotation
     private volatile Writer _currentOut;
     private int _rotationNum = -1;
@@ -66,15 +66,32 @@ class LogWriter implements Runnable {
     }
 
     public void flushRecords() { flushRecords(true); }
+
     public void flushRecords(boolean shouldWait) {
         try {
             // zero copy, drain the manager queue directly
             Queue<LogRecord> records = _manager.getQueue();
             if (records == null) return;
             if (!records.isEmpty()) {
+                LogRecord last = null;
                 LogRecord rec;
+                int dupCount = 0;
                 while ((rec = records.poll()) != null) {
-                    writeRecord(rec);
+                    if (_manager.shouldDropDuplicates() && rec.equals(last)) {
+                        dupCount++;
+                    } else {
+                        if (dupCount > 0) {
+                            writeRecord(dupMessage(dupCount, last, false));
+                            _manager.getBuffer().add(dupMessage(dupCount, last, true));
+                            dupCount = 0;
+                        }
+                        writeRecord(rec);
+                    }
+                    last = rec;
+                }
+                if (dupCount > 0) {
+                    writeRecord(dupMessage(dupCount, last, false));
+                    _manager.getBuffer().add(dupMessage(dupCount, last, true));
                 }
                 try {
                     if (_currentOut != null)
@@ -97,7 +114,27 @@ class LogWriter implements Runnable {
             }
         }
     }
+
+    /**
+     *  Return a msg with the date stamp of the last duplicate
+     *  @since 0.9.3
+     */
+    private String dupMessage(int dupCount, LogRecord lastRecord, boolean reverse) {
+        String arrows = reverse ? "&darr;&darr;&darr;" : "^^^";
+        return LogRecordFormatter.getWhen(_manager, lastRecord) + ' ' + arrows + ' ' +
+               _(dupCount, "1 similar message omitted", "{0} similar messages omitted") + ' ' + arrows + '\n';
+    }
     
+    private static final String BUNDLE_NAME = "net.i2p.router.web.messages";
+
+    /**
+     *  gettext
+     *  @since 0.9.3
+     */
+    private String _(int a, String b, String c) {
+        return Translate.getString(a, b, c, _manager.getContext(), BUNDLE_NAME);
+    }
+
     public String currentFile() {
         return _currentFile != null ? _currentFile.getAbsolutePath() : "uninitialized";
     }

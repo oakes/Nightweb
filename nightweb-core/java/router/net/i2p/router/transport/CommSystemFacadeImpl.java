@@ -49,7 +49,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         startGeoIP();
     }
     
-    public void startup() {
+    public synchronized void startup() {
         _log.info("Starting up the comm system");
         _manager = new TransportManager(_context);
         _manager.startListening();
@@ -59,12 +59,13 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
     /**
      *  Cannot be restarted.
      */
-    public void shutdown() {
+    public synchronized void shutdown() {
         if (_manager != null)
             _manager.shutdown();
+        _geoIP.shutdown();
     }
     
-    public void restart() {
+    public synchronized void restart() {
         if (_manager == null)
             startup();
         else
@@ -250,7 +251,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         props.setProperty(NTCPAddress.PROP_PORT, port);
         RouterAddress addr = new RouterAddress();
         addr.setCost(NTCPAddress.DEFAULT_COST);
-        addr.setExpiration(null);
+        //addr.setExpiration(null);
         addr.setOptions(props);
         addr.setTransportStyle(NTCPTransport.STYLE);
         //if (isNew) {
@@ -330,7 +331,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         if (_log.shouldLog(Log.INFO))
             _log.info("old: " + ohost + " config: " + name + " auto: " + enabled + " status: " + status);
         if (enabled.equals("always") ||
-            (Boolean.valueOf(enabled).booleanValue() && status == STATUS_OK)) {
+            (Boolean.parseBoolean(enabled) && status == STATUS_OK)) {
             String nhost = UDPAddr.getOption(UDPAddress.PROP_HOST);
             if (_log.shouldLog(Log.INFO))
                 _log.info("old: " + ohost + " config: " + name + " new: " + nhost);
@@ -353,7 +354,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
             changed = true;
         } else if (ohost == null || ohost.length() <= 0) {
             return;
-        } else if (Boolean.valueOf(enabled).booleanValue() && status != STATUS_OK) {
+        } else if (Boolean.parseBoolean(enabled) && status != STATUS_OK) {
             // UDP transitioned to not-OK, turn off NTCP address
             // This will commonly happen at startup if we were initially OK
             // because UPnP was successful, but a subsequent SSU Peer Test determines

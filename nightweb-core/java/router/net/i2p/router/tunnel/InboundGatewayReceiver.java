@@ -1,5 +1,6 @@
 package net.i2p.router.tunnel;
 
+import net.i2p.data.Hash;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.TunnelDataMessage;
 import net.i2p.router.JobImpl;
@@ -7,7 +8,8 @@ import net.i2p.router.OutNetMessage;
 import net.i2p.router.RouterContext;
 
 /**
- *  Handle messages at the IBGW
+ *  Handle messages at the IBGW.
+ *  Not used for zero-hop IBGWs.
  */
 class InboundGatewayReceiver implements TunnelGateway.Receiver {
     private final RouterContext _context;
@@ -15,6 +17,7 @@ class InboundGatewayReceiver implements TunnelGateway.Receiver {
     private RouterInfo _target;
     
     private static final long MAX_LOOKUP_TIME = 15*1000;
+    private static final int PRIORITY = OutNetMessage.PRIORITY_PARTICIPATING;
 
     public InboundGatewayReceiver(RouterContext ctx, HopConfig cfg) {
         _context = ctx;
@@ -58,11 +61,20 @@ class InboundGatewayReceiver implements TunnelGateway.Receiver {
         out.setMessage(msg);
         out.setTarget(_target);
         out.setExpiration(msg.getMessageExpiration());
-        out.setPriority(200);
+        out.setPriority(PRIORITY);
         _context.outNetMessagePool().add(out);
         return msg.getUniqueId();
     }
     
+    /**
+     * The next hop
+     * @return non-null
+     * @since 0.9.3
+     */
+    public Hash getSendTo() {
+        return _config.getSendTo();
+    }
+
     private class ReceiveJob extends JobImpl {
         private final byte[] _encrypted;
 

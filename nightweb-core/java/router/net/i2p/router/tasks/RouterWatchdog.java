@@ -6,10 +6,12 @@ import net.i2p.data.DataHelper;
 import net.i2p.router.Job;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
+import net.i2p.router.util.EventLog;
 import net.i2p.stat.Rate;
 import net.i2p.stat.RateStat;
 import net.i2p.util.ShellCommand;
 import net.i2p.util.Log;
+import net.i2p.util.SystemVersion;
 
 /**
  * Periodically check to make sure things haven't gone totally haywire (and if
@@ -21,8 +23,10 @@ public class RouterWatchdog implements Runnable {
     private final RouterContext _context;
     private int _consecutiveErrors;
     private volatile boolean _isRunning;
+    private long _lastDump;
     
     private static final long MAX_JOB_RUN_LAG = 60*1000;
+    private static final long MIN_DUMP_INTERVAL= 6*60*60*1000;
     
     public RouterWatchdog(RouterContext ctx) {
         _context = ctx;
@@ -62,12 +66,12 @@ public class RouterWatchdog implements Runnable {
     
     private boolean shutdownOnHang() {
         // prop default false
-        if (!Boolean.valueOf(_context.getProperty("watchdog.haltOnHang")).booleanValue())
+        if (!_context.getBooleanProperty("watchdog.haltOnHang"))
             return false;
 
         // Client manager starts complaining after 10 minutes, and we run every minute,
         // so this will restart 30 minutes after we lose a lease, if the wrapper is present.
-        if (_consecutiveErrors >= 20 && System.getProperty("wrapper.version") != null)
+        if (_consecutiveErrors >= 20 && SystemVersion.hasWrapper())
             return true;
         return false;
     }
@@ -107,18 +111,14 @@ public class RouterWatchdog implements Runnable {
             _log.error("Memory: " + DataHelper.formatSize(used) + '/' + DataHelper.formatSize(max));
             if (_consecutiveErrors == 1) {
                 _log.log(Log.CRIT, "Router appears hung, or there is severe network congestion.  Watchdog starts barking!");
+                 _context.router().eventLog().addEvent(EventLog.WATCHDOG);
                 // This works on linux...
                 // It won't on windows, and we can't call i2prouter.bat either, it does something
                 // completely different...
-                if (_context.hasWrapper() && !System.getProperty("os.name").startsWith("Win")) {
-                    ShellCommand sc = new ShellCommand();
-                    File i2pr = new File(_context.getBaseDir(), "i2prouter");
-                    String[] args = new String[2];
-                    args[0] = i2pr.getAbsolutePath();
-                    args[1] = "dump";
-                    boolean success = sc.executeSilentAndWaitTimed(args, 10);
-                    if (success)
-                        _log.log(Log.CRIT, "Threads dumped to wrapper log");
+                long now = _context.clock().now();
+                if (now - _lastDump > MIN_DUMP_INTERVAL) {
+                    _lastDump = now;
+                    ThreadDump.dump(_context, 10);
                 }
             }
         }

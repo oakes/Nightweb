@@ -58,13 +58,15 @@ public class LogManager {
     private static final String PROP_LOG_BUFFER_SIZE = "logger.logBufferSize";
     /** @since 0.9.2 */
     private static final String PROP_DROP = "logger.dropOnOverflow";
+    /** @since 0.9.3 */
+    private static final String PROP_DUP = "logger.dropDuplicates";
     public final static String PROP_RECORD_PREFIX = "logger.record.";
 
     public final static String DEFAULT_FORMAT = DATE + " " + PRIORITY + " [" + THREAD + "] " + CLASS + ": " + MESSAGE;
     //public final static String DEFAULT_DATEFORMAT = "HH:mm:ss.SSS";
     /** blank means default short date and medium time for the locale - see DateFormat */
     public final static String DEFAULT_DATEFORMAT = "";
-    public final static String DEFAULT_FILENAME = "logs/log-#.txt";
+    public final static String DEFAULT_FILENAME = "logs/log-@.txt";
     public final static String DEFAULT_FILESIZE = "10m";
     public final static boolean DEFAULT_DISPLAYONSCREEN = true;
     public final static int DEFAULT_CONSOLEBUFFERSIZE = 20;
@@ -120,6 +122,7 @@ public class LogManager {
     private final LogConsoleBuffer _consoleBuffer;
     private int _logBufferSize = MAX_BUFFER;
     private boolean _dropOnOverflow;
+    private boolean _dropDuplicates;
     private final AtomicLong _droppedRecords = new AtomicLong();
     
     private boolean _alreadyNoticedMissingConfig;
@@ -156,8 +159,8 @@ public class LogManager {
         if (_writer != null)
             return;
         _writer = new LogWriter(this);
-        // NOT an I2PThread, as it contains logging and we end up with problems
-        Thread t = new Thread(_writer, "LogWriter");
+        // if you enable logging in I2PThread again, you MUST change this back to Thread
+        Thread t = new I2PThread(_writer, "LogWriter");
         t.setDaemon(true);
         t.start();
     }
@@ -280,6 +283,13 @@ public class LogManager {
     }
 
     /**
+     *  @since 0.9.3
+     */
+    boolean shouldDropDuplicates() {
+        return _dropDuplicates;
+    }
+
+    /**
      * Do not log here, deadlock of LogWriter via rereadConfig().
      */
     private void loadConfig() {
@@ -339,9 +349,9 @@ public class LogManager {
 
         String filenameOverride = _context.getProperty(FILENAME_OVERRIDE_PROP);
         if (filenameOverride != null)
-            _baseLogfilename = filenameOverride;
+            setBaseLogfilename(filenameOverride);
         else
-            _baseLogfilename = config.getProperty(PROP_FILENAME, DEFAULT_FILENAME);
+            setBaseLogfilename(config.getProperty(PROP_FILENAME, DEFAULT_FILENAME));
 
         _fileSize = getFileSize(config.getProperty(PROP_FILESIZE, DEFAULT_FILESIZE));
         _rotationLimit = -1;
@@ -368,7 +378,9 @@ public class LogManager {
                 _logBufferSize = Integer.parseInt(str);
         } catch (NumberFormatException nfe) {}
 
-        _dropOnOverflow = Boolean.valueOf(config.getProperty(PROP_DROP)).booleanValue();
+        _dropOnOverflow = Boolean.parseBoolean(config.getProperty(PROP_DROP));
+        String str = config.getProperty(PROP_DUP);
+        _dropDuplicates = str == null || Boolean.parseBoolean(str);
 
         //if (_log.shouldLog(Log.DEBUG))
         //    _log.debug("Log set to use the base log file as " + _baseLogfilename);
@@ -579,7 +591,8 @@ public class LogManager {
     }
     
     public void setBaseLogfilename(String filenamePattern) {
-        _baseLogfilename = filenamePattern;
+        // '#' is a comment character in loadProps/storeProps
+        _baseLogfilename = filenamePattern.replace('#', '@');
     }
 
     public int getFileSize() {
@@ -680,18 +693,30 @@ public class LogManager {
     }
 *****/
 
+    /**
+     *  Flush any pending records to disk.
+     *  Blocking up to 250 ms.
+     *  @since 0.9.3
+     */
+    public void flush() {
+        if (_writer != null) {
+            int i = 50;
+            while ((!_records.isEmpty()) && i-- > 0) {
+                synchronized (_writer) {
+                    _writer.notifyAll();
+                }
+                try {
+                    Thread.sleep(5);
+                } catch (InterruptedException ie) {}
+            }
+        }
+    }
+
     public void shutdown() {
         if (_writer != null) {
             //_log.log(Log.WARN, "Shutting down logger");
             // try to prevent out-of-order logging at shutdown
-            synchronized (_writer) {
-                _writer.notifyAll();
-            }
-            if (!_records.isEmpty()) {
-                try {
-                    Thread.sleep(250);
-                } catch (InterruptedException ie) {}
-            }
+            flush();
             // this could generate out-of-order messages
             _writer.flushRecords(false);
             _writer.stopWriting();

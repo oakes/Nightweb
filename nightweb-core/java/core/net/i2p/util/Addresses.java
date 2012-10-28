@@ -10,10 +10,12 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.util.Enumeration;
+import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import net.i2p.I2PAppContext;
 
 /**
  * Methods to get the local addresses, and other IP utilities
@@ -149,6 +151,95 @@ public abstract class Addresses {
             return '[' + ip + "]:" + port;
         } catch (UnknownHostException uhe) {
             return "(bad IP length " + addr.length + "):" + port;
+        }
+    }
+    
+    /**
+     *  Convenience method to convert and validate a port String
+     *  without throwing an exception.
+     *  Does not trim.
+     *
+     *  @return 1-65535 or 0 if invalid
+     *  @since 0.9.3
+     */
+    public static int getPort(String port) {
+        int rv = 0;
+        if (port != null) {
+            try {
+                int iport = Integer.parseInt(port);
+                if (iport > 0 && iport <= 65535)
+                    rv = iport;
+            } catch (NumberFormatException nfe) {}
+        }
+        return rv;
+    }
+
+    /**
+     *  Textual IP to bytes, because InetAddress.getByName() is slow.
+     *
+     *  @since 0.9.3
+     */
+    private static final Map<String, byte[]> _IPAddress;
+
+    static {
+        int size;
+        I2PAppContext ctx = I2PAppContext.getCurrentContext();
+        if (ctx != null && ctx.isRouterContext()) {
+            long maxMemory = Runtime.getRuntime().maxMemory();
+            if (maxMemory == Long.MAX_VALUE)
+                maxMemory = 96*1024*1024l;
+            long min = 128;
+            long max = 4096;
+            // 512 nominal for 128 MB
+            size = (int) Math.max(min, Math.min(max, 1 + (maxMemory / (256*1024))));
+        } else {
+            size = 32;
+        }
+        _IPAddress = new LHMCache(size);
+    }
+
+    /**
+     *  Caching version of InetAddress.getByName(host).getAddress(), which is slow.
+     *  Caches numeric host names only.
+     *  Will resolve but not cache DNS host names.
+     *
+     *  Unlike InetAddress.getByName(), we do NOT allow numeric IPs
+     *  of the form d.d.d, d.d, or d, as these are almost certainly mistakes.
+     *
+     *  @param host DNS or IPv4 or IPv6 host name; if null returns null
+     *  @return IP or null
+     *  @since 0.9.3
+     */
+    public static byte[] getIP(String host) {
+        if (host == null)
+            return null;
+        byte[] rv;
+        synchronized (_IPAddress) {
+            rv = _IPAddress.get(host);
+        }
+        if (rv == null) {
+            try {
+                boolean isIPv4 = host.replaceAll("[0-9\\.]", "").length() == 0;
+                if (isIPv4 && host.replaceAll("[0-9]", "").length() != 3)
+                    return null;
+                rv = InetAddress.getByName(host).getAddress();
+                if (isIPv4 ||
+                    host.replaceAll("[0-9a-fA-F:]", "").length() == 0) {
+                    synchronized (_IPAddress) {
+                        _IPAddress.put(host, rv);
+                    }
+                }
+            } catch (UnknownHostException uhe) {}
+        }
+        return rv;
+    }
+
+    /**
+     *  @since 0.9.3
+     */
+    public static void clearCaches() {
+        synchronized(_IPAddress) {
+            _IPAddress.clear();
         }
     }
 

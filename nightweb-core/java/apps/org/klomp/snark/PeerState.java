@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Set;
 
 import net.i2p.I2PAppContext;
+import net.i2p.data.ByteArray;
 import net.i2p.util.Log;
 
 class PeerState implements DataLoader
@@ -245,8 +246,8 @@ class PeerState implements DataLoader
    *  @return bytes or null for errors
    *  @since 0.8.2
    */
-  public byte[] loadData(int piece, int begin, int length) {
-    byte[] pieceBytes = listener.gotRequest(peer, piece, begin, length);
+  public ByteArray loadData(int piece, int begin, int length) {
+    ByteArray pieceBytes = listener.gotRequest(peer, piece, begin, length);
     if (pieceBytes == null)
       {
         // XXX - Protocol error-> diconnect?
@@ -256,7 +257,7 @@ class PeerState implements DataLoader
       }
 
     // More sanity checks
-    if (length != pieceBytes.length)
+    if (length != pieceBytes.getData().length)
       {
         // XXX - Protocol error-> disconnect?
         if (_log.shouldLog(Log.WARN))
@@ -591,6 +592,7 @@ class PeerState implements DataLoader
                 // Send cancel even when we are choked to make sure that it is
                 // really never ever send.
                 out.sendCancel(req);
+                req.getPartialPiece().release();
               }
           }
   }
@@ -681,6 +683,7 @@ class PeerState implements DataLoader
                   _log.debug(peer + " addRequest() we are choked, delaying requestNextPiece()");
               return;
           }
+          // huh? rv unused
           more_pieces = requestNextPiece();
         } else if (more_pieces) // We want something
           {
@@ -710,6 +713,8 @@ class PeerState implements DataLoader
       }
 
     // failsafe
+    // However this is bad as it thrashes the peer when we change our mind
+    // Ticket 691 cause here?
     if (interesting && lastRequest == null && outstandingRequests.isEmpty())
         setInteresting(false);
 
@@ -737,6 +742,10 @@ class PeerState implements DataLoader
                   out.sendRequest(r);
                 lastRequest = r;
                 return true;
+            } else {
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("Got dup from coord: " + pp);
+                pp.release();
             }
         }
 
@@ -783,6 +792,8 @@ class PeerState implements DataLoader
     }
 
     // failsafe
+    // However this is bad as it thrashes the peer when we change our mind
+    // Ticket 691 cause here?
     if (outstandingRequests.isEmpty())
         lastRequest = null;
 

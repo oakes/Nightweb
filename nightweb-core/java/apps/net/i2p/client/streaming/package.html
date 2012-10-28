@@ -1,0 +1,31 @@
+<html><body>
+<p>Implements a TCP-like (reliable, authenticated, in order) set of sockets for 
+communicating over the IP-like (unreliable, unauthenticated, unordered) I2P
+messages.
+Note that this class is split across two jars, streaming.jar and ministreaming.jar.
+The interfaces and some very old code are in ministreaming.jar, but the
+real work gets done in streaming.jar. Clients must have both jars
+in their classpath.
+Most clients will require (only) streaming.jar, ministreaming.jar, and i2p.jar
+in their classpath to communicate with the router.
+</p>
+
+<p>When an application wants to use streams, it must fetch an {@link
+net.i2p.client.streaming.I2PSocketManager} from the {@link 
+net.i2p.client.streaming.I2PSocketManagerFactory}, which in turn builds its own
+{@link net.i2p.client.I2PSession} internally.  All communication over that 
+{@link net.i2p.client.I2PSession} is handled by the {@link 
+net.i2p.client.streaming.I2PSocketManager}, as it imposes its own formatting on
+the raw messages sent and received.  If an application wants to receive streams
+from other clients on the network, it should access the blocking {@link
+net.i2p.client.streaming.I2PServerSocket#accept} method, which will provide an
+{@link net.i2p.client.streaming.I2PSocket} when a new one is available.  If an
+application wants to create a new stream to a peer, it should do so with the
+appropriate {@link net.i2p.client.streaming.I2PSocketManager#connect} call.</p>
+
+<p>There is a simple pair of demo applications available as well -
+net.i2p.client.streaming.StreamSinkServer listens to a destination and dumps 
+the data from all sockets it accepts to individual files, while
+net.i2p.client.streaming.StreamSinkClient connects to a particular destination
+and sends a specific amount of random data then disconnects.</p>
+</body></html>

@@ -59,4 +59,25 @@ class LogRecord {
     public Throwable getThrowable() {
         return _throwable;
     }
+
+    private static final int MATCH_LEN = 40;
+
+    /**
+     *  Matches source class, first part of message string, and throwable class only.
+     *  Used only by LogWriter to eliminate dups.
+     *  @since 0.9.3
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof LogRecord))
+            return false;
+        LogRecord r = (LogRecord) o;
+        return _source == r._source &&
+               ((_message == null && r._message == null) ||
+                (_message != null && r._message != null &&
+                 ((_message.length() <= MATCH_LEN) ? _message.equals(r._message)
+                                                   : _message.regionMatches(0, r._message, 0, MATCH_LEN)))) &&
+               ((_throwable == null && r._throwable == null) ||
+                (_throwable != null && r._throwable != null && _throwable.getClass() == r._throwable.getClass()));
+    }
 }

@@ -1,7 +1,6 @@
 package net.i2p.router.transport.udp;
 
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.data.Base64;
 import net.i2p.data.ByteArray;
@@ -10,6 +9,7 @@ import net.i2p.data.i2np.I2NPMessageException;
 import net.i2p.data.i2np.I2NPMessageHandler;
 import net.i2p.data.i2np.I2NPMessageImpl;
 import net.i2p.router.RouterContext;
+import net.i2p.router.util.CoDelBlockingQueue;
 //import net.i2p.util.ByteCache;
 import net.i2p.util.HexDump;
 import net.i2p.util.I2PThread;
@@ -55,21 +55,21 @@ class MessageReceiver {
             _threadCount = Math.max(MIN_THREADS, Math.min(MAX_THREADS, ctx.bandwidthLimiter().getInboundKBytesPerSecond() / 20));
             qsize = (int) Math.max(MIN_QUEUE_SIZE, Math.min(MAX_QUEUE_SIZE, maxMemory / (2*1024*1024)));
         }
-        _completeMessages = new LinkedBlockingQueue(qsize);
+        _completeMessages = new CoDelBlockingQueue(ctx, "UDP-MessageReceiver", qsize);
 
         // the runners run forever, no need to have a cache
         //_cache = ByteCache.getInstance(64, I2NPMessage.MAX_SIZE);
         _context.statManager().createRateStat("udp.inboundExpired", "How many messages were expired before reception?", "udp", UDPTransport.RATES);
         //_context.statManager().createRateStat("udp.inboundRemaining", "How many messages were remaining when a message is pulled off the complete queue?", "udp", UDPTransport.RATES);
-        _context.statManager().createRateStat("udp.inboundReady", "How many messages were ready when a message is added to the complete queue?", "udp", UDPTransport.RATES);
+        //_context.statManager().createRateStat("udp.inboundReady", "How many messages were ready when a message is added to the complete queue?", "udp", UDPTransport.RATES);
         //_context.statManager().createRateStat("udp.inboundReadTime", "How long it takes to parse in the completed fragments into a message?", "udp", UDPTransport.RATES);
         //_context.statManager().createRateStat("udp.inboundReceiveProcessTime", "How long it takes to add the message to the transport?", "udp", UDPTransport.RATES);
-        _context.statManager().createRateStat("udp.inboundLag", "How long the oldest ready message has been sitting on the queue (period is the queue size)?", "udp", UDPTransport.RATES);
+        //_context.statManager().createRateStat("udp.inboundLag", "How long the oldest ready message has been sitting on the queue (period is the queue size)?", "udp", UDPTransport.RATES);
         
         _alive = true;
     }
     
-    public void startup() {
+    public synchronized void startup() {
         _alive = true;
         for (int i = 0; i < _threadCount; i++) {
             I2PThread t = new I2PThread(new Runner(), "UDP message receiver " + (i+1) + '/' + _threadCount, true);
@@ -83,7 +83,7 @@ class MessageReceiver {
         public void run() { loop(_handler); }
     }
     
-    public void shutdown() {
+    public synchronized void shutdown() {
         _alive = false;
         _completeMessages.clear();
         for (int i = 0; i < _threadCount; i++) {

@@ -1,5 +1,6 @@
 package net.i2p.router.tunnel;
 
+import net.i2p.data.Hash;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.TunnelDataMessage;
 import net.i2p.router.JobImpl;
@@ -12,6 +13,7 @@ import net.i2p.util.Log;
  * Receive the outbound message after it has been preprocessed and encrypted,
  * then forward it on to the first hop in the tunnel.
  *
+ * Not used for zero-hop OBGWs.
  */
 class OutboundReceiver implements TunnelGateway.Receiver {
     private final RouterContext _context;
@@ -20,6 +22,7 @@ class OutboundReceiver implements TunnelGateway.Receiver {
     private RouterInfo _nextHopCache;
     
     private static final long MAX_LOOKUP_TIME = 15*1000;
+    private static final int PRIORITY = OutNetMessage.PRIORITY_MY_DATA;
 
     public OutboundReceiver(RouterContext ctx, TunnelCreatorConfig cfg) {
         _context = ctx;
@@ -54,6 +57,15 @@ class OutboundReceiver implements TunnelGateway.Receiver {
         }
     }
 
+    /**
+     * The next hop
+     * @return non-null
+     * @since 0.9.3
+     */
+    public Hash getSendTo() {
+        return _config.getPeer(1);
+    }
+
     private void send(TunnelDataMessage msg, RouterInfo ri) {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("forwarding encrypted data out " + _config + ": " + msg.getUniqueId());
@@ -61,7 +73,7 @@ class OutboundReceiver implements TunnelGateway.Receiver {
         m.setMessage(msg);
         m.setExpiration(msg.getMessageExpiration());
         m.setTarget(ri);
-        m.setPriority(400);
+        m.setPriority(PRIORITY);
         _context.outNetMessagePool().add(m);
         _config.incrementProcessedMessages();
     }

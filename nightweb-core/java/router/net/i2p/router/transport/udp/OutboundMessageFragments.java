@@ -92,9 +92,9 @@ class OutboundMessageFragments {
         _context.statManager().createRateStat("udp.sendCycleTimeSlow", "How long it takes to cycle through all of the active messages, when its going slowly?", "udp", UDPTransport.RATES);
     }
 
-    public void startup() { _alive = true; }
+    public synchronized void startup() { _alive = true; }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
         _alive = false;
         _activePeers.clear();
         synchronized (_activePeers) {
@@ -165,9 +165,9 @@ class OutboundMessageFragments {
                 state.releaseResources();
                 return;
             }
-            int active = peer.add(state);
+            peer.add(state);
             add(peer);
-            _context.statManager().addRateData("udp.outboundActiveCount", active, 0);
+            //_context.statManager().addRateData("udp.outboundActiveCount", active, 0);
         } else {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Error initializing " + msg);
@@ -182,9 +182,9 @@ class OutboundMessageFragments {
         PeerState peer = state.getPeer();
         if (peer == null)
             throw new RuntimeException("wtf, null peer for " + state);
-        int active = peer.add(state);
+        peer.add(state);
         add(peer);
-        _context.statManager().addRateData("udp.outboundActiveCount", active, 0);
+        //_context.statManager().addRateData("udp.outboundActiveCount", active, 0);
     }
 
     /**
