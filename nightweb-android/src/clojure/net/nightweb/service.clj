@@ -1,7 +1,7 @@
 (ns net.nightweb.service
   (:import (android.app Service Notification)
            (android.content Context Intent ServiceConnection)
-           android.os.Binder)
+           (android.os Binder Bundle))
   (:use neko.-utils))
 
 (defn bind-service
@@ -19,6 +19,15 @@
 (defn unbind-service
   [context connection]
   (.unbindService context connection))
+
+(defn send-to-service
+  [context class-name message]
+  (let [intent (Intent.)]
+    (.setClassName intent context class-name)
+    (let [bundle (Bundle.)]
+      (.putString bundle "message" message)
+      (.putExtras intent bundle))
+    (.startService context intent)))
 
 (defn start-foreground
   [service id notification]
@@ -40,7 +49,7 @@
     (CustomBinder. service)))
 
 (defmacro defservice
-  [name & {:keys [extends prefix on-start-command on-action def] :as options}]
+  [name & {:keys [extends prefix on-start-command def] :as options}]
   (let [options (or options {})
         sname (simple-name name)
         prefix (or prefix (str sname "-"))
@@ -53,7 +62,6 @@
         :methods ~[["act" [clojure.lang.Keyword] 'void]]
         :extends ~(or extends Service)
         :exposes-methods {~'onCreate ~'superOnCreate
-                          ~'onStartCommand ~'superOnStartCommand
                           ~'onDestroy ~'superOnDestroy})
        (defn ~(symbol (str prefix "onBind"))
          [~(vary-meta 'this assoc :tag name),
@@ -64,17 +72,11 @@
           `(defn ~(symbol (str prefix "onStartCommand"))
              [~(vary-meta 'this assoc :tag name),
               ^android.content.Intent ~'intent,
-              ~'flags,
-              ~'startId]
-             (.superOnStartCommand ~'this ~'intent ~'flags ~'startId)
+              ^int ~'flags,
+              ^int ~'startId]
              (def ~(vary-meta def assoc :tag name) ~'this)
-             (~on-start-command ~'this ~'intent ~'flags ~'startId)))
-       ~(when on-action
-          `(defn ~(symbol (str prefix "act"))
-             [~(vary-meta 'this assoc :tag name),
-              ^clojure.lang.Keyword ~'action]
-             (def ~(vary-meta def assoc :tag name) ~'this)
-             (~on-action ~'this ~'action)))
+             (~on-start-command ~'this ~'intent ~'flags ~'startId)
+             android.app.Service/START_STICKY))
        ~@(map #(let [func (options %)
                      event-name (keyword->camelcase %)]
                  (when func

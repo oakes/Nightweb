@@ -1,4 +1,4 @@
-(ns net.nightweb.views
+(ns net.nightweb.tabs
   (:use [neko.ui :only [make-ui]]
         [neko.resource :only [get-resource]]))
 
