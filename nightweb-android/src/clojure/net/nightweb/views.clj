@@ -2,47 +2,44 @@
   (:use [neko.ui :only [make-ui]]
         [neko.resource :only [get-resource]]))
 
-(defn get-profile-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "profile"}]]))
+(def grid-view
+  [:linear-layout {}
+   [:text-view {:text "grid"}]])
 
-(defn get-new-post-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "new-post"}]]))
+(def post-grid-view
+  [:linear-layout {}
+   [:text-view {:text "post-grid"}]])
 
-(defn get-post-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "post"}]]))
-
-(defn get-preview-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "preview"}]]))
-
-(defn get-grid-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "grid"}]]))
-
-(defn get-post-grid-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "post-grid"}]]))
-
-(defn get-file-view
-  []
-  (make-ui
-    [:linear-layout {}
-     [:text-view {:text "file"}]]))
+(defn get-view
+  [keyword]
+  (case keyword
+    :grid
+    (make-ui grid-view)
+    :post-grid
+    (make-ui post-grid-view)
+    :new-post
+    (make-ui
+      [:linear-layout {}
+       [:text-view {:text "new-post"}]])
+    :preview
+    (make-ui
+      [:linear-layout {}
+       [:text-view {:text "preview"}]])
+    :profile
+    (make-ui
+      [:linear-layout {}
+       [:text-view {:text "profile"}]
+       grid-view])
+    :post
+    (make-ui
+      [:linear-layout {}
+       [:text-view {:text "post"}]
+       grid-view])
+    :file
+    (make-ui
+      [:linear-layout {}
+       [:text-view {:text "file"}]
+       post-grid-view])))
 
 (defn create-tab
   [action-bar title first-view]

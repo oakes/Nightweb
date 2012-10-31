@@ -18,7 +18,7 @@
   []
   (if-let [contexts (RouterContext/listContexts)]
     (if (not (.isEmpty contexts))
-      (let [context (.get contexts 0)]
+      (if-let [context (.get contexts 0)]
         (.shutdown (.router context) Router/EXIT_HARD)))))
 
 (defn start-download-manager
