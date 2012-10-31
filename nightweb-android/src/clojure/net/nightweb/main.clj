@@ -6,7 +6,7 @@
         [neko.resource :only [get-resource]]
         net.nightweb.service
         net.nightweb.activity
-        net.nightweb.tabs
+        net.nightweb.views
         nightweb.router))
 
 (defapplication net.nightweb.Application)
@@ -22,11 +22,11 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar (get-resource :string :home))
-      (create-tab action-bar (get-resource :string :people))
-      (create-tab action-bar (get-resource :string :photos))
-      (create-tab action-bar (get-resource :string :audio))
-      (create-tab action-bar (get-resource :string :videos)))
+      (create-tab action-bar (get-resource :string :home) (get-profile-view))
+      (create-tab action-bar (get-resource :string :people) (get-grid-view))
+      (create-tab action-bar (get-resource :string :photos) (get-grid-view))
+      (create-tab action-bar (get-resource :string :audio) (get-grid-view))
+      (create-tab action-bar (get-resource :string :videos) (get-grid-view)))
     (def receiver (proxy [android.content.BroadcastReceiver] []
                     (onReceive [context intent]
                                (send-to-service context "net.nightweb.MainService" "stop")
