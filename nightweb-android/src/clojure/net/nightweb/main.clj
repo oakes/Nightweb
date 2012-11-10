@@ -1,13 +1,11 @@
 (ns net.nightweb.main
-  (:use [neko.activity :only [set-content-view!]]
-        [neko.threading :only [on-ui]]
-        [neko.application :only [defapplication]]
-        [neko.notify :only [notification fire]]
+  (:use [neko.application :only [defapplication]]
+        [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
-        net.nightweb.service
-        net.nightweb.activity
-        net.nightweb.views
-        nightweb.router))
+        [net.nightweb.service :only [defservice bind-service unbind-service start-foreground]]
+        [net.nightweb.activity :only [defactivity]]
+        [net.nightweb.views :only [create-tab get-view]]
+        [nightweb.router :only [start-router stop-router start-download-manager]]))
 
 (defapplication net.nightweb.Application)
 

@@ -1,13 +1,10 @@
 (ns net.nightweb.service
-  (:import (android.app Service Notification)
-           (android.content Context Intent ServiceConnection)
-           (android.os Binder Bundle))
-  (:use neko.-utils))
+  (:use [neko.-utils :only [simple-name unicaseize keyword->camelcase capitalize]]))
 
 (defn bind-service
   [context class-name connected]
-  (let [intent (Intent.)
-        connection (proxy [ServiceConnection] []
+  (let [intent (android.content.Intent.)
+        connection (proxy [android.content.ServiceConnection] []
                      (onServiceConnected [name binder]
                                          (connected (.state binder)))
                      (onServiceDisconnected [name] ()))]
@@ -51,7 +48,7 @@
         :main false
         :prefix ~prefix
         :methods ~[["act" [clojure.lang.Keyword] 'void]]
-        :extends ~(or extends Service)
+        :extends ~(or extends android.app.Service)
         :exposes-methods {~'onCreate ~'superOnCreate
                           ~'onDestroy ~'superOnDestroy})
        (defn ~(symbol (str prefix "onBind"))
