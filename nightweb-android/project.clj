@@ -17,8 +17,7 @@
   :dependencies [[android/clojure "1.4.0"]
                  [neko/neko "2.0.0-beta1"]
                  [org.clojure/java.jdbc "0.2.3"]
-                 ;[com.h2database/h2 "1.3.168"]
-                 ]
+                 [com.h2database/h2 "1.3.168"]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
              :release {:android

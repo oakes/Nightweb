@@ -20,15 +20,6 @@
   [context connection]
   (.unbindService context connection))
 
-(defn send-to-service
-  [context class-name message]
-  (let [intent (Intent.)]
-    (.setClassName intent context class-name)
-    (let [bundle (Bundle.)]
-      (.putString bundle "message" message)
-      (.putExtras intent bundle))
-    (.startService context intent)))
-
 (defn start-foreground
   [service id notification]
   (.startForeground service id notification))
@@ -49,7 +40,7 @@
     (CustomBinder. service)))
 
 (defmacro defservice
-  [name & {:keys [extends prefix on-start-command def] :as options}]
+  [name & {:keys [extends prefix on-start-command on-action def] :as options}]
   (let [options (or options {})
         sname (simple-name name)
         prefix (or prefix (str sname "-"))
@@ -77,6 +68,12 @@
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-start-command ~'this ~'intent ~'flags ~'startId)
              android.app.Service/START_STICKY))
+       ~(when on-action
+          `(defn ~(symbol (str prefix "act"))
+             [~(vary-meta 'this assoc :tag name),
+              ^clojure.lang.Keyword ~'action]
+             (def ~(vary-meta def assoc :tag name) ~'this)
+             (~on-action ~'this ~'action)))
        ~@(map #(let [func (options %)
                      event-name (keyword->camelcase %)]
                  (when func
