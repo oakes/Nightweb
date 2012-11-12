@@ -1,10 +1,9 @@
 (ns nightweb.db
-  (:require [clojure.string :as string]
-            [clojure.java.jdbc :as sql]))
+  (:require [clojure.java.jdbc :as sql]))
 
 (defn create-table-if-not-exists
   [name & specs]
-  (sql/do-commands (string/replace
+  (sql/do-commands (clojure.string/replace
                      (apply sql/create-table-ddl name specs)
                      "CREATE TABLE"
                      "CREATE TABLE IF NOT EXISTS")))

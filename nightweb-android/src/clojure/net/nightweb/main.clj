@@ -25,9 +25,16 @@
       (create-tab action-bar (get-resource :string :people) (get-view :grid))
       (create-tab action-bar (get-resource :string :photos) (get-view :grid))
       (create-tab action-bar (get-resource :string :audio) (get-view :grid))
-      (create-tab action-bar (get-resource :string :videos) (get-view :grid))))
+      (create-tab action-bar (get-resource :string :videos) (get-view :grid)))
+    (def activity-receiver (proxy [android.content.BroadcastReceiver] []
+                             (onReceive [context intent]
+                               (.finish context))))
+    (.registerReceiver this
+                       activity-receiver
+                       (android.content.IntentFilter. "ACTION_CLOSE_APP")))
   :on-destroy
   (fn [this]
+    (.unregisterReceiver this activity-receiver)
     (unbind-service this conn))
   :menu-resource
   (get-resource :menu :main_activity))
@@ -43,18 +50,20 @@
                :content-title "Nightweb is running"
                :content-text "Touch to shut down"
                :action [:broadcast "ACTION_CLOSE_APP"]))
-    (def receiver (proxy [android.content.BroadcastReceiver] []
-                    (onReceive [context intent]
-                      (.stopSelf service))))
+    (def service-receiver (proxy [android.content.BroadcastReceiver] []
+                            (onReceive [context intent]
+                              (.stopSelf service))))
     (.registerReceiver this
-                       receiver
+                       service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
-    (start-router this)
-    (def download-manager (start-download-manager)))
+    ;(start-router this)
+    ;(def download-manager (start-download-manager))
+    )
   :on-destroy
   (fn [this]
-    (.unregisterReceiver this receiver)
-    (stop-router))
+    (.unregisterReceiver this service-receiver)
+    ;(stop-router)
+    )
   :on-action
   (fn [this action]
     (if (= action :test)
