@@ -4,7 +4,7 @@
         [neko.resource :only [get-resource]]
         [net.nightweb.service :only [defservice bind-service unbind-service start-foreground]]
         [net.nightweb.activity :only [defactivity]]
-        [net.nightweb.views :only [create-tab get-view]]
+        [net.nightweb.views :only [create-tab create-view]]
         [nightweb.router :only [start-router stop-router start-download-manager]]))
 
 (defapplication net.nightweb.Application)
@@ -21,11 +21,11 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar (get-resource :string :home) (get-view :profile))
-      (create-tab action-bar (get-resource :string :people) (get-view :grid))
-      (create-tab action-bar (get-resource :string :photos) (get-view :grid))
-      (create-tab action-bar (get-resource :string :audio) (get-view :grid))
-      (create-tab action-bar (get-resource :string :videos) (get-view :grid)))
+      (create-tab action-bar (get-resource :string :home) (create-view this :profile))
+      (create-tab action-bar (get-resource :string :people) (create-view this :grid))
+      (create-tab action-bar (get-resource :string :photos) (create-view this :grid))
+      (create-tab action-bar (get-resource :string :audio) (create-view this :grid))
+      (create-tab action-bar (get-resource :string :videos) (create-view this :grid)))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
