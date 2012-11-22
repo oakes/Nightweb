@@ -7,18 +7,28 @@
 (defn get-grid-view
   [content]
   (let [view (android.widget.GridView. context)]
-    (.setNumColumns view android.widget.GridView/AUTO_FIT)
-    (.setStretchMode view android.widget.GridView/STRETCH_COLUMN_WIDTH)
+    (.setHorizontalSpacing view 0)
+    (.setVerticalSpacing view 0)
     (.setAdapter view
                  (proxy [android.widget.BaseAdapter] []
                    (getItem [position] nil)
                    (getItemId [position] 0)
-                   (getCount [] 1)
+                   (getCount [] (count content))
                    (getView [position convert-view parent]
-                     (let [image-view (android.widget.ImageView. context)]
-                       (.setBackgroundColor image-view android.graphics.Color/BLUE)
-                       (.setLayoutParams image-view (android.widget.AbsListView$LayoutParams. 200 200))
-                       image-view))))
+                     (let [tile-view (android.widget.ImageView. context)
+                           tile-view-width-min 200
+                           parent-width (.getWidth parent)
+                           num-columns (int (/ parent-width tile-view-width-min))
+                           tile-view-width (if (> num-columns 0)
+                                             (int (/ parent-width num-columns))
+                                             tile-view-width-min)]
+                       (.setBackgroundColor tile-view android.graphics.Color/BLUE)
+                       (.setNumColumns view num-columns)
+                       (.setLayoutParams tile-view
+                                         (android.widget.AbsListView$LayoutParams.
+                                                                     tile-view-width
+                                                                     tile-view-width))
+                       tile-view))))
     view))
 
 (defn get-post-grid-view

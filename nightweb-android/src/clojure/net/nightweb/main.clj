@@ -26,11 +26,21 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar (get-resource :string :home) home-view)
-      (create-tab action-bar (get-resource :string :people) people-view)
-      (create-tab action-bar (get-resource :string :photos) photos-view)
-      (create-tab action-bar (get-resource :string :audio) audio-view)
-      (create-tab action-bar (get-resource :string :videos) videos-view))
+      (create-tab action-bar
+                  (get-resource :string :home)
+                  (create-view :grid [{} {}]))
+      (create-tab action-bar
+                  (get-resource :string :people)
+                  (create-view :grid []))
+      (create-tab action-bar
+                  (get-resource :string :photos)
+                  (create-view :grid []))
+      (create-tab action-bar
+                  (get-resource :string :audio)
+                  (create-view :grid []))
+      (create-tab action-bar
+                  (get-resource :string :videos)
+                  (create-view :grid [])))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
