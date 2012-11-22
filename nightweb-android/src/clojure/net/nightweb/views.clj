@@ -1,51 +1,54 @@
 (ns net.nightweb.views
   (:use [neko.context :only [context]]
-        [neko.ui :only [make-ui-element]]
+        [neko.ui :only [make-ui]]
         [neko.resource :only [get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
-(set-classname! :grid-view android.widget.GridView)
-
-(defn make-ui-runtime
-  "A non-macro version of neko's make-ui."
-  ([tree]
-     (eval (make-ui-element tree {} `context)))
-  ([custom-context tree]
-     (eval (make-ui-element tree {} custom-context))))
-
 (defn get-grid-view
   [content]
-  [:grid-view {:num-columns android.widget.GridView/AUTO_FIT
-               :stretch-mode android.widget.GridView/STRETCH_COLUMN_WIDTH}])
+  (let [view (android.widget.GridView. context)]
+    (.setNumColumns view android.widget.GridView/AUTO_FIT)
+    (.setStretchMode view android.widget.GridView/STRETCH_COLUMN_WIDTH)
+    (.setAdapter view
+                 (proxy [android.widget.BaseAdapter] []
+                   (getItem [position] nil)
+                   (getItemId [position] 0)
+                   (getCount [] 1)
+                   (getView [position convert-view parent]
+                     (let [image-view (android.widget.ImageView. context)]
+                       (.setBackgroundColor image-view android.graphics.Color/BLUE)
+                       (.setLayoutParams image-view (android.widget.AbsListView$LayoutParams. 200 200))
+                       image-view))))
+    view))
 
 (defn get-post-grid-view
   [content]
-  [:linear-layout {}
-   [:text-view {:text "post-grid"}]])
+  (let [view (android.widget.LinearLayout. context)]
+    view))
 
 (defn get-new-post-view
   [content]
-  [:linear-layout {:orientation android.widget.LinearLayout/VERTICAL}
-   [:text-view {:text "new-post"}]])
+  (let [view (android.widget.LinearLayout. context)]
+    view))
 
 (defn get-preview-view
   [content]
-  [:linear-layout {:orientation android.widget.LinearLayout/VERTICAL}
-   [:text-view {:text "preview"}]])
+  (let [view (android.widget.LinearLayout. context)]
+    view))
 
 (defn get-post-view
   [content]
-  [:linear-layout {:orientation android.widget.LinearLayout/VERTICAL}
-   [:text-view {:text "post"}]
-   (get-grid-view content)])
+  (let [view (android.widget.LinearLayout. context)]
+    (.addView view (get-grid-view content))
+    view))
 
 (defn get-file-view
   [content]
-  [:linear-layout {:orientation android.widget.LinearLayout/VERTICAL}
-   [:text-view {:text "file"}]
-   (get-post-grid-view content)])
+  (let [view (android.widget.LinearLayout. context)]
+    (.addView view (get-post-grid-view content))
+    view))
 
-(defn get-view
+(defn create-view
   [view-type content]
   (case view-type
     :grid (get-grid-view content)
@@ -54,19 +57,6 @@
     :preview (get-preview-view content)
     :post (get-post-view content)
     :file (get-file-view content)))
-
-(defn create-view
-  [context sub-view-type sub-view-content]
-  (let [res (.getResources context)
-        config (.getConfiguration res)
-        orientation (if (= (. config orientation) android.content.res.Configuration/ORIENTATION_PORTRAIT)
-                      android.widget.LinearLayout/VERTICAL
-                      android.widget.LinearLayout/HORIZONTAL)]
-    (make-ui-runtime
-      [:linear-layout {:orientation orientation
-                       :layout-width :fill
-                       :layout-height :fill}
-       (get-view sub-view-type sub-view-content)])))
 
 (defn create-tab
   [action-bar title first-view]

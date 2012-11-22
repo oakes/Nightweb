@@ -18,12 +18,11 @@
                             "net.nightweb.MainService"
                             (fn [service] (.act service :test))))
     (let [action-bar (.getActionBar this)
-          home-view (create-view this :grid {})
-          people-view (create-view this :grid {})
-          photos-view (create-view this :grid {})
-          audio-view (create-view this :grid {})
-          videos-view (create-view this :grid {})
-          home-view-grid (.getChildAt home-view 0)]
+          home-view (create-view :grid {})
+          people-view (create-view :grid {})
+          photos-view (create-view :grid {})
+          audio-view (create-view :grid {})
+          videos-view (create-view :grid {})]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
@@ -31,16 +30,7 @@
       (create-tab action-bar (get-resource :string :people) people-view)
       (create-tab action-bar (get-resource :string :photos) photos-view)
       (create-tab action-bar (get-resource :string :audio) audio-view)
-      (create-tab action-bar (get-resource :string :videos) videos-view)
-      (.setAdapter home-view-grid (proxy [android.widget.BaseAdapter] []
-                                    (getItem [position] nil)
-                                    (getItemId [position] 0)
-                                    (getCount [] 1)
-                                    (getView [position convert-view parent]
-                                      (let [image-view (android.widget.ImageView. activity)]
-                                        (.setBackgroundColor image-view android.graphics.Color/BLUE)
-                                        (.setLayoutParams image-view (android.widget.AbsListView$LayoutParams. 200 200))
-                                        image-view)))))
+      (create-tab action-bar (get-resource :string :videos) videos-view))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
