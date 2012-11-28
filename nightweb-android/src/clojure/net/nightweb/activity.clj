@@ -1,5 +1,8 @@
 (ns net.nightweb.activity
-  (:use [neko.-utils :only [simple-name unicaseize keyword->camelcase capitalize]]))
+  (:use [neko.-utils :only [simple-name
+                            unicaseize
+                            keyword->camelcase
+                            capitalize]]))
 
 (defmacro defactivity
   "Creates an activity with the given full package-qualified name.

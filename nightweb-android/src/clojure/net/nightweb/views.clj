@@ -4,69 +4,68 @@
         [neko.resource :only [get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
+(set-classname! :grid-view android.widget.GridView)
+
 (defn get-grid-view
   [content]
-  (let [view (android.widget.GridView. context)]
-    (.setHorizontalSpacing view 0)
-    (.setVerticalSpacing view 0)
+  (let [view (make-ui [:grid-view {:horizontal-spacing 0
+                                   :vertical-spacing 0}])]
     (.setAdapter view
                  (proxy [android.widget.BaseAdapter] []
                    (getItem [position] nil)
                    (getItemId [position] 0)
                    (getCount [] (count content))
                    (getView [position convert-view parent]
-                     (let [tile-view (android.widget.ImageView. context)
-                           tile-view-width-min 200
+                     (let [bottom android.view.Gravity/BOTTOM
+                           black android.graphics.Color/BLACK
+                           background (get-resource :drawable :border)
+                           tile-view
+                           (make-ui [:linear-layout {:orientation 1}
+                                     [:text-view {:layout-weight 3}]
+                                     [:text-view {:layout-weight 1
+                                                  :gravity bottom}]])
+                           tile-view-min 200
+                           tile-view-padding 5
                            parent-width (.getWidth parent)
-                           num-columns (int (/ parent-width tile-view-width-min))
+                           num-columns (int (/ parent-width tile-view-min))
                            tile-view-width (if (> num-columns 0)
                                              (int (/ parent-width num-columns))
-                                             tile-view-width-min)]
-                       (.setBackgroundColor tile-view android.graphics.Color/BLUE)
+                                             tile-view-min)
+                           params (android.widget.AbsListView$LayoutParams.
+                                                              tile-view-width
+                                                              tile-view-width)
+                           title (.getChildAt tile-view 0)
+                           author (.getChildAt tile-view 1)]
                        (.setNumColumns view num-columns)
-                       (.setLayoutParams tile-view
-                                         (android.widget.AbsListView$LayoutParams.
-                                                                     tile-view-width
-                                                                     tile-view-width))
+                       (.setPadding tile-view
+                                    tile-view-padding tile-view-padding
+                                    tile-view-padding tile-view-padding)
+                       (.setBackgroundResource tile-view background)
+                       (.setLayoutParams tile-view params)
+                       (.setText title (get-in content [position :title]))
+                       (.setText author (get-in content [position :author]))
+                       (.setShadowLayer title 10 0 0 black)
+                       (.setShadowLayer author 10 0 0 black)
                        tile-view))))
-    view))
-
-(defn get-post-grid-view
-  [content]
-  (let [view (android.widget.LinearLayout. context)]
     view))
 
 (defn get-new-post-view
   [content]
-  (let [view (android.widget.LinearLayout. context)]
-    view))
-
-(defn get-preview-view
-  [content]
-  (let [view (android.widget.LinearLayout. context)]
+  (let [view (make-ui [:linear-layout {}])]
     view))
 
 (defn get-post-view
   [content]
-  (let [view (android.widget.LinearLayout. context)]
+  (let [view (make-ui [:linear-layout {}])]
     (.addView view (get-grid-view content))
-    view))
-
-(defn get-file-view
-  [content]
-  (let [view (android.widget.LinearLayout. context)]
-    (.addView view (get-post-grid-view content))
     view))
 
 (defn create-view
   [view-type content]
   (case view-type
     :grid (get-grid-view content)
-    :post-grid (get-post-grid-view content)
     :new-post (get-new-post-view content)
-    :preview (get-preview-view content)
-    :post (get-post-view content)
-    :file (get-file-view content)))
+    :post (get-post-view content)))
 
 (defn create-tab
   [action-bar title first-view]
@@ -76,7 +75,9 @@
                                  first-view))
         listener (proxy [android.app.ActionBar$TabListener] []
                    (onTabSelected [tab ft]
-                                  (.add ft (get-resource :id :android/content) fragment))
+                                  (.add ft
+                                        (get-resource :id :android/content)
+                                        fragment))
                    (onTabUnselected [tab ft]
                                     (.remove ft fragment))
                    (onTabReselected [tab ft]))]

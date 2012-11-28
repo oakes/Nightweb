@@ -1,5 +1,8 @@
 (ns net.nightweb.service
-  (:use [neko.-utils :only [simple-name unicaseize keyword->camelcase capitalize]]))
+  (:use [neko.-utils :only [simple-name
+                            unicaseize
+                            keyword->camelcase
+                            capitalize]]))
 
 (defn bind-service
   [context class-name connected]

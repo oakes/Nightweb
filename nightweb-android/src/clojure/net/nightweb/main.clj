@@ -2,10 +2,15 @@
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
-        [net.nightweb.service :only [defservice bind-service unbind-service start-foreground]]
+        [net.nightweb.service :only [defservice
+                                     bind-service
+                                     unbind-service
+                                     start-foreground]]
         [net.nightweb.activity :only [defactivity]]
         [net.nightweb.views :only [create-tab create-view]]
-        [nightweb.router :only [start-router stop-router start-download-manager]]))
+        [nightweb.router :only [start-router
+                                stop-router
+                                start-download-manager]]))
 
 (defapplication net.nightweb.Application)
 
@@ -28,7 +33,8 @@
       (.setDisplayShowHomeEnabled action-bar false)
       (create-tab action-bar
                   (get-resource :string :home)
-                  (create-view :grid [{} {}]))
+                  (create-view :grid [{:title "Profile"}
+                                      {:title "Following"}]))
       (create-tab action-bar
                   (get-resource :string :people)
                   (create-view :grid []))
