@@ -24,26 +24,16 @@
                    (getItemId [position] 0)
                    (getCount [] (count content))
                    (getView [position convert-view parent]
-                     (let [center android.view.Gravity/CENTER
-                           bottom android.view.Gravity/BOTTOM
+                     (let [bottom android.view.Gravity/BOTTOM
                            black android.graphics.Color/BLACK
                            background (get-resource :drawable :border)
                            item (get content position)
                            tile-view
-                           (if (contains? item :is-split)
-                             (make-ui context
-                                      [:linear-layout {:orientation 1}
-                                       [:button {:layout-weight 1
-                                                 :layout-width :fill
-                                                 :gravity center}]
-                                       [:button {:layout-weight 1
-                                                 :layout-width :fill
-                                                 :gravity center}]])
-                             (make-ui context
-                                      [:linear-layout {:orientation 1}
-                                       [:text-view {:layout-weight 3}]
-                                       [:text-view {:layout-weight 1
-                                                    :gravity bottom}]]))
+                           (make-ui context
+                                    [:linear-layout {:orientation 1}
+                                     [:text-view {:layout-weight 3}]
+                                     [:text-view {:layout-weight 1
+                                                  :gravity bottom}]])
                            tile-view-width (if (> num-columns 0)
                                              (int (/ parent-width num-columns))
                                              tile-view-min)
@@ -55,8 +45,8 @@
                        (.setPadding tile-view 5 5 5 5)
                        (.setBackgroundResource tile-view background)
                        (.setLayoutParams tile-view params)
-                       (.setText subview1 (get-in content [position :title1]))
-                       (.setText subview2 (get-in content [position :title2]))
+                       (.setText subview1 (get-in content [position :title]))
+                       (.setText subview2 (get-in content [position :subtitle]))
                        (.setShadowLayer subview1 10 0 0 black)
                        (.setShadowLayer subview2 10 0 0 black)
                        tile-view))))

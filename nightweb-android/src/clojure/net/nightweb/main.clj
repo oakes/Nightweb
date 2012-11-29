@@ -2,7 +2,7 @@
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource get-string]]
-        [neko.activity :only [defactivity]]
+        [net.nightweb.activity :only [defactivity]]
         [net.nightweb.service :only [defservice
                                      bind-service
                                      unbind-service
@@ -29,39 +29,25 @@
       (create-tab action-bar
                   (get-string :home)
                   (get-grid-view this
-                                 [{:title1 (get-string :profile)
-                                   :title2 (get-string :im_following)
-                                   :is-split true}
-                                  {:title1 (get-string :my_downloads)
-                                   :title2 (get-string :new_post)
-                                   :is-split true}
-                                  {:title1 (get-string :copy_link)
-                                   :title2 (get-string :search_my_posts)
-                                   :is-split true}]))
+                                 [{:title (get-string :profile)}
+                                  {:title (get-string :im_following)}
+                                  {:title (get-string :my_downloads)}]))
       (create-tab action-bar
                   (get-string :people)
                   (get-grid-view this
-                                 [{:title1 (get-string :browse_tags)
-                                   :title2 (get-string :search_people)
-                                   :is-split true}]))
+                                 [{:title (get-string :browse_tags)}]))
       (create-tab action-bar
                   (get-string :photos)
                   (get-grid-view this
-                                 [{:title1 (get-string :browse_tags)
-                                   :title2 (get-string :search_photos)
-                                   :is-split true}]))
+                                 [{:title (get-string :browse_tags)}]))
       (create-tab action-bar
                   (get-string :videos)
                   (get-grid-view this
-                                 [{:title1 (get-string :browse_tags)
-                                   :title2 (get-string :search_videos)
-                                   :is-split true}]))
+                                 [{:title (get-string :browse_tags)}]))
       (create-tab action-bar
                   (get-string :audio)
                   (get-grid-view this
-                                 [{:title1 (get-string :browse_tags)
-                                   :title2 (get-string :search_audio)
-                                   :is-split true}])))
+                                 [{:title (get-string :browse_tags)}])))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
@@ -71,7 +57,9 @@
   :on-destroy
   (fn [this]
     (.unregisterReceiver this activity-receiver)
-    (unbind-service this conn)))
+    (unbind-service this conn))
+  :menu-resource
+  (get-resource :menu :main_activity))
 
 (defservice
   net.nightweb.MainService

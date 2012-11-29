@@ -3,6 +3,9 @@
 
   <string name="app_name">Nightweb</string>
 
+  <string name="new_post">New Post</string>
+  <string name="search">Search</string>
+
   <string name="home">Home</string>
   <string name="people">People</string>
   <string name="photos">Photos</string>
@@ -12,13 +15,6 @@
   <string name="profile">Profile</string>
   <string name="im_following">People I\'m following</string>
   <string name="my_downloads">My downloads</string>
-  <string name="new_post">New post</string>
-  <string name="copy_link">Copy link</string>
 
-  <string name="search_my_posts">Search my posts</string>
-  <string name="search_people">Search people</string>
-  <string name="search_photos">Search photos</string>
-  <string name="search_videos">Search videos</string>
-  <string name="search_audio">Search audio</string>
   <string name="browse_tags">Browse tags</string>
 </resources>

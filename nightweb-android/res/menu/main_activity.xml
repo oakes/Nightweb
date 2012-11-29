@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/add"
+          android:icon="@drawable/ic_menu_add"
+          android:title="@string/new_post"
+          android:showAsAction="ifRoom" />
+    <item android:id="@+id/search"
+          android:icon="@drawable/ic_menu_search"
+          android:title="@string/search"
+          android:showAsAction="ifRoom" />
+</menu>
