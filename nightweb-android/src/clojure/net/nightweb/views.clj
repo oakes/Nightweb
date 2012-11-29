@@ -1,71 +1,83 @@
 (ns net.nightweb.views
-  (:use [neko.context :only [context]]
-        [neko.ui :only [make-ui]]
+  (:use [neko.ui :only [make-ui]]
         [neko.resource :only [get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
 (set-classname! :grid-view android.widget.GridView)
 
 (defn get-grid-view
-  [content]
-  (let [view (make-ui [:grid-view {:horizontal-spacing 0
-                                   :vertical-spacing 0}])]
+  [context content]
+  (let [view (make-ui context
+                      [:grid-view {:horizontal-spacing 0
+                                   :vertical-spacing 0}])
+        point (android.graphics.Point.)
+        display (.getDefaultDisplay (.getWindowManager context))
+        _ (.getSize display point)
+        parent-width (.x point)
+        density (.density (.getDisplayMetrics (.getResources context)))
+        tile-view-min (* density 160)
+        num-columns (int (/ parent-width tile-view-min))]
+    (.setNumColumns view num-columns)
     (.setAdapter view
                  (proxy [android.widget.BaseAdapter] []
                    (getItem [position] nil)
                    (getItemId [position] 0)
                    (getCount [] (count content))
                    (getView [position convert-view parent]
-                     (let [bottom android.view.Gravity/BOTTOM
+                     (let [center android.view.Gravity/CENTER
+                           bottom android.view.Gravity/BOTTOM
                            black android.graphics.Color/BLACK
                            background (get-resource :drawable :border)
+                           item (get content position)
                            tile-view
-                           (make-ui [:linear-layout {:orientation 1}
-                                     [:text-view {:layout-weight 3}]
-                                     [:text-view {:layout-weight 1
-                                                  :gravity bottom}]])
-                           tile-view-min 200
-                           tile-view-padding 5
-                           parent-width (.getWidth parent)
-                           num-columns (int (/ parent-width tile-view-min))
+                           (if (contains? item :is-split)
+                             (make-ui context
+                                      [:linear-layout {:orientation 1}
+                                       [:button {:layout-weight 1
+                                                 :layout-width :fill
+                                                 :gravity center}]
+                                       [:button {:layout-weight 1
+                                                 :layout-width :fill
+                                                 :gravity center}]])
+                             (make-ui context
+                                      [:linear-layout {:orientation 1}
+                                       [:text-view {:layout-weight 3}]
+                                       [:text-view {:layout-weight 1
+                                                    :gravity bottom}]]))
                            tile-view-width (if (> num-columns 0)
                                              (int (/ parent-width num-columns))
                                              tile-view-min)
                            params (android.widget.AbsListView$LayoutParams.
                                                               tile-view-width
                                                               tile-view-width)
-                           title (.getChildAt tile-view 0)
-                           author (.getChildAt tile-view 1)]
-                       (.setNumColumns view num-columns)
-                       (.setPadding tile-view
-                                    tile-view-padding tile-view-padding
-                                    tile-view-padding tile-view-padding)
+                           subview1 (.getChildAt tile-view 0)
+                           subview2 (.getChildAt tile-view 1)]
+                       (.setPadding tile-view 5 5 5 5)
                        (.setBackgroundResource tile-view background)
                        (.setLayoutParams tile-view params)
-                       (.setText title (get-in content [position :title]))
-                       (.setText author (get-in content [position :author]))
-                       (.setShadowLayer title 10 0 0 black)
-                       (.setShadowLayer author 10 0 0 black)
+                       (.setText subview1 (get-in content [position :title1]))
+                       (.setText subview2 (get-in content [position :title2]))
+                       (.setShadowLayer subview1 10 0 0 black)
+                       (.setShadowLayer subview2 10 0 0 black)
                        tile-view))))
     view))
 
 (defn get-new-post-view
-  [content]
-  (let [view (make-ui [:linear-layout {}])]
+  [context content]
+  (let [view (make-ui context [:linear-layout {}])]
     view))
 
 (defn get-post-view
-  [content]
-  (let [view (make-ui [:linear-layout {}])]
+  [context content]
+  (let [view (make-ui context [:linear-layout {}])]
     (.addView view (get-grid-view content))
     view))
 
-(defn create-view
-  [view-type content]
-  (case view-type
-    :grid (get-grid-view content)
-    :new-post (get-new-post-view content)
-    :post (get-post-view content)))
+(defn get-file-view
+  [context content]
+  (let [view (make-ui context [:linear-layout {}])]
+    (.addView view (get-grid-view content))
+    view))
 
 (defn create-tab
   [action-bar title first-view]

@@ -1,13 +1,13 @@
 (ns net.nightweb.main
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
-        [neko.resource :only [get-resource]]
+        [neko.resource :only [get-resource get-string]]
+        [neko.activity :only [defactivity]]
         [net.nightweb.service :only [defservice
                                      bind-service
                                      unbind-service
                                      start-foreground]]
-        [net.nightweb.activity :only [defactivity]]
-        [net.nightweb.views :only [create-tab create-view]]
+        [net.nightweb.views :only [create-tab get-grid-view]]
         [nightweb.router :only [start-router
                                 stop-router
                                 start-download-manager]]))
@@ -22,31 +22,46 @@
     (def conn (bind-service this
                             "net.nightweb.MainService"
                             (fn [service] (.act service :test))))
-    (let [action-bar (.getActionBar this)
-          home-view (create-view :grid {})
-          people-view (create-view :grid {})
-          photos-view (create-view :grid {})
-          audio-view (create-view :grid {})
-          videos-view (create-view :grid {})]
+    (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
       (create-tab action-bar
-                  (get-resource :string :home)
-                  (create-view :grid [{:title "Profile"}
-                                      {:title "Following"}]))
+                  (get-string :home)
+                  (get-grid-view this
+                                 [{:title1 (get-string :profile)
+                                   :title2 (get-string :im_following)
+                                   :is-split true}
+                                  {:title1 (get-string :my_downloads)
+                                   :title2 (get-string :new_post)
+                                   :is-split true}
+                                  {:title1 (get-string :copy_link)
+                                   :title2 (get-string :search_my_posts)
+                                   :is-split true}]))
       (create-tab action-bar
-                  (get-resource :string :people)
-                  (create-view :grid []))
+                  (get-string :people)
+                  (get-grid-view this
+                                 [{:title1 (get-string :browse_tags)
+                                   :title2 (get-string :search_people)
+                                   :is-split true}]))
       (create-tab action-bar
-                  (get-resource :string :photos)
-                  (create-view :grid []))
+                  (get-string :photos)
+                  (get-grid-view this
+                                 [{:title1 (get-string :browse_tags)
+                                   :title2 (get-string :search_photos)
+                                   :is-split true}]))
       (create-tab action-bar
-                  (get-resource :string :audio)
-                  (create-view :grid []))
+                  (get-string :videos)
+                  (get-grid-view this
+                                 [{:title1 (get-string :browse_tags)
+                                   :title2 (get-string :search_videos)
+                                   :is-split true}]))
       (create-tab action-bar
-                  (get-resource :string :videos)
-                  (create-view :grid [])))
+                  (get-string :audio)
+                  (get-grid-view this
+                                 [{:title1 (get-string :browse_tags)
+                                   :title2 (get-string :search_audio)
+                                   :is-split true}])))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
@@ -56,9 +71,7 @@
   :on-destroy
   (fn [this]
     (.unregisterReceiver this activity-receiver)
-    (unbind-service this conn))
-  :menu-resource
-  (get-resource :menu :main_activity))
+    (unbind-service this conn)))
 
 (defservice
   net.nightweb.MainService
