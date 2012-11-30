@@ -2,7 +2,9 @@
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource get-string]]
-        [net.nightweb.activity :only [defactivity]]
+        [net.nightweb.activity :only [defactivity
+                                      create-menu-from-resource
+                                      activate-share-button]]
         [net.nightweb.service :only [defservice
                                      bind-service
                                      unbind-service
@@ -58,8 +60,10 @@
   (fn [this]
     (.unregisterReceiver this activity-receiver)
     (unbind-service this conn))
-  :menu-resource
-  (get-resource :menu :main_activity))
+  :on-create-options-menu
+  (fn [this menu]
+    (create-menu-from-resource this menu (get-resource :menu :main_activity))
+    (activate-share-button this menu (get-resource :id :share))))
 
 (defservice
   net.nightweb.MainService
