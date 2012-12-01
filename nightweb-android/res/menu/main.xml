@@ -9,7 +9,7 @@
 		android:title="@string/search"
 		android:showAsAction="ifRoom" />
 	<item android:id="@+id/share"
-		android:actionProviderClass="android.widget.ShareActionProvider"
+		android:icon="@android:drawable/ic_menu_share"
 		android:title="@string/share"
 		android:showAsAction="ifRoom" />
 </menu>

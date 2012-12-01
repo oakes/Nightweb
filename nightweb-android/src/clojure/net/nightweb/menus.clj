@@ -6,12 +6,11 @@
   (.inflate (.getMenuInflater context) menu-resource menu))
 
 (defn activate-share-button
-  [context menu share-resource]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        action-provider (.getActionProvider (.findItem menu share-resource))]
+  [context]
+  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT "nightweb://asdf")
-    (.setShareIntent action-provider intent)))
+    (.startActivity context intent)))
 
 (defn go-home
   [context]
@@ -27,10 +26,10 @@
     (.findItem menu (get-resource :id :new_post))
     (proxy [android.view.MenuItem$OnMenuItemClickListener] []
       (onMenuItemClick [menu-item]
-        (.startActivity context
-                        (android.content.Intent.
-                          context
-                          (java.lang.Class/forName "net.nightweb.NewPostPage")))
+        (.startActivity
+          context
+          (android.content.Intent.
+            context (java.lang.Class/forName "net.nightweb.NewPostPage")))
         true)))
   (.setOnMenuItemClickListener
     (.findItem menu (get-resource :id :search))
@@ -38,7 +37,12 @@
       (onMenuItemClick [menu-item]
         (println "search")
         true)))
-  (activate-share-button context menu (get-resource :id :share)))
+  (.setOnMenuItemClickListener
+    (.findItem menu (get-resource :id :share))
+    (proxy [android.view.MenuItem$OnMenuItemClickListener] []
+      (onMenuItemClick [menu-item]
+        (activate-share-button context)
+        true))))
 
 (defn create-new-post-menu
   [context menu]
