@@ -1,4 +1,4 @@
-(ns net.nightweb.activity
+(ns net.nightweb.clandroid.activity
   (:use [neko.-utils :only [simple-name
                             unicaseize
                             keyword->camelcase
@@ -28,6 +28,7 @@
                   prefix
                   on-create
                   on-create-options-menu
+                  on-options-item-selected
                   def]
            :as options}]
   (let [options (or options {}) ;; Handle no-options case
@@ -47,7 +48,8 @@
                           ~'onPause ~'superOnPause
                           ~'onStop ~'superOnStop
                           ~'onDestroy ~'superOnDestroy
-                          ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu})
+                          ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu
+                          ~'onOptionsItemSelected ~'superOnOptionsItemSelected})
        ~(when on-create
           `(defn ~(symbol (str prefix "onCreate"))
              [~(vary-meta 'this assoc :tag name),
@@ -62,6 +64,13 @@
              (.superOnCreateOptionsMenu ~'this ~'menu)
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-create-options-menu ~'this ~'menu)
+             true))
+       ~(when on-options-item-selected
+          `(defn ~(symbol (str prefix "onOptionsItemSelected"))
+             [~(vary-meta 'this assoc :tag name),
+              ^android.view.MenuItem ~'item]
+             (def ~(vary-meta def assoc :tag name) ~'this)
+             (~on-options-item-selected ~'this ~'item)
              true))
        ~@(map #(let [func (options %)
                      event-name (keyword->camelcase %)]

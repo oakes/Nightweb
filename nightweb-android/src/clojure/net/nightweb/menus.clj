@@ -3,7 +3,7 @@
 
 (defn create-menu-from-resource
   [context menu menu-resource]
-  (.inflate (.superGetMenuInflater context) menu-resource menu))
+  (.inflate (.getMenuInflater context) menu-resource menu))
 
 (defn activate-share-button
   [context menu share-resource]
@@ -12,6 +12,13 @@
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT "nightweb://asdf")
     (.setShareIntent action-provider intent)))
+
+(defn go-home
+  [context]
+  (let [intent
+        (android.content.Intent.
+          context (java.lang.Class/forName "net.nightweb.MainPage"))]
+    (.startActivity context intent)))
 
 (defn create-main-menu
   [context menu]

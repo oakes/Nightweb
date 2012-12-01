@@ -1,13 +1,14 @@
 (ns net.nightweb.pages
-  (:use [neko.resource :only [get-string]]
+  (:use [neko.resource :only [get-resource get-string]]
         [neko.activity :only [set-content-view!]]
-        [net.nightweb.activity :only [defactivity]]
-        [net.nightweb.service :only [bind-service unbind-service]]
+        [net.nightweb.clandroid.activity :only [defactivity]]
+        [net.nightweb.clandroid.service :only [bind-service unbind-service]]
         [net.nightweb.views :only [create-tab
                                    get-grid-view
                                    get-new-post-view]]
         [net.nightweb.menus :only [create-main-menu
-                                   create-new-post-menu]]))
+                                   create-new-post-menu
+                                   go-home]]))
 
 (defactivity
   net.nightweb.MainPage
@@ -58,13 +59,17 @@
 
 (defactivity
   net.nightweb.NewPostPage
-  :def new-post
+  :def new-post-page
   :on-create
   (fn [this bundle]
     (let [action-bar (.getActionBar this)]
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayHomeAsUpEnabled action-bar true))
-    (set-content-view! new-post (get-new-post-view this [])))
+    (set-content-view! new-post-page (get-new-post-view this [])))
   :on-create-options-menu
   (fn [this menu]
-    (create-new-post-menu this menu)))
+    (create-new-post-menu this menu))
+  :on-options-item-selected
+  (fn [this item]
+    (if (= (.getItemId item) (get-resource :id :android/home))
+      (go-home this))))
