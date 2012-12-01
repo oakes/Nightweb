@@ -1,69 +1,13 @@
 (ns net.nightweb.main
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
-        [neko.resource :only [get-resource get-string]]
-        [net.nightweb.activity :only [defactivity
-                                      create-menu-from-resource
-                                      activate-share-button]]
-        [net.nightweb.service :only [defservice
-                                     bind-service
-                                     unbind-service
-                                     start-foreground]]
-        [net.nightweb.views :only [create-tab get-grid-view]]
+        [neko.resource :only [get-resource]]
+        [net.nightweb.service :only [defservice start-foreground]]
         [nightweb.router :only [start-router
                                 stop-router
                                 start-download-manager]]))
 
 (defapplication net.nightweb.Application)
-
-(defactivity
-  net.nightweb.MainActivity
-  :def activity
-  :on-create
-  (fn [this bundle]
-    (def conn (bind-service this
-                            "net.nightweb.MainService"
-                            (fn [service] (.act service :test))))
-    (let [action-bar (.getActionBar this)]
-      (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
-      (.setDisplayShowTitleEnabled action-bar false)
-      (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar
-                  (get-string :home)
-                  (get-grid-view this
-                                 [{:title (get-string :profile)}
-                                  {:title (get-string :im_following)}
-                                  {:title (get-string :my_downloads)}]))
-      (create-tab action-bar
-                  (get-string :people)
-                  (get-grid-view this
-                                 [{:title (get-string :browse_tags)}]))
-      (create-tab action-bar
-                  (get-string :photos)
-                  (get-grid-view this
-                                 [{:title (get-string :browse_tags)}]))
-      (create-tab action-bar
-                  (get-string :videos)
-                  (get-grid-view this
-                                 [{:title (get-string :browse_tags)}]))
-      (create-tab action-bar
-                  (get-string :audio)
-                  (get-grid-view this
-                                 [{:title (get-string :browse_tags)}])))
-    (def activity-receiver (proxy [android.content.BroadcastReceiver] []
-                             (onReceive [context intent]
-                               (.finish context))))
-    (.registerReceiver this
-                       activity-receiver
-                       (android.content.IntentFilter. "ACTION_CLOSE_APP")))
-  :on-destroy
-  (fn [this]
-    (.unregisterReceiver this activity-receiver)
-    (unbind-service this conn))
-  :on-create-options-menu
-  (fn [this menu]
-    (create-menu-from-resource this menu (get-resource :menu :main_activity))
-    (activate-share-button this menu (get-resource :id :share))))
 
 (defservice
   net.nightweb.MainService

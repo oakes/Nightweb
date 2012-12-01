@@ -69,6 +69,16 @@
     (.addView view (get-grid-view content))
     view))
 
+(defn get-profile-view
+  [context content]
+  (let [view (make-ui context [:linear-layout {}])]
+    view))
+
+(defn get-search-view
+  [context content]
+  (let [view (make-ui context [:linear-layout {}])]
+    view))
+
 (defn create-tab
   [action-bar title first-view]
   (let [tab (.newTab action-bar)

@@ -6,16 +6,17 @@
   <string name="new_post">New Post</string>
   <string name="search">Search</string>
   <string name="share">Share</string>
+  <string name="send">Send</string>
 
   <string name="home">Home</string>
-  <string name="people">People</string>
+  <string name="users">Users</string>
   <string name="photos">Photos</string>
   <string name="videos">Videos</string>
   <string name="audio">Audio</string>
 
   <string name="profile">Profile</string>
-  <string name="im_following">People I\'m following</string>
-  <string name="my_downloads">My downloads</string>
+  <string name="favorites">Favorites</string>
+  <string name="downloads">Downloads</string>
 
   <string name="browse_tags">Browse tags</string>
 </resources>

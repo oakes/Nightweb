@@ -4,18 +4,6 @@
                             keyword->camelcase
                             capitalize]]))
 
-(defn create-menu-from-resource
-  [context menu menu-resource]
-  (.inflate (.superGetMenuInflater context) menu-resource menu))
-
-(defn activate-share-button
-  [context menu share-resource]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        action-provider (.getActionProvider (.findItem menu share-resource))]
-    (.setType intent "text/plain")
-    (.putExtra intent android.content.Intent/EXTRA_TEXT "nightweb://asdf")
-    (.setShareIntent action-provider intent)))
-
 (defmacro defactivity
   "Creates an activity with the given full package-qualified name.
   Optional arguments should be provided in a key-value fashion.
@@ -36,7 +24,11 @@
 
   :on-start, :on-restart, :on-resume, :on-pause, :on-stop, :on-destroy
   - same as :on-create but require a one-argument function."
-  [name & {:keys [extends prefix on-create on-create-options-menu def]
+  [name & {:keys [extends
+                  prefix
+                  on-create
+                  on-create-options-menu
+                  def]
            :as options}]
   (let [options (or options {}) ;; Handle no-options case
         sname (simple-name name)
@@ -55,8 +47,7 @@
                           ~'onPause ~'superOnPause
                           ~'onStop ~'superOnStop
                           ~'onDestroy ~'superOnDestroy
-                          ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu
-                          ~'getMenuInflater ~'superGetMenuInflater})
+                          ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu})
        ~(when on-create
           `(defn ~(symbol (str prefix "onCreate"))
              [~(vary-meta 'this assoc :tag name),
