@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-
   <string name="app_name">Nightweb</string>
 
   <string name="new_post">New Post</string>
@@ -8,7 +7,7 @@
   <string name="share">Share</string>
   <string name="send">Send</string>
 
-  <string name="home">Home</string>
+  <string name="me">Me</string>
   <string name="users">Users</string>
   <string name="photos">Photos</string>
   <string name="videos">Videos</string>
@@ -18,5 +17,10 @@
   <string name="favorites">Favorites</string>
   <string name="downloads">Downloads</string>
 
-  <string name="browse_tags">Browse tags</string>
+  <string name="tags">Tags</string>
+
+  <string name="attach_users">Attach Users</string>
+  <string name="attach_photos">Attach Photos</string>
+  <string name="attach_videos">Attach Videos</string>
+  <string name="attach_audio">Attach Audio</string>
 </resources>

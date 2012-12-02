@@ -3,20 +3,66 @@
         [neko.resource :only [get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
-(set-classname! :grid-view android.widget.GridView)
+(do
+  (gen-class
+    :name "net.nightweb.views.ExpandableGridView"
+    :extends android.widget.GridView
+    :state "state"
+    :init "init"
+    :prefix "expandable-grid-view-"
+    :constructors {[android.content.Context] [android.content.Context]
+                   [android.content.Context android.util.AttributeSet]
+                   [android.content.Context android.util.AttributeSet]
+                   [android.content.Context android.util.AttributeSet int]
+                   [android.content.Context android.util.AttributeSet int]}
+    :methods [[setExpandable [boolean] void]]
+    :exposes-methods {onMeasure superOnMeasure})
+  (defn expandable-grid-view-create-state
+    [context]
+    (atom {:context context
+           :expandable false}))
+  (defn expandable-grid-view-init
+    ([context]
+     [[context] (expandable-grid-view-create-state context)])
+    ([context attrs]
+     [[context attrs] (expandable-grid-view-create-state context)])
+    ([context attrs def-style]
+     [[context attrs def-style] (expandable-grid-view-create-state context)]))
+  (defn expandable-grid-view-onMeasure
+    [this width height]
+    (if (get @(.state this) :expandable)
+      (let [params (.getLayoutParams this)
+            at-most android.view.View$MeasureSpec/AT_MOST
+            spec (android.view.View$MeasureSpec/makeMeasureSpec
+                                    (bit-shift-right
+                                      java.lang.Integer/MAX_VALUE 2)
+                                    at-most)]
+        (.superOnMeasure this width spec)
+        (set! (. params height) (.getMeasuredHeight this)))
+      (.superOnMeasure this width height)))
+  (defn expandable-grid-view-setExpandable
+    [this is-expandable]
+    (swap! (.state this) assoc-in [:expandable] is-expandable)))
+
+(set-classname! :grid-view net.nightweb.views.ExpandableGridView)
+(set-classname! :scroll-view android.widget.ScrollView)
+
+(defn get-screen-width
+  [context]
+  (let [point (android.graphics.Point.)
+        display (.getDefaultDisplay (.getWindowManager context))
+        _ (.getSize display point)]
+    (.x point)))
 
 (defn get-grid-view
   [context content]
   (let [view (make-ui context
                       [:grid-view {:horizontal-spacing 0
                                    :vertical-spacing 0}])
-        point (android.graphics.Point.)
-        display (.getDefaultDisplay (.getWindowManager context))
-        _ (.getSize display point)
-        parent-width (.x point)
+        screen-width (get-screen-width context)
         density (.density (.getDisplayMetrics (.getResources context)))
         tile-view-min (* density 160)
-        num-columns (int (/ parent-width tile-view-min))]
+        num-columns (int (/ screen-width tile-view-min))]
     (.setNumColumns view num-columns)
     (.setAdapter view
                  (proxy [android.widget.BaseAdapter] []
@@ -35,7 +81,7 @@
                                      [:text-view {:layout-weight 1
                                                   :gravity bottom}]])
                            tile-view-width (if (> num-columns 0)
-                                             (int (/ parent-width num-columns))
+                                             (int (/ screen-width num-columns))
                                              tile-view-min)
                            params (android.widget.AbsListView$LayoutParams.
                                                               tile-view-width
@@ -54,19 +100,25 @@
 
 (defn get-new-post-view
   [context content]
-  (let [view (make-ui context [:linear-layout {}])]
+  (let [view (make-ui context [:scroll-view {}
+                               [:linear-layout {:orientation 1}
+                                [:edit-text {:min-lines 10}]]])
+        subview (.getChildAt view 0)
+        grid-view (get-grid-view context content)]
+    (.setExpandable grid-view true)
+    (.addView subview grid-view)
     view))
 
 (defn get-post-view
   [context content]
   (let [view (make-ui context [:linear-layout {}])]
-    (.addView view (get-grid-view content))
+    (.addView view (get-grid-view context content))
     view))
 
 (defn get-file-view
   [context content]
   (let [view (make-ui context [:linear-layout {}])]
-    (.addView view (get-grid-view content))
+    (.addView view (get-grid-view context content))
     view))
 
 (defn get-profile-view
