@@ -3,6 +3,7 @@ gen/
 pom.xml
 *.jar
 *.class
+*.swp
 .lein-deps-sum
 .lein-failures
 .lein-plugins
