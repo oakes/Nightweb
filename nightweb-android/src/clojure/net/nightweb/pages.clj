@@ -7,8 +7,9 @@
                                    get-grid-view
                                    get-new-post-view]]
         [net.nightweb.menus :only [create-main-menu
-                                   create-new-post-menu
-                                   go-to-page]]))
+                                   create-new-post-menu]]
+        [net.nightweb.actions :only [show-page
+                                     show-profile]]))
 
 (defactivity
   net.nightweb.MainPage
@@ -19,7 +20,8 @@
                             (fn [service] (.act service :test))))
     (let [action-bar (.getActionBar this)
           me-view (get-grid-view this
-                                 [{:title (get-string :profile)}
+                                 [{:title (get-string :profile)
+                                   :func show-profile}
                                   {:title (get-string :favorites)}
                                   {:title (get-string :downloads)}])
           users-view (get-grid-view this
@@ -73,4 +75,4 @@
   :on-options-item-selected
   (fn [this item]
     (if (= (.getItemId item) (get-resource :id :android/home))
-      (go-to-page this "net.nightweb.MainPage"))))
+      (show-page this "net.nightweb.MainPage"))))

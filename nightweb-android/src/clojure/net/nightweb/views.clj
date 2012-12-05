@@ -102,7 +102,8 @@
       (proxy [android.widget.AdapterView$OnItemClickListener] []
         (onItemClick [parent v position id]
           (let [item (get content position)]
-            (println "click")))))
+            (if-let [func (get item :func)]
+              (func context item))))))
     view))
 
 (defn get-new-post-view
@@ -130,11 +131,13 @@
 
 (defn get-profile-view
   [context content]
-  (let [view (make-ui context [:linear-layout {}
-                               [:edit-text {:lines 1}]
-                               [:edit-text {}]])
+  (let [view (make-ui context [:linear-layout {:orientation 1}
+                               [:edit-text {:lines 1
+                                            :layout-width :fill}]
+                               [:edit-text {:layout-width :fill}]])
         subview1 (.getChildAt view 0)
         subview2 (.getChildAt view 1)]
+    (.setPadding view 10 10 10 10)
     (.setHint subview1 (get-string :name))
     (.setHint subview2 (get-string :about_me))
     view))

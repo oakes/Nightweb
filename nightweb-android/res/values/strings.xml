@@ -26,4 +26,7 @@
 
   <string name="name">Name</string>
   <string name="about_me">About me</string>
+
+  <string name="cancel">Cancel</string>
+  <string name="save">Save</string>
 </resources>
