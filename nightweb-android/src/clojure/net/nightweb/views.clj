@@ -1,6 +1,6 @@
 (ns net.nightweb.views
   (:use [neko.ui :only [make-ui]]
-        [neko.resource :only [get-resource]]
+        [neko.resource :only [get-string get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
 (do
@@ -64,38 +64,45 @@
         tile-view-min (* density 160)
         num-columns (int (/ screen-width tile-view-min))]
     (.setNumColumns view num-columns)
-    (.setAdapter view
-                 (proxy [android.widget.BaseAdapter] []
-                   (getItem [position] nil)
-                   (getItemId [position] 0)
-                   (getCount [] (count content))
-                   (getView [position convert-view parent]
-                     (let [bottom android.view.Gravity/BOTTOM
-                           black android.graphics.Color/BLACK
-                           background (get-resource :drawable :border)
-                           item (get content position)
-                           tile-view
-                           (make-ui context
-                                    [:linear-layout {:orientation 1}
-                                     [:text-view {:layout-weight 3}]
-                                     [:text-view {:layout-weight 1
-                                                  :gravity bottom}]])
-                           tile-view-width (if (> num-columns 0)
-                                             (int (/ screen-width num-columns))
-                                             tile-view-min)
-                           params (android.widget.AbsListView$LayoutParams.
-                                                              tile-view-width
-                                                              tile-view-width)
-                           subview1 (.getChildAt tile-view 0)
-                           subview2 (.getChildAt tile-view 1)]
-                       (.setPadding tile-view 5 5 5 5)
-                       (.setBackgroundResource tile-view background)
-                       (.setLayoutParams tile-view params)
-                       (.setText subview1 (get-in content [position :title]))
-                       (.setText subview2 (get-in content [position :subtitle]))
-                       (.setShadowLayer subview1 10 0 0 black)
-                       (.setShadowLayer subview2 10 0 0 black)
-                       tile-view))))
+    (.setAdapter
+      view
+      (proxy [android.widget.BaseAdapter] []
+        (getItem [position] nil)
+        (getItemId [position] 0)
+        (getCount [] (count content))
+        (getView [position convert-view parent]
+          (if convert-view
+            convert-view
+            (let [bottom android.view.Gravity/BOTTOM
+                  black android.graphics.Color/BLACK
+                  background (get-resource :drawable :border)
+                  item (get content position)
+                  tile-view (make-ui context [:linear-layout {:orientation 1}
+                                              [:text-view {:layout-weight 3}]
+                                              [:text-view {:layout-weight 1
+                                                           :gravity bottom}]])
+                  tile-view-width (if (> num-columns 0)
+                                    (int (/ screen-width num-columns))
+                                    tile-view-min)
+                  params (android.widget.AbsListView$LayoutParams.
+                                                     tile-view-width
+                                                     tile-view-width)
+                  subview1 (.getChildAt tile-view 0)
+                  subview2 (.getChildAt tile-view 1)]
+              (.setPadding tile-view 5 5 5 5)
+              (.setBackgroundResource tile-view background)
+              (.setLayoutParams tile-view params)
+              (.setText subview1 (get-in content [position :title]))
+              (.setText subview2 (get-in content [position :subtitle]))
+              (.setShadowLayer subview1 10 0 0 black)
+              (.setShadowLayer subview2 10 0 0 black)
+              tile-view)))))
+    (.setOnItemClickListener
+      view
+      (proxy [android.widget.AdapterView$OnItemClickListener] []
+        (onItemClick [parent v position id]
+          (let [item (get content position)]
+            (println "click")))))
     view))
 
 (defn get-new-post-view
@@ -123,7 +130,13 @@
 
 (defn get-profile-view
   [context content]
-  (let [view (make-ui context [:linear-layout {}])]
+  (let [view (make-ui context [:linear-layout {}
+                               [:edit-text {:lines 1}]
+                               [:edit-text {}]])
+        subview1 (.getChildAt view 0)
+        subview2 (.getChildAt view 1)]
+    (.setHint subview1 (get-string :name))
+    (.setHint subview2 (get-string :about_me))
     view))
 
 (defn get-search-view

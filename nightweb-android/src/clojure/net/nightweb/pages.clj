@@ -8,7 +8,7 @@
                                    get-new-post-view]]
         [net.nightweb.menus :only [create-main-menu
                                    create-new-post-menu
-                                   go-home]]))
+                                   go-to-page]]))
 
 (defactivity
   net.nightweb.MainPage
@@ -73,4 +73,4 @@
   :on-options-item-selected
   (fn [this item]
     (if (= (.getItemId item) (get-resource :id :android/home))
-      (go-home this))))
+      (go-to-page this "net.nightweb.MainPage"))))

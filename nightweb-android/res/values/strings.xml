@@ -23,4 +23,7 @@
   <string name="attach_photos">Attach Photos</string>
   <string name="attach_videos">Attach Videos</string>
   <string name="attach_audio">Attach Audio</string>
+
+  <string name="name">Name</string>
+  <string name="about_me">About me</string>
 </resources>

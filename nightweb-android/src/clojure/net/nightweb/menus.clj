@@ -1,10 +1,6 @@
 (ns net.nightweb.menus
   (:use [neko.resource :only [get-string get-resource]]))
 
-(defn create-menu-from-resource
-  [context menu menu-resource]
-  (.inflate (.getMenuInflater context) menu-resource menu))
-
 (defn activate-share-button
   [context]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)]
@@ -12,12 +8,12 @@
     (.putExtra intent android.content.Intent/EXTRA_TEXT "nightweb://asdf")
     (.startActivity context intent)))
 
-(defn go-home
-  [context]
-  (let [intent
-        (android.content.Intent.
-          context (java.lang.Class/forName "net.nightweb.MainPage"))]
-    (.startActivity context intent)))
+(defn go-to-page
+  [context class-name]
+  (.startActivity
+    context
+    (android.content.Intent.
+      context (java.lang.Class/forName class-name))))
 
 (defn create-main-menu
   [context menu]
@@ -35,10 +31,7 @@
       new-post-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
-          (.startActivity
-            context
-            (android.content.Intent.
-              context (java.lang.Class/forName "net.nightweb.NewPostPage")))
+          (go-to-page context "net.nightweb.NewPostPage")
           true)))
     (.setOnMenuItemClickListener
       search-item
