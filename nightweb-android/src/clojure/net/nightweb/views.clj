@@ -75,7 +75,7 @@
             convert-view
             (let [bottom android.view.Gravity/BOTTOM
                   black android.graphics.Color/BLACK
-                  background (get-resource :drawable :border)
+                  border (get-resource :drawable :border)
                   item (get content position)
                   tile-view (make-ui context [:linear-layout {:orientation 1}
                                               [:text-view {:layout-weight 3}]
@@ -84,18 +84,18 @@
                   tile-view-width (if (> num-columns 0)
                                     (int (/ screen-width num-columns))
                                     tile-view-min)
-                  params (android.widget.AbsListView$LayoutParams.
-                                                     tile-view-width
-                                                     tile-view-width)
-                  subview1 (.getChildAt tile-view 0)
-                  subview2 (.getChildAt tile-view 1)]
+                  layout-params (android.widget.AbsListView$LayoutParams.
+                                                            tile-view-width
+                                                            tile-view-width)
+                  text-top (.getChildAt tile-view 0)
+                  text-bottom (.getChildAt tile-view 1)]
               (.setPadding tile-view 5 5 5 5)
-              (.setBackgroundResource tile-view background)
-              (.setLayoutParams tile-view params)
-              (.setText subview1 (get-in content [position :title]))
-              (.setText subview2 (get-in content [position :subtitle]))
-              (.setShadowLayer subview1 10 0 0 black)
-              (.setShadowLayer subview2 10 0 0 black)
+              (.setBackgroundResource tile-view border)
+              (.setLayoutParams tile-view layout-params)
+              (.setText text-top (get-in content [position :title]))
+              (.setText text-bottom (get-in content [position :subtitle]))
+              (.setShadowLayer text-top 10 0 0 black)
+              (.setShadowLayer text-bottom 10 0 0 black)
               tile-view)))))
     (.setOnItemClickListener
       view
@@ -111,10 +111,10 @@
   (let [view (make-ui context [:scroll-view {}
                                [:linear-layout {:orientation 1}
                                 [:edit-text {:min-lines 10}]]])
-        subview (.getChildAt view 0)
+        linear-layout (.getChildAt view 0)
         grid-view (get-grid-view context content)]
     (.setExpandable grid-view true)
-    (.addView subview grid-view)
+    (.addView linear-layout grid-view)
     view))
 
 (defn get-post-view
@@ -131,15 +131,26 @@
 
 (defn get-profile-view
   [context content]
-  (let [view (make-ui context [:linear-layout {:orientation 1}
-                               [:edit-text {:lines 1
-                                            :layout-width :fill}]
-                               [:edit-text {:layout-width :fill}]])
-        subview1 (.getChildAt view 0)
-        subview2 (.getChildAt view 1)]
-    (.setPadding view 10 10 10 10)
-    (.setHint subview1 (get-string :name))
-    (.setHint subview2 (get-string :about_me))
+  (let [view (make-ui context [:scroll-view {}
+                               [:linear-layout {:orientation 1}
+                                [:edit-text {:lines 1
+                                             :layout-width :fill}]
+                                [:edit-text {:layout-width :fill}]]])
+        linear-layout (.getChildAt view 0)
+        text-name (.getChildAt linear-layout 0)
+        text-about (.getChildAt linear-layout 1)
+        image-view (proxy [android.widget.ImageView] [context]
+                     (onMeasure [width height]
+                       (proxy-super onMeasure width width)))
+        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
+        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
+        border (get-resource :drawable :border)]
+    (.setPadding linear-layout 10 10 10 10)
+    (.setHint text-name (get-string :name))
+    (.setHint text-about (get-string :about_me))
+    (.setLayoutParams image-view layout-params)
+    (.setBackgroundResource image-view border)
+    (.addView linear-layout image-view)
     view))
 
 (defn get-search-view
