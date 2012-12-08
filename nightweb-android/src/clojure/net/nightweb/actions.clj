@@ -1,5 +1,5 @@
 (ns net.nightweb.actions
-  (:use [neko.resource :only [get-string]]
+  (:use [neko.resource :only [get-resource get-string]]
         [net.nightweb.views :only [get-profile-view]]))
 
 (defn share-url
@@ -10,9 +10,11 @@
     (.startActivity context intent)))
 
 (defn show-page
-  [context class-name]
-  (.startActivity context (android.content.Intent.
-                            context (java.lang.Class/forName class-name))))
+  [context class-name params]
+  (let [class-symbol (java.lang.Class/forName class-name)
+        intent (android.content.Intent. context class-symbol)]
+    (.putExtra intent "params" (pr-str params))
+    (.startActivity context intent)))
 
 (defn show-save-dialog
   [context view]
@@ -27,6 +29,23 @@
     (.create builder)
     (.show builder)))
 
+(defn do-menu-action
+  [context item]
+  (if (= (.getItemId item) (get-resource :id :android/home))
+    (show-page context "net.nightweb.MainPage" {})))
+
 (defn show-profile
   [context content]
   (show-save-dialog context (get-profile-view context content)))
+
+(defn show-favorites
+  [context content]
+  (show-page context "net.nightweb.FavoritesPage" {}))
+
+(defn show-downloads
+  [context content]
+  (show-page context "net.nightweb.DownloadsPage" {}))
+
+(defn show-tags
+  [context content]
+  (show-page context "net.nightweb.GridPage" {:title (get-string :tags)}))

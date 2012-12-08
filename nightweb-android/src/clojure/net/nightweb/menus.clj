@@ -32,7 +32,7 @@
       new-post-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
-          (show-page context "net.nightweb.NewPostPage")
+          (show-page context "net.nightweb.NewPostPage" {})
           true)))
     (.setOnMenuItemClickListener
       share-item

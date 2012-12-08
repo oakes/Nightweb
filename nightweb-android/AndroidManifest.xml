@@ -22,6 +22,15 @@
 		<activity
 			android:name='.NewPostPage'>
 		</activity>
-		<service android:name='.MainService'/>
+		<activity
+			android:name='.FavoritesPage'>
+		</activity>
+		<activity
+			android:name='.DownloadsPage'>
+		</activity>
+		<activity
+			android:name='.GridPage'>
+		</activity>
+<service android:name='.MainService'/>
 	</application>
 </manifest>
