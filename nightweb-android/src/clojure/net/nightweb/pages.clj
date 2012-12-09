@@ -5,13 +5,10 @@
         [net.nightweb.clandroid.service :only [bind-service unbind-service]]
         [net.nightweb.views :only [create-tab
                                    get-grid-view
-                                   get-new-post-view]]
+                                   get-user-view
+                                   get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [do-menu-action
-                                     show-profile
-                                     show-favorites
-                                     show-downloads
-                                     show-tags]]))
+        [net.nightweb.actions :only [do-menu-action]]))
 
 (defactivity
   net.nightweb.MainPage
@@ -20,34 +17,25 @@
     (def conn (bind-service this
                             "net.nightweb.MainService"
                             (fn [service] (.act service :test))))
-    (let [action-bar (.getActionBar this)
-          me-view (get-grid-view this
-                                 [{:title (get-string :profile)
-                                   :func show-profile}
-                                  {:title (get-string :favorites)
-                                   :func show-favorites}
-                                  {:title (get-string :downloads)
-                                   :func show-downloads}])
-          users-view (get-grid-view this
-                                    [{:title (get-string :tags)
-                                      :func show-tags}])
-          photos-view (get-grid-view this
-                                    [{:title (get-string :tags)
-                                      :func show-tags}])
-          videos-view (get-grid-view this
-                                    [{:title (get-string :tags)
-                                      :func show-tags}])
-          audio-view (get-grid-view this
-                                    [{:title (get-string :tags)
-                                      :func show-tags}])]
+    (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar (get-string :me) me-view)
-      (create-tab action-bar (get-string :users) users-view)
-      (create-tab action-bar (get-string :photos) photos-view)
-      (create-tab action-bar (get-string :videos) videos-view)
-      (create-tab action-bar (get-string :audio) audio-view))
+      (create-tab action-bar
+                  (get-string :me)
+                  (get-user-view this {}))
+      (create-tab action-bar 
+                  (get-string :users)
+                  (get-category-view this {} true))
+      (create-tab action-bar
+                  (get-string :photos)
+                  (get-category-view this {} true))
+      (create-tab action-bar
+                  (get-string :videos)
+                  (get-category-view this {} true))
+      (create-tab action-bar
+                  (get-string :audio)
+                  (get-category-view this {} true)))
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
@@ -66,18 +54,17 @@
   net.nightweb.FavoritesPage
   :on-create
   (fn [this bundle]
-    (let [action-bar (.getActionBar this)
-          users-view (get-grid-view this [])
-          photos-view (get-grid-view this [])
-          videos-view (get-grid-view this [])
-          audio-view (get-grid-view this [])]
+    (let [extras (.getExtras (.getIntent this))
+          params-str (if extras (.getString extras "params") nil)
+          params (if params-str (read-string params-str) {})
+          action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get-string :favorites))
-      (create-tab action-bar (get-string :users) users-view)
-      (create-tab action-bar (get-string :photos) photos-view)
-      (create-tab action-bar (get-string :videos) videos-view)
-      (create-tab action-bar (get-string :audio) audio-view)))
+      (create-tab action-bar (get-string :users) (get-category-view this {}))
+      (create-tab action-bar (get-string :photos) (get-category-view this {}))
+      (create-tab action-bar (get-string :videos) (get-category-view this {}))
+      (create-tab action-bar (get-string :audio) (get-category-view this {}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))
@@ -89,18 +76,14 @@
   net.nightweb.DownloadsPage
   :on-create
   (fn [this bundle]
-    (let [action-bar (.getActionBar this)
-          all-view (get-grid-view this [])
-          photos-view (get-grid-view this [])
-          videos-view (get-grid-view this [])
-          audio-view (get-grid-view this [])]
+    (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get-string :downloads))
-      (create-tab action-bar (get-string :all) all-view)
-      (create-tab action-bar (get-string :photos) photos-view)
-      (create-tab action-bar (get-string :videos) videos-view)
-      (create-tab action-bar (get-string :audio) audio-view)))
+      (create-tab action-bar (get-string :all) (get-category-view this {}))
+      (create-tab action-bar (get-string :photos) (get-category-view this {}))
+      (create-tab action-bar (get-string :videos) (get-category-view this {}))
+      (create-tab action-bar (get-string :audio) (get-category-view this {}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))

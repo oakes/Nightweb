@@ -1,13 +1,19 @@
 (ns net.nightweb.views
   (:use [neko.ui :only [make-ui]]
         [neko.resource :only [get-string get-resource]]
-        [neko.ui.mapping :only [set-classname!]]))
+        [neko.ui.mapping :only [set-classname!]]
+        [net.nightweb.actions :only [do-save-profile
+                                     do-cancel
+                                     show-dialog
+                                     show-favorites
+                                     show-downloads
+                                     show-tags]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false 160))
-  ([context content make-height-fit-content min-width]
+  ([context content make-height-fit-content? min-width]
    (let [density (.density (.getDisplayMetrics (.getResources context)))
          tile-view-min (int (* density min-width))
          view (proxy [android.widget.GridView] [context]
@@ -15,7 +21,7 @@
                   (let [w (android.view.View$MeasureSpec/getSize width-spec)
                         num-columns (int (/ w tile-view-min))]
                     (.setNumColumns this num-columns))
-                  (if make-height-fit-content
+                  (if make-height-fit-content?
                     (let [params (.getLayoutParams this)
                           size (bit-shift-right java.lang.Integer/MAX_VALUE 2)
                           mode android.view.View$MeasureSpec/AT_MOST
@@ -115,6 +121,35 @@
   [context content]
   (let [view (make-ui context [:linear-layout {}])]
     view))
+
+(defn get-user-view
+  [context content]
+  (let [show-profile (fn [context content]
+                       (show-dialog
+                         context
+                         (get-profile-view context content)
+                         {:positive-name (get-string :save)
+                          :positive-func do-save-profile
+                          :negative-name (get-string :cancel)
+                          :negative-func do-cancel}))
+        view (get-grid-view context
+                            [{:title (get-string :profile)
+                              :func show-profile}
+                             {:title (get-string :favorites)
+                              :func show-favorites}
+                             {:title (get-string :downloads)
+                              :func show-downloads}])]
+    view))
+
+(defn get-category-view
+  ([context content] (get-category-view context content false))
+  ([context content show-tags?]
+   (let [view (get-grid-view context
+                             (if show-tags?
+                               [{:title (get-string :tags)
+                                 :func show-tags}]
+                               []))]
+     view)))
 
 (defn create-tab
   [action-bar title first-view]

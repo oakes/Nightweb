@@ -1,6 +1,5 @@
 (ns net.nightweb.actions
-  (:use [neko.resource :only [get-resource get-string]]
-        [net.nightweb.views :only [get-profile-view get-new-post-view]]))
+  (:use [neko.resource :only [get-resource get-string]]))
 
 (defn share-url
   [context]
@@ -45,29 +44,21 @@
   (if (= (.getItemId item) (get-resource :id :android/home))
     (show-page context "net.nightweb.MainPage" {})))
 
-(defn show-new-post
-  [context content]
-  (show-dialog context
-               (get-new-post-view context
-                                  [{:title (get-string :attach_users)}
-                                   {:title (get-string :attach_photos)}
-                                   {:title (get-string :attach_videos)}
-                                   {:title (get-string :attach_audio)}])
-               {:positive-name (get-string :send)
-                :positive-func (fn [dialog] (println "send"))
-                :neutral-name (get-string :attach)
-                :neutral-func (fn [dialog] (println "attach"))
-                :negative-name (get-string :cancel)
-                :negative-func (fn [dialog] (println "cancel"))}))
+(defn do-send-new-post
+  [dialog]
+  (println "send"))
 
-(defn show-profile
-  [context content]
-  (show-dialog context
-               (get-profile-view context content)
-               {:positive-name (get-string :save)
-                :positive-func (fn [dialog] (println "save"))
-                :negative-name (get-string :cancel)
-                :negative-func (fn [dialog] (println "cancel"))}))
+(defn do-attach-to-new-post
+  [dialog]
+  (println "attach"))
+
+(defn do-save-profile
+  [dialog]
+  (println "save"))
+
+(defn do-cancel
+  [dialog]
+  (println "cancel"))
 
 (defn show-favorites
   [context content]
