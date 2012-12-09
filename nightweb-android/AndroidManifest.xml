@@ -20,9 +20,6 @@
 			</intent-filter>
 		</activity>
 		<activity
-			android:name='.NewPostPage'>
-		</activity>
-		<activity
 			android:name='.FavoritesPage'>
 		</activity>
 		<activity

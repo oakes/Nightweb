@@ -1,6 +1,6 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
-        [net.nightweb.views :only [get-profile-view]]))
+        [net.nightweb.views :only [get-profile-view get-new-post-view]]))
 
 (defn share-url
   [context]
@@ -16,16 +16,26 @@
     (.putExtra intent "params" (pr-str params))
     (.startActivity context intent)))
 
-(defn show-save-dialog
-  [context view]
+(defn show-dialog
+  [context view buttons]
   (let [builder (android.app.AlertDialog$Builder. context)
-        do-save (proxy [android.content.DialogInterface$OnClickListener] []
-                  (onClick [dialog which]))
-        do-cancel (proxy [android.content.DialogInterface$OnClickListener] []
-                    (onClick [dialog which]))]
+        btn-action (fn [func]
+                     (proxy [android.content.DialogInterface$OnClickListener] []
+                       (onClick [dialog which]
+                         (if func (func dialog)))))]
+    (if-let [positive-name (get buttons :positive-name)]
+      (.setPositiveButton builder
+                          positive-name
+                          (btn-action (get buttons :positive-func))))
+    (if-let [neutral-name (get buttons :neutral-name)]
+      (.setNeutralButton builder
+                         neutral-name
+                         (btn-action (get buttons :neutral-func))))
+    (if-let [negative-name (get buttons :negative-name)]
+      (.setNegativeButton builder
+                          negative-name
+                          (btn-action (get buttons :negative-func))))
     (.setView builder view)
-    (.setPositiveButton builder (get-string :save) do-save)
-    (.setNegativeButton builder (get-string :cancel) do-cancel)
     (.create builder)
     (.show builder)))
 
@@ -34,9 +44,29 @@
   (if (= (.getItemId item) (get-resource :id :android/home))
     (show-page context "net.nightweb.MainPage" {})))
 
+(defn show-new-post
+  [context content]
+  (show-dialog context
+               (get-new-post-view context
+                                  [{:title (get-string :attach_users)}
+                                   {:title (get-string :attach_photos)}
+                                   {:title (get-string :attach_videos)}
+                                   {:title (get-string :attach_audio)}])
+               {:positive-name (get-string :send)
+                :positive-func (fn [dialog] (println "send"))
+                :neutral-name (get-string :attach)
+                :neutral-func (fn [dialog] (println "attach"))
+                :negative-name (get-string :cancel)
+                :negative-func (fn [dialog] (println "cancel"))}))
+
 (defn show-profile
   [context content]
-  (show-save-dialog context (get-profile-view context content)))
+  (show-dialog context
+               (get-profile-view context content)
+               {:positive-name (get-string :save)
+                :positive-func (fn [dialog] (println "save"))
+                :negative-name (get-string :cancel)
+                :negative-func (fn [dialog] (println "cancel"))}))
 
 (defn show-favorites
   [context content]

@@ -3,118 +3,76 @@
         [neko.resource :only [get-string get-resource]]
         [neko.ui.mapping :only [set-classname!]]))
 
-(do
-  (gen-class
-    :name "net.nightweb.views.ExpandableGridView"
-    :extends android.widget.GridView
-    :state "state"
-    :init "init"
-    :prefix "expandable-grid-view-"
-    :constructors {[android.content.Context] [android.content.Context]
-                   [android.content.Context android.util.AttributeSet]
-                   [android.content.Context android.util.AttributeSet]
-                   [android.content.Context android.util.AttributeSet int]
-                   [android.content.Context android.util.AttributeSet int]}
-    :methods [[setExpandable [boolean] void]]
-    :exposes-methods {onMeasure superOnMeasure})
-  (defn expandable-grid-view-create-state
-    [context]
-    (atom {:context context
-           :expandable false}))
-  (defn expandable-grid-view-init
-    ([context]
-     [[context] (expandable-grid-view-create-state context)])
-    ([context attrs]
-     [[context attrs] (expandable-grid-view-create-state context)])
-    ([context attrs def-style]
-     [[context attrs def-style] (expandable-grid-view-create-state context)]))
-  (defn expandable-grid-view-onMeasure
-    [this width height]
-    (if (get @(.state this) :expandable)
-      (let [params (.getLayoutParams this)
-            at-most android.view.View$MeasureSpec/AT_MOST
-            spec (android.view.View$MeasureSpec/makeMeasureSpec
-                                    (bit-shift-right
-                                      java.lang.Integer/MAX_VALUE 2)
-                                    at-most)]
-        (.superOnMeasure this width spec)
-        (set! (. params height) (.getMeasuredHeight this)))
-      (.superOnMeasure this width height)))
-  (defn expandable-grid-view-setExpandable
-    [this is-expandable]
-    (swap! (.state this) assoc-in [:expandable] is-expandable)))
-
-(set-classname! :grid-view net.nightweb.views.ExpandableGridView)
 (set-classname! :scroll-view android.widget.ScrollView)
 
-(defn get-screen-width
-  [context]
-  (let [point (android.graphics.Point.)
-        display (.getDefaultDisplay (.getWindowManager context))
-        _ (.getSize display point)]
-    (.x point)))
-
 (defn get-grid-view
-  [context content]
-  (let [view (make-ui context
-                      [:grid-view {:horizontal-spacing 0
-                                   :vertical-spacing 0}])
-        screen-width (get-screen-width context)
-        density (.density (.getDisplayMetrics (.getResources context)))
-        tile-view-min (* density 160)
-        num-columns (int (/ screen-width tile-view-min))]
-    (.setNumColumns view num-columns)
-    (.setAdapter
-      view
-      (proxy [android.widget.BaseAdapter] []
-        (getItem [position] nil)
-        (getItemId [position] 0)
-        (getCount [] (count content))
-        (getView [position convert-view parent]
-          (if convert-view
-            convert-view
-            (let [bottom android.view.Gravity/BOTTOM
-                  black android.graphics.Color/BLACK
-                  border (get-resource :drawable :border)
-                  item (get content position)
-                  tile-view (make-ui context [:linear-layout {:orientation 1}
-                                              [:text-view {:layout-weight 3}]
-                                              [:text-view {:layout-weight 1
-                                                           :gravity bottom}]])
-                  tile-view-width (if (> num-columns 0)
-                                    (int (/ screen-width num-columns))
-                                    tile-view-min)
-                  layout-params (android.widget.AbsListView$LayoutParams.
-                                                            tile-view-width
-                                                            tile-view-width)
-                  text-top (.getChildAt tile-view 0)
-                  text-bottom (.getChildAt tile-view 1)]
-              (.setPadding tile-view 5 5 5 5)
-              (.setBackgroundResource tile-view border)
-              (.setLayoutParams tile-view layout-params)
-              (.setText text-top (get-in content [position :title]))
-              (.setText text-bottom (get-in content [position :subtitle]))
-              (.setShadowLayer text-top 10 0 0 black)
-              (.setShadowLayer text-bottom 10 0 0 black)
-              tile-view)))))
-    (.setOnItemClickListener
-      view
-      (proxy [android.widget.AdapterView$OnItemClickListener] []
-        (onItemClick [parent v position id]
-          (let [item (get content position)]
-            (if-let [func (get item :func)]
-              (func context item))))))
-    view))
+  ([context content] (get-grid-view context content false 160))
+  ([context content make-height-fit-content min-width]
+   (let [density (.density (.getDisplayMetrics (.getResources context)))
+         tile-view-min (int (* density min-width))
+         view (proxy [android.widget.GridView] [context]
+                (onMeasure [width-spec height-spec]
+                  (let [w (android.view.View$MeasureSpec/getSize width-spec)
+                        num-columns (int (/ w tile-view-min))]
+                    (.setNumColumns this num-columns))
+                  (if make-height-fit-content
+                    (let [params (.getLayoutParams this)
+                          size (bit-shift-right java.lang.Integer/MAX_VALUE 2)
+                          mode android.view.View$MeasureSpec/AT_MOST
+                          h-spec (android.view.View$MeasureSpec/makeMeasureSpec
+                                                    size mode)]
+                      (proxy-super onMeasure width-spec h-spec))
+                    (proxy-super onMeasure width-spec height-spec))))]
+     (.setAdapter
+       view
+       (proxy [android.widget.BaseAdapter] []
+         (getItem [position] nil)
+         (getItemId [position] 0)
+         (getCount [] (count content))
+         (getView [position convert-view parent]
+           (let [not-initialized (= convert-view nil)
+                 tile-view (if not-initialized
+                             (let [bottom android.view.Gravity/BOTTOM]
+                               (make-ui context
+                                        [:linear-layout {:orientation 1}
+                                         [:text-view {:layout-weight 3}]
+                                         [:text-view {:layout-weight 1
+                                                      :gravity bottom}]]))
+                             convert-view)
+                 num-columns (.getNumColumns view)
+                 width (.getWidth view)
+                 tile-view-width (if (and (> width 0) (> num-columns 0))
+                                   (int (/ width num-columns))
+                                   tile-view-min)
+                 layout-params (android.widget.AbsListView$LayoutParams.
+                                                           tile-view-width
+                                                           tile-view-width)]
+             (.setLayoutParams tile-view layout-params)
+             (if not-initialized
+               (let [black android.graphics.Color/BLACK
+                     border (get-resource :drawable :border)
+                     item (get content position)
+                     text-top (.getChildAt tile-view 0)
+                     text-bottom (.getChildAt tile-view 1)]
+                 (.setPadding tile-view 5 5 5 5)
+                 (.setBackgroundResource tile-view border)
+                 (.setText text-top (get-in content [position :title]))
+                 (.setText text-bottom (get-in content [position :subtitle]))
+                 (.setShadowLayer text-top 10 0 0 black)
+                 (.setShadowLayer text-bottom 10 0 0 black)))
+             tile-view))))
+     (.setOnItemClickListener
+       view
+       (proxy [android.widget.AdapterView$OnItemClickListener] []
+         (onItemClick [parent v position id]
+           (let [item (get content position)]
+             (if-let [func (get item :func)]
+               (func context item))))))
+     view)))
 
 (defn get-new-post-view
   [context content]
-  (let [view (make-ui context [:scroll-view {}
-                               [:linear-layout {:orientation 1}
-                                [:edit-text {:min-lines 10}]]])
-        linear-layout (.getChildAt view 0)
-        grid-view (get-grid-view context content)]
-    (.setExpandable grid-view true)
-    (.addView linear-layout grid-view)
+  (let [view (make-ui context [:edit-text {:min-lines 10}])]
     view))
 
 (defn get-post-view

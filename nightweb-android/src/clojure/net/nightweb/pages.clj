@@ -6,8 +6,7 @@
         [net.nightweb.views :only [create-tab
                                    get-grid-view
                                    get-new-post-view]]
-        [net.nightweb.menus :only [create-main-menu
-                                   create-new-post-menu]]
+        [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action
                                      show-profile
                                      show-favorites
@@ -127,28 +126,6 @@
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu))
-  :on-options-item-selected
-  (fn [this item]
-    (do-menu-action this item)))
-
-(defactivity
-  net.nightweb.NewPostPage
-  :def new-post-page
-  :on-create
-  (fn [this bundle]
-    (let [action-bar (.getActionBar this)
-          new-post-view
-          (get-new-post-view this
-                             [{:title (get-string :attach_users)}
-                              {:title (get-string :attach_photos)}
-                              {:title (get-string :attach_videos)}
-                              {:title (get-string :attach_audio)}])]
-      (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get-string :new_post))
-      (set-content-view! new-post-page new-post-view)))
-  :on-create-options-menu
-  (fn [this menu]
-    (create-new-post-menu this menu))
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))

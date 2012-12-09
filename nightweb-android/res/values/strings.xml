@@ -5,7 +5,6 @@
   <string name="new_post">New Post</string>
   <string name="search">Search</string>
   <string name="share">Share</string>
-  <string name="send">Send</string>
 
   <string name="all">All</string>
   <string name="me">Me</string>
@@ -29,5 +28,7 @@
   <string name="about_me">About me</string>
 
   <string name="cancel">Cancel</string>
+  <string name="attach">Attach...</string>
   <string name="save">Save</string>
+  <string name="send">Send</string>
 </resources>
