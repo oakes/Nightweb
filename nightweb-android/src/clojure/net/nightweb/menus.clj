@@ -4,20 +4,15 @@
                                      show-new-post]]))
 
 (defn create-main-menu
-  [context menu]
+  [context menu show-share-button]
+  ; create search button
   (let [search-item (.add menu (get-string :search))
-        new-post-item (.add menu (get-string :new_post))
-        share-item (.add menu (get-string :share))
-        if-room android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM
-        collapse-action-view
-        android.view.MenuItem/SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW
         search-view (android.widget.SearchView. context)]
     (.setIcon search-item (get-resource :drawable :android/ic_menu_search))
-    (.setIcon new-post-item (get-resource :drawable :android/ic_menu_add))
-    (.setIcon share-item (get-resource :drawable :android/ic_menu_share))
-    (.setShowAsAction search-item (bit-or if-room collapse-action-view))
-    (.setShowAsAction new-post-item if-room)
-    (.setShowAsAction share-item if-room)
+    (.setShowAsAction
+      search-item
+      (bit-or android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM
+              android.view.MenuItem/SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW))
     (.setOnQueryTextListener
       search-view
       (proxy [android.widget.SearchView$OnQueryTextListener] []
@@ -27,16 +22,27 @@
         (onQueryTextSubmit [query]
           (println "submitted:" query)
           true)))
-    (.setActionView search-item search-view)
+    (.setActionView search-item search-view))
+  ; create new post button
+  (let [new-post-item (.add menu (get-string :new_post))]
+    (.setIcon new-post-item (get-resource :drawable :android/ic_menu_add))
+    (.setShowAsAction new-post-item
+                      android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
     (.setOnMenuItemClickListener
       new-post-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
           (show-new-post context {})
-          true)))
-    (.setOnMenuItemClickListener
-      share-item
-      (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-        (onMenuItemClick [menu-item]
-          (share-url context)
-          true)))))
+          true))))
+    ; create share button
+  (if show-share-button
+    (let [share-item (.add menu (get-string :share))]
+      (.setIcon share-item (get-resource :drawable :android/ic_menu_share))
+      (.setShowAsAction share-item
+                        android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
+      (.setOnMenuItemClickListener
+        share-item
+        (proxy [android.view.MenuItem$OnMenuItemClickListener] []
+          (onMenuItemClick [menu-item]
+            (share-url context)
+            true))))))

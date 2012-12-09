@@ -60,7 +60,7 @@
     (unbind-service this conn))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu)))
+    (create-main-menu this menu true)))
 
 (defactivity
   net.nightweb.FavoritesPage
@@ -80,7 +80,7 @@
       (create-tab action-bar (get-string :audio) audio-view)))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu))
+    (create-main-menu this menu true))
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))
@@ -103,7 +103,7 @@
       (create-tab action-bar (get-string :audio) audio-view)))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu))
+    (create-main-menu this menu false))
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))
@@ -125,7 +125,7 @@
       (set-content-view! grid-page grid-view)))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu))
+    (create-main-menu this menu true))
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))

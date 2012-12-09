@@ -36,8 +36,9 @@
                           negative-name
                           (btn-action (get buttons :negative-func))))
     (.setView builder view)
-    (.create builder)
-    (.show builder)))
+    (let [dialog (.create builder)]
+      (.setCanceledOnTouchOutside dialog false)
+      (.show dialog))))
 
 (defn do-menu-action
   [context item]
