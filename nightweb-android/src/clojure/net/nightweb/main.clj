@@ -5,7 +5,8 @@
         [net.nightweb.clandroid.service :only [defservice start-foreground]]
         [nightweb.router :only [start-router
                                 stop-router
-                                start-download-manager]]))
+                                start-download-manager]]
+        [nightweb.db :only [create-database]]))
 
 (defapplication net.nightweb.Application)
 
@@ -26,6 +27,7 @@
     (.registerReceiver this
                        service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
+    (create-database (.getPath (.getFilesDir this)) nil)
     ;(start-router this)
     ;(def download-manager (start-download-manager))
     )

@@ -1,35 +1,52 @@
 (ns nightweb.db
-  (:require [clojure.java.jdbc :as sql]))
-
-(defn create-table-if-not-exists
-  [name & specs]
-  (sql/do-commands (clojure.string/replace
-                     (apply sql/create-table-ddl name specs)
-                     "CREATE TABLE"
-                     "CREATE TABLE IF NOT EXISTS")))
+  (:use [nightweb.jdbc :only [create-table-if-not-exists
+                              with-connection
+                              transaction]]))
 
 (defn create-tables
   []
   (create-table-if-not-exists
-    "websites"
-    [:id "IDENTITY" "NOT NULL" "PRIMARY KEY"]))
+    :users
+    [:hash "BINARY"]
+    [:name "VARCHAR"]
+    [:about "CLOB"]
+    [:time "TIMESTAMP"])
+  (create-table-if-not-exists
+    :posts
+    [:hash "BINARY"]
+    [:user "BINARY"]
+    [:text "CLOB"]
+    [:time "TIMESTAMP"])
+  (create-table-if-not-exists
+    :files
+    [:hash "BINARY"]
+    [:post "BINARY"]
+    [:name "VARCHAR"]
+    [:ext "VARCHAR"]
+    [:bytes "BIGINT"]
+    [:time "TIMESTAMP"])
+  (create-table-if-not-exists
+    :previews
+    [:hash "BINARY"]
+    [:pointer "BINARY"]))
 
 (defn get-spec
-  ([] (get-spec "default-password"))
-  ([password]
-    {:classname "org.h2.Driver"
-     :subprotocol "h2"
-     :subname "main"
-     :cipher "AES"
-     :password (str password " ")}))
+  [path password]
+  {:classname "org.h2.Driver"
+   :subprotocol "h2"
+   :subname (str path "/main")
+   :cipher "AES"
+   :password (str (if password password "password") " ")})
 
-(defn invoke-with-connection
+(def spec nil)
+
+(defn run-query
   [f]
-  (sql/with-connection
-    (get-spec)
-    (sql/transaction
-      (f))))
+  (with-connection
+    spec
+    (transaction (f))))
 
 (defn create-database
-  []
-  (invoke-with-connection create-tables))
+  [path password]
+  (def spec (get-spec path password))
+  (run-query create-tables))

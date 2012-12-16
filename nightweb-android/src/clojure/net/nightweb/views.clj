@@ -7,7 +7,8 @@
                                      show-dialog
                                      show-favorites
                                      show-downloads
-                                     show-tags]]))
+                                     show-tags]]
+        [nightweb.db]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 
