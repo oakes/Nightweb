@@ -8,7 +8,8 @@
                                      show-favorites
                                      show-downloads
                                      show-tags]]
-        [nightweb.db]))
+        [nightweb.db :only [run-query
+                            get-profile-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 
@@ -116,6 +117,12 @@
     (.setLayoutParams image-view layout-params)
     (.setBackgroundResource image-view border)
     (.addView linear-layout image-view)
+    (run-query
+      get-profile-data
+      content
+      (fn [row]
+        (.setText text-name (get row :name))
+        (.setText text-about (get row :about))))
     view))
 
 (defn get-search-view
@@ -125,7 +132,7 @@
 
 (defn get-user-view
   [context content]
-  (let [show-profile (fn [context content]
+  (let [show-profile (fn [tile-context tile-content]
                        (show-dialog
                          context
                          (get-profile-view context content)

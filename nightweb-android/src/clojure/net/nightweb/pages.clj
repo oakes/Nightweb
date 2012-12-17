@@ -8,22 +8,34 @@
                                    get-user-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [do-menu-action]]))
+        [net.nightweb.actions :only [do-menu-action]]
+        [nightweb.db :only [defspec
+                            run-query
+                            drop-tables
+                            create-tables
+                            insert-test-data]]))
 
 (defactivity
   net.nightweb.MainPage
   :on-create
   (fn [this bundle]
+    ; create database
+    (defspec (.getPath (.getFilesDir this)) nil)
+    (run-query drop-tables nil nil)
+    (run-query create-tables nil nil)
+    (run-query insert-test-data nil nil)
+    ; start service
     (def conn (bind-service this
                             "net.nightweb.MainService"
                             (fn [service] (.act service :test))))
+    ; create main ui
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
       (.setDisplayShowHomeEnabled action-bar false)
       (create-tab action-bar
                   (get-string :me)
-                  (get-user-view this {}))
+                  (get-user-view this {:hash (byte-array (map byte [0]))}))
       (create-tab action-bar 
                   (get-string :users)
                   (get-category-view this {} true))
@@ -36,6 +48,7 @@
       (create-tab action-bar
                   (get-string :audio)
                   (get-category-view this {} true)))
+    ; make sure activity shuts down when notification is touched
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
                                (.finish context))))
