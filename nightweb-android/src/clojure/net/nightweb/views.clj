@@ -175,11 +175,11 @@
      (get-grid-view context grid-content))))
 
 (defn create-tab
-  [action-bar title first-view]
+  [action-bar title create-view]
   (let [tab (.newTab action-bar)
         fragment (proxy [android.app.Fragment] []
                    (onCreateView [layout-inflater viewgroup bundle]
-                                 first-view))
+                                 (create-view)))
         listener (proxy [android.app.ActionBar$TabListener] []
                    (onTabSelected [tab ft]
                                   (.add ft

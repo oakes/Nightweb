@@ -35,19 +35,19 @@
       (.setDisplayShowHomeEnabled action-bar false)
       (create-tab action-bar
                   (get-string :me)
-                  (get-user-view this {:hash (byte-array (map byte [0]))}))
+                  #(get-user-view this {:hash (byte-array (map byte [0]))}))
       (create-tab action-bar 
                   (get-string :users)
-                  (get-category-view this {:type :users} true))
+                  #(get-category-view this {:type :users} true))
       (create-tab action-bar
                   (get-string :photos)
-                  (get-category-view this {:type :photos} true))
+                  #(get-category-view this {:type :photos} true))
       (create-tab action-bar
                   (get-string :videos)
-                  (get-category-view this {:type :videos} true))
+                  #(get-category-view this {:type :videos} true))
       (create-tab action-bar
                   (get-string :audio)
-                  (get-category-view this {:type :audio} true)))
+                  #(get-category-view this {:type :audio} true)))
     ; make sure activity shuts down when notification is touched
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
@@ -76,16 +76,16 @@
       (.setTitle action-bar (get-string :favorites))
       (create-tab action-bar
                   (get-string :users)
-                  (get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :favorites}))
       (create-tab action-bar
                   (get-string :photos)
-                  (get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :favorites}))
       (create-tab action-bar
                   (get-string :videos)
-                  (get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :favorites}))
       (create-tab action-bar
                   (get-string :audio)
-                  (get-category-view this {:type :favorites}))))
+                  #(get-category-view this {:type :favorites}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))
@@ -103,16 +103,16 @@
       (.setTitle action-bar (get-string :downloads))
       (create-tab action-bar
                   (get-string :all)
-                  (get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :downloads}))
       (create-tab action-bar
                   (get-string :photos)
-                  (get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :downloads}))
       (create-tab action-bar
                   (get-string :videos)
-                  (get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :downloads}))
       (create-tab action-bar
                   (get-string :audio)
-                  (get-category-view this {:type :downloads}))))
+                  #(get-category-view this {:type :downloads}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
