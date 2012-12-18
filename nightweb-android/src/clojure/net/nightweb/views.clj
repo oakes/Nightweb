@@ -9,9 +9,40 @@
                                      show-downloads
                                      show-tags]]
         [nightweb.db :only [run-query
-                            get-profile-data]]))
+                            get-profile-data
+                            get-category-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
+
+(defn get-profile-view
+  [context content]
+  (let [view (make-ui context [:scroll-view {}
+                               [:linear-layout {:orientation 1}
+                                [:edit-text {:lines 1
+                                             :layout-width :fill}]
+                                [:edit-text {:layout-width :fill}]]])
+        linear-layout (.getChildAt view 0)
+        text-name (.getChildAt linear-layout 0)
+        text-about (.getChildAt linear-layout 1)
+        image-view (proxy [android.widget.ImageView] [context]
+                     (onMeasure [width height]
+                       (proxy-super onMeasure width width)))
+        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
+        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
+        border (get-resource :drawable :border)]
+    (.setPadding linear-layout 10 10 10 10)
+    (.setHint text-name (get-string :name))
+    (.setHint text-about (get-string :about_me))
+    (.setLayoutParams image-view layout-params)
+    (.setBackgroundResource image-view border)
+    (.addView linear-layout image-view)
+    (run-query
+      get-profile-data
+      content
+      (fn [row]
+        (.setText text-name (get row :title))
+        (.setText text-about (get row :about))))
+    view))
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false 160))
@@ -73,9 +104,23 @@
        view
        (proxy [android.widget.AdapterView$OnItemClickListener] []
          (onItemClick [parent v position id]
-           (let [item (get content position)]
-             (if-let [func (get item :func)]
-               (func context item))))))
+           (let [item (get content position)
+                 data-type (get item :type)
+                 func (case data-type
+                        :tags show-tags
+                        :profile (fn [context content]
+                                   (show-dialog
+                                     context
+                                     (get-profile-view context
+                                                       (get item :content))
+                                     {:positive-name (get-string :save)
+                                      :positive-func do-save-profile
+                                      :negative-name (get-string :cancel)
+                                      :negative-func do-cancel}))
+                        :favorites show-favorites
+                        :downloads show-downloads
+                        :users (fn [context content]))]
+             (func context item)))))
      view)))
 
 (defn get-new-post-view
@@ -95,36 +140,6 @@
     (.addView view (get-grid-view context content))
     view))
 
-(defn get-profile-view
-  [context content]
-  (let [view (make-ui context [:scroll-view {}
-                               [:linear-layout {:orientation 1}
-                                [:edit-text {:lines 1
-                                             :layout-width :fill}]
-                                [:edit-text {:layout-width :fill}]]])
-        linear-layout (.getChildAt view 0)
-        text-name (.getChildAt linear-layout 0)
-        text-about (.getChildAt linear-layout 1)
-        image-view (proxy [android.widget.ImageView] [context]
-                     (onMeasure [width height]
-                       (proxy-super onMeasure width width)))
-        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
-        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
-        border (get-resource :drawable :border)]
-    (.setPadding linear-layout 10 10 10 10)
-    (.setHint text-name (get-string :name))
-    (.setHint text-about (get-string :about_me))
-    (.setLayoutParams image-view layout-params)
-    (.setBackgroundResource image-view border)
-    (.addView linear-layout image-view)
-    (run-query
-      get-profile-data
-      content
-      (fn [row]
-        (.setText text-name (get row :name))
-        (.setText text-about (get row :about))))
-    view))
-
 (defn get-search-view
   [context content]
   (let [view (make-ui context [:linear-layout {}])]
@@ -132,32 +147,32 @@
 
 (defn get-user-view
   [context content]
-  (let [show-profile (fn [tile-context tile-content]
-                       (show-dialog
-                         context
-                         (get-profile-view context content)
-                         {:positive-name (get-string :save)
-                          :positive-func do-save-profile
-                          :negative-name (get-string :cancel)
-                          :negative-func do-cancel}))
-        view (get-grid-view context
+  (let [view (get-grid-view context
                             [{:title (get-string :profile)
-                              :func show-profile}
+                              :subtitle (get content :title)
+                              :content content
+                              :type :profile}
                              {:title (get-string :favorites)
-                              :func show-favorites}
+                              :content content
+                              :type :favorites}
                              {:title (get-string :downloads)
-                              :func show-downloads}])]
+                              :content content
+                              :type :downloads}])]
     view))
 
 (defn get-category-view
   ([context content] (get-category-view context content false))
   ([context content show-tags?]
-   (let [view (get-grid-view context
-                             (if show-tags?
-                               [{:title (get-string :tags)
-                                 :func show-tags}]
-                               []))]
-     view)))
+   (let [results (run-query
+                   get-category-data
+                   content
+                   (fn [rows] rows))
+         tags (if show-tags?
+                [{:title (get-string :tags)
+                  :type :tags}]
+                [])
+         grid-content (into [] (concat tags results))]
+     (get-grid-view context grid-content))))
 
 (defn create-tab
   [action-bar title first-view]

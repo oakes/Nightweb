@@ -38,16 +38,16 @@
                   (get-user-view this {:hash (byte-array (map byte [0]))}))
       (create-tab action-bar 
                   (get-string :users)
-                  (get-category-view this {} true))
+                  (get-category-view this {:type :users} true))
       (create-tab action-bar
                   (get-string :photos)
-                  (get-category-view this {} true))
+                  (get-category-view this {:type :photos} true))
       (create-tab action-bar
                   (get-string :videos)
-                  (get-category-view this {} true))
+                  (get-category-view this {:type :videos} true))
       (create-tab action-bar
                   (get-string :audio)
-                  (get-category-view this {} true)))
+                  (get-category-view this {:type :audio} true)))
     ; make sure activity shuts down when notification is touched
     (def activity-receiver (proxy [android.content.BroadcastReceiver] []
                              (onReceive [context intent]
@@ -74,10 +74,18 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get-string :favorites))
-      (create-tab action-bar (get-string :users) (get-category-view this {}))
-      (create-tab action-bar (get-string :photos) (get-category-view this {}))
-      (create-tab action-bar (get-string :videos) (get-category-view this {}))
-      (create-tab action-bar (get-string :audio) (get-category-view this {}))))
+      (create-tab action-bar
+                  (get-string :users)
+                  (get-category-view this {:type :favorites}))
+      (create-tab action-bar
+                  (get-string :photos)
+                  (get-category-view this {:type :favorites}))
+      (create-tab action-bar
+                  (get-string :videos)
+                  (get-category-view this {:type :favorites}))
+      (create-tab action-bar
+                  (get-string :audio)
+                  (get-category-view this {:type :favorites}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))
@@ -93,10 +101,18 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get-string :downloads))
-      (create-tab action-bar (get-string :all) (get-category-view this {}))
-      (create-tab action-bar (get-string :photos) (get-category-view this {}))
-      (create-tab action-bar (get-string :videos) (get-category-view this {}))
-      (create-tab action-bar (get-string :audio) (get-category-view this {}))))
+      (create-tab action-bar
+                  (get-string :all)
+                  (get-category-view this {:type :downloads}))
+      (create-tab action-bar
+                  (get-string :photos)
+                  (get-category-view this {:type :downloads}))
+      (create-tab action-bar
+                  (get-string :videos)
+                  (get-category-view this {:type :downloads}))
+      (create-tab action-bar
+                  (get-string :audio)
+                  (get-category-view this {:type :downloads}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))

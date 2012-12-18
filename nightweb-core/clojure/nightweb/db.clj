@@ -13,9 +13,7 @@
   (def spec
     {:classname "org.h2.Driver"
      :subprotocol "h2"
-     :subname (str path "/main")
-     :cipher "AES"
-     :password (str (if password password "password") " ")}))
+     :subname (str path "/main")}))
 
 (defn run-query
   [f params callback]
@@ -38,7 +36,7 @@
   (create-table-if-not-exists
     :users
     [:hash "BINARY"]
-    [:name "VARCHAR"]
+    [:title "VARCHAR"]
     [:about "VARCHAR"]
     [:time "TIMESTAMP"])
   (create-table-if-not-exists
@@ -64,7 +62,7 @@
   [params callback]
   (insert-records
     :users
-    {:hash (byte-array (map byte [0])) :name "oskar" :about "Hello, World!"}))
+    {:hash (byte-array (map byte [0])) :title "oskar" :about "Hello, World!"}))
 
 (defn get-profile-data
   [params callback]
@@ -73,3 +71,20 @@
       rs
       ["SELECT * FROM users WHERE hash=?" user-hash]
       (callback (first rs)))))
+
+(defn get-category-data
+  [params callback]
+  (let [data-type (get params :type)
+        statement (case data-type
+                    :users ["SELECT * FROM users"]
+                    :photos ["SELECT * FROM files"]
+                    :videos ["SELECT * FROM files"]
+                    :audio ["SELECT * FROM files"]
+                    :favorites ["SELECT * FROM users"]
+                    :downloads ["SELECT * FROM files"])]
+    (with-query-results
+      rs
+      statement
+      (callback (doall
+                  (for [row rs]
+                    (assoc row :type data-type)))))))
