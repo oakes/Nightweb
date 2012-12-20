@@ -36,7 +36,7 @@
       (create-tab action-bar
                   (get-string :me)
                   #(get-user-view this {:hash (byte-array (map byte [0]))}))
-      (create-tab action-bar 
+      (create-tab action-bar
                   (get-string :users)
                   #(get-category-view this {:type :users} true))
       (create-tab action-bar
@@ -67,9 +67,7 @@
   net.nightweb.FavoritesPage
   :on-create
   (fn [this bundle]
-    (let [extras (.getExtras (.getIntent this))
-          params-str (if extras (.getString extras "params") nil)
-          params (if params-str (read-string params-str) {})
+    (let [params (.getSerializableExtra (.getIntent this) "params")
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
@@ -125,11 +123,11 @@
   :def grid-page
   :on-create
   (fn [this bundle]
-    (let [extras (.getExtras (.getIntent this))
-          params-str (if extras (.getString extras "params") nil)
-          params (if params-str (read-string params-str) {})
+    (let [params (.getSerializableExtra (.getIntent this) "params")
           action-bar (.getActionBar this)
-          grid-view (get-grid-view this [])]
+          grid-view (case (get params :type)
+                      :users (get-user-view this params)
+                      (get-grid-view this []))]
       (.setDisplayHomeAsUpEnabled action-bar true)
       (if-let [title (get params :title)]
         (.setTitle action-bar title)

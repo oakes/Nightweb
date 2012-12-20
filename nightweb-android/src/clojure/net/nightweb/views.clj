@@ -7,9 +7,9 @@
                                      show-dialog
                                      show-favorites
                                      show-downloads
-                                     show-tags]]
+                                     show-grid]]
         [nightweb.db :only [run-query
-                            get-profile-data
+                            get-user-data
                             get-category-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -33,15 +33,13 @@
     (.setPadding linear-layout 10 10 10 10)
     (.setHint text-name (get-string :name))
     (.setHint text-about (get-string :about_me))
+    (if-let [name-str (get content :title)]
+      (.setText text-name name-str))
+    (if-let [about-str (get content :about)]
+      (.setText text-about about-str))
     (.setLayoutParams image-view layout-params)
     (.setBackgroundResource image-view border)
     (.addView linear-layout image-view)
-    (run-query
-      get-profile-data
-      content
-      (fn [row]
-        (.setText text-name (get row :title))
-        (.setText text-about (get row :about))))
     view))
 
 (defn get-grid-view
@@ -107,7 +105,8 @@
            (let [item (get content position)
                  data-type (get item :type)
                  func (case data-type
-                        :tags show-tags
+                        :tags show-grid
+                        :users show-grid
                         :profile (fn [context content]
                                    (show-dialog
                                      context
@@ -147,18 +146,21 @@
 
 (defn get-user-view
   [context content]
-  (let [view (get-grid-view context
-                            [{:title (get-string :profile)
-                              :subtitle (get content :title)
-                              :content content
-                              :type :profile}
-                             {:title (get-string :favorites)
-                              :content content
-                              :type :favorites}
-                             {:title (get-string :downloads)
-                              :content content
-                              :type :downloads}])]
-    view))
+  (run-query
+    get-user-data
+    content
+    (fn [row]
+      (get-grid-view context
+                     [{:title (get-string :profile)
+                       :subtitle (get row :title)
+                       :content row
+                       :type :profile}
+                      {:title (get-string :favorites)
+                       :content row
+                       :type :favorites}
+                      {:title (get-string :downloads)
+                       :content row
+                       :type :downloads}]))))
 
 (defn get-category-view
   ([context content] (get-category-view context content false))

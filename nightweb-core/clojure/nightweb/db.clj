@@ -64,7 +64,7 @@
     :users
     {:hash (byte-array (map byte [0])) :title "oskar" :about "Hello, World!"}))
 
-(defn get-profile-data
+(defn get-user-data
   [params callback]
   (let [user-hash (get params :hash)]
     (with-query-results

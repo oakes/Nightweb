@@ -12,7 +12,7 @@
   [context class-name params]
   (let [class-symbol (java.lang.Class/forName class-name)
         intent (android.content.Intent. context class-symbol)]
-    (.putExtra intent "params" (pr-str params))
+    (.putExtra intent "params" params)
     (.startActivity context intent)))
 
 (defn show-dialog
@@ -68,6 +68,6 @@
   [context content]
   (show-page context "net.nightweb.DownloadsPage" {}))
 
-(defn show-tags
+(defn show-grid
   [context content]
-  (show-page context "net.nightweb.GridPage" {:title (get-string :tags)}))
+  (show-page context "net.nightweb.GridPage" content))
