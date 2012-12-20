@@ -143,6 +143,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     /** how long since generated do we delete - BEP 5 says 10 minutes */
     private static final long MAX_TOKEN_AGE = 10*60*1000;
     private static final long MAX_INBOUND_TOKEN_AGE = MAX_TOKEN_AGE - 2*60*1000;
+    private static final int MAX_OUTBOUND_TOKENS = 5000;
     /** how long since sent do we wait for a reply */
     private static final long MAX_MSGID_AGE = 2*60*1000;
     /** how long since sent do we wait for a reply */
@@ -613,6 +614,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
                    "Rcvd tokens: ").append(_incomingTokens.size()).append("<br>" +
                    "Pending queries: ").append(_sentQueries.size()).append("<br>");
         _tracker.renderStatusHTML(buf);
+        _knownNodes.renderStatusHTML(buf);
         return buf.toString();
     }
 
@@ -1107,8 +1109,12 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         if (nInfo.equals(_myNodeInfo))
             return _myNodeInfo;
         NodeInfo rv = _knownNodes.putIfAbsent(nInfo);
-        if (rv == null)
+        if (rv == null) {
             rv = nInfo;
+            // if we didn't know about it before, set the timestamp
+            // so it isn't immediately removed by the DHTNodes cleaner
+            rv.getNID().setLastSeen();
+        }
         return rv;
     }
 
@@ -1203,7 +1209,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
 
     /**
      *  Handle and respond to the query.
-     *  We have no node info here, it came on response port, we have to get it from the token
+     *  We have no node info here, it came on response port, we have to get it from the token.
+     *  So we can't verify that it came from the same peer, as BEP 5 specifies.
      */
     private void receiveAnnouncePeer(MsgID msgID, InfoHash ih, byte[] tok) throws InvalidBEncodingException {
         Token token = new Token(tok);
@@ -1211,8 +1218,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         if (nInfo == null) {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Unknown token in announce_peer: " + token);
-            if (_log.shouldLog(Log.INFO))
-                _log.info("Current known tokens: " + _outgoingTokens.keySet());
+            //if (_log.shouldLog(Log.INFO))
+            //    _log.info("Current known tokens: " + _outgoingTokens.keySet());
             return;
         }
         if (_log.shouldLog(Log.INFO))
@@ -1277,8 +1284,9 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @throws NPE, IllegalArgumentException, and others too
      */
     private List<NodeInfo> receiveNodes(NodeInfo nInfo, byte[] ids) throws InvalidBEncodingException {
-        List<NodeInfo> rv = new ArrayList(ids.length / NodeInfo.LENGTH);
-        for (int off = 0; off < ids.length; off += NodeInfo.LENGTH) {
+        int max = Math.min(K, ids.length / NodeInfo.LENGTH);
+        List<NodeInfo> rv = new ArrayList(max);
+        for (int off = 0; off < ids.length && rv.size() < max; off += NodeInfo.LENGTH) {
             NodeInfo nInf = new NodeInfo(ids, off);
             if (_blacklist.contains(nInf.getNID())) {
                 if (_log.shouldLog(Log.INFO))
@@ -1300,12 +1308,15 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private List<Hash> receivePeers(NodeInfo nInfo, List<BEValue> peers) throws InvalidBEncodingException {
         if (_log.shouldLog(Log.INFO))
              _log.info("Rcvd peers from: " + nInfo);
-        List<Hash> rv = new ArrayList(peers.size());
+        int max = Math.min(MAX_WANT, peers.size());
+        List<Hash> rv = new ArrayList(max);
         for (BEValue bev : peers) {
             byte[] b = bev.getBytes();
             //Hash h = new Hash(b);
             Hash h = Hash.create(b);
             rv.add(h);
+            if (rv.size() >= max)
+                break;
         }
         if (_log.shouldLog(Log.INFO))
              _log.info("Rcvd peers from: " + nInfo + ": " + DataHelper.toString(rv));
@@ -1518,7 +1529,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private class Cleaner extends SimpleTimer2.TimedEvent {
 
         public Cleaner() {
-            super(SimpleTimer2.getInstance(), CLEAN_TIME);
+            super(SimpleTimer2.getInstance(), 7 * CLEAN_TIME);
         }
 
         public void timeReached() {
@@ -1530,20 +1541,28 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
                           _blacklist.size() + " in blacklist, " +
                           _outgoingTokens.size() + " sent Tokens, " +
                           _incomingTokens.size() + " rcvd Tokens");
+            int cnt = 0;
+            long expire = now - MAX_TOKEN_AGE;
             for (Iterator<Token> iter = _outgoingTokens.keySet().iterator(); iter.hasNext(); ) {
                 Token tok = iter.next();
-                if (tok.lastSeen() < now - MAX_TOKEN_AGE)
+                // just delete at random if we have too many
+                // TODO reduce the expire time and iterate again?
+                if (tok.lastSeen() < expire || cnt >= MAX_OUTBOUND_TOKENS)
                     iter.remove();
+                else
+                    cnt++;
             }
+            expire = now - MAX_INBOUND_TOKEN_AGE;
             for (Iterator<Token> iter = _incomingTokens.values().iterator(); iter.hasNext(); ) {
                 Token tok = iter.next();
-                if (tok.lastSeen() < now - MAX_INBOUND_TOKEN_AGE)
+                if (tok.lastSeen() < expire)
                     iter.remove();
             }
+            expire = now - BLACKLIST_CLEAN_TIME;
             for (Iterator<NID> iter = _blacklist.iterator(); iter.hasNext(); ) {
                 NID nid = iter.next();
                 // lastSeen() is actually when-added
-                if (now > nid.lastSeen() + BLACKLIST_CLEAN_TIME)
+                if (nid.lastSeen() < expire)
                     iter.remove();
             }
             // TODO sent queries?

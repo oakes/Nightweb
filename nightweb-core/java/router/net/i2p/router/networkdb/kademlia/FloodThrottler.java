@@ -12,7 +12,7 @@ import net.i2p.util.SimpleTimer;
  * @since 0.7.11
  */
 class FloodThrottler {
-    private ObjectCounter<Hash> counter;
+    private final ObjectCounter<Hash> counter;
     private static final int MAX_FLOODS = 3;
     private static final long CLEAN_TIME = 60*1000;
 

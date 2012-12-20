@@ -780,7 +780,24 @@ public class ProfileOrganizer {
             // drop profiles that we haven't spoken to in a while
             expireOlderThan = _context.clock().now() - _currentExpireTime;
         }
-            
+        
+        if (shouldCoalesce) {
+            getReadLock();
+            try {
+                for (Iterator<PeerProfile> iter = _strictCapacityOrder.iterator(); iter.hasNext(); ) {
+                    PeerProfile prof = iter.next();
+                    if ( (expireOlderThan > 0) && (prof.getLastSendSuccessful() <= expireOlderThan) ) {
+                        continue;
+                    }
+                    long coalesceStart = System.currentTimeMillis();
+                    prof.coalesceOnly();
+                    coalesceTime += (int)(System.currentTimeMillis()-coalesceStart);
+                }
+            } finally {
+                releaseReadLock();
+            }
+        }
+        
         if (!getWriteLock())
             return;
         long start = System.currentTimeMillis();
@@ -800,12 +817,7 @@ public class ProfileOrganizer {
                     continue; // drop, but no need to delete, since we don't periodically reread
                     // TODO maybe we should delete files, otherwise they are only deleted at restart
                 }
-                
-                if (shouldCoalesce) {
-                    long coalesceStart = System.currentTimeMillis();
-                    prof.coalesceStats();
-                    coalesceTime += (int)(System.currentTimeMillis()-coalesceStart);
-                }
+                prof.updateValues();
                 reordered.add(prof);
                 profileCount++;
             }
@@ -1342,10 +1354,10 @@ public class ProfileOrganizer {
         // the CLI shouldn't depend upon the netDb
         if (netDb == null) return true;
         if (_context.router() == null) return true;
-        if ( (_context.shitlist() != null) && (_context.shitlist().isShitlisted(peer)) ) {
+        if ( (_context.banlist() != null) && (_context.banlist().isBanlisted(peer)) ) {
             // if (_log.shouldLog(Log.DEBUG))
-            //     _log.debug("Peer " + peer.toBase64() + " is shitlisted, dont select it");
-            return false; // never select a shitlisted peer
+            //     _log.debug("Peer " + peer.toBase64() + " is banlisted, dont select it");
+            return false; // never select a banlisted peer
         }
             
         RouterInfo info = _context.netDb().lookupRouterInfoLocally(peer);
@@ -1395,7 +1407,7 @@ public class ProfileOrganizer {
             
             _notFailingPeers.put(profile.getPeer(), profile);
             _notFailingPeersList.add(profile.getPeer());
-            // if not selectable for a tunnel (shitlisted for example),
+            // if not selectable for a tunnel (banlisted for example),
             // don't allow them in the high-cap pool, what would the point of that be?
             if (_thresholdCapacityValue <= profile.getCapacityValue() &&
                 isSelectable(profile.getPeer())) {

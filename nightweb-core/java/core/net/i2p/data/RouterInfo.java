@@ -81,7 +81,7 @@ public class RouterInfo extends DatabaseEntry {
     public static final String BW_CAPABILITY_CHARS = "KLMNO";
     
     public RouterInfo() {
-        _addresses = new ArrayList(2);
+        _addresses = new ArrayList<RouterAddress>(2);
         _options = new OrderedProperties();
     }
 

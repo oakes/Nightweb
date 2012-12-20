@@ -1,5 +1,6 @@
 package org.klomp.snark;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -58,7 +59,7 @@ public class I2PSnarkUtil {
     private volatile I2PSocketManager _manager;
     private boolean _configured;
     private volatile boolean _connecting;
-    private final Set<Hash> _shitlist;
+    private final Set<Hash> _banlist;
     private int _maxUploaders;
     private int _maxUpBW;
     private int _maxConnections;
@@ -86,7 +87,7 @@ public class I2PSnarkUtil {
         _opts = new HashMap();
         //setProxy("127.0.0.1", 4444);
         setI2CPConfig("127.0.0.1", 7654, null);
-        _shitlist = new ConcurrentHashSet();
+        _banlist = new ConcurrentHashSet();
         _maxUploaders = Snark.MAX_TOTAL_UPLOADERS;
         _maxUpBW = DEFAULT_MAX_UP_BW;
         _maxConnections = MAX_CONNECTIONS;
@@ -218,6 +219,8 @@ public class I2PSnarkUtil {
                 opts.setProperty("inbound.nickname", "I2PSnark");
             if (opts.getProperty("outbound.nickname") == null)
                 opts.setProperty("outbound.nickname", "I2PSnark");
+            if (opts.getProperty("outbound.priority") == null)
+                opts.setProperty("outbound.priority", "-10");
             // Dont do this for now, it is set in I2PSocketEepGet for announces,
             // we don't need fast handshake for peer connections.
             //if (opts.getProperty("i2p.streaming.connectDelay") == null)
@@ -244,6 +247,8 @@ public class I2PSnarkUtil {
                 opts.setProperty("i2p.streaming.maxConnsPerHour", "20");
             if (opts.getProperty("i2p.streaming.enforceProtocol") == null)
                 opts.setProperty("i2p.streaming.enforceProtocol", "true");
+            if (opts.getProperty("i2p.streaming.disableRejectLogging") == null)
+                opts.setProperty("i2p.streaming.disableRejectLogging", "true");
             _manager = I2PSocketManagerFactory.createManager(_i2cpHost, _i2cpPort, opts);
             _connecting = false;
         }
@@ -283,7 +288,7 @@ public class I2PSnarkUtil {
         I2PSocketManager mgr = _manager;
         // FIXME this can cause race NPEs elsewhere
         _manager = null;
-        _shitlist.clear();
+        _banlist.clear();
         if (mgr != null) {
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("Disconnecting from I2P", new Exception("I did it"));
@@ -306,24 +311,24 @@ public class I2PSnarkUtil {
         if (addr.equals(getMyDestination()))
             throw new IOException("Attempt to connect to myself");
         Hash dest = addr.calculateHash();
-        if (_shitlist.contains(dest))
-            throw new IOException("Not trying to contact " + dest.toBase64() + ", as they are shitlisted");
+        if (_banlist.contains(dest))
+            throw new IOException("Not trying to contact " + dest.toBase64() + ", as they are banlisted");
         try {
             I2PSocket rv = _manager.connect(addr);
             if (rv != null)
-                _shitlist.remove(dest);
+                _banlist.remove(dest);
             return rv;
         } catch (I2PException ie) {
-            _shitlist.add(dest);
-            _context.simpleScheduler().addEvent(new Unshitlist(dest), 10*60*1000);
+            _banlist.add(dest);
+            _context.simpleScheduler().addEvent(new Unbanlist(dest), 10*60*1000);
             throw new IOException("Unable to reach the peer " + peer + ": " + ie.getMessage());
         }
     }
     
-    private class Unshitlist implements SimpleTimer.TimedEvent {
+    private class Unbanlist implements SimpleTimer.TimedEvent {
         private Hash _dest;
-        public Unshitlist(Hash dest) { _dest = dest; }
-        public void timeReached() { _shitlist.remove(_dest); }
+        public Unbanlist(Hash dest) { _dest = dest; }
+        public void timeReached() { _banlist.remove(_dest); }
     }
     
     /**
@@ -387,6 +392,46 @@ public class I2PSnarkUtil {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Fetch failed [" + url + "]");
             out.delete();
+            return null;
+        }
+    }
+    
+    /**
+     * Fetch to memory
+     * @param retries if < 0, set timeout to a few seconds
+     * @param initialSize buffer size
+     * @param maxSize fails if greater
+     * @return null on error
+     * @since 0.9.4
+     */
+    public byte[] get(String url, boolean rewrite, int retries, int initialSize, int maxSize) {
+        if (_log.shouldLog(Log.DEBUG))
+            _log.debug("Fetching [" + url + "] to memory");
+        String fetchURL = url;
+        if (rewrite)
+            fetchURL = rewriteAnnounce(url);
+        int timeout;
+        if (retries < 0) {
+            if (!connected())
+                return null;
+            timeout = EEPGET_CONNECT_TIMEOUT_SHORT;
+            retries = 0;
+        } else {
+            timeout = EEPGET_CONNECT_TIMEOUT;
+            if (!connected()) {
+                if (!connect())
+                    return null;
+            }
+        }
+        ByteArrayOutputStream out = new ByteArrayOutputStream(initialSize);
+        EepGet get = new I2PSocketEepGet(_context, _manager, retries, -1, maxSize, null, out, fetchURL);
+        if (get.fetch(timeout)) {
+            if (_log.shouldLog(Log.DEBUG))
+                _log.debug("Fetch successful [" + url + "]: size=" + out.size());
+            return out.toByteArray();
+        } else {
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Fetch failed [" + url + "]");
             return null;
         }
     }
@@ -519,6 +564,15 @@ public class I2PSnarkUtil {
     public List<String> getOpenTrackers() { 
         if (!shouldUseOpenTrackers())
             return Collections.EMPTY_LIST;
+        return _openTrackers;
+    }
+
+    /**
+     *  List of open trackers to use as backups even if disabled
+     *  @return non-null
+     *  @since 0.9.4
+     */
+    public List<String> getBackupTrackers() { 
         return _openTrackers;
     }
     

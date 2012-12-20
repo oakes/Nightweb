@@ -27,6 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import net.i2p.I2PAppContext;
 import net.i2p.data.Base64;
 import net.i2p.data.DataHelper;
+import net.i2p.update.*;
 import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.FileUtil;
 import net.i2p.util.I2PAppThread;
@@ -42,7 +43,7 @@ import org.klomp.snark.dht.DHT;
 /**
  * Manage multiple snarks
  */
-public class SnarkManager implements Snark.CompleteListener {
+public class SnarkManager implements CompleteListener {
     
     /**
      *  Map of (canonical) filename of the .torrent file to Snark instance.
@@ -65,6 +66,8 @@ public class SnarkManager implements Snark.CompleteListener {
     private volatile boolean _running;
     private volatile boolean _stopping;
     private final Map<String, Tracker> _trackerMap;
+    private UpdateManager _umgr;
+    private UpdateHandler _uhandler;
     
     public static final String PROP_I2CP_HOST = "i2psnark.i2cpHost";
     public static final String PROP_I2CP_PORT = "i2psnark.i2cpPort";
@@ -149,10 +152,28 @@ public class SnarkManager implements Snark.CompleteListener {
         _connectionAcceptor = new ConnectionAcceptor(_util);
         _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
         _monitor.start();
+        // delay until UpdateManager is there
+        _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
         // Not required, Jetty has a shutdown hook
         //_context.addShutdownTask(new SnarkManagerShutdown());
     }
 
+    /** @since 0.9.4 */
+    private class Register implements SimpleTimer.TimedEvent {
+        public void timeReached() {
+            if (!_running)
+                return;
+            _umgr = _context.updateManager();
+            if (_umgr != null) {
+                _uhandler = new UpdateHandler(_context, _umgr, SnarkManager.this);
+                _umgr.register(_uhandler, UpdateType.ROUTER_SIGNED, UpdateMethod.TORRENT, 10);
+                _log.warn("Registering with update manager");
+            } else {
+                _log.warn("No update manager to register with");
+            }
+        }
+    }
+    
     /*
      *  Called by the webapp at Jetty shutdown.
      *  Stops all torrents. Does not close the tunnel, so the announces have a chance.
@@ -160,6 +181,10 @@ public class SnarkManager implements Snark.CompleteListener {
      *  Runs inline.
      */
     public void stop() {
+        if (_umgr != null && _uhandler != null) {
+            //_uhandler.shutdown();
+            _umgr.unregister(_uhandler, UpdateType.ROUTER_SIGNED, UpdateMethod.TORRENT);
+        }
         _running = false;
         _monitor.interrupt();
         _connectionAcceptor.halt();
@@ -724,6 +749,14 @@ public class SnarkManager implements Snark.CompleteListener {
     public Snark getTorrent(String filename) { synchronized (_snarks) { return _snarks.get(filename); } }
 
     /**
+     *  Unmodifiable
+     *  @since 0.9.4
+     */
+    public Collection<Snark> getTorrents() {
+        return Collections.unmodifiableCollection(_snarks.values());
+    }
+
+    /**
      * Grab the torrent given the base name of the storage
      * @return Snark or null
      * @since 0.7.14
@@ -889,7 +922,27 @@ public class SnarkManager implements Snark.CompleteListener {
      * @since 0.8.4
      */
     public void addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus) {
-        Snark torrent = new Snark(_util, name, ih, trackerURL, this,
+        addMagnet(name, ih, trackerURL, updateStatus, shouldAutoStart(), this);
+    }
+    
+    /**
+     * Add a torrent with the info hash alone (magnet / maggot)
+     * External use is for UpdateRunner.
+     *
+     * @param name hex or b32 name from the magnet link
+     * @param ih 20 byte info hash
+     * @param trackerURL may be null
+     * @param updateStatus should we add this magnet to the config file,
+     *                     to save it across restarts, in case we don't get
+     *                     the metadata before shutdown?
+     * @param listener to intercept callbacks, should pass through to this
+     * @return the new Snark or null on failure
+     * @throws RuntimeException via Snark.fatal()
+     * @since 0.9.4
+     */
+    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
+                          boolean autoStart, CompleteListener listener) {
+        Snark torrent = new Snark(_util, name, ih, trackerURL, listener,
                                   _peerCoordinatorSet, _connectionAcceptor,
                                   false, getDataDir().getPath());
 
@@ -897,7 +950,7 @@ public class SnarkManager implements Snark.CompleteListener {
             Snark snark = getTorrentByInfoHash(ih);
             if (snark != null) {
                 addMessage(_("Torrent with this info hash is already running: {0}", snark.getBaseName()));
-                return;
+                return null;
             }
             // Tell the dir monitor not to delete us
             _magnets.add(name);
@@ -905,8 +958,8 @@ public class SnarkManager implements Snark.CompleteListener {
                 saveMagnetStatus(ih);
             _snarks.put(name, torrent);
         }
-        if (shouldAutoStart()) {
-            torrent.startTorrent();
+        if (autoStart) {
+            startTorrent(ih);
             addMessage(_("Fetching {0}", name));
             DHT dht = _util.getDHT();
             boolean shouldWarn = _util.connected() &&
@@ -918,7 +971,8 @@ public class SnarkManager implements Snark.CompleteListener {
             }
         } else {
             addMessage(_("Adding {0}", name));
-      }
+        }
+        return torrent;
     }
 
     /**
@@ -1470,6 +1524,12 @@ public class SnarkManager implements Snark.CompleteListener {
     public void addMessage(Snark snark, String message) {
         addMessage(message);
     }
+
+    /**
+     * A Snark.CompleteListener method.
+     * @since 0.9.4
+     */
+    public void gotPiece(Snark snark) {}
 
     // End Snark.CompleteListeners
 

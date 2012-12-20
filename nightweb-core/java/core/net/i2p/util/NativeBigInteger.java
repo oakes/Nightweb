@@ -162,7 +162,8 @@ public class NativeBigInteger extends BigInteger {
     private static final boolean _isOS2 = System.getProperty("os.name").startsWith("OS/2");
     private static final boolean _isMac = SystemVersion.isMac();
     private static final boolean _isLinux = System.getProperty("os.name").toLowerCase(Locale.US).contains("linux");
-    private static final boolean _isFreebsd = System.getProperty("os.name").toLowerCase(Locale.US).contains("freebsd");
+    private static final boolean _isKFreebsd = System.getProperty("os.name").toLowerCase(Locale.US).contains("kfreebsd");
+    private static final boolean _isFreebsd = (!_isKFreebsd) && System.getProperty("os.name").toLowerCase(Locale.US).contains("freebsd");
     private static final boolean _isNetbsd = System.getProperty("os.name").toLowerCase(Locale.US).contains("netbsd");
     private static final boolean _isOpenbsd = System.getProperty("os.name").toLowerCase(Locale.US).contains("openbsd");
     private static final boolean _isSunos = System.getProperty("os.name").toLowerCase(Locale.US).contains("sunos");
@@ -353,7 +354,7 @@ public class NativeBigInteger extends BigInteger {
     /**
      * <p>Compare the BigInteger.modPow vs the NativeBigInteger.modPow of some 
      * really big (2Kbit) numbers 100 different times and benchmark the 
-     * performance (or shit a brick if they don't match).  </p>
+     * performance.</p>
      *
      */
     public static void main(String args[]) {
@@ -753,6 +754,9 @@ public class NativeBigInteger extends BigInteger {
             if (sCPUType.equals(JBIGI_OPTIMIZATION_K6_3) && !_isWin)
                 // k62 and k63 identical except on windows
                 sAppend = JBIGI_OPTIMIZATION_K6_2;
+            else if (sCPUType.equals(JBIGI_OPTIMIZATION_COREI) && (!_is64) && ((_isKFreebsd) || (_isNetbsd) || (_isOpenbsd)))
+                // corei and core2 are identical on 32bit kfreebsd, openbsd, and netbsd
+                sAppend = JBIGI_OPTIMIZATION_CORE2;
             else if (sCPUType.equals(JBIGI_OPTIMIZATION_VIAC32))
                 // viac32 and pentium3 identical
                 sAppend = JBIGI_OPTIMIZATION_PENTIUM3;
@@ -773,6 +777,8 @@ public class NativeBigInteger extends BigInteger {
     private static final String getMiddleName1() {
         if(_isWin)
              return "jbigi-windows-";
+        if(_isKFreebsd)
+            return "jbigi-kfreebsd-";
         if(_isFreebsd)
             return "jbigi-freebsd-";
         if(_isNetbsd)

@@ -14,6 +14,7 @@ import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.DatabaseLookupMessage;
+import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Job;
 import net.i2p.router.MessageSelector;
 import net.i2p.router.OutNetMessage;
@@ -93,6 +94,12 @@ class IterativeSearchJob extends FloodSearchJob {
 
     @Override
     public void runJob() {
+        if (_facade.isNegativeCached(_key)) {
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Negative cached, not searching: " + _key);
+            failed();
+            return;
+        }
         // pick some floodfill peers and send out the searches
         List<Hash> floodfillPeers;
         KBucketSet ks = _facade.getKBuckets();
@@ -270,7 +277,7 @@ class IterativeSearchJob extends FloodSearchJob {
         RouterInfo ri = getContext().netDb().lookupRouterInfoLocally(peer);
         if (!FloodfillNetworkDatabaseFacade.isFloodfill(ri))
             return;
-        if (getContext().shitlist().isShitlistedForever(peer))
+        if (getContext().banlist().isBanlistedForever(peer))
             return;
         synchronized (this) {
             if (_failedPeers.contains(peer) ||
@@ -304,6 +311,8 @@ class IterativeSearchJob extends FloodSearchJob {
             _dead = true;
         }
         _facade.complete(_key);
+        if (getContext().commSystem().getReachabilityStatus() != CommSystemFacade.STATUS_DISCONNECTED)
+            _facade.lookupFailed(_key);
         getContext().messageRegistry().unregisterPending(_out);
         int tries;
         synchronized(this) {

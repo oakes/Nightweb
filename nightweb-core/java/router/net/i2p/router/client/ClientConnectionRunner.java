@@ -56,7 +56,7 @@ import net.i2p.util.SimpleTimer;
  * @author jrandom
  */
 class ClientConnectionRunner {
-    private final Log _log;
+    protected final Log _log;
     protected final RouterContext _context;
     private final ClientManager _manager;
     /** socket for this particular peer connection */
@@ -71,6 +71,7 @@ class ClientConnectionRunner {
     private final Map<MessageId, Payload> _messages; 
     /** lease set request state, or null if there is no request pending on at the moment */
     private LeaseRequestState _leaseRequest;
+    private int _consecutiveLeaseRequestFails;
     /** currently allocated leaseSet, or null if none is allocated */
     private LeaseSet _currentLeaseSet;
     /** set of messageIds created but not yet ACCEPTED */
@@ -90,6 +91,8 @@ class ClientConnectionRunner {
     private volatile boolean _dead;
     /** For outbound traffic. true if i2cp.messageReliability = "none"; @since 0.8.1 */
     private boolean _dontSendMSM;
+    /** For inbound traffic. true if i2cp.fastReceive = "true"; @since 0.9.4 */
+    private boolean _dontSendMSMOnReceive;
     private final AtomicInteger _messageId; // messageId counter
     
     // Was 32767 since the beginning (04-2004).
@@ -98,6 +101,7 @@ class ClientConnectionRunner {
     // e.g. on local access
     private static final int MAX_MESSAGE_ID = 0x4000000;
 
+    private static final int MAX_LEASE_FAILS = 5;
     private static final int BUF_SIZE = 32*1024;
 
     /** @since 0.9.2 */
@@ -113,6 +117,7 @@ class ClientConnectionRunner {
         _log = _context.logManager().getLog(ClientConnectionRunner.class);
         _manager = manager;
         _socket = socket;
+        // unused for fastReceive
         _messages = new ConcurrentHashMap();
         _alreadyProcessed = new ArrayList();
         _acceptedPending = new ConcurrentHashSet();
@@ -136,7 +141,6 @@ class ClientConnectionRunner {
             I2PThread t = new I2PThread(_writer);
             t.setName("I2CP Writer " + __id.incrementAndGet());
             t.setDaemon(true);
-            t.setPriority(I2PThread.MAX_PRIORITY);
             t.start();
             _out = new BufferedOutputStream(_socket.getOutputStream());
             _reader.startReading();
@@ -189,26 +193,40 @@ class ClientConnectionRunner {
     /** data for the current leaseRequest, or null if there is no active leaseSet request */
     LeaseRequestState getLeaseRequest() { return _leaseRequest; }
 
-    void setLeaseRequest(LeaseRequestState req) { 
+    /** @param req non-null */
+    public void failLeaseRequest(LeaseRequestState req) { 
+        boolean disconnect = false;
         synchronized (this) {
-            if ( (_leaseRequest != null) && (req != _leaseRequest) )
-                _log.error("Changing leaseRequest from " + _leaseRequest + " to " + req);
-            _leaseRequest = req; 
+            if (_leaseRequest == req) {
+                _leaseRequest = null;
+                disconnect = ++_consecutiveLeaseRequestFails > MAX_LEASE_FAILS;
+            }
         }
+        if (disconnect)
+            disconnectClient("Too many leaseset request fails");
     }
 
     /** already closed? */
     boolean isDead() { return _dead; }
 
-    /** message body */
+    /**
+     *  Only call if _dontSendMSMOnReceive is false, otherwise will always be null
+     */
     Payload getPayload(MessageId id) { 
         return _messages.get(id); 
     }
 
+    /**
+     *  Only call if _dontSendMSMOnReceive is false
+     */
     void setPayload(MessageId id, Payload payload) { 
-        _messages.put(id, payload); 
+        if (!_dontSendMSMOnReceive)
+            _messages.put(id, payload); 
     }
 
+    /**
+     *  Only call if _dontSendMSMOnReceive is false
+     */
     void removePayload(MessageId id) { 
         _messages.remove(id); 
     }
@@ -221,8 +239,10 @@ class ClientConnectionRunner {
         // We process a few options here, but most are handled by the tunnel manager.
         // The ones here can't be changed later.
         Properties opts = config.getOptions();
-        if (opts != null)
-            _dontSendMSM = "none".equals(config.getOptions().getProperty(I2PClient.PROP_RELIABILITY, "").toLowerCase(Locale.US));
+        if (opts != null) {
+            _dontSendMSM = "none".equals(opts.getProperty(I2PClient.PROP_RELIABILITY, "").toLowerCase(Locale.US));
+            _dontSendMSMOnReceive = Boolean.parseBoolean(opts.getProperty(I2PClient.PROP_FAST_RECEIVE));
+        }
         // per-destination session key manager to prevent rather easy correlation
         if (_sessionKeyManager == null) {
             int tags = TransientSessionKeyManager.DEFAULT_TAGS;
@@ -274,6 +294,7 @@ class ClientConnectionRunner {
                 if (_log.shouldLog(Log.DEBUG))
                     _log.debug("LeaseSet created fully: " + state + " / " + ls);
                 _leaseRequest = null;
+                _consecutiveLeaseRequestFails = 0;
             }
         }
         if ( (state != null) && (state.getOnGranted() != null) )
@@ -306,7 +327,7 @@ class ClientConnectionRunner {
             doSend(msg);
         } catch (I2CPMessageException ime) {
             if (_log.shouldLog(Log.WARN))
-                _log.warn("Error writing out the disconnect message: " + ime);
+                _log.warn("Error writing out the disconnect message", ime);
         }
         // give it a little time to get sent out...
         // even better would be to have stopRunning() flush it?
@@ -338,9 +359,8 @@ class ClientConnectionRunner {
             _acceptedPending.add(id);
 
         if (_log.shouldLog(Log.DEBUG))
-            _log.debug("** Receiving message [" + id.getMessageId() + "] with payload of size [" 
-                       + payload.getSize() + "]" + " for session [" + _sessionId.getSessionId() 
-                       + "]");
+            _log.debug("** Receiving message " + id.getMessageId() + " with payload of size " 
+                       + payload.getSize() + " for session " + _sessionId.getSessionId());
         //long beforeDistribute = _context.clock().now();
         // the following blocks as described above
         SessionConfig cfg = _config;
@@ -359,15 +379,16 @@ class ClientConnectionRunner {
      * Send a notification to the client that their message (id specified) was accepted 
      * for delivery (but not necessarily delivered)
      * Doesn't do anything if i2cp.messageReliability = "none"
+     * or if the nonce is 0.
      */
     void ackSendMessage(MessageId id, long nonce) {
-        if (_dontSendMSM)
+        if (_dontSendMSM || nonce == 0)
             return;
         SessionId sid = _sessionId;
         if (sid == null) return;
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("Acking message send [accepted]" + id + " / " + nonce + " for sessionId " 
-                       + sid, new Exception("sendAccepted"));
+                       + sid);
         MessageStatusMessage status = new MessageStatusMessage();
         status.setMessageId(id.getMessageId()); 
         status.setSessionId(sid.getSessionId());
@@ -378,7 +399,8 @@ class ClientConnectionRunner {
             doSend(status);
             _acceptedPending.remove(id);
         } catch (I2CPMessageException ime) {
-            _log.error("Error writing out the message status message: " + ime);
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Error writing out the message status message", ime);
         }
     }
     
@@ -388,7 +410,7 @@ class ClientConnectionRunner {
      */ 
     void receiveMessage(Destination toDest, Destination fromDest, Payload payload) {
         if (_dead) return;
-        MessageReceivedJob j = new MessageReceivedJob(_context, this, toDest, fromDest, payload);
+        MessageReceivedJob j = new MessageReceivedJob(_context, this, toDest, fromDest, payload, _dontSendMSMOnReceive);
         // This is fast and non-blocking, run in-line
         //_context.jobQueue().addJob(j);
         j.runJob();
@@ -472,10 +494,11 @@ class ClientConnectionRunner {
                 return; // already requesting
             } else {
                 _leaseRequest = state = new LeaseRequestState(onCreateJob, onFailedJob, _context.clock().now() + expirationTime, set);
-                _log.debug("Not already requesting, continue to request " + set);
+                if (_log.shouldLog(Log.DEBUG))
+                    _log.debug("New request: " + state);
             }
         }
-        _context.jobQueue().addJob(new RequestLeaseSetJob(_context, this, set, _context.clock().now() + expirationTime, onCreateJob, onFailedJob, state));
+        _context.jobQueue().addJob(new RequestLeaseSetJob(_context, this, state));
     }
 
     private class Rerequest implements SimpleTimer.TimedEvent {
@@ -632,8 +655,8 @@ class ClientConnectionRunner {
             if (!alreadyAccepted(_messageId)) {
                 _log.warn("Almost send an update for message " + _messageId + " to " 
                           + MessageStatusMessage.getStatusString(msg.getStatus()) 
-                          + " for session [" + _sessionId.getSessionId() 
-                          + "] before they knew the messageId!  delaying .5s");
+                          + " for session " + _sessionId.getSessionId() 
+                          + " before they knew the messageId!  delaying .5s");
                 _lastTried = _context.clock().now();
                 requeue(REQUEUE_DELAY);
                 return;
@@ -666,21 +689,21 @@ class ClientConnectionRunner {
                 if (_log.shouldLog(Log.DEBUG))
                     _log.info("Updating message status for message " + _messageId + " to " 
                               + MessageStatusMessage.getStatusString(msg.getStatus()) 
-                              + " for session [" + _sessionId.getSessionId() 
-                              + "] (with nonce=2), retrying after [" 
-                              + (_context.clock().now() - _lastTried) 
-                              + "]");
+                              + " for session " + _sessionId.getSessionId() 
+                              + " (with nonce=2), retrying after " 
+                              + (_context.clock().now() - _lastTried));
             } else {
                 if (_log.shouldLog(Log.DEBUG))
                     _log.debug("Updating message status for message " + _messageId + " to " 
                                + MessageStatusMessage.getStatusString(msg.getStatus()) 
-                               + " for session [" + _sessionId.getSessionId() + "] (with nonce=2)");
+                               + " for session " + _sessionId.getSessionId() + " (with nonce=2)");
             }
 
             try {
                 doSend(msg);
             } catch (I2CPMessageException ime) {
-                _log.warn("Error updating the status for message ID " + _messageId, ime);
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("Error updating the status for message ID " + _messageId, ime);
             }
         }
     }
