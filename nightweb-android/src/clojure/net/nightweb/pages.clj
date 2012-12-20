@@ -76,16 +76,16 @@
       (.setTitle action-bar (get-string :favorites))
       (create-tab action-bar
                   (get-string :users)
-                  #(get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :users-favorites}))
       (create-tab action-bar
                   (get-string :photos)
-                  #(get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :photos-favorites}))
       (create-tab action-bar
                   (get-string :videos)
-                  #(get-category-view this {:type :favorites}))
+                  #(get-category-view this {:type :videos-favorites}))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :favorites}))))
+                  #(get-category-view this {:type :audio-favorites}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))
@@ -103,16 +103,16 @@
       (.setTitle action-bar (get-string :downloads))
       (create-tab action-bar
                   (get-string :all)
-                  #(get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :all-downloads}))
       (create-tab action-bar
                   (get-string :photos)
-                  #(get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :photos-downloads}))
       (create-tab action-bar
                   (get-string :videos)
-                  #(get-category-view this {:type :downloads}))
+                  #(get-category-view this {:type :videos-downloads}))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :downloads}))))
+                  #(get-category-view this {:type :audio-downloads}))))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))

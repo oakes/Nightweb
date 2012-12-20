@@ -80,8 +80,14 @@
                     :photos ["SELECT * FROM files"]
                     :videos ["SELECT * FROM files"]
                     :audio ["SELECT * FROM files"]
-                    :favorites ["SELECT * FROM users"]
-                    :downloads ["SELECT * FROM files"])]
+                    :users-favorites ["SELECT * FROM users"]
+                    :photos-favorites ["SELECT * FROM files"]
+                    :videos-favorites ["SELECT * FROM files"]
+                    :audio-favorites ["SELECT * FROM files"]
+                    :all-downloads ["SELECT * FROM files"]
+                    :photos-downloads ["SELECT * FROM files"]
+                    :videos-downloads ["SELECT * FROM files"]
+                    :audio-downloads ["SELECT * FROM files"])]
     (with-query-results
       rs
       statement

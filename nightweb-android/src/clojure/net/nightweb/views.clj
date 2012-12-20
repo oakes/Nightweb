@@ -119,7 +119,7 @@
                                       :negative-func do-cancel}))
                         :favorites show-favorites
                         :downloads show-downloads
-                        :users (fn [context content]))]
+                        (fn [context content]))]
              (func context item)))))
      view)))
 
