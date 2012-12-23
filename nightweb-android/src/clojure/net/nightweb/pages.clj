@@ -129,7 +129,7 @@
                       :users (get-user-view this params)
                       (get-grid-view this []))]
       (.setDisplayHomeAsUpEnabled action-bar true)
-      (if-let [title (get params :title)]
+      (if-let [title (get params :text)]
         (.setTitle action-bar title)
         (.setDisplayShowTitleEnabled action-bar false))
       (set-content-view! grid-page grid-view)))

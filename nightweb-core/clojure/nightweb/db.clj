@@ -36,7 +36,7 @@
   (create-table-if-not-exists
     :users
     [:hash "BINARY"]
-    [:title "VARCHAR"]
+    [:text "VARCHAR"]
     [:about "VARCHAR"]
     [:time "TIMESTAMP"])
   (create-table-if-not-exists
@@ -60,11 +60,19 @@
 
 (defn insert-test-data
   [params callback]
-  (insert-records
-    :users
-    {:hash (byte-array (map byte [0])) :title "oskar" :about "Hello, World!"}
-    {:hash (byte-array (map byte [1])) :title "papa" :about "Hello, World!"}
-    {:hash (byte-array (map byte [2])) :title "quebec" :about "Hello, World!"}))
+  (let [oskar (byte-array (map byte [0]))
+        papa (byte-array (map byte [1]))
+        quebec (byte-array (map byte [2]))]
+    (insert-records
+      :users
+      {:hash oskar :text "oskar" :about "Hello, World!"}
+      {:hash papa :text "papa" :about "Hello, World!"}
+      {:hash quebec :text "quebec" :about "Hello, World!"})
+    (insert-records
+      :posts
+      {:hash (byte-array (map byte [0])) :user oskar :text "First post!"}
+      {:hash (byte-array (map byte [1])) :user papa :text "From papa!"}
+      {:hash (byte-array (map byte [2])) :user quebec :text "From quebec!"})))
 
 (defn get-user-data
   [params callback]
@@ -73,9 +81,19 @@
       rs
       ["SELECT * FROM users WHERE hash=?" user-hash]
       (if-let [user (first rs)]
-        (callback (assoc user :is-me (java.util.Arrays/equals
-                                       user-hash
-                                       (byte-array (map byte [0])))))))))
+        (callback (assoc user :is-me? (java.util.Arrays/equals
+                                        user-hash
+                                        (byte-array (map byte [0])))))))))
+
+(defn get-post-data
+  [params callback]
+  (let [user-hash (get params :hash)]
+    (with-query-results
+      rs
+      ["SELECT * FROM posts WHERE user=?" user-hash]
+      (callback (doall
+                  (for [row rs]
+                    (assoc row :type :posts)))))))
 
 (defn get-category-data
   [params callback]

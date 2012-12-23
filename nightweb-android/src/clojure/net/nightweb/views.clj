@@ -10,6 +10,7 @@
                                      show-grid]]
         [nightweb.db :only [run-query
                             get-user-data
+                            get-post-data
                             get-category-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -17,7 +18,7 @@
 (defn get-profile-view
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (get content :is-me)
+        view (if (get content :is-me?)
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:edit-text {:lines 1
@@ -41,7 +42,7 @@
     (.setPadding linear-layout 10 10 10 10)
     (.setHint text-name (get-string :name))
     (.setHint text-about (get-string :about_me))
-    (if-let [name-str (get content :title)]
+    (if-let [name-str (get content :text)]
       (.setText text-name name-str))
     (if-let [about-str (get content :about)]
       (.setText text-about about-str))
@@ -76,8 +77,16 @@
          (getCount [] (count content))
          (getView [position convert-view parent]
            (let [not-initialized (= convert-view nil)
+                 bottom android.view.Gravity/BOTTOM
+                 bold android.graphics.Typeface/DEFAULT_BOLD
                  tile-view (if not-initialized
-                             (let [bottom android.view.Gravity/BOTTOM]
+                             (if (get-in content [position :add-emphasis?])
+                               (make-ui context
+                                        [:linear-layout {:orientation 1}
+                                         [:text-view {:layout-weight 3
+                                                      :typeface bold}]
+                                         [:text-view {:layout-weight 1
+                                                      :gravity bottom}]])
                                (make-ui context
                                         [:linear-layout {:orientation 1}
                                          [:text-view {:layout-weight 3}]
@@ -101,8 +110,8 @@
                      text-bottom (.getChildAt tile-view 1)]
                  (.setPadding tile-view 5 5 5 5)
                  (.setBackgroundResource tile-view border)
-                 (.setText text-top (get-in content [position :title]))
-                 (.setText text-bottom (get-in content [position :subtitle]))
+                 (.setText text-top (get-in content [position :text]))
+                 (.setText text-bottom (get-in content [position :subtext]))
                  (.setShadowLayer text-top 10 0 0 black)
                  (.setShadowLayer text-bottom 10 0 0 black)))
              tile-view))))
@@ -154,20 +163,22 @@
 
 (defn get-user-view
   [context content]
-  (run-query
-    get-user-data
-    content
-    (fn [row]
-      (get-grid-view context
-                     [{:title (get-string :profile)
-                       :content row
-                       :type :profile}
-                      {:title (get-string :favorites)
-                       :content row
-                       :type :favorites}
-                      {:title (get-string :downloads)
-                       :content row
-                       :type :downloads}]))))
+  (let [user (run-query get-user-data content (fn [row] row))
+        first-tiles [{:text (get-string :profile)
+                      :add-emphasis? true
+                      :content user
+                      :type :profile}
+                     {:text (get-string :favorites)
+                      :add-emphasis? true
+                      :content user
+                      :type :favorites}
+                     {:text (get-string :downloads)
+                      :add-emphasis? true
+                      :content user
+                      :type :downloads}]
+        posts (run-query get-post-data content (fn [rows] rows))
+        grid-content (into [] (concat first-tiles posts))]
+    (get-grid-view context grid-content)))
 
 (defn get-category-view
   ([context content] (get-category-view context content false))
@@ -177,7 +188,8 @@
                    content
                    (fn [rows] rows))
          tags (if show-tags?
-                [{:title (get-string :tags)
+                [{:text (get-string :tags)
+                  :add-emphasis? true
                   :type :tags}]
                 [])
          grid-content (into [] (concat tags results))]
