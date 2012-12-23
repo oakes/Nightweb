@@ -62,7 +62,9 @@
   [params callback]
   (insert-records
     :users
-    {:hash (byte-array (map byte [0])) :title "oskar" :about "Hello, World!"}))
+    {:hash (byte-array (map byte [0])) :title "oskar" :about "Hello, World!"}
+    {:hash (byte-array (map byte [1])) :title "papa" :about "Hello, World!"}
+    {:hash (byte-array (map byte [2])) :title "quebec" :about "Hello, World!"}))
 
 (defn get-user-data
   [params callback]
@@ -70,7 +72,10 @@
     (with-query-results
       rs
       ["SELECT * FROM users WHERE hash=?" user-hash]
-      (callback (first rs)))))
+      (if-let [user (first rs)]
+        (callback (assoc user :is-me (java.util.Arrays/equals
+                                       user-hash
+                                       (byte-array (map byte [0])))))))))
 
 (defn get-category-data
   [params callback]

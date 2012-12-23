@@ -16,11 +16,19 @@
 
 (defn get-profile-view
   [context content]
-  (let [view (make-ui context [:scroll-view {}
-                               [:linear-layout {:orientation 1}
-                                [:edit-text {:lines 1
-                                             :layout-width :fill}]
-                                [:edit-text {:layout-width :fill}]]])
+  (let [bold android.graphics.Typeface/DEFAULT_BOLD
+        view (if (get content :is-me)
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:edit-text {:lines 1
+                                               :layout-width :fill}]
+                                  [:edit-text {:layout-width :fill}]]])
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:text-view {:lines 1
+                                               :layout-width :fill
+                                               :typeface bold}]
+                                  [:text-view {:layout-width :fill}]]]))
         linear-layout (.getChildAt view 0)
         text-name (.getChildAt linear-layout 0)
         text-about (.getChildAt linear-layout 1)
@@ -152,7 +160,6 @@
     (fn [row]
       (get-grid-view context
                      [{:title (get-string :profile)
-                       :subtitle (get row :title)
                        :content row
                        :type :profile}
                       {:title (get-string :favorites)
