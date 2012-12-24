@@ -39,10 +39,17 @@
       (.setCanceledOnTouchOutside dialog false)
       (.show dialog))))
 
-(defn do-menu-action
-  [context item]
-  (if (= (.getItemId item) (get-resource :id :android/home))
-    (show-page context "net.nightweb.MainPage" {})))
+(defn show-favorites
+  [context content]
+  (show-page context "net.nightweb.FavoritesPage" {}))
+
+(defn show-downloads
+  [context content]
+  (show-page context "net.nightweb.DownloadsPage" {}))
+
+(defn show-grid
+  [context content]
+  (show-page context "net.nightweb.GridPage" content))
 
 (defn do-send-new-post
   [dialog]
@@ -60,14 +67,18 @@
   [dialog]
   (println "cancel"))
 
-(defn show-favorites
-  [context content]
-  (show-page context "net.nightweb.FavoritesPage" {}))
+(defn do-menu-action
+  [context item]
+  (if (= (.getItemId item) (get-resource :id :android/home))
+    (show-page context "net.nightweb.MainPage" {})))
 
-(defn show-downloads
-  [context content]
-  (show-page context "net.nightweb.DownloadsPage" {}))
-
-(defn show-grid
-  [context content]
-  (show-page context "net.nightweb.GridPage" content))
+(defn do-tile-action
+  [context item]
+  (if-let [func (case (get item :type)
+                  :tags show-grid
+                  :users show-grid
+                  :favorites show-favorites
+                  :downloads show-downloads
+                  :custom-func (get item :func)
+                  nil)]
+    (func context item)))

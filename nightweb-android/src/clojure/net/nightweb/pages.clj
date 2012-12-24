@@ -15,6 +15,33 @@
                             create-tables
                             insert-test-data]]))
 
+(defn start-service
+  [context]
+  (let [service (bind-service context
+                              "net.nightweb.MainService"
+                              (fn [service] (.act service :test)))]
+    (swap! (.state context) assoc :service service)))
+
+(defn stop-service
+  [context]
+  (if-let [service (get @(.state context) :service)]
+    (unbind-service context service)))
+
+(defn start-receiver
+  [context]
+  (let [receiver (proxy [android.content.BroadcastReceiver] []
+                   (onReceive [context intent]
+                     (.finish context)))]
+    (.registerReceiver context
+                       receiver
+                       (android.content.IntentFilter. "ACTION_CLOSE_APP"))
+    (swap! (.state context) assoc :receiver receiver)))
+
+(defn stop-receiver
+  [context]
+  (if-let [receiver (get @(.state context) :receiver)]
+    (.unregisterReceiver context receiver)))
+
 (defactivity
   net.nightweb.MainPage
   :on-create
@@ -24,11 +51,10 @@
     (run-query drop-tables nil nil)
     (run-query create-tables nil nil)
     (run-query insert-test-data nil nil)
-    ; start service
-    (def conn (bind-service this
-                            "net.nightweb.MainService"
-                            (fn [service] (.act service :test))))
-    ; create main ui
+    ; start service and receiver
+    (start-service this)
+    (start-receiver this)
+    ; create ui
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayShowTitleEnabled action-bar false)
@@ -47,18 +73,11 @@
                   #(get-category-view this {:type :videos} true))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :audio} true)))
-    ; make sure activity shuts down when notification is touched
-    (def activity-receiver (proxy [android.content.BroadcastReceiver] []
-                             (onReceive [context intent]
-                               (.finish context))))
-    (.registerReceiver this
-                       activity-receiver
-                       (android.content.IntentFilter. "ACTION_CLOSE_APP")))
+                  #(get-category-view this {:type :audio} true))))
   :on-destroy
   (fn [this]
-    (.unregisterReceiver this activity-receiver)
-    (unbind-service this conn))
+    (stop-receiver this)
+    (stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true)))
@@ -67,6 +86,10 @@
   net.nightweb.FavoritesPage
   :on-create
   (fn [this bundle]
+    ; start service and receiver
+    (start-service this)
+    (start-receiver this)
+    ; create ui
     (let [params (.getSerializableExtra (.getIntent this) "params")
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
@@ -84,6 +107,10 @@
       (create-tab action-bar
                   (get-string :audio)
                   #(get-category-view this {:type :audio-favorites}))))
+  :on-destroy
+  (fn [this]
+    (stop-receiver this)
+    (stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))
@@ -95,6 +122,10 @@
   net.nightweb.DownloadsPage
   :on-create
   (fn [this bundle]
+    ; start service and receiver
+    (start-service this)
+    (start-receiver this)
+    ; create ui
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
@@ -111,6 +142,10 @@
       (create-tab action-bar
                   (get-string :audio)
                   #(get-category-view this {:type :audio-downloads}))))
+  :on-destroy
+  (fn [this]
+    (stop-receiver this)
+    (stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
@@ -123,6 +158,10 @@
   :def grid-page
   :on-create
   (fn [this bundle]
+    ; start service and receiver
+    (start-service this)
+    (start-receiver this)
+    ; create ui
     (let [params (.getSerializableExtra (.getIntent this) "params")
           action-bar (.getActionBar this)
           grid-view (case (get params :type)
@@ -133,6 +172,10 @@
         (.setTitle action-bar title)
         (.setDisplayShowTitleEnabled action-bar false))
       (set-content-view! grid-page grid-view)))
+  :on-destroy
+  (fn [this]
+    (stop-receiver this)
+    (stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu true))

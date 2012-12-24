@@ -16,13 +16,10 @@
   <string name="profile">Profile</string>
   <string name="favorites">Favorites</string>
   <string name="downloads">Downloads</string>
+  <string name="add_to_favorites">Add to Favorites</string>
+  <string name="remove_from_favorites">Remove from Favorites</string>
 
   <string name="tags">Tags</string>
-
-  <string name="attach_users">Attach Users</string>
-  <string name="attach_photos">Attach Photos</string>
-  <string name="attach_videos">Attach Videos</string>
-  <string name="attach_audio">Attach Audio</string>
 
   <string name="name">Name</string>
   <string name="about_me">About me</string>
@@ -31,4 +28,5 @@
   <string name="attach">Attach...</string>
   <string name="save">Save</string>
   <string name="send">Send</string>
+  <string name="ok">OK</string>
 </resources>

@@ -2,54 +2,16 @@
   (:use [neko.ui :only [make-ui]]
         [neko.resource :only [get-string get-resource]]
         [neko.ui.mapping :only [set-classname!]]
-        [net.nightweb.actions :only [do-save-profile
+        [net.nightweb.actions :only [do-tile-action
+                                     do-save-profile
                                      do-cancel
-                                     show-dialog
-                                     show-favorites
-                                     show-downloads
-                                     show-grid]]
+                                     show-dialog]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
                             get-category-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
-
-(defn get-profile-view
-  [context content]
-  (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (get content :is-me?)
-               (make-ui context [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:edit-text {:lines 1
-                                               :layout-width :fill}]
-                                  [:edit-text {:layout-width :fill}]]])
-               (make-ui context [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:text-view {:lines 1
-                                               :layout-width :fill
-                                               :typeface bold}]
-                                  [:text-view {:layout-width :fill}]]]))
-        linear-layout (.getChildAt view 0)
-        text-name (.getChildAt linear-layout 0)
-        text-about (.getChildAt linear-layout 1)
-        image-view (proxy [android.widget.ImageView] [context]
-                     (onMeasure [width height]
-                       (proxy-super onMeasure width width)))
-        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
-        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
-        border (get-resource :drawable :border)]
-    (.setPadding linear-layout 10 10 10 10)
-    (.setHint text-name (get-string :name))
-    (.setHint text-about (get-string :about_me))
-    (if-let [name-str (get content :text)]
-      (.setText text-name name-str))
-    (if-let [about-str (get content :about)]
-      (.setText text-about about-str))
-    (.setLayoutParams image-view layout-params)
-    (.setBackgroundResource image-view border)
-    (.addView linear-layout image-view)
-    view))
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false 160))
@@ -119,24 +81,7 @@
        view
        (proxy [android.widget.AdapterView$OnItemClickListener] []
          (onItemClick [parent v position id]
-           (let [item (get content position)
-                 data-type (get item :type)
-                 func (case data-type
-                        :tags show-grid
-                        :users show-grid
-                        :profile (fn [context content]
-                                   (show-dialog
-                                     context
-                                     (get-profile-view context
-                                                       (get item :content))
-                                     {:positive-name (get-string :save)
-                                      :positive-func do-save-profile
-                                      :negative-name (get-string :cancel)
-                                      :negative-func do-cancel}))
-                        :favorites show-favorites
-                        :downloads show-downloads
-                        (fn [context content]))]
-             (func context item)))))
+           (do-tile-action context (get content position)))))
      view)))
 
 (defn get-new-post-view
@@ -161,21 +106,72 @@
   (let [view (make-ui context [:linear-layout {}])]
     view))
 
+(defn get-profile-view
+  [context content]
+  (let [bold android.graphics.Typeface/DEFAULT_BOLD
+        view (if (get content :is-me?)
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:edit-text {:lines 1
+                                               :layout-width :fill}]
+                                  [:edit-text {:layout-width :fill}]]])
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:text-view {:lines 1
+                                               :layout-width :fill
+                                               :typeface bold}]
+                                  [:text-view {:layout-width :fill}]]]))
+        linear-layout (.getChildAt view 0)
+        text-name (.getChildAt linear-layout 0)
+        text-about (.getChildAt linear-layout 1)
+        image-view (proxy [android.widget.ImageView] [context]
+                     (onMeasure [width height]
+                       (proxy-super onMeasure width width)))
+        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
+        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
+        border (get-resource :drawable :border)]
+    (.setPadding linear-layout 10 10 10 10)
+    (.setHint text-name (get-string :name))
+    (.setHint text-about (get-string :about_me))
+    (if-let [name-str (get content :text)]
+      (.setText text-name name-str))
+    (if-let [about-str (get content :about)]
+      (.setText text-about about-str))
+    (.setLayoutParams image-view layout-params)
+    (.setBackgroundResource image-view border)
+    (.addView linear-layout image-view)
+    view))
+
 (defn get-user-view
   [context content]
   (let [user (run-query get-user-data content (fn [row] row))
         first-tiles [{:text (get-string :profile)
                       :add-emphasis? true
                       :content user
-                      :type :profile}
+                      :type :custom-func
+                      :func (fn [context content]
+                              (show-dialog
+                                context
+                                (get-profile-view context user)
+                                (if (get user :is-me?)
+                                  {:positive-name (get-string :save)
+                                   :positive-func do-save-profile
+                                   :negative-name (get-string :cancel)
+                                   :negative-func do-cancel}
+                                  {:positive-name (get-string :ok)
+                                   :positive-func do-cancel})))}
                      {:text (get-string :favorites)
                       :add-emphasis? true
                       :content user
                       :type :favorites}
-                     {:text (get-string :downloads)
-                      :add-emphasis? true
-                      :content user
-                      :type :downloads}]
+                     (if (get user :is-me?)
+                       {:text (get-string :downloads)
+                        :add-emphasis? true
+                        :content user
+                        :type :downloads}
+                       {:text (get-string :add_to_favorites)
+                        :add-emphasis? true
+                        :type :add-to-favorites})]
         posts (run-query get-post-data content (fn [rows] rows))
         grid-content (into [] (concat first-tiles posts))]
     (get-grid-view context grid-content)))

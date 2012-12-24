@@ -40,6 +40,8 @@
         :name ~name
         :main false
         :prefix ~prefix
+        :init "init"
+        :state "state"
         :extends ~(or extends android.app.Activity)
         :exposes-methods {~'onCreate ~'superOnCreate
                           ~'onStart ~'superOnStart
@@ -50,6 +52,8 @@
                           ~'onDestroy ~'superOnDestroy
                           ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu
                           ~'onOptionsItemSelected ~'superOnOptionsItemSelected})
+       (defn ~(symbol (str prefix "init"))
+         [] [[] (atom {})])
        ~(when on-create
           `(defn ~(symbol (str prefix "onCreate"))
              [~(vary-meta 'this assoc :tag name),
