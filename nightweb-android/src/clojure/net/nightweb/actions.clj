@@ -41,11 +41,11 @@
 
 (defn show-favorites
   [context content]
-  (show-page context "net.nightweb.FavoritesPage" {}))
+  (show-page context "net.nightweb.FavoritesPage" (get content :content)))
 
 (defn show-downloads
   [context content]
-  (show-page context "net.nightweb.DownloadsPage" {}))
+  (show-page context "net.nightweb.DownloadsPage" (get content :content)))
 
 (defn show-grid
   [context content]

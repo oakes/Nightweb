@@ -28,7 +28,8 @@
       (drop-table :users)
       (drop-table :posts)
       (drop-table :files)
-      (drop-table :prevs))
+      (drop-table :prevs)
+      (drop-table :favs))
     (catch java.lang.Exception e (println "Tables don't exist"))))
 
 (defn create-tables
@@ -56,13 +57,24 @@
   (create-table-if-not-exists
     :prevs
     [:hash "BINARY"]
+    [:pointer "BINARY"])
+  (create-table-if-not-exists
+    :favs
+    [:hash "BINARY"]
+    [:user "BINARY"]
     [:pointer "BINARY"]))
 
 (defn insert-test-data
   [params callback]
   (let [oskar (byte-array (map byte [0]))
         papa (byte-array (map byte [1]))
-        quebec (byte-array (map byte [2]))]
+        quebec (byte-array (map byte [2]))
+        post1 (byte-array (map byte [0]))
+        post2 (byte-array (map byte [1]))
+        post3 (byte-array (map byte [2]))
+        fav1 (byte-array (map byte [0]))
+        fav2 (byte-array (map byte [1]))
+        fav3 (byte-array (map byte [2]))]
     (insert-records
       :users
       {:hash oskar :text "oskar" :about "Hello, World!"}
@@ -70,16 +82,21 @@
       {:hash quebec :text "quebec" :about "Hello, World!"})
     (insert-records
       :posts
-      {:hash (byte-array (map byte [0])) :user oskar :text "First post!"}
-      {:hash (byte-array (map byte [1])) :user papa :text "From papa!"}
-      {:hash (byte-array (map byte [2])) :user quebec :text "From quebec!"})))
+      {:hash post1 :user oskar :text "First post!"}
+      {:hash post2 :user papa :text "From papa!"}
+      {:hash post3 :user quebec :text "From quebec!"})
+    (insert-records
+      :favs
+      {:hash fav1 :user oskar :pointer papa}
+      {:hash fav2 :user papa :pointer oskar}
+      {:hash fav3 :user quebec :pointer papa})))
 
 (defn get-user-data
   [params callback]
   (let [user-hash (get params :hash)]
     (with-query-results
       rs
-      ["SELECT * FROM users WHERE hash=?" user-hash]
+      ["SELECT * FROM users WHERE hash = ?" user-hash]
       (if-let [user (first rs)]
         (callback (assoc user :is-me? (java.util.Arrays/equals
                                         user-hash
@@ -90,7 +107,7 @@
   (let [user-hash (get params :hash)]
     (with-query-results
       rs
-      ["SELECT * FROM posts WHERE user=?" user-hash]
+      ["SELECT * FROM posts WHERE user = ?" user-hash]
       (callback (doall
                   (for [row rs]
                     (assoc row :type :posts)))))))
@@ -98,12 +115,17 @@
 (defn get-category-data
   [params callback]
   (let [data-type (get params :type)
+        user-hash (get params :hash)
         statement (case data-type
                     :users ["SELECT * FROM users"]
                     :photos ["SELECT * FROM files"]
                     :videos ["SELECT * FROM files"]
                     :audio ["SELECT * FROM files"]
-                    :users-favorites ["SELECT * FROM users"]
+                    :users-favorites
+                    [(str "SELECT * FROM users "
+                          "INNER JOIN favs ON users.hash = favs.pointer "
+                          "WHERE favs.user = ?")
+                     user-hash]
                     :photos-favorites ["SELECT * FROM files"]
                     :videos-favorites ["SELECT * FROM files"]
                     :audio-favorites ["SELECT * FROM files"]

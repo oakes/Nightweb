@@ -45,7 +45,7 @@
                         :negative-name (get-string :cancel)
                         :negative-func do-cancel})
           true))))
-    ; create share button
+  ; create share button
   (if show-share-button
     (let [share-item (.add menu (get-string :share))]
       (.setIcon share-item (get-resource :drawable :android/ic_menu_share))

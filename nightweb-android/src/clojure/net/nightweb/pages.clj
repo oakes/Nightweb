@@ -90,23 +90,27 @@
     (start-service this)
     (start-receiver this)
     ; create ui
-    (let [params (.getSerializableExtra (.getIntent this) "params")
+    (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get-string :favorites))
       (create-tab action-bar
                   (get-string :users)
-                  #(get-category-view this {:type :users-favorites}))
+                  #(get-category-view this
+                                      (assoc params :type :users-favorites)))
       (create-tab action-bar
                   (get-string :photos)
-                  #(get-category-view this {:type :photos-favorites}))
+                  #(get-category-view this
+                                      (assoc params :type :photos-favorites)))
       (create-tab action-bar
                   (get-string :videos)
-                  #(get-category-view this {:type :videos-favorites}))
+                  #(get-category-view this
+                                      (assoc params :type :videos-favorites)))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :audio-favorites}))))
+                  #(get-category-view this
+                                      (assoc params :type :audio-favorites)))))
   :on-destroy
   (fn [this]
     (stop-receiver this)
