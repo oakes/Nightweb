@@ -69,12 +69,12 @@
   (let [oskar (byte-array (map byte [0]))
         papa (byte-array (map byte [1]))
         quebec (byte-array (map byte [2]))
-        post1 (byte-array (map byte [0]))
-        post2 (byte-array (map byte [1]))
-        post3 (byte-array (map byte [2]))
-        fav1 (byte-array (map byte [0]))
-        fav2 (byte-array (map byte [1]))
-        fav3 (byte-array (map byte [2]))]
+        post1 (byte-array (map byte [3]))
+        post2 (byte-array (map byte [4]))
+        post3 (byte-array (map byte [5]))
+        fav1 (byte-array (map byte [6]))
+        fav2 (byte-array (map byte [7]))
+        fav3 (byte-array (map byte [8]))]
     (insert-records
       :users
       {:hash oskar :text "oskar" :about "Hello, World!"}
@@ -118,17 +118,17 @@
         user-hash (get params :hash)
         statement (case data-type
                     :users ["SELECT * FROM users"]
-                    :photos ["SELECT * FROM files"]
-                    :videos ["SELECT * FROM files"]
-                    :audio ["SELECT * FROM files"]
+                    :posts ["SELECT * FROM posts"]
                     :users-favorites
                     [(str "SELECT * FROM users "
                           "INNER JOIN favs ON users.hash = favs.pointer "
                           "WHERE favs.user = ?")
                      user-hash]
-                    :photos-favorites ["SELECT * FROM files"]
-                    :videos-favorites ["SELECT * FROM files"]
-                    :audio-favorites ["SELECT * FROM files"]
+                    :posts-favorites
+                    [(str "SELECT * FROM posts "
+                          "INNER JOIN favs ON posts.hash = favs.pointer "
+                          "WHERE favs.user = ?")
+                     user-hash]
                     :all-downloads ["SELECT * FROM files"]
                     :photos-downloads ["SELECT * FROM files"]
                     :videos-downloads ["SELECT * FROM files"]

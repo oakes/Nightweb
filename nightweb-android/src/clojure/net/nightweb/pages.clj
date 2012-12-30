@@ -66,14 +66,8 @@
                   (get-string :users)
                   #(get-category-view this {:type :users} true))
       (create-tab action-bar
-                  (get-string :photos)
-                  #(get-category-view this {:type :photos} true))
-      (create-tab action-bar
-                  (get-string :videos)
-                  #(get-category-view this {:type :videos} true))
-      (create-tab action-bar
-                  (get-string :audio)
-                  #(get-category-view this {:type :audio} true))))
+                  (get-string :posts)
+                  #(get-category-view this {:type :posts} true))))
   :on-destroy
   (fn [this]
     (stop-receiver this)
@@ -100,17 +94,9 @@
                   #(get-category-view this
                                       (assoc params :type :users-favorites)))
       (create-tab action-bar
-                  (get-string :photos)
+                  (get-string :posts)
                   #(get-category-view this
-                                      (assoc params :type :photos-favorites)))
-      (create-tab action-bar
-                  (get-string :videos)
-                  #(get-category-view this
-                                      (assoc params :type :videos-favorites)))
-      (create-tab action-bar
-                  (get-string :audio)
-                  #(get-category-view this
-                                      (assoc params :type :audio-favorites)))))
+                                      (assoc params :type :posts-favorites)))))
   :on-destroy
   (fn [this]
     (stop-receiver this)
