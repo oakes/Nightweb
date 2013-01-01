@@ -3,13 +3,12 @@
         [net.nightweb.views :only [get-new-post-view]]
         [net.nightweb.actions :only [share-url
                                      show-dialog
-                                     show-transfers
                                      do-send-new-post
                                      do-attach-to-new-post
                                      do-cancel]]))
 
 (defn create-main-menu
-  [context menu show-extra-buttons?]
+  [context menu show-share-button?]
   ; create search button
   (let [search-item (.add menu (get-string :search))
         search-view (android.widget.SearchView. context)]
@@ -46,21 +45,9 @@
                         :negative-name (get-string :cancel)
                         :negative-func do-cancel})
           true))))
-  ; create transfers and share buttons
-  (if show-extra-buttons?
-    (let [transfers-item (.add menu (get-string :transfers))
-          share-item (.add menu (get-string :share))]
-      ; transfers button
-      (.setIcon transfers-item (get-resource :drawable :content_import_export))
-      (.setShowAsAction transfers-item
-                        android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
-      (.setOnMenuItemClickListener
-        transfers-item
-        (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-          (onMenuItemClick [menu-item]
-            (show-transfers context)
-            true)))
-      ; share button
+  ; create share button
+  (if show-share-button?
+    (let [share-item (.add menu (get-string :share))]
       (.setIcon share-item (get-resource :drawable :android/ic_menu_share))
       (.setShowAsAction share-item
                         android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
