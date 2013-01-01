@@ -7,8 +7,8 @@
 
   :warn-on-reflection true
 
-  :source-paths ["src/clojure" "../nightweb-core/clojure"]
-  :java-source-paths ["src/java" "../nightweb-core/java" "gen"]
+  :source-paths ["src/clojure" "../common/clojure"]
+  :java-source-paths ["src/java" "../common/java" "gen"]
   ;; The following two definitions are optional. The default
   ;; target-path is "target", but you can change it to whatever you like.
   ;; :target-path "bin"
