@@ -145,7 +145,7 @@
 (defn get-user-view
   [context content]
   (let [user (run-query get-user-data content (fn [row] row))
-        first-tiles [{:text (get-string :profile)
+        profile-tile {:text (get-string :profile)
                       :add-emphasis? true
                       :content user
                       :type :custom-func
@@ -160,20 +160,18 @@
                                    :negative-func do-cancel}
                                   {:positive-name (get-string :ok)
                                    :positive-func do-cancel})))}
-                     {:text (get-string :favorites)
-                      :add-emphasis? true
-                      :content user
-                      :type :favorites}
-                     (if (get user :is-me?)
-                       {:text (get-string :downloads)
+        favorites-tile {:text (get-string :favorites)
                         :add-emphasis? true
                         :content user
-                        :type :downloads}
-                       {:text (get-string :add_to_favorites)
-                        :add-emphasis? true
-                        :type :add-to-favorites})]
-        posts (run-query get-post-data content (fn [rows] rows))
-        grid-content (into [] (concat first-tiles posts))]
+                        :type :favorites}
+        add-to-favorites-tile {:text (get-string :add_to_favorites)
+                               :add-emphasis? true
+                               :type :add-to-favorites}
+        first-tiles (if (get user :is-me?)
+                      [profile-tile favorites-tile]
+                      [profile-tile favorites-tile add-to-favorites-tile])
+        post-tiles (run-query get-post-data content (fn [rows] rows))
+        grid-content (into [] (concat first-tiles post-tiles))]
     (get-grid-view context grid-content)))
 
 (defn get-category-view

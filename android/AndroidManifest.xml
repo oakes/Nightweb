@@ -23,7 +23,7 @@
 			android:name='.FavoritesPage'>
 		</activity>
 		<activity
-			android:name='.DownloadsPage'>
+			android:name='.TransfersPage'>
 		</activity>
 		<activity
 			android:name='.GridPage'>

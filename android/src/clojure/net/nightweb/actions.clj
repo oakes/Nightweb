@@ -43,9 +43,9 @@
   [context content]
   (show-page context "net.nightweb.FavoritesPage" (get content :content)))
 
-(defn show-downloads
-  [context content]
-  (show-page context "net.nightweb.DownloadsPage" (get content :content)))
+(defn show-transfers
+  [context]
+  (show-page context "net.nightweb.TransfersPage" {}))
 
 (defn show-grid
   [context content]
@@ -78,7 +78,6 @@
                   :tags show-grid
                   :users show-grid
                   :favorites show-favorites
-                  :downloads show-downloads
                   :custom-func (get item :func)
                   nil)]
     (func context item)))

@@ -129,10 +129,10 @@
                           "INNER JOIN favs ON posts.hash = favs.pointer "
                           "WHERE favs.user = ?")
                      user-hash]
-                    :all-downloads ["SELECT * FROM files"]
-                    :photos-downloads ["SELECT * FROM files"]
-                    :videos-downloads ["SELECT * FROM files"]
-                    :audio-downloads ["SELECT * FROM files"])]
+                    :all-transfers ["SELECT * FROM files"]
+                    :photos-transfers ["SELECT * FROM files"]
+                    :videos-transfers ["SELECT * FROM files"]
+                    :audio-transfers ["SELECT * FROM files"])]
     (with-query-results
       rs
       statement

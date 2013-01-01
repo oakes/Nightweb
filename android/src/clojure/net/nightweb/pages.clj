@@ -109,7 +109,7 @@
     (do-menu-action this item)))
 
 (defactivity
-  net.nightweb.DownloadsPage
+  net.nightweb.TransfersPage
   :on-create
   (fn [this bundle]
     ; start service and receiver
@@ -119,19 +119,19 @@
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get-string :downloads))
+      (.setTitle action-bar (get-string :transfers))
       (create-tab action-bar
                   (get-string :all)
-                  #(get-category-view this {:type :all-downloads}))
+                  #(get-category-view this {:type :all-transfers}))
       (create-tab action-bar
                   (get-string :photos)
-                  #(get-category-view this {:type :photos-downloads}))
+                  #(get-category-view this {:type :photos-transfers}))
       (create-tab action-bar
                   (get-string :videos)
-                  #(get-category-view this {:type :videos-downloads}))
+                  #(get-category-view this {:type :videos-transfers}))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :audio-downloads}))))
+                  #(get-category-view this {:type :audio-transfers}))))
   :on-destroy
   (fn [this]
     (stop-receiver this)
