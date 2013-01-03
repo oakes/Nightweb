@@ -26,6 +26,7 @@
                         ;; :keystore-path "/home/user/.android/private.keystore"
                         ;; :key-alias "mykeyalias"
                         :aot :all}}}
+  :aot :all
 
   :android {;; Specify the path to the Android SDK directory either
             ;; here or in your ~/.lein/profiles.clj file.
