@@ -28,14 +28,12 @@
                        service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
     ; start router
-    ;(start-router this)
-    ;(def download-manager (start-download-manager))
-    )
+    (start-router this)
+    (def download-manager (start-download-manager)))
   :on-destroy
   (fn [this]
     (.unregisterReceiver this service-receiver)
-    ;(stop-router)
-    )
+    (stop-router))
   :on-action
   (fn [this action]
     (if (= action :test)

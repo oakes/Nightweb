@@ -16,10 +16,11 @@
      :subname (str path "/main")}))
 
 (defn run-query
-  [f params callback]
-  (with-connection
-    spec
-    (transaction (f params callback))))
+  ([f params] (run-query f params (fn [results] results)))
+  ([f params callback]
+   (with-connection
+     spec
+     (transaction (f params callback)))))
 
 (defn drop-tables
   [params callback]

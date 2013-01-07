@@ -92,6 +92,8 @@
                                                     size mode)]
                       (proxy-super onMeasure width-spec h-spec))
                     (proxy-super onMeasure width-spec height-spec))))]
+     (if (> (count content) 0)
+       (set-grid-view-tiles context content view))
      view)))
 
 (defn get-new-post-view
@@ -156,7 +158,7 @@
   [context content]
   (let [grid-view (get-grid-view context [])]
     (future
-      (let [user (run-query get-user-data content (fn [row] row))
+      (let [user (run-query get-user-data content)
             first-tiles [{:text (get-string :profile)
                           :add-emphasis? true
                           :content user
@@ -184,7 +186,7 @@
                            {:text (get-string :add_to_favorites)
                             :add-emphasis? true
                             :type :add-to-favorites})]
-            posts (run-query get-post-data content (fn [rows] rows))
+            posts (run-query get-post-data content)
             grid-content (into [] (concat first-tiles posts))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
@@ -194,7 +196,7 @@
   ([context content show-tags?]
    (let [grid-view (get-grid-view context [])]
      (future
-       (let [results (run-query get-category-data content (fn [rows] rows))
+       (let [results (run-query get-category-data content)
              tags (if show-tags?
                     [{:text (get-string :tags)
                       :add-emphasis? true
