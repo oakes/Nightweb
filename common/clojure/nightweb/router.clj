@@ -1,4 +1,5 @@
-(ns nightweb.router)
+(ns nightweb.router
+  (:use [nightweb.crypto :only [create-key-if-not-exists]]))
 
 (defn start-router
   [context]
@@ -6,7 +7,8 @@
     (java.lang.System/setProperty "i2p.dir.base" dir)
     (java.lang.System/setProperty "i2p.dir.config" dir)
     (java.lang.System/setProperty "wrapper.logfile" (str dir "/wrapper.log"))
-    (net.i2p.router.RouterLaunch/main nil)))
+    (net.i2p.router.RouterLaunch/main nil)
+    (create-key-if-not-exists dir)))
 
 (defn stop-router
   []
@@ -48,4 +50,6 @@
                          (str (.getBaseName storage) ".torrent"))
           torrent-path (.getAbsolutePath torrent-file)]
       (.addTorrent manager info (.getBitField storage) torrent-path true)
-      (.addMessage manager (str "Torrent created for " (.getName base-file))))))
+      (.addMessage manager (str "Torrent created for " base-file-str)))
+    (catch java.io.IOException ioe
+      (.addMessage manager (str "Error creating torrent for " base-file-str)))))
