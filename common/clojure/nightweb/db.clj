@@ -13,7 +13,7 @@
   (def spec
     {:classname "org.h2.Driver"
      :subprotocol "h2"
-     :subname (str path "/main")}))
+     :subname path}))
 
 (defn run-query
   ([f params] (run-query f params (fn [results] results)))

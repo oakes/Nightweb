@@ -9,6 +9,7 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
+        [nightweb.constants :only [db-file]]
         [nightweb.db :only [defspec
                             run-query
                             drop-tables
@@ -47,7 +48,7 @@
   :on-create
   (fn [this bundle]
     ; create database
-    (defspec (.getPath (.getFilesDir this)) nil)
+    (defspec (str (.getAbsolutePath (.getFilesDir this)) db-file) nil)
     (run-query drop-tables nil nil)
     (run-query create-tables nil nil)
     (run-query insert-test-data nil nil)

@@ -1,13 +1,11 @@
 (ns nightweb.crypto
   (:use [clojure.java.io :only [file writer]]))
 
-(def key-file-name "/nightweb.key")
 (def signing-key nil)
 
 (defn create-key-if-not-exists
-  [dir]
-  (let [key-file-path (str dir key-file-name)
-        key-file (file key-file-path)]
+  [key-file-path]
+  (let [key-file (file key-file-path)]
     (if (.exists key-file)
       (let [file-contents (slurp key-file-path)]
         (def signing-key (net.i2p.data.SigningPrivateKey. file-contents)))
