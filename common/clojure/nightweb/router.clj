@@ -1,6 +1,6 @@
 (ns nightweb.router
   (:use [nightweb.constants :only [priv-nkey-file]]
-        [nightweb.crypto :only [create-key-if-not-exists]]))
+        [nightweb.crypto :only [create-priv-nkey]]))
 
 (defn start-router
   [context]
@@ -9,7 +9,7 @@
     (java.lang.System/setProperty "i2p.dir.config" dir)
     (java.lang.System/setProperty "wrapper.logfile" (str dir "/wrapper.log"))
     (net.i2p.router.RouterLaunch/main nil)
-    (create-key-if-not-exists (str dir priv-nkey-file))))
+    (create-priv-nkey (str dir priv-nkey-file))))
 
 (defn stop-router
   []

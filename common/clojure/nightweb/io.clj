@@ -1,18 +1,24 @@
 (ns nightweb.io
-  (:use [clojure.java.io :only [file writer]]))
+  (:use [clojure.java.io :only [file
+                                input-stream
+                                output-stream]]))
 
 (defn file-exists
   [path]
   (.exists (file path)))
 
 (defn file-write
-  [path data]
-  (with-open [wrtr (writer path)]
-    (.write wrtr data)))
+  [path data-barray]
+  (with-open [bos (output-stream path)]
+    (.write bos data-barray 0 (alength data-barray))))
 
 (defn file-read
   [path]
-  (slurp path))
+  (let [length (.length (file path))
+        data-bytes (byte-array length)]
+    (with-open [bis (input-stream path)]
+      (.read bis data-bytes))
+    data-bytes))
 
 (defn b-encode
   [data-map]
