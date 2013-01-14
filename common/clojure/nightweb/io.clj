@@ -9,16 +9,18 @@
 
 (defn file-write
   [path data-barray]
+  (if-let [parent-dir (.getParentFile (file path))]
+    (.mkdirs parent-dir))
   (with-open [bos (output-stream path)]
     (.write bos data-barray 0 (alength data-barray))))
 
 (defn file-read
   [path]
   (let [length (.length (file path))
-        data-bytes (byte-array length)]
+        data-barray (byte-array length)]
     (with-open [bis (input-stream path)]
-      (.read bis data-bytes))
-    data-bytes))
+      (.read bis data-barray))
+    data-barray))
 
 (defn b-encode
   [data-map]

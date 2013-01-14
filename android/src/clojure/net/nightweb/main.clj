@@ -3,9 +3,7 @@
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
         [net.nightweb.clandroid.service :only [defservice start-foreground]]
-        [nightweb.router :only [start-router
-                                stop-router
-                                start-download-manager]]))
+        [nightweb.router :only [start-router stop-router]]))
 
 (defapplication net.nightweb.Application)
 
@@ -28,8 +26,7 @@
                        service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
     ; start router
-    (start-router this)
-    (def download-manager (start-download-manager)))
+    (start-router this))
   :on-destroy
   (fn [this]
     (.unregisterReceiver this service-receiver)
