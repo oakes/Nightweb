@@ -1,5 +1,5 @@
 (ns nightweb.torrent
-  (:use [nightweb.constants :only [files-dir]]))
+  (:use [clojure.java.io :only [file]]))
 
 (def dl-manager nil)
 
@@ -19,12 +19,12 @@
           tracker-url (.getTrackerURL magnet)]
       (.addMagnet dl-manager magnet-name info-hash tracker-url false))
     (catch IllegalArgumentException iae
-      (println (str "Invalid magnet URL " url)))))
+      (println "Invalid magnet URL" url))))
 
 (defn create-download
   [path]
   (try
-    (let [base-file (java.io.File. path)
+    (let [base-file (file path)
           listener (reify org.klomp.snark.StorageListener
                      (storageCreateFile [this storage file-name length])
                      (storageAllocated [this storage length])
@@ -37,11 +37,13 @@
                     (.util dl-manager) base-file nil false listener)
           _ (.close storage)
           info (.getMetaInfo storage)
-          torrent-file (java.io.File.
-                         files-dir
+          torrent-file (file
+                         (.getParent base-file)
                          (str (.getBaseName storage) ".torrent"))
           torrent-path (.getAbsolutePath torrent-file)]
-      (.addTorrent dl-manager info (.getBitField storage) torrent-path true)
-      (println (str "Torrent created for " path)))
+      (.addTorrent dl-manager info (.getBitField storage) torrent-path false)
+      (println "Torrent created for" path "at" torrent-path)
+      (.getInfoHash info))
     (catch java.io.IOException ioe
-      (println (str "Error creating torrent for " path)))))
+      (println "Error creating torrent for" path)
+      nil)))

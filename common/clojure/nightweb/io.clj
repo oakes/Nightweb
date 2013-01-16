@@ -32,3 +32,11 @@
     (.getMap (org.klomp.snark.bencode.BDecoder/bdecode
                (java.io.ByteArrayInputStream. data-barray)))
     (catch java.lang.Exception e nil)))
+
+(defn base32-encode
+  [data-barray]
+  (net.i2p.data.Base32/encode data-barray))
+
+(defn base32-decode
+  [data-str]
+  (net.i2p.data.Base32/decode data-str))

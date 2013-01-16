@@ -1,7 +1,7 @@
 (ns nightweb.router
-  (:use [nightweb.constants :only [priv-nkey-file]]
-        [nightweb.crypto :only [create-priv-nkey]]
-        [nightweb.torrent :only [start-download-manager]]))
+  (:use [nightweb.constants :only [nw-dir]]
+        [nightweb.crypto :only [create-keys]]
+        [nightweb.torrent :only [start-download-manager create-download]]))
 
 (defn start-router
   [context]
@@ -11,7 +11,7 @@
     (java.lang.System/setProperty "wrapper.logfile" (str dir "/wrapper.log"))
     (net.i2p.router.RouterLaunch/main nil)
     (start-download-manager)
-    (create-priv-nkey (str dir priv-nkey-file))))
+    (create-download (create-keys (str dir nw-dir)))))
 
 (defn stop-router
   []
