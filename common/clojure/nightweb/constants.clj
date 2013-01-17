@@ -1,11 +1,11 @@
 (ns nightweb.constants)
 
-(def sep java.io.File/separator)
+(def slash java.io.File/separator)
 
-(def nw-dir (str sep "nwapp"))
+(def nw-dir (str slash "nwapp"))
 
-(def priv-key-file (str sep "private.key"))
-(def pub-key-file (str sep "public.key"))
-(def db-file (str sep "main"))
-(def users-dir (str sep "users"))
-(def files-dir (str sep "files"))
+(def priv-key-file (str slash "private.key"))
+(def pub-key-file (str slash "public.key"))
+(def db-file (str slash "main"))
+(def users-dir (str slash "users"))
+(def files-dir (str slash "files"))

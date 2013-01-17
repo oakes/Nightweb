@@ -37,8 +37,9 @@
                     (read-priv-key priv-key-path)
                     (gen-priv-key)))
     (def pub-key (.toPublic priv-key))
-    (write-key pub-key-path pub-key)
-    (write-key priv-key-path priv-key)
+    (if (not (file-exists priv-key-path))
+      (write-key pub-key-path pub-key)
+      (write-key priv-key-path priv-key))
     pub-key-path))
 
 (defn create-signature
