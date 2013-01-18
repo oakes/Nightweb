@@ -12,7 +12,6 @@
   :def service
   :on-create
   (fn [this]
-    ; create notification
     (start-foreground
       this 1 (notification
                :icon (get-resource :drawable :ic_launcher)
@@ -25,8 +24,7 @@
     (.registerReceiver this
                        service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
-    ; start router
-    (start-router this))
+    (start-router (.getAbsolutePath (.getFilesDir this))))
   :on-destroy
   (fn [this]
     (.unregisterReceiver this service-receiver)

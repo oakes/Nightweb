@@ -1,5 +1,7 @@
 (ns net.nightweb.actions
-  (:use [neko.resource :only [get-resource get-string]]))
+  (:use [neko.resource :only [get-resource get-string]]
+        [nightweb.router :only [base-dir user-hash]]
+        [nightweb.format :only [write-post-file]]))
 
 (defn share-url
   [context]
@@ -21,7 +23,7 @@
         btn-action (fn [func]
                      (proxy [android.content.DialogInterface$OnClickListener] []
                        (onClick [dialog which]
-                         (if func (func dialog)))))]
+                         (if func (func view)))))]
     (if-let [positive-name (get buttons :positive-name)]
       (.setPositiveButton builder
                           positive-name
@@ -52,19 +54,20 @@
   (show-page context "net.nightweb.GridPage" content))
 
 (defn do-send-new-post
-  [dialog]
-  (println "send"))
+  [dialog-view]
+  (let [text (.toString (.getText dialog-view))]
+    (write-post-file base-dir user-hash text)))
 
 (defn do-attach-to-new-post
-  [dialog]
+  [dialog-view]
   (println "attach"))
 
 (defn do-save-profile
-  [dialog]
+  [dialog-view]
   (println "save"))
 
 (defn do-cancel
-  [dialog]
+  [dialog-view]
   (println "cancel"))
 
 (defn do-menu-action

@@ -4,16 +4,17 @@
                               drop-table
                               create-table-if-not-exists
                               insert-records
-                              with-query-results]]))
+                              with-query-results]]
+        [nightweb.constants :only [db-file]]))
 
 (def spec nil)
 
 (defn defspec
-  [path password]
+  [base-dir password]
   (def spec
     {:classname "org.h2.Driver"
      :subprotocol "h2"
-     :subname path}))
+     :subname (str base-dir db-file)}))
 
 (defn run-query
   ([f params] (run-query f params (fn [results] results)))
