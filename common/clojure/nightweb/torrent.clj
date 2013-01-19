@@ -1,49 +1,54 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file]]))
 
-(def dl-manager nil)
+(def manager nil)
 
-(defn start-download-manager
+(defn start-torrent-manager
   []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
-    (def dl-manager (org.klomp.snark.SnarkManager. context))
-    (.loadConfig dl-manager "i2psnark.config")
-    (.start dl-manager)))
+    (def manager (org.klomp.snark.SnarkManager. context))
+    (.loadConfig manager "i2psnark.config")
+    (.start manager)))
 
-(defn add-download
+(defn add-torrent
   [url]
   (try
-    (let [magnet (org.klomp.snark.MagnetURI. (.util dl-manager) url)
+    (let [magnet (org.klomp.snark.MagnetURI. (.util manager) url)
           magnet-name (.getName magnet)
           info-hash (.getInfoHash magnet)
           tracker-url (.getTrackerURL magnet)]
-      (.addMagnet dl-manager magnet-name info-hash tracker-url false))
+      (.addMagnet manager magnet-name info-hash tracker-url false))
     (catch IllegalArgumentException iae
       (println "Invalid magnet URL" url))))
 
-(defn create-download
-  [path]
-  (try
-    (let [base-file (file path)
-          listener (reify org.klomp.snark.StorageListener
-                     (storageCreateFile [this storage file-name length])
-                     (storageAllocated [this storage length])
-                     (storageChecked [this storage piece-num checked])
-                     (storageAllChecked [this storage])
-                     (storageCompleted [this storage])
-                     (setWantedPieces [this storage])
-                     (addMessage [this message]))
-          storage (org.klomp.snark.Storage.
-                    (.util dl-manager) base-file nil false listener)
-          _ (.close storage)
-          info (.getMetaInfo storage)
-          torrent-file (file
-                         (.getParent base-file)
-                         (str (.getBaseName storage) ".torrent"))
-          torrent-path (.getAbsolutePath torrent-file)]
-      (.addTorrent dl-manager info (.getBitField storage) torrent-path false)
-      (println "Torrent created for" path "at" torrent-path)
-      (.getInfoHash info))
-    (catch java.io.IOException ioe
-      (println "Error creating torrent for" path)
-      nil)))
+(defn create-torrent
+  ([path] (create-torrent path true))
+  ([path overwrite?]
+   (try
+     (let [base-file (file path)
+           listener (reify org.klomp.snark.StorageListener
+                      (storageCreateFile [this storage file-name length])
+                      (storageAllocated [this storage length])
+                      (storageChecked [this storage piece-num checked])
+                      (storageAllChecked [this storage])
+                      (storageCompleted [this storage])
+                      (setWantedPieces [this storage])
+                      (addMessage [this message]))
+           storage (org.klomp.snark.Storage.
+                     (.util manager) base-file nil false listener)
+           _ (.close storage)
+           info (.getMetaInfo storage)
+           torrent-file (file
+                          (.getParent base-file)
+                          (str (.getBaseName storage) ".torrent"))
+           torrent-path (.getAbsolutePath torrent-file)]
+       (if (and overwrite? (.exists torrent-file))
+         (do
+           (.stopTorrent manager torrent-path true)
+           (.delete torrent-file)))
+       (.addTorrent manager info (.getBitField storage) torrent-path false)
+       (println "Torrent created for" path "at" torrent-path)
+       (.getInfoHash info))
+     (catch java.io.IOException ioe
+       (println "Error creating torrent for" path)
+       nil))))

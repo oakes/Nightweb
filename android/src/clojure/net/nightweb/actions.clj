@@ -1,6 +1,6 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
-        [nightweb.router :only [base-dir user-hash]]
+        [nightweb.router :only [base-dir user-hash create-meta-torrent]]
         [nightweb.io :only [write-post-file]]))
 
 (defn share-url
@@ -56,7 +56,8 @@
 (defn do-send-new-post
   [dialog-view]
   (let [text (.toString (.getText dialog-view))]
-    (write-post-file base-dir user-hash text)))
+    (write-post-file base-dir user-hash text)
+    (create-meta-torrent)))
 
 (defn do-attach-to-new-post
   [dialog-view]
