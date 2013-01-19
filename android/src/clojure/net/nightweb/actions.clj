@@ -1,7 +1,7 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
         [nightweb.router :only [base-dir user-hash]]
-        [nightweb.format :only [write-post-file]]))
+        [nightweb.io :only [write-post-file]]))
 
 (defn share-url
   [context]

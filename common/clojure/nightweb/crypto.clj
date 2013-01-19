@@ -1,9 +1,9 @@
 (ns nightweb.crypto
   (:use [nightweb.constants :only [priv-key-file
                                    pub-key-file]]
-        [nightweb.format :only [file-exists?
-                                write-key-file
-                                read-key-file]]))
+        [nightweb.io :only [file-exists?
+                            write-key-file
+                            read-key-file]]))
 
 (def priv-key nil)
 (def pub-key nil)

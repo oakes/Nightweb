@@ -1,6 +1,6 @@
 (ns nightweb.router
   (:use [nightweb.crypto :only [create-keys]]
-        [nightweb.format :only [base32-encode]]
+        [nightweb.io :only [base32-encode]]
         [nightweb.torrent :only [start-download-manager create-download]]))
 
 (def base-dir nil)
