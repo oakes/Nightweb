@@ -6,12 +6,14 @@
 
 (def base-dir nil)
 (def user-hash nil)
+(def user-hash-bytes nil)
 
 (defn create-user-torrent
   []
   (let [pub-key-path (create-keys base-dir)
         info-hash (create-torrent pub-key-path false)]
-    (def user-hash (base32-encode info-hash))))
+    (def user-hash (base32-encode info-hash))
+    (def user-hash-bytes info-hash)))
 
 (defn create-meta-torrent
   []

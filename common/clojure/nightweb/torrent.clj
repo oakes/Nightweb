@@ -1,5 +1,5 @@
 (ns nightweb.torrent
-  (:use [clojure.java.io :only [file]]
+  (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [base32-encode]]))
 
 (def manager nil)
@@ -23,6 +23,10 @@
   ([path overwrite?]
    (try
      (let [base-file (file path)
+           torrent-file (file
+                          (.getParent base-file)
+                          (str (.getName base-file) ".torrent"))
+           torrent-path (.getAbsolutePath torrent-file)
            listener (reify org.klomp.snark.StorageListener
                       (storageCreateFile [this storage file-name length])
                       (storageAllocated [this storage length])
@@ -30,23 +34,24 @@
                       (storageAllChecked [this storage])
                       (storageCompleted [this storage])
                       (setWantedPieces [this storage])
-                      (addMessage [this message]))
-           storage (org.klomp.snark.Storage.
-                     (.util manager) base-file nil false listener)
-           _ (.close storage)
-           info (.getMetaInfo storage)
-           torrent-file (file
-                          (.getParent base-file)
-                          (str (.getBaseName storage) ".torrent"))
-           torrent-path (.getAbsolutePath torrent-file)]
+                      (addMessage [this message]))]
        (if (and overwrite? (.exists torrent-file))
          (do
            (.stopTorrent manager torrent-path true)
            (.delete torrent-file)))
-       (future
-         (.addTorrent manager info (.getBitField storage) torrent-path false)
-         (println "Torrent created for" path "at" torrent-path))
-       (.getInfoHash info))
+       (let [storage (if (.exists torrent-file)
+                       (org.klomp.snark.Storage.
+                         (.util manager)
+                         (org.klomp.snark.MetaInfo. (input-stream torrent-path))
+                         listener)
+                       (org.klomp.snark.Storage.
+                         (.util manager) base-file nil false listener))
+             _ (.close storage)
+             info (.getMetaInfo storage)]
+         (future
+           (.addTorrent manager info (.getBitField storage) torrent-path false)
+           (println "Torrent created for" path "at" torrent-path))
+         (.getInfoHash info)))
      (catch java.io.IOException ioe
        (println "Error creating torrent for" path)
        nil))))

@@ -9,6 +9,7 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
+        [nightweb.router :only [user-hash-bytes]]
         [nightweb.db :only [defspec
                             run-query
                             drop-tables
@@ -16,11 +17,10 @@
                             insert-test-data]]))
 
 (defn start-service
-  [context]
-  (let [service (bind-service context
-                              "net.nightweb.MainService"
-                              (fn [service] (.act service :test)))]
-    (swap! (.state context) assoc :service service)))
+  ([context] (start-service context (fn [binder])))
+  ([context on-connected]
+   (let [service (bind-service context "net.nightweb.MainService" on-connected)]
+     (swap! (.state context) assoc :service service))))
 
 (defn stop-service
   [context]
@@ -50,35 +50,34 @@
   net.nightweb.MainPage
   :on-create
   (fn [this bundle]
-    ; create database
     (defspec (.getAbsolutePath (.getFilesDir this)) nil)
     (run-query drop-tables nil nil)
     (run-query create-tables nil nil)
-    (run-query insert-test-data nil nil)
-    ; start service and receiver
-    (start-service this)
-    (start-receiver this)
-    ; create ui
-    (let [action-bar (.getActionBar this)]
-      (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
-      (.setDisplayShowTitleEnabled action-bar false)
-      (.setDisplayShowHomeEnabled action-bar false)
-      (create-tab action-bar
-                  (get-string :me)
-                  #(let [content {:type :users
-                                  :hash (byte-array (map byte [0]))}]
-                     (set-share-content this content)
-                     (get-user-view this content)))
-      (create-tab action-bar
-                  (get-string :users)
-                  #(let [content {:type :users}]
-                     (set-share-content this content)
-                     (get-category-view this content true)))
-      (create-tab action-bar
-                  (get-string :posts)
-                  #(let [content {:type :posts}]
-                     (set-share-content this content)
-                     (get-category-view this content true)))))
+    ;(run-query insert-test-data nil nil)
+    (start-service
+      this
+      (fn [binder]
+        (let [action-bar (.getActionBar this)]
+          (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
+          (.setDisplayShowTitleEnabled action-bar false)
+          (.setDisplayShowHomeEnabled action-bar false)
+          (create-tab action-bar
+                      (get-string :me)
+                      #(let [content {:type :users
+                                      :hash user-hash-bytes}]
+                         (set-share-content this content)
+                         (get-user-view this content)))
+          (create-tab action-bar
+                      (get-string :users)
+                      #(let [content {:type :users}]
+                         (set-share-content this content)
+                         (get-category-view this content true)))
+          (create-tab action-bar
+                      (get-string :posts)
+                      #(let [content {:type :posts}]
+                         (set-share-content this content)
+                         (get-category-view this content true))))))
+    (start-receiver this))
   :on-destroy
   (fn [this]
     (stop-receiver this)

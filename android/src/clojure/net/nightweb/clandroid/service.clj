@@ -8,9 +8,9 @@
   [context class-name connected]
   (let [intent (android.content.Intent.)
         connection (proxy [android.content.ServiceConnection] []
-                     (onServiceConnected [name binder]
+                     (onServiceConnected [component-name binder]
                                          (connected (.state binder)))
-                     (onServiceDisconnected [name] ()))]
+                     (onServiceDisconnected [component-name] ()))]
     (.setClassName intent context class-name)
     (.startService context intent)
     (.bindService context intent connection 0)

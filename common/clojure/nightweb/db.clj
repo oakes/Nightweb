@@ -5,7 +5,8 @@
                               create-table-if-not-exists
                               insert-records
                               with-query-results]]
-        [nightweb.constants :only [db-file]]))
+        [nightweb.constants :only [db-file]]
+        [nightweb.router :only [user-hash-bytes]]))
 
 (def spec nil)
 
@@ -95,14 +96,14 @@
 
 (defn get-user-data
   [params callback]
-  (let [user-hash (get params :hash)]
+  (let [user-hash (get params :hash)
+        is-me? (java.util.Arrays/equals user-hash user-hash-bytes)]
     (with-query-results
       rs
       ["SELECT * FROM users WHERE hash = ?" user-hash]
       (if-let [user (first rs)]
-        (callback (assoc user :is-me? (java.util.Arrays/equals
-                                        user-hash
-                                        (byte-array (map byte [0])))))))))
+        (callback (assoc user :is-me? is-me?))
+        (callback (assoc params :is-me? is-me?))))))
 
 (defn get-post-data
   [params callback]
