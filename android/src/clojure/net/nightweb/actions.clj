@@ -1,13 +1,22 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
         [nightweb.router :only [base-dir user-hash create-meta-torrent]]
-        [nightweb.io :only [write-post-file write-profile-file]]))
+        [nightweb.io :only [base32-encode
+                            write-post-file
+                            write-profile-file]]))
 
 (defn share-url
   [context]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)]
+  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
+        content (get @(.state context) :share-content)
+        type-param (get content :type)
+        hash-param (get content :hash)
+        params (concat
+                 (if type-param [(str "type=" (name type-param))] nil)
+                 (if hash-param [(str "hash=" (base32-encode hash-param))] nil))
+        url (str "nightweb:?" (clojure.string/join "&" params))]
     (.setType intent "text/plain")
-    (.putExtra intent android.content.Intent/EXTRA_TEXT "nightweb://asdf")
+    (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
 
 (defn show-page

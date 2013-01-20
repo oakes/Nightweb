@@ -42,6 +42,10 @@
   (if-let [receiver (get @(.state context) :receiver)]
     (.unregisterReceiver context receiver)))
 
+(defn set-share-content
+  [context content]
+  (swap! (.state context) assoc :share-content content))
+
 (defactivity
   net.nightweb.MainPage
   :on-create
@@ -61,13 +65,20 @@
       (.setDisplayShowHomeEnabled action-bar false)
       (create-tab action-bar
                   (get-string :me)
-                  #(get-user-view this {:hash (byte-array (map byte [0]))}))
+                  #(let [content {:type :users
+                                  :hash (byte-array (map byte [0]))}]
+                     (set-share-content this content)
+                     (get-user-view this content)))
       (create-tab action-bar
                   (get-string :users)
-                  #(get-category-view this {:type :users} true))
+                  #(let [content {:type :users}]
+                     (set-share-content this content)
+                     (get-category-view this content true)))
       (create-tab action-bar
                   (get-string :posts)
-                  #(get-category-view this {:type :posts} true))))
+                  #(let [content {:type :posts}]
+                     (set-share-content this content)
+                     (get-category-view this content true)))))
   :on-destroy
   (fn [this]
     (stop-receiver this)
@@ -103,7 +114,7 @@
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu true))
+    (create-main-menu this menu false))
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))
@@ -157,6 +168,7 @@
           grid-view (case (get params :type)
                       :users (get-user-view this params)
                       (get-grid-view this []))]
+      (set-share-content this params)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (if-let [title (get params :text)]
         (.setTitle action-bar title)
