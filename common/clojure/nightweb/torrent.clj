@@ -1,5 +1,6 @@
 (ns nightweb.torrent
-  (:use [clojure.java.io :only [file]]))
+  (:use [clojure.java.io :only [file]]
+        [nightweb.io :only [base32-encode]]))
 
 (def manager nil)
 
@@ -11,15 +12,11 @@
     (.start manager)))
 
 (defn add-torrent
-  [url]
+  [info-hash]
   (try
-    (let [magnet (org.klomp.snark.MagnetURI. (.util manager) url)
-          magnet-name (.getName magnet)
-          info-hash (.getInfoHash magnet)
-          tracker-url (.getTrackerURL magnet)]
-      (.addMagnet manager magnet-name info-hash tracker-url false))
+    (.addMagnet manager (base32-encode info-hash) info-hash nil false)
     (catch IllegalArgumentException iae
-      (println "Invalid magnet URL" url))))
+      (println "Invalid info hash"))))
 
 (defn create-torrent
   ([path] (create-torrent path true))
@@ -46,8 +43,9 @@
          (do
            (.stopTorrent manager torrent-path true)
            (.delete torrent-file)))
-       (.addTorrent manager info (.getBitField storage) torrent-path false)
-       (println "Torrent created for" path "at" torrent-path)
+       (future
+         (.addTorrent manager info (.getBitField storage) torrent-path false)
+         (println "Torrent created for" path "at" torrent-path))
        (.getInfoHash info))
      (catch java.io.IOException ioe
        (println "Error creating torrent for" path)

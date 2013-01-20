@@ -1,7 +1,7 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
         [nightweb.router :only [base-dir user-hash create-meta-torrent]]
-        [nightweb.io :only [write-post-file]]))
+        [nightweb.io :only [write-post-file write-profile-file]]))
 
 (defn share-url
   [context]
@@ -65,7 +65,13 @@
 
 (defn do-save-profile
   [dialog-view]
-  (println "save"))
+  (let [linear-layout (.getChildAt dialog-view 0)
+        name-field (.getChildAt linear-layout 0)
+        about-field (.getChildAt linear-layout 1)
+        name-text (.toString (.getText name-field))
+        about-text (.toString (.getText about-field))]
+    (write-profile-file base-dir user-hash name-text about-text))
+    (create-meta-torrent))
 
 (defn do-cancel
   [dialog-view]

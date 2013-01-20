@@ -2,7 +2,11 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
-        [nightweb.constants :only [slash get-posts-dir]]))
+        [nightweb.constants :only [slash
+                                   get-user-dir
+                                   get-meta-dir
+                                   get-posts-dir
+                                   profile-file]]))
 
 ; basic file operations
 
@@ -65,3 +69,18 @@
                    (get-posts-dir user-hash)
                    slash (.getTime (java.util.Date.)) ".post")
               (b-encode {"text" text})))
+
+(defn write-profile-file
+  [dir-path user-hash name-text about-text]
+  (write-file (str dir-path (get-meta-dir user-hash) profile-file)
+              (b-encode {"name" name-text
+                         "about" about-text})))
+
+(defn write-link-file
+  [file-path meta-hash sign]
+  (let [signed-data (b-encode {"hash" meta-hash
+                               "time" (.getTime (java.util.Date.))})
+        signature (sign signed-data)]
+    (write-file (str file-path ".link")
+                (b-encode {"data" signed-data
+                           "sig" signature}))))
