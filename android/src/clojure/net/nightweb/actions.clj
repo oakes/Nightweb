@@ -14,7 +14,7 @@
         params (concat
                  (if type-param [(str "type=" (name type-param))] nil)
                  (if hash-param [(str "hash=" (base32-encode hash-param))] nil))
-        url (str "nightweb:?" (clojure.string/join "&" params))]
+        url (str "http://nightweb.net#" (clojure.string/join "&" params))]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
