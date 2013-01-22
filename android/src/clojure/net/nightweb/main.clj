@@ -3,7 +3,8 @@
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
         [net.nightweb.clandroid.service :only [defservice start-foreground]]
-        [nightweb.router :only [start-router stop-router]]))
+        [nightweb.router :only [start-router stop-router]]
+        [nightweb.db :only [init-db]]))
 
 (defapplication net.nightweb.Application)
 
@@ -24,7 +25,9 @@
     (.registerReceiver this
                        service-receiver
                        (android.content.IntentFilter. "ACTION_CLOSE_APP"))
-    (start-router (.getAbsolutePath (.getFilesDir this))))
+    (let [dir (.getAbsolutePath (.getFilesDir this))]
+      (init-db dir)
+      (start-router dir)))
   :on-destroy
   (fn [this]
     (.unregisterReceiver this service-receiver)

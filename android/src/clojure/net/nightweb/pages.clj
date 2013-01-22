@@ -10,11 +10,7 @@
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
         [nightweb.router :only [user-hash-bytes]]
-        [nightweb.db :only [defspec
-                            run-query
-                            drop-tables
-                            create-tables
-                            insert-test-data]]))
+        [nightweb.io :only [base32-decode]]))
 
 (defn start-service
   ([context] (start-service context (fn [binder])))
@@ -50,10 +46,6 @@
   net.nightweb.MainPage
   :on-create
   (fn [this bundle]
-    (defspec (.getAbsolutePath (.getFilesDir this)) nil)
-    (run-query drop-tables nil nil)
-    (run-query create-tables nil nil)
-    ;(run-query insert-test-data nil nil)
     (start-service
       this
       (fn [binder]
@@ -63,8 +55,7 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :users
-                                      :hash user-hash-bytes}]
+                      #(let [content {:type :users :hash user-hash-bytes}]
                          (set-share-content this content)
                          (get-user-view this content)))
           (create-tab action-bar
@@ -90,10 +81,7 @@
   net.nightweb.FavoritesPage
   :on-create
   (fn [this bundle]
-    ; start service and receiver
-    (start-service this)
     (start-receiver this)
-    ; create ui
     (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
@@ -109,8 +97,7 @@
                                       (assoc params :type :posts-favorites)))))
   :on-destroy
   (fn [this]
-    (stop-receiver this)
-    (stop-service this))
+    (stop-receiver this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
@@ -122,10 +109,7 @@
   net.nightweb.TransfersPage
   :on-create
   (fn [this bundle]
-    ; start service and receiver
-    (start-service this)
     (start-receiver this)
-    ; create ui
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
@@ -144,8 +128,7 @@
                   #(get-category-view this {:type :audio-transfers}))))
   :on-destroy
   (fn [this]
-    (stop-receiver this)
-    (stop-service this))
+    (stop-receiver this))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
@@ -158,21 +141,30 @@
   :def grid-page
   :on-create
   (fn [this bundle]
-    ; start service and receiver
-    (start-service this)
-    (start-receiver this)
-    ; create ui
-    (let [params (.getSerializableExtra (.getIntent this) "params")
-          action-bar (.getActionBar this)
-          grid-view (case (get params :type)
-                      :users (get-user-view this params)
-                      (get-grid-view this []))]
-      (set-share-content this params)
-      (.setDisplayHomeAsUpEnabled action-bar true)
-      (if-let [title (get params :text)]
-        (.setTitle action-bar title)
-        (.setDisplayShowTitleEnabled action-bar false))
-      (set-content-view! grid-page grid-view)))
+    (start-service
+      this
+      (fn [binder]
+        (let [params (if-let [url (.getDataString (.getIntent this))]
+                       (let [url-str (subs url (+ 1 (.indexOf url "#")))
+                             url-vec (clojure.string/split url-str #"[&=]")
+                             url-map (if (even? (count url-vec))
+                                       (apply hash-map url-vec)
+                                       {})
+                             {type-val "type" hash-val "hash"} url-map]
+                         {:type (if type-val (keyword type-val) nil)
+                          :hash (if hash-val (base32-decode hash-val) nil)})
+                       (.getSerializableExtra (.getIntent this) "params"))
+              grid-view (case (get params :type)
+                          :users (get-user-view this params)
+                          (get-grid-view this []))
+              action-bar (.getActionBar this)]
+          (set-share-content this params)
+          (.setDisplayHomeAsUpEnabled action-bar true)
+          (if-let [title (get params :text)]
+            (.setTitle action-bar title)
+            (.setDisplayShowTitleEnabled action-bar false))
+          (set-content-view! grid-page grid-view))))
+    (start-receiver this))
   :on-destroy
   (fn [this]
     (stop-receiver this)

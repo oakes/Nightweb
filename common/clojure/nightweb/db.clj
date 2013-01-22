@@ -10,13 +10,6 @@
 
 (def spec nil)
 
-(defn defspec
-  [base-dir password]
-  (def spec
-    {:classname "org.h2.Driver"
-     :subprotocol "h2"
-     :subname (str base-dir db-file)}))
-
 (defn run-query
   ([f params] (run-query f params (fn [results] results)))
   ([f params callback]
@@ -66,6 +59,16 @@
     [:hash "BINARY"]
     [:user "BINARY"]
     [:pointer "BINARY"]))
+
+(defn init-db
+  [base-dir]
+  (when (nil? spec)
+    (def spec
+      {:classname "org.h2.Driver"
+       :subprotocol "h2"
+       :subname (str base-dir db-file)})
+    (run-query drop-tables nil)
+    (run-query create-tables nil)))
 
 (defn insert-test-data
   [params callback]
