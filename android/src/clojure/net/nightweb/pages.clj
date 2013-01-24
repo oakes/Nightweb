@@ -9,8 +9,7 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
-        [nightweb.router :only [user-hash-bytes]]
-        [nightweb.io :only [base32-decode]]))
+        [nightweb.router :only [user-hash-bytes parse-url]]))
 
 (defn start-service
   ([context] (start-service context (fn [binder])))
@@ -145,14 +144,7 @@
       this
       (fn [binder]
         (let [params (if-let [url (.getDataString (.getIntent this))]
-                       (let [url-str (subs url (+ 1 (.indexOf url "#")))
-                             url-vec (clojure.string/split url-str #"[&=]")
-                             url-map (if (even? (count url-vec))
-                                       (apply hash-map url-vec)
-                                       {})
-                             {type-val "type" hash-val "hash"} url-map]
-                         {:type (if type-val (keyword type-val) nil)
-                          :hash (if hash-val (base32-decode hash-val) nil)})
+                       (parse-url url)
                        (.getSerializableExtra (.getIntent this) "params"))
               grid-view (case (get params :type)
                           :users (get-user-view this params)

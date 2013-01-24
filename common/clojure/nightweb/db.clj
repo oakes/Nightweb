@@ -67,7 +67,7 @@
       {:classname "org.h2.Driver"
        :subprotocol "h2"
        :subname (str base-dir db-file)})
-    (run-query drop-tables nil)
+    ;(run-query drop-tables nil)
     (run-query create-tables nil)))
 
 (defn insert-test-data

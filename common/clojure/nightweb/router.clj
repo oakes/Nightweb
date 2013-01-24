@@ -1,6 +1,8 @@
 (ns nightweb.router
   (:use [nightweb.crypto :only [create-keys create-signature]]
-        [nightweb.io :only [base32-encode write-link-file]]
+        [nightweb.io :only [base32-encode
+                            base32-decode
+                            write-link-file]]
         [nightweb.constants :only [slash get-meta-dir]]
         [nightweb.torrent :only [start-torrent-manager create-torrent]]))
 
@@ -21,11 +23,23 @@
         info-hash (create-torrent path)]
     (write-link-file path info-hash (fn [data] (create-signature data)))))
 
+(defn parse-url
+  [url]
+  (let [url-str (subs url (+ 1 (.indexOf url "#")))
+        url-vec (clojure.string/split url-str #"[&=]")
+        url-map (if (even? (count url-vec))
+                  (apply hash-map url-vec)
+                  {})
+        {type-val "type" hash-val "hash"} url-map]
+    {:type (if type-val (keyword type-val) nil)
+     :hash (if hash-val (base32-decode hash-val) nil)}))
+
 (defn start-router
   [dir]
   (def base-dir dir)
   (java.lang.System/setProperty "i2p.dir.base" dir)
   (java.lang.System/setProperty "i2p.dir.config" dir)
+  (java.lang.System/setProperty "i2psnark.dir" "/sdcard/Download")
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
   (start-torrent-manager)
