@@ -39,7 +39,6 @@
   (def base-dir dir)
   (java.lang.System/setProperty "i2p.dir.base" dir)
   (java.lang.System/setProperty "i2p.dir.config" dir)
-  (java.lang.System/setProperty "i2psnark.dir" "/sdcard/Download")
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
   (start-torrent-manager)

@@ -8,37 +8,62 @@
   []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
+    (.updateConfig manager
+                   "/sdcard/Download" ;dataDir
+                   true ;filesPublic
+                   true ;autoStart
+                   nil ;refreshDelay
+                   nil ;startDelay
+                   nil ;seedPct
+                   nil ;eepHost
+                   nil ;eepPort
+                   nil ;i2cpHost
+                   nil ;i2cpPort
+                   nil ;i2cpOps
+                   nil ;upLimit
+                   nil ;upBW
+                   true ;useOpenTrackers
+                   true ;useDHT
+                   nil) ;theme
     (.loadConfig manager "i2psnark.config")
     (.start manager)))
 
 (defn add-torrent
   [info-hash]
-  (try
-    (.addMagnet manager (base32-encode info-hash) info-hash nil false)
-    (catch IllegalArgumentException iae
-      (println "Invalid info hash"))))
+  (if-let [cl-manager (.clientManager (net.i2p.I2PAppContext/getGlobalContext))]
+    (if (.isAlive cl-manager)
+      (try
+        (.addMagnet manager (base32-encode info-hash) info-hash nil false)
+        (catch IllegalArgumentException iae
+          (println "Invalid info hash")))
+      (println "Can't add torrent -- I2CP hasn't started yet"))))
 
 (defn create-torrent
   ([path] (create-torrent path true))
   ([path overwrite?]
    (try
      (let [base-file (file path)
-           torrent-file (file
-                          (.getParent base-file)
-                          (str (.getName base-file) ".torrent"))
+           torrent-file (file (.getParent base-file)
+                              (str (.getName base-file) ".torrent"))
            torrent-path (.getAbsolutePath torrent-file)
            listener (reify org.klomp.snark.StorageListener
-                      (storageCreateFile [this storage file-name length])
-                      (storageAllocated [this storage length])
-                      (storageChecked [this storage piece-num checked])
-                      (storageAllChecked [this storage])
-                      (storageCompleted [this storage])
-                      (setWantedPieces [this storage])
-                      (addMessage [this message]))]
-       (if (and overwrite? (.exists torrent-file))
-         (do
-           (.stopTorrent manager torrent-path true)
-           (.delete torrent-file)))
+                      (storageCreateFile [this storage file-name length]
+                        (println "storageCreateFile" file-name))
+                      (storageAllocated [this storage length]
+                        (println "storageAllocated" length))
+                      (storageChecked [this storage piece-num checked]
+                        (println "storageChecked" piece-num))
+                      (storageAllChecked [this storage]
+                        (println "storageAllChecked"))
+                      (storageCompleted [this storage]
+                        (println "storageCompleted"))
+                      (setWantedPieces [this storage]
+                        (println "setWantedPieces"))
+                      (addMessage [this message]
+                        (println "addMessage" message)))]
+       (when (and overwrite? (.exists torrent-file))
+         (.stopTorrent manager torrent-path true)
+         (.delete torrent-file))
        (let [storage (if (.exists torrent-file)
                        (org.klomp.snark.Storage.
                          (.util manager)
