@@ -6,7 +6,7 @@
                               insert-records
                               with-query-results]]
         [nightweb.constants :only [db-file]]
-        [nightweb.router :only [user-hash-bytes]]))
+        [nightweb.router :only [get-user-hash]]))
 
 (def spec nil)
 
@@ -100,7 +100,7 @@
 (defn get-user-data
   [params callback]
   (let [user-hash (get params :hash)
-        is-me? (java.util.Arrays/equals user-hash user-hash-bytes)]
+        is-me? (java.util.Arrays/equals user-hash (get-user-hash true))]
     (with-query-results
       rs
       ["SELECT * FROM users WHERE hash = ?" user-hash]

@@ -30,13 +30,10 @@
 
 (defn add-torrent
   [info-hash]
-  (if-let [cl-manager (.clientManager (net.i2p.I2PAppContext/getGlobalContext))]
-    (if (.isAlive cl-manager)
-      (try
-        (.addMagnet manager (base32-encode info-hash) info-hash nil false)
-        (catch IllegalArgumentException iae
-          (println "Invalid info hash")))
-      (println "Can't add torrent -- I2CP hasn't started yet"))))
+  (try
+    (.addMagnet manager (base32-encode info-hash) info-hash nil false)
+    (catch IllegalArgumentException iae
+      (println "Invalid info hash"))))
 
 (defn create-torrent
   ([path] (create-torrent path true))

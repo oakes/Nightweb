@@ -2,44 +2,29 @@
   (:use [neko.resource :only [get-resource get-string]]
         [neko.activity :only [set-content-view!]]
         [net.nightweb.clandroid.activity :only [defactivity]]
-        [net.nightweb.clandroid.service :only [bind-service unbind-service]]
+        [net.nightweb.clandroid.service :only [start-service
+                                               stop-service
+                                               start-receiver
+                                               stop-receiver
+                                               send-broadcast]]
+        [net.nightweb.main :only [service-name
+                                  shutdown-receiver-name
+                                  download-receiver-name]]
         [net.nightweb.views :only [create-tab
                                    get-grid-view
                                    get-user-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
-        [nightweb.router :only [user-hash-bytes parse-url]]))
-
-(defn start-service
-  ([context] (start-service context (fn [binder])))
-  ([context on-connected]
-   (let [service (bind-service context "net.nightweb.MainService" on-connected)]
-     (swap! (.state context) assoc :service service))))
-
-(defn stop-service
-  [context]
-  (if-let [service (get @(.state context) :service)]
-    (unbind-service context service)))
-
-(defn start-receiver
-  [context]
-  (let [receiver (proxy [android.content.BroadcastReceiver] []
-                   (onReceive [context intent]
-                     (.finish context)))]
-    (.registerReceiver context
-                       receiver
-                       (android.content.IntentFilter. "ACTION_CLOSE_APP"))
-    (swap! (.state context) assoc :receiver receiver)))
-
-(defn stop-receiver
-  [context]
-  (if-let [receiver (get @(.state context) :receiver)]
-    (.unregisterReceiver context receiver)))
+        [nightweb.router :only [get-user-hash parse-url]]))
 
 (defn set-share-content
   [context content]
   (swap! (.state context) assoc :share-content content))
+
+(defn shutdown-receiver-func
+  [context intent]
+  (.finish context))
 
 (defactivity
   net.nightweb.MainPage
@@ -47,6 +32,7 @@
   (fn [this bundle]
     (start-service
       this
+      service-name
       (fn [binder]
         (let [action-bar (.getActionBar this)]
           (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
@@ -54,7 +40,7 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :users :hash user-hash-bytes}]
+                      #(let [content {:type :users :hash (get-user-hash true)}]
                          (set-share-content this content)
                          (get-user-view this content)))
           (create-tab action-bar
@@ -67,10 +53,10 @@
                       #(let [content {:type :posts}]
                          (set-share-content this content)
                          (get-category-view this content true))))))
-    (start-receiver this))
+    (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
-    (stop-receiver this)
+    (stop-receiver this shutdown-receiver-name)
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]
@@ -80,7 +66,7 @@
   net.nightweb.FavoritesPage
   :on-create
   (fn [this bundle]
-    (start-receiver this)
+    (start-receiver this shutdown-receiver-name shutdown-receiver-func)
     (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
@@ -96,7 +82,7 @@
                                       (assoc params :type :posts-favorites)))))
   :on-destroy
   (fn [this]
-    (stop-receiver this))
+    (stop-receiver this shutdown-receiver-name))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
@@ -108,7 +94,7 @@
   net.nightweb.TransfersPage
   :on-create
   (fn [this bundle]
-    (start-receiver this)
+    (start-receiver this shutdown-receiver-name shutdown-receiver-func)
     (let [action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
@@ -127,7 +113,7 @@
                   #(get-category-view this {:type :audio-transfers}))))
   :on-destroy
   (fn [this]
-    (stop-receiver this))
+    (stop-receiver this shutdown-receiver-name))
   :on-create-options-menu
   (fn [this menu]
     (create-main-menu this menu false))
@@ -142,12 +128,16 @@
   (fn [this bundle]
     (start-service
       this
+      service-name
       (fn [binder]
         (let [params (if-let [url (.getDataString (.getIntent this))]
                        (parse-url url)
                        (.getSerializableExtra (.getIntent this) "params"))
               grid-view (case (get params :type)
-                          :users (get-user-view this params)
+                          :users 
+                          (do
+                            (send-broadcast this params download-receiver-name)
+                            (get-user-view this params))
                           (get-grid-view this []))
               action-bar (.getActionBar this)]
           (set-share-content this params)
@@ -156,10 +146,10 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! grid-page grid-view))))
-    (start-receiver this))
+    (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
-    (stop-receiver this)
+    (stop-receiver this shutdown-receiver-name)
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]

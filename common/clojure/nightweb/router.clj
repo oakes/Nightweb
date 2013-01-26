@@ -8,18 +8,19 @@
 
 (def base-dir nil)
 (def user-hash nil)
-(def user-hash-bytes nil)
+
+(defn get-user-hash
+  [is-binary?]
+  (if is-binary? @user-hash (base32-encode @user-hash)))
 
 (defn create-user-torrent
   []
-  (let [pub-key-path (create-keys base-dir)
-        info-hash (create-torrent pub-key-path false)]
-    (def user-hash (base32-encode info-hash))
-    (def user-hash-bytes info-hash)))
+  (let [pub-key-path (create-keys base-dir)]
+    (create-torrent pub-key-path false)))
 
 (defn create-meta-torrent
   []
-  (let [path (str base-dir (get-meta-dir user-hash))
+  (let [path (str base-dir (get-meta-dir (get-user-hash false)))
         info-hash (create-torrent path)]
     (write-link-file path info-hash (fn [data] (create-signature data)))))
 
@@ -37,12 +38,16 @@
 (defn start-router
   [dir]
   (def base-dir dir)
-  (java.lang.System/setProperty "i2p.dir.base" dir)
-  (java.lang.System/setProperty "i2p.dir.config" dir)
-  (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
-  (net.i2p.router.RouterLaunch/main nil)
-  (start-torrent-manager)
-  (create-user-torrent))
+  (def user-hash
+    (future
+      (java.lang.System/setProperty "i2p.dir.base" dir)
+      (java.lang.System/setProperty "i2p.dir.config" dir)
+      (java.lang.System/setProperty "wrapper.logfile"
+                                    (str dir slash "wrapper.log"))
+      (net.i2p.router.RouterLaunch/main nil)
+      (start-torrent-manager)
+      (java.lang.Thread/sleep 2000)
+      (create-user-torrent))))
 
 (defn stop-router
   []

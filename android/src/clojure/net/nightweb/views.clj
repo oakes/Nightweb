@@ -7,7 +7,6 @@
                                      do-save-profile
                                      do-cancel
                                      show-dialog]]
-        [nightweb.torrent :only [add-torrent]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
@@ -157,7 +156,6 @@
 
 (defn get-user-view
   [context content]
-  (add-torrent (get content :hash))
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (run-query get-user-data content)
