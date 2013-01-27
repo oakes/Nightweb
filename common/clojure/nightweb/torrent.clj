@@ -80,24 +80,24 @@
                       (setWantedPieces [this storage]
                         (println "setWantedPieces"))
                       (addMessage [this message]
-                        (println "addMessage" message)))]
-       (when (and overwrite? (.exists torrent-file))
-         (.stopTorrent manager torrent-path true)
-         (.delete torrent-file))
-       (let [storage (if (.exists torrent-file)
-                       (org.klomp.snark.Storage.
-                         (.util manager)
-                         (org.klomp.snark.MetaInfo. (input-stream torrent-path))
-                         listener)
-                       (org.klomp.snark.Storage.
-                         (.util manager) base-file nil false listener))
-             _ (.close storage)
-             info (.getMetaInfo storage)]
-         (future
-           (.addTorrent
-             manager info (.getBitField storage) torrent-path false root-path)
-           (println "Torrent created for" path "at" torrent-path))
-         (.getInfoHash info)))
+                        (println "addMessage" message)))
+           storage (if (and (not overwrite?) (.exists torrent-file))
+                     (org.klomp.snark.Storage.
+                       (.util manager)
+                       (org.klomp.snark.MetaInfo. (input-stream torrent-path))
+                       listener)
+                     (org.klomp.snark.Storage.
+                       (.util manager) base-file nil false listener))
+           _ (.close storage)
+           info (.getMetaInfo storage)]
+       (future
+         (when (and overwrite? (.exists torrent-file))
+           (.stopTorrent manager torrent-path true)
+           (.delete torrent-file))
+         (.addTorrent
+           manager info (.getBitField storage) torrent-path false root-path)
+         (println "Torrent created for" path "at" torrent-path))
+       (.getInfoHash info))
      (catch java.io.IOException ioe
        (println "Error creating torrent for" path)
        nil))))

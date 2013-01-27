@@ -147,7 +147,7 @@ public class SnarkManager implements CompleteListener {
      *  for i2cp host/port or i2psnark.dir
      */
     public void start() {
-	this.start(true);
+        this.start(true);
     }
 
     public void start(boolean runDirMonitor) {
@@ -936,7 +936,7 @@ public class SnarkManager implements CompleteListener {
      */
     public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
                           boolean autoStart, CompleteListener listener) {
-	return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
+        return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
     }
 
     /**

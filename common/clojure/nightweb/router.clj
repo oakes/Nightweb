@@ -7,11 +7,12 @@
         [nightweb.torrent :only [start-torrent-manager create-torrent]]))
 
 (def base-dir nil)
-(def user-hash nil)
+(def user-hash-bytes nil)
+(def user-hash-str nil)
 
 (defn get-user-hash
   [is-binary?]
-  (if is-binary? @user-hash (base32-encode @user-hash)))
+  (if is-binary? user-hash-bytes user-hash-str))
 
 (defn create-user-torrent
   []
@@ -44,7 +45,8 @@
   (net.i2p.router.RouterLaunch/main nil)
   (start-torrent-manager)
   (java.lang.Thread/sleep 2000)
-  (def user-hash (future (create-user-torrent))))
+  (def user-hash-bytes (create-user-torrent))
+  (def user-hash-str (base32-encode user-hash-bytes)))
 
 (defn stop-router
   []
