@@ -9,7 +9,7 @@
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
     (.updateConfig manager
-                   "/sdcard/Download" ;dataDir
+                   nil ;dataDir
                    true ;filesPublic
                    true ;autoStart
                    nil ;refreshDelay
@@ -25,23 +25,46 @@
                    true ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
-    (.loadConfig manager "i2psnark.config")
-    (.start manager)))
+    (.start manager false)))
 
 (defn add-torrent
   [info-hash]
-  (try
-    (.addMagnet manager (base32-encode info-hash) info-hash nil false)
-    (catch IllegalArgumentException iae
-      (println "Invalid info hash"))))
+  (future
+    (try
+      (.addMagnet manager
+                  (base32-encode info-hash)
+                  info-hash
+                  nil
+                  false
+                  true
+                  (reify org.klomp.snark.CompleteListener
+                    (torrentComplete [this snark]
+                      (println "torrentComplete"))
+                    (updateStatus [this snark]
+                      (println "updateStatus"))
+                    (gotMetaInfo [this snark]
+                      (println "gotMetaInfo"))
+                    (fatal [this snark error]
+                      (println "fatal" error))
+                    (addMessage [this snark message]
+                      (println "addMessage" message))
+                    (gotPiece [this snark]
+                      (println "gotPiece"))
+                    (getSavedTorrentTime [this snark]
+                      (println "getSavedTorrentTime"))
+                    (getSavedTorrentBitField [this snark]
+                      (println "getSavedTorrentBitField")))
+                  "/sdcard/Download")
+      (catch IllegalArgumentException iae
+        (println "Invalid info hash")))))
 
 (defn create-torrent
   ([path] (create-torrent path true))
   ([path overwrite?]
    (try
      (let [base-file (file path)
-           torrent-file (file (.getParent base-file)
-                              (str (.getName base-file) ".torrent"))
+           root-path (.getParent base-file)
+           torrent-file (file root-path (str (.getName base-file) ".torrent"))
            torrent-path (.getAbsolutePath torrent-file)
            listener (reify org.klomp.snark.StorageListener
                       (storageCreateFile [this storage file-name length]
@@ -71,7 +94,8 @@
              _ (.close storage)
              info (.getMetaInfo storage)]
          (future
-           (.addTorrent manager info (.getBitField storage) torrent-path false)
+           (.addTorrent
+             manager info (.getBitField storage) torrent-path false root-path)
            (println "Torrent created for" path "at" torrent-path))
          (.getInfoHash info)))
      (catch java.io.IOException ioe

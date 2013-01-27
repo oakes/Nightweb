@@ -147,11 +147,17 @@ public class SnarkManager implements CompleteListener {
      *  for i2cp host/port or i2psnark.dir
      */
     public void start() {
+	this.start(true);
+    }
+
+    public void start(boolean runDirMonitor) {
         _running = true;
         _peerCoordinatorSet = new PeerCoordinatorSet();
         _connectionAcceptor = new ConnectionAcceptor(_util);
-        _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
-        _monitor.start();
+        if (runDirMonitor) {
+            _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
+            _monitor.start();
+        }
         // delay until UpdateManager is there
         _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
         // Not required, Jetty has a shutdown hook
@@ -791,12 +797,13 @@ public class SnarkManager implements CompleteListener {
      *  @throws RuntimeException via Snark.fatal()
      */
     private void addTorrent(String filename) { addTorrent(filename, false); }
+    private void addTorrent(String filename, boolean dontAutoStart) { addTorrent(filename, false, getDataDir().getPath()); }
 
     /**
      *  Caller must verify this torrent is not already added.
      *  @throws RuntimeException via Snark.fatal()
      */
-    private void addTorrent(String filename, boolean dontAutoStart) {
+    private void addTorrent(String filename, boolean dontAutoStart, String dataDir) {
         if ((!dontAutoStart) && !_util.connected()) {
             addMessage(_("Connecting to I2P"));
             boolean ok = _util.connect();
@@ -813,7 +820,6 @@ public class SnarkManager implements CompleteListener {
             addMessage(_("Error: Could not add the torrent {0}", filename) + ": " + ioe.getMessage());
             return;
         }
-        File dataDir = getDataDir();
         Snark torrent = null;
         synchronized (_snarks) {
             torrent = _snarks.get(filename);
@@ -879,7 +885,7 @@ public class SnarkManager implements CompleteListener {
                         // This may take a LONG time
                         torrent = new Snark(_util, filename, null, -1, null, null, this,
                                             _peerCoordinatorSet, _connectionAcceptor,
-                                            false, dataDir.getPath());
+                                            false, dataDir);
                         loadSavedFilePriorities(torrent);
                         synchronized (_snarks) {
                             _snarks.put(filename, torrent);
@@ -927,6 +933,14 @@ public class SnarkManager implements CompleteListener {
     
     /**
      * Add a torrent with the info hash alone (magnet / maggot)
+     */
+    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
+                          boolean autoStart, CompleteListener listener) {
+	return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
+    }
+
+    /**
+     * Add a torrent with the info hash alone (magnet / maggot)
      * External use is for UpdateRunner.
      *
      * @param name hex or b32 name from the magnet link
@@ -936,15 +950,16 @@ public class SnarkManager implements CompleteListener {
      *                     to save it across restarts, in case we don't get
      *                     the metadata before shutdown?
      * @param listener to intercept callbacks, should pass through to this
+     * @param dataDir path to save the torrent file and the subsequent downloaded files
      * @return the new Snark or null on failure
      * @throws RuntimeException via Snark.fatal()
      * @since 0.9.4
      */
     public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
-                          boolean autoStart, CompleteListener listener) {
+                          boolean autoStart, CompleteListener listener, String dataDir) {
         Snark torrent = new Snark(_util, name, ih, trackerURL, listener,
                                   _peerCoordinatorSet, _connectionAcceptor,
-                                  false, getDataDir().getPath());
+                                  false, dataDir);
 
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(ih);
@@ -1014,6 +1029,13 @@ public class SnarkManager implements CompleteListener {
     }
 
     /**
+     * Add a torrent from a MetaInfo.
+     */
+    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
+        addTorrent(metainfo, bitfield, filename, dontAutoStart, getDataDir().getPath());
+    }
+
+    /**
      * Add a torrent from a MetaInfo. Save the MetaInfo data to filename.
      * Holds the snarks lock to prevent interference from the DirMonitor.
      * This verifies that a torrent with this infohash is not already added.
@@ -1023,10 +1045,11 @@ public class SnarkManager implements CompleteListener {
      * @param bitfield the current completion status of the torrent
      * @param filename the absolute path to save the metainfo to, generally ending in ".torrent", which is also the name of the torrent
      *                 Must be a filesystem-safe name.
+     * @param dataDir the directory to save the file(s)
      * @throws RuntimeException via Snark.fatal()
      * @since 0.8.4
      */
-    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
+    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart, String dataDir) throws IOException {
         // prevent interference by DirMonitor
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(metainfo.getInfoHash());
@@ -1039,7 +1062,7 @@ public class SnarkManager implements CompleteListener {
             try {
                 locked_writeMetaInfo(metainfo, filename, areFilesPublic());
                 // hold the lock for a long time
-                addTorrent(filename, dontAutoStart);
+                addTorrent(filename, dontAutoStart, dataDir);
             } catch (IOException ioe) {
                 addMessage(_("Failed to copy torrent file to {0}", filename));
                 _log.error("Failed to write torrent file", ioe);
@@ -1087,7 +1110,7 @@ public class SnarkManager implements CompleteListener {
     private static void locked_writeMetaInfo(MetaInfo metainfo, String filename, boolean areFilesPublic) throws IOException {
         File file = new File(filename);
         if (file.exists())
-            throw new IOException("Cannot overwrite an existing .torrent file: " + file.getPath());
+            return;
         OutputStream out = null;
         try {
             if (areFilesPublic)
