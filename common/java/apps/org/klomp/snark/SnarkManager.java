@@ -147,9 +147,8 @@ public class SnarkManager implements CompleteListener {
      *  for i2cp host/port or i2psnark.dir
      */
     public void start() {
-        this.start(true);
+        start(true);
     }
-
     public void start(boolean runDirMonitor) {
         _running = true;
         _peerCoordinatorSet = new PeerCoordinatorSet();
@@ -797,12 +796,14 @@ public class SnarkManager implements CompleteListener {
      *  @throws RuntimeException via Snark.fatal()
      */
     private void addTorrent(String filename) { addTorrent(filename, false); }
-    private void addTorrent(String filename, boolean dontAutoStart) { addTorrent(filename, false, getDataDir().getPath()); }
 
     /**
      *  Caller must verify this torrent is not already added.
      *  @throws RuntimeException via Snark.fatal()
      */
+    private void addTorrent(String filename, boolean dontAutoStart) {
+        addTorrent(filename, dontAutoStart, getDataDir().getPath());
+    }
     private void addTorrent(String filename, boolean dontAutoStart, String dataDir) {
         if ((!dontAutoStart) && !_util.connected()) {
             addMessage(_("Connecting to I2P"));
@@ -933,14 +934,6 @@ public class SnarkManager implements CompleteListener {
     
     /**
      * Add a torrent with the info hash alone (magnet / maggot)
-     */
-    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
-                          boolean autoStart, CompleteListener listener) {
-        return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
-    }
-
-    /**
-     * Add a torrent with the info hash alone (magnet / maggot)
      * External use is for UpdateRunner.
      *
      * @param name hex or b32 name from the magnet link
@@ -950,11 +943,15 @@ public class SnarkManager implements CompleteListener {
      *                     to save it across restarts, in case we don't get
      *                     the metadata before shutdown?
      * @param listener to intercept callbacks, should pass through to this
-     * @param dataDir path to save the torrent file and the subsequent downloaded files
+     * @param dataDir directory to store the file(s)
      * @return the new Snark or null on failure
      * @throws RuntimeException via Snark.fatal()
      * @since 0.9.4
      */
+    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
+                          boolean autoStart, CompleteListener listener) {
+        return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
+    }
     public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
                           boolean autoStart, CompleteListener listener, String dataDir) {
         Snark torrent = new Snark(_util, name, ih, trackerURL, listener,
@@ -1029,13 +1026,6 @@ public class SnarkManager implements CompleteListener {
     }
 
     /**
-     * Add a torrent from a MetaInfo.
-     */
-    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
-        addTorrent(metainfo, bitfield, filename, dontAutoStart, getDataDir().getPath());
-    }
-
-    /**
      * Add a torrent from a MetaInfo. Save the MetaInfo data to filename.
      * Holds the snarks lock to prevent interference from the DirMonitor.
      * This verifies that a torrent with this infohash is not already added.
@@ -1045,10 +1035,13 @@ public class SnarkManager implements CompleteListener {
      * @param bitfield the current completion status of the torrent
      * @param filename the absolute path to save the metainfo to, generally ending in ".torrent", which is also the name of the torrent
      *                 Must be a filesystem-safe name.
-     * @param dataDir the directory to save the file(s)
+     * @param dataDir directory to store the file(s)
      * @throws RuntimeException via Snark.fatal()
      * @since 0.8.4
      */
+    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
+        addTorrent(metainfo, bitfield, filename, dontAutoStart, getDataDir().getPath());
+    }
     public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart, String dataDir) throws IOException {
         // prevent interference by DirMonitor
         synchronized (_snarks) {

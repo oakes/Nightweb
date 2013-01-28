@@ -22,7 +22,7 @@
                    nil ;i2cpOps
                    nil ;upLimit
                    nil ;upBW
-                   true ;useOpenTrackers
+                   false ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
     (.start manager false)))
@@ -89,15 +89,20 @@
                      (org.klomp.snark.Storage.
                        (.util manager) base-file nil false listener))
            _ (.close storage)
-           info (.getMetaInfo storage)]
+           meta-info (.getMetaInfo storage)
+           bit-field (.getBitField storage)]
        (future
          (when (and overwrite? (.exists torrent-file))
            (.stopTorrent manager torrent-path true)
            (.delete torrent-file))
-         (.addTorrent
-           manager info (.getBitField storage) torrent-path false root-path)
+         (.addTorrent manager
+                      meta-info
+                      bit-field
+                      torrent-path
+                      false
+                      root-path)
          (println "Torrent created for" path "at" torrent-path))
-       (.getInfoHash info))
+       (.getInfoHash meta-info))
      (catch java.io.IOException ioe
        (println "Error creating torrent for" path)
        nil))))
