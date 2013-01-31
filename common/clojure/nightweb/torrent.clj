@@ -3,6 +3,7 @@
         [nightweb.io :only [base32-encode]]))
 
 (def manager nil)
+(def base-dir "/sdcard/Download")
 
 (defn start-torrent-manager
   []
@@ -43,7 +44,8 @@
                     (updateStatus [this snark]
                       (println "updateStatus"))
                     (gotMetaInfo [this snark]
-                      (println "gotMetaInfo"))
+                      (println "gotMetaInfo")
+                      (.gotMetaInfo manager snark base-dir))
                     (fatal [this snark error]
                       (println "fatal" error))
                     (addMessage [this snark message]
@@ -54,7 +56,7 @@
                       (println "getSavedTorrentTime"))
                     (getSavedTorrentBitField [this snark]
                       (println "getSavedTorrentBitField")))
-                  "/sdcard/Download")
+                  base-dir)
       (catch IllegalArgumentException iae
         (println "Invalid info hash")))))
 

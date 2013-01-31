@@ -1487,6 +1487,9 @@ public class SnarkManager implements CompleteListener {
      * @since 0.8.4
      */
     public String gotMetaInfo(Snark snark) {
+        return gotMetaInfo(snark, getDataDir().getPath());
+    }
+    public String gotMetaInfo(Snark snark, String dataDir) {
         MetaInfo meta = snark.getMetaInfo();
         Storage storage = snark.getStorage();
         if (meta != null && storage != null) {
@@ -1501,7 +1504,7 @@ public class SnarkManager implements CompleteListener {
             String name = storage.getBaseName();
             try {
                 // _snarks must use canonical
-                name = (new File(getDataDir(), storage.getBaseName() + ".torrent")).getCanonicalPath();
+                name = (new File(dataDir, storage.getBaseName() + ".torrent")).getCanonicalPath();
                 // put the announce URL in the file
                 String announce = snark.getTrackerURL();
                 if (announce != null)

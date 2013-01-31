@@ -73,7 +73,8 @@ public class TrackerClient implements Runnable {
   private static final String STOPPED_EVENT = "stopped";
   private static final String NOT_REGISTERED  = "torrent not registered"; //bytemonsoon
   /** this is our equivalent to router.utorrent.com for bootstrap */
-  private static final String DEFAULT_BACKUP_TRACKER = "http://tracker.welterde.i2p/a";
+  private static final String DEFAULT_BACKUP_TRACKER = "http://BGKmlDOoH3RzFbPRfRpZV2FjpVj8~3moFftw5-dZfDf2070TOe8Tf2~DAVeaM6ZRLdmFEt~9wyFL8YMLMoLoiwGEH6IGW6rc45tstN68KsBDWZqkTohV1q9XFgK9JnCwE~Oi89xLBHsLMTHOabowWM6dkC8nI6QqJC2JODqLPIRfOVrDdkjLwtCrsckzLybNdFmgfoqF05UITDyczPsFVaHtpF1sRggOVmdvCM66otyonlzNcJbn59PA-R808vUrCPMGU~O9Wys0i-NoqtIbtWfOKnjCRFMNw5ex4n9m5Sxm9e20UkpKG6qzEuvKZWi8vTLe1NW~CBrj~vG7I3Ok4wybUFflBFOaBabxYJLlx4xTE1zJIVxlsekmAjckB4v-cQwulFeikR4LxPQ6mCQknW2HZ4JQIq6hL9AMabxjOlYnzh7kjOfRGkck8YgeozcyTvcDUcUsOuSTk06L4kdrv8h2Cozjbloi5zl6KTbj5ZTciKCxi73Pn9grICn-HQqEAAAA.i2p/a";
+
 
   private final static int SLEEP = 5; // 5 minutes.
   private final static int DELAY_MIN = 2000; // 2 secs.
