@@ -2,8 +2,14 @@
 
 (def slash java.io.File/separator)
 (def nw-dir (str slash "nwapp"))
+
 (def priv-key "private.key")
 (def pub-key "public.key")
+
+(def torrent-ext ".torrent")
+(def post-ext ".post")
+(def link-ext ".link")
+
 (def priv-key-file (str nw-dir slash priv-key))
 (def pub-key-file (str nw-dir slash pub-key))
 (def profile-file (str nw-dir slash "user.profile"))

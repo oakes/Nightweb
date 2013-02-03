@@ -3,6 +3,8 @@
                                 input-stream
                                 output-stream]]
         [nightweb.constants :only [slash
+                                   post-ext
+                                   link-ext
                                    get-user-dir
                                    get-meta-dir
                                    get-posts-dir
@@ -32,6 +34,12 @@
 (defn make-dir
   [path]
   (.mkdirs (file path)))
+
+(defn iterate-dir
+  [path func]
+  (doseq [f (.listFiles (file path))]
+    (if (.isDirectory f)
+      (func (.getName f)))))
 
 ; encodings/decodings
 
@@ -71,7 +79,7 @@
   [dir-path user-hash text]
   (write-file (str dir-path
                    (get-posts-dir user-hash)
-                   slash (.getTime (java.util.Date.)) ".post")
+                   slash (.getTime (java.util.Date.)) post-ext)
               (b-encode {"text" text})))
 
 (defn write-profile-file
@@ -85,6 +93,6 @@
   (let [signed-data (b-encode {"hash" meta-hash
                                "time" (.getTime (java.util.Date.))})
         signature (sign signed-data)]
-    (write-file (str file-path ".link")
+    (write-file (str file-path link-ext)
                 (b-encode {"data" signed-data
                            "sig" signature}))))

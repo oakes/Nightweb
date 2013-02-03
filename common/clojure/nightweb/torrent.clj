@@ -1,16 +1,14 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file input-stream]]
-        [nightweb.io :only [make-dir base32-encode]]
-        [nightweb.constants :only [get-user-dir]]))
+        [nightweb.io :only [base32-encode]]
+        [nightweb.constants :only [torrent-ext]]))
 
 (def manager nil)
-(def base-dir nil)
 
 (defn start-torrent-manager
-  [dir]
+  []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
-    (def base-dir dir)
     (.updateConfig manager
                    nil ;dataDir
                    true ;filesPublic
@@ -31,50 +29,45 @@
     (.start manager false)))
 
 (defn add-hash
-  ([user-hash-bytes] (add-hash user-hash-bytes user-hash-bytes))
-  ([user-hash-bytes info-hash-bytes]
-   (future
-     (let [info-hash-str (base32-encode info-hash-bytes)
-           user-hash-str (base32-encode user-hash-bytes)
-           user-dir (str base-dir (get-user-dir user-hash-str))]
-       (make-dir user-dir)
-       (try
-         (do
-           (.addMagnet manager
-                       info-hash-str
-                       info-hash-bytes
-                       nil
-                       false
-                       true
-                       (reify org.klomp.snark.CompleteListener
-                         (torrentComplete [this snark]
-                           (println "torrentComplete")
-                           (.torrentComplete manager snark))
-                         (updateStatus [this snark]
-                           (println "updateStatus")
-                           (.updateStatus manager snark))
-                         (gotMetaInfo [this snark]
-                           (println "gotMetaInfo")
-                           (.gotMetaInfo manager snark user-dir))
-                         (fatal [this snark error]
-                           (println "fatal" error)
-                           (.fatal manager snark error))
-                         (addMessage [this snark message]
-                           (println "addMessage" message)
-                           (.addMessage manager snark message))
-                         (gotPiece [this snark]
-                           (println "gotPiece")
-                           (.gotPiece manager snark))
-                         (getSavedTorrentTime [this snark]
-                           (println "getSavedTorrentTime")
-                           (.getSavedTorrentTime manager snark))
-                         (getSavedTorrentBitField [this snark]
-                           (println "getSavedTorrentBitField")
-                           (.getSavedTorrentBitField manager snark)))
-                       user-dir)
-           (println "Hash added to" user-dir))
-         (catch IllegalArgumentException iae
-           (println "Invalid info hash")))))))
+  [path info-hash-bytes]
+  (future
+    (try
+      (do
+        (.addMagnet manager
+                    (base32-encode info-hash-bytes)
+                    info-hash-bytes
+                    nil
+                    false
+                    true
+                    (reify org.klomp.snark.CompleteListener
+                      (torrentComplete [this snark]
+                        (println "torrentComplete")
+                        (.torrentComplete manager snark))
+                      (updateStatus [this snark]
+                        (println "updateStatus")
+                        (.updateStatus manager snark))
+                      (gotMetaInfo [this snark]
+                        (println "gotMetaInfo")
+                        (.gotMetaInfo manager snark path))
+                      (fatal [this snark error]
+                        (println "fatal" error)
+                        (.fatal manager snark error))
+                      (addMessage [this snark message]
+                        (println "addMessage" message)
+                        (.addMessage manager snark message))
+                      (gotPiece [this snark]
+                        (println "gotPiece")
+                        (.gotPiece manager snark))
+                      (getSavedTorrentTime [this snark]
+                        (println "getSavedTorrentTime")
+                        (.getSavedTorrentTime manager snark))
+                      (getSavedTorrentBitField [this snark]
+                        (println "getSavedTorrentBitField")
+                        (.getSavedTorrentBitField manager snark)))
+                    path)
+        (println "Hash added to" path))
+      (catch IllegalArgumentException iae
+        (println "Invalid info hash")))))
 
 (defn add-torrent
   ([path] (add-torrent path true))
@@ -82,7 +75,7 @@
    (try
      (let [base-file (file path)
            root-path (.getParent base-file)
-           torrent-file (file root-path (str (.getName base-file) ".torrent"))
+           torrent-file (file root-path (str (.getName base-file) torrent-ext))
            torrent-path (.getAbsolutePath torrent-file)
            listener (reify org.klomp.snark.StorageListener
                       (storageCreateFile [this storage file-name length]
