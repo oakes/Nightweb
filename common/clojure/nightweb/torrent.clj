@@ -40,22 +40,29 @@
                   true
                   (reify org.klomp.snark.CompleteListener
                     (torrentComplete [this snark]
-                      (println "torrentComplete"))
+                      (println "torrentComplete")
+                      (.torrentComplete manager snark))
                     (updateStatus [this snark]
-                      (println "updateStatus"))
+                      (println "updateStatus")
+                      (.updateStatus manager snark))
                     (gotMetaInfo [this snark]
                       (println "gotMetaInfo")
                       (.gotMetaInfo manager snark base-dir))
                     (fatal [this snark error]
-                      (println "fatal" error))
+                      (println "fatal" error)
+                      (.fatal manager snark error))
                     (addMessage [this snark message]
-                      (println "addMessage" message))
+                      (println "addMessage" message)
+                      (.addMessage manager snark message))
                     (gotPiece [this snark]
-                      (println "gotPiece"))
+                      (println "gotPiece")
+                      (.gotPiece manager snark))
                     (getSavedTorrentTime [this snark]
-                      (println "getSavedTorrentTime"))
+                      (println "getSavedTorrentTime")
+                      (.getSavedTorrentTime manager snark))
                     (getSavedTorrentBitField [this snark]
-                      (println "getSavedTorrentBitField")))
+                      (println "getSavedTorrentBitField")
+                      (.getSavedTorrentBitField manager snark)))
                   base-dir)
       (catch IllegalArgumentException iae
         (println "Invalid info hash")))))

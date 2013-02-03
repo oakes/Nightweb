@@ -884,7 +884,7 @@ public class SnarkManager implements CompleteListener {
                     } else {
                         // TODO load saved closest DHT nodes and pass to the Snark ?
                         // This may take a LONG time
-                        torrent = new Snark(_util, filename, null, -1, null, null, this,
+                        torrent = new Snark(_util, filename, null, -1, null, null, null,
                                             _peerCoordinatorSet, _connectionAcceptor,
                                             false, dataDir);
                         loadSavedFilePriorities(torrent);

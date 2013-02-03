@@ -24,7 +24,7 @@
                       (read-key-file priv-key-path))
                     (gen-priv-key)))
     (def pub-key (.toPublic priv-key))
-    (if (not (file-exists? priv-key-path))
+    (when (not (file-exists? priv-key-path))
       (write-key-file pub-key-path (.getData pub-key))
       (write-key-file priv-key-path (.getData priv-key)))
     pub-key-path))

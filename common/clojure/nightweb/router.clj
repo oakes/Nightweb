@@ -44,7 +44,7 @@
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
   (start-torrent-manager)
-  (java.lang.Thread/sleep 2000)
+  (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes)))
 
