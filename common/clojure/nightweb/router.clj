@@ -4,7 +4,7 @@
                             base32-decode
                             write-link-file]]
         [nightweb.constants :only [slash get-meta-dir]]
-        [nightweb.torrent :only [start-torrent-manager create-torrent]]))
+        [nightweb.torrent :only [start-torrent-manager add-torrent]]))
 
 (def base-dir nil)
 (def user-hash-bytes nil)
@@ -17,12 +17,12 @@
 (defn create-user-torrent
   []
   (let [pub-key-path (create-keys base-dir)]
-    (create-torrent pub-key-path false)))
+    (add-torrent pub-key-path false)))
 
 (defn create-meta-torrent
   []
   (let [path (str base-dir (get-meta-dir (get-user-hash false)))
-        info-hash (create-torrent path)]
+        info-hash (add-torrent path)]
     (write-link-file path info-hash (fn [data] (create-signature data)))))
 
 (defn parse-url
@@ -43,7 +43,7 @@
   (java.lang.System/setProperty "i2p.dir.config" dir)
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
-  (start-torrent-manager)
+  (start-torrent-manager dir)
   (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes)))

@@ -7,7 +7,7 @@
                                                start-receiver
                                                stop-receiver]]
         [nightweb.router :only [start-router stop-router]]
-        [nightweb.torrent :only [add-torrent]]
+        [nightweb.torrent :only [add-hash]]
         [nightweb.db :only [init-db]]))
 
 (defapplication net.nightweb.Application)
@@ -20,7 +20,7 @@
   [context intent]
   (if-let [params (.getSerializableExtra intent "params")]
     (if-let [download-hash (get params :hash)]
-      (add-torrent download-hash))))
+      (add-hash download-hash))))
 
 (defservice
   net.nightweb.MainService

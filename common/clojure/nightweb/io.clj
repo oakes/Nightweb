@@ -29,6 +29,10 @@
       (.read bis data-barray))
     data-barray))
 
+(defn make-dir
+  [path]
+  (.mkdirs (file path)))
+
 ; encodings/decodings
 
 (defn b-encode
