@@ -1191,6 +1191,10 @@ public class Snark
         completeListener.torrentComplete(this);
   }
 
+  public void setPersistent(boolean isPersistent) {
+    coordinator.setPersistent(isPersistent);
+  }
+
   public void setWantedPieces(Storage storage)
   {
     coordinator.setWantedPieces();

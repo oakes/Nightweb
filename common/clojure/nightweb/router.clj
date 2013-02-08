@@ -13,6 +13,8 @@
                                    get-meta-dir
                                    get-user-dir]]
         [nightweb.torrent :only [start-torrent-manager
+                                 get-torrent-paths
+                                 get-torrent-by-path
                                  add-hash
                                  add-torrent]]))
 
@@ -30,7 +32,7 @@
         path (str base-dir (get-user-dir their-hash-str))]
     (when-not (file-exists? path)
       (make-dir path)
-      (add-hash path their-hash-bytes))))
+      (add-hash path their-hash-bytes true))))
 
 (defn add-user-torrents
   []
@@ -43,15 +45,15 @@
                        meta-torrent-path (str meta-path torrent-ext)]
                    (if (not= dir-name user-hash-str)
                      (if (file-exists? pub-torrent-path)
-                       (add-torrent pub-path)
-                       (add-hash user-dir (base32-decode dir-name))))
+                       (add-torrent pub-path false)
+                       (add-hash user-dir (base32-decode dir-name) true)))
                    (if (file-exists? meta-torrent-path)
-                     (add-torrent meta-path))))))
+                     (add-torrent meta-path false))))))
 
 (defn create-user-torrent
   []
   (let [pub-key-path (create-keys base-dir)]
-    (add-torrent pub-key-path)))
+    (add-torrent pub-key-path false)))
 
 (defn create-meta-torrent
   []
@@ -81,7 +83,13 @@
   (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes))
-  (add-user-torrents))
+  (add-user-torrents)
+  (future
+    (while true
+      (java.lang.Thread/sleep 10000)
+      (doseq [path (get-torrent-paths)]
+        (if-let [torrent (get-torrent-by-path path)]
+          (println path (.size (.getPeerList torrent))))))))
 
 (defn stop-router
   []
