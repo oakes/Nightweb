@@ -36,6 +36,14 @@
   [path]
   (.getTorrent manager path))
 
+(defn add-peer
+  [dest port]
+  (if-let [dht (.getDHT manager)]
+    (.heardAbout dht (org.klomp.snark.dht.NodeInfo.
+                       (net.i2p.data.Destination. dest)
+                       port))
+    (println "Failed to add bootstrap peer")))
+
 (defn add-hash
   [path info-hash-bytes persistent?]
   (future
