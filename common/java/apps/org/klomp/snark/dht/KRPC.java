@@ -158,6 +158,10 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private static final int LOW_CRYPTO_TAGS = 4;
 
     public KRPC (I2PAppContext ctx, I2PSession session) {
+	    this(ctx, session, null);
+    }
+
+    public KRPC (I2PAppContext ctx, I2PSession session, NodeInfo myNodeInfo) {
         _context = ctx;
         _session = session;
         _log = ctx.logManager().getLog(KRPC.class);
@@ -171,17 +175,24 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         // Construct my NodeInfo
         // Pick ports over a big range to marginally increase security
         // If we add a search DHT, adjust to stay out of each other's way
-        _qPort = 2555 + ctx.random().nextInt(61111);
-        _rPort = _qPort + 1;
-        if (SECURE_NID) {
-            _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
-            _myID = _myNID.getData();
+        if (myNodeInfo == null) {
+            _qPort = 2555 + ctx.random().nextInt(61111);
+            if (SECURE_NID) {
+                _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
+                _myID = _myNID.getData();
+            } else {
+                _myID = new byte[NID.HASH_LENGTH];
+                ctx.random().nextBytes(_myID);
+                _myNID = new NID(_myID);
+            }
+            _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
         } else {
-            _myID = new byte[NID.HASH_LENGTH];
-            ctx.random().nextBytes(_myID);
-            _myNID = new NID(_myID);
-        }
-        _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
+	    _myNodeInfo = myNodeInfo;
+            _myNID = myNodeInfo.getNID();
+            _myID = _myNID.getData();
+            _qPort = myNodeInfo.getPort();
+	}
+        _rPort = _qPort + 1;
         _dhtFile = new File(ctx.getConfigDir(), DHT_FILE);
         _knownNodes = new DHTNodes(ctx, _myNID);
 
@@ -207,8 +218,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     /**
      *  @return The NodeInfo object
      */
-    public String getNodeInfoString() {
-        return _myNodeInfo.toPersistentString();
+    public NodeInfo getNodeInfo() {
+        return _myNodeInfo;
     }
 
     /**

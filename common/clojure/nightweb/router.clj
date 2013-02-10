@@ -5,7 +5,8 @@
                             iterate-dir
                             base32-encode
                             base32-decode
-                            write-node-key-files
+                            write-priv-node-key-file
+                            write-pub-node-key-file
                             write-link-file]]
         [nightweb.constants :only [slash
                                    torrent-ext
@@ -58,9 +59,9 @@
   (let [pub-key-path (create-user-keys base-dir)]
     (add-torrent pub-key-path
                  true
-                 #(write-node-key-files base-dir
-                                        (get-private-node)
-                                        (get-public-node)))))
+                 (fn []
+                   (write-priv-node-key-file base-dir (get-private-node))
+                   (write-pub-node-key-file base-dir (get-public-node))))))
 
 (defn create-meta-torrent
   []
@@ -86,7 +87,7 @@
   (java.lang.System/setProperty "i2p.dir.config" dir)
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
-  (start-torrent-manager)
+  (start-torrent-manager dir)
   (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes))

@@ -77,13 +77,31 @@
         sign-key-str (.get priv-key-map "sign-key")]
     (.getBytes sign-key-str)))
 
-(defn write-node-key-files
-  [base-dir priv-node pub-node]
+(defn write-priv-node-key-file
+  [base-dir priv-node]
   (let [priv-node-file (net.i2p.data.PrivateKeyFile.
                          (file (str base-dir priv-node-key-file))
                          priv-node)]
-    (.write priv-node-file))
-  (write-file (str base-dir pub-node-key-file) (.getBytes pub-node)))
+    (.write priv-node-file)))
+
+(defn read-priv-node-key-file
+  [base-dir]
+  (let [path (str base-dir priv-node-key-file)]
+    (if (file-exists? path)
+      (input-stream (file path))
+      nil)))
+
+(defn write-pub-node-key-file
+  [base-dir pub-node]
+  (write-file (str base-dir pub-node-key-file)
+              (.getBytes pub-node)))
+
+(defn read-pub-node-key-file
+  [base-dir]
+  (let [path (str base-dir pub-node-key-file)]
+    (if (file-exists? path)
+      (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path))))
+      nil)))
 
 (defn write-post-file
   [dir-path user-hash text]

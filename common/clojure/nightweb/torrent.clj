@@ -1,12 +1,14 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file input-stream]]
-        [nightweb.io :only [base32-encode]]
+        [nightweb.io :only [base32-encode
+                            read-priv-node-key-file
+                            read-pub-node-key-file]]
         [nightweb.constants :only [torrent-ext]]))
 
 (def manager nil)
 
 (defn start-torrent-manager
-  []
+  [base-dir]
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
     (.updateConfig manager
@@ -26,6 +28,10 @@
                    false ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
+    (let [priv-node (read-priv-node-key-file base-dir)
+          pub-node (read-pub-node-key-file base-dir)]
+      (if (and priv-node pub-node)
+        (.setDHTNode (.util manager) priv-node pub-node)))
     (.start manager false)))
 
 (defn get-torrent-paths
@@ -39,7 +45,7 @@
 (defn get-public-node
   []
   (if-let [dht (.getDHT (.util manager))]
-    (.getNodeInfoString dht)
+    (.toPersistentString (.getNodeInfo dht))
     (println "Failed to get our public node")))
 
 (defn get-private-node
