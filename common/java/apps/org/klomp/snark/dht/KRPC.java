@@ -205,6 +205,13 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     }
 
     /**
+     *  @return The NodeInfo object
+     */
+    public String getNodeInfoString() {
+        return _myNodeInfo.toPersistentString();
+    }
+
+    /**
      *  @return The UDP response port
      */
     public int getRPort() {

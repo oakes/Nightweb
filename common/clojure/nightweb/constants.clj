@@ -12,6 +12,8 @@
 
 (def priv-key-file (str nw-dir slash priv-key))
 (def pub-key-file (str nw-dir slash pub-key))
+(def priv-node-key-file (str nw-dir slash "private.node.key"))
+(def pub-node-key-file (str nw-dir slash "public.node.key"))
 (def profile-file (str nw-dir slash "user.profile"))
 (def db-file (str nw-dir slash "main"))
 (def users-dir (str nw-dir slash "users"))

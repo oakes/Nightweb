@@ -1,10 +1,11 @@
 (ns nightweb.router
-  (:use [nightweb.crypto :only [create-keys create-signature]]
+  (:use [nightweb.crypto :only [create-user-keys create-signature]]
         [nightweb.io :only [file-exists?
                             make-dir
                             iterate-dir
                             base32-encode
                             base32-decode
+                            write-node-key-files
                             write-link-file]]
         [nightweb.constants :only [slash
                                    torrent-ext
@@ -15,6 +16,8 @@
         [nightweb.torrent :only [start-torrent-manager
                                  get-torrent-paths
                                  get-torrent-by-path
+                                 get-public-node
+                                 get-private-node
                                  add-hash
                                  add-torrent]]))
 
@@ -45,20 +48,24 @@
                        meta-torrent-path (str meta-path torrent-ext)]
                    (if (not= dir-name user-hash-str)
                      (if (file-exists? pub-torrent-path)
-                       (add-torrent pub-path false)
+                       (add-torrent pub-path true)
                        (add-hash user-dir (base32-decode dir-name) true)))
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false))))))
 
 (defn create-user-torrent
   []
-  (let [pub-key-path (create-keys base-dir)]
-    (add-torrent pub-key-path false)))
+  (let [pub-key-path (create-user-keys base-dir)]
+    (add-torrent pub-key-path
+                 true
+                 #(write-node-key-files base-dir
+                                        (get-private-node)
+                                        (get-public-node)))))
 
 (defn create-meta-torrent
   []
   (let [path (str base-dir (get-meta-dir (get-user-hash false)))
-        info-hash (add-torrent path true)]
+        info-hash (add-torrent path false)]
     (write-link-file path info-hash (fn [data] (create-signature data)))))
 
 (defn parse-url

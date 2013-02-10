@@ -15,7 +15,7 @@
         signing-keys (.generateSigningKeypair key-gen)]
     (aget signing-keys 1)))
 
-(defn create-keys
+(defn create-user-keys
   [base-dir-path]
   (let [priv-key-path (str base-dir-path priv-key-file)
         pub-key-path (str base-dir-path pub-key-file)]

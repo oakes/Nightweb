@@ -279,10 +279,6 @@ public class SnarkManager implements CompleteListener {
         return f; 
     }
 
-    public DHT getDHT() {
-        return _util.getDHT();
-    }
-
     /** null to set initial defaults */
     public void loadConfig(String filename) {
         if (_config == null)
