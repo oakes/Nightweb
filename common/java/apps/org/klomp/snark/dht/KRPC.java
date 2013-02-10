@@ -1122,7 +1122,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  Package private for PersistDHT.
      *  @return non-null nodeInfo from DB if present, otherwise the nInfo parameter is returned
      */
-    NodeInfo heardAbout(NodeInfo nInfo) {
+    public NodeInfo heardAbout(NodeInfo nInfo) {
         // try to keep ourselves out of the DHT
         if (nInfo.equals(_myNodeInfo))
             return _myNodeInfo;

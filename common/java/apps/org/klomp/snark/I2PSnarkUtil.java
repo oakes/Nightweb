@@ -181,7 +181,7 @@ public class I2PSnarkUtil {
 
     public void setDHTNode(InputStream privateKeyStream, NodeInfo nodeInfo) {
         _myPrivateKeyStream = privateKeyStream;
-	_myNodeInfo = nodeInfo;
+        _myNodeInfo = nodeInfo;
     }
     
     public String getI2CPHost() { return _i2cpHost; }

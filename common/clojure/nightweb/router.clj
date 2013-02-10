@@ -19,6 +19,7 @@
                                  get-torrent-by-path
                                  get-public-node
                                  get-private-node
+                                 add-node
                                  add-hash
                                  add-torrent]]))
 
@@ -54,14 +55,16 @@
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false))))))
 
+(defn dht-init-callback
+  []
+  (write-priv-node-key-file base-dir (get-private-node))
+  (write-pub-node-key-file base-dir (get-public-node))
+  (add-node "9eVgs6E2RYAIml6BnHjYVvPJuTg=:9eVgs-3gaPVhgNMqlMR3HqeR3MXjcs3jWU~UZw0~kGw=:KLYFvjezm9bG0fI73KE2vqq3ixGYHylcyw0HallFAii7UrSv~boLMHXJAAEx4nkzj5wW-IldGzitWDoQOBDPCHwtg7z5Cw0VYcuyJh7f4o-WLlv~wOAOyERRdwpaH5OT0BPZdLJQJ3u~z4qZ2wgww2kB25GDHMA5sbNiaR4wuYHzIwAAPuyYisCmfDOQ7U1UyGf6PhTGdkASFZgZKuCqLkuc8D6eh4FNXnP3LFtmDBQ7zuYyZf0SGWlKhKoWT0Kspxr1Z~8ksBlk7RAF3s9353FM-vK8G2o5Q4RIxcRkroGi4rBYxXl39-6LCo4xHi~p-tTRxGS8HGqJjjozbZ~7PRS9zDkxJLnt7d8oQBmIECUlDw-E66gKlvUwYMSk6gSJbjG7uQTsMWqXd9SWqyL1AXCL2ynEytmgCwX0L77In8lyOI5SkE2SzNqwZMSr3FNaUkfdm0Vq9S8RH5ru~BTglJOp2ptGZUaBb-7Hmz3-Fs2DwsCxLIl-9rG19GXplwoJAAAA:19670"))
+
 (defn create-user-torrent
   []
   (let [pub-key-path (create-user-keys base-dir)]
-    (add-torrent pub-key-path
-                 true
-                 (fn []
-                   (write-priv-node-key-file base-dir (get-private-node))
-                   (write-pub-node-key-file base-dir (get-public-node))))))
+    (add-torrent pub-key-path true dht-init-callback)))
 
 (defn create-meta-torrent
   []
