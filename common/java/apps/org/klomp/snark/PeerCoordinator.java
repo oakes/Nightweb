@@ -695,7 +695,7 @@ class PeerCoordinator implements PeerListener
             }
         }
     }
-    return rv;
+    return rv || (wantedBytes == 0 && persistent);
   }
 
   /**
