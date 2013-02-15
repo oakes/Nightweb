@@ -15,8 +15,7 @@
                                    get-meta-dir
                                    get-user-dir]]
         [nightweb.torrent :only [start-torrent-manager
-                                 get-torrent-paths
-                                 get-torrent-by-path
+                                 floodfill-meta-links
                                  get-public-node
                                  get-private-node
                                  add-node
@@ -98,9 +97,7 @@
   (future
     (while true
       (java.lang.Thread/sleep 10000)
-      (doseq [path (get-torrent-paths)]
-        (if-let [torrent (get-torrent-by-path path)]
-          (println path (.size (.getPeerList torrent))))))))
+      (floodfill-meta-links))))
 
 (defn stop-router
   []

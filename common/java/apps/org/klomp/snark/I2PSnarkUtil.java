@@ -41,6 +41,7 @@ import net.i2p.util.Translate;
 import org.klomp.snark.dht.DHT;
 import org.klomp.snark.dht.KRPC;
 import org.klomp.snark.dht.NodeInfo;
+import org.klomp.snark.dht.CustomQueryHandler;
 
 /**
  * I2P specific helpers for I2PSnark
@@ -74,6 +75,7 @@ public class I2PSnarkUtil {
     private DHT _dht;
     private InputStream _myPrivateKeyStream;
     private NodeInfo _myNodeInfo;
+    private CustomQueryHandler _customQueryHandler;
 
     private static final int EEPGET_CONNECT_TIMEOUT = 45*1000;
     private static final int EEPGET_CONNECT_TIMEOUT_SHORT = 5*1000;
@@ -183,6 +185,10 @@ public class I2PSnarkUtil {
         _myPrivateKeyStream = privateKeyStream;
         _myNodeInfo = nodeInfo;
     }
+
+    public void setDHTCustomQueryHandler(CustomQueryHandler handler) {
+        _customQueryHandler = handler;
+    }
     
     public String getI2CPHost() { return _i2cpHost; }
     public int getI2CPPort() { return _i2cpPort; }
@@ -267,7 +273,7 @@ public class I2PSnarkUtil {
         }
         if (_shouldUseDHT && _manager != null && _dht == null) {
             if (_myNodeInfo != null) {
-                _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo);
+                _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
             } else {
                 _dht = new KRPC(_context, _manager.getSession());
             }

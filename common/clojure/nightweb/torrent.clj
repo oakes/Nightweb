@@ -32,7 +32,16 @@
           pub-node (read-pub-node-key-file base-dir)]
       (if (and priv-node pub-node)
         (.setDHTNode (.util manager) priv-node pub-node)))
+    (.setDHTCustomQueryHandler
+      (.util manager)
+      (reify org.klomp.snark.dht.CustomQueryHandler
+        (receiveQuery [this args]
+          (println "receiveQuery"))))
     (.start manager false)))
+
+(defn send-custom-query
+  [node-info args]
+  (.sendQuery (.getDHT (.util manager)) node-info args true))
 
 (defn get-torrent-paths
   []
@@ -42,10 +51,24 @@
   [path]
   (.getTorrent manager path))
 
+(defn floodfill-meta-links
+  []
+  (doseq [path (get-torrent-paths)]
+    (if-let [torrent (get-torrent-by-path path)]
+      (doseq [peer (.getPeerList torrent)]
+        (let [dht (.getDHT (.util manager))
+              destination (.getAddress (.getPeerID peer))
+              node-info (.getNodeInfo dht destination)
+              args (doto (java.util.HashMap.)
+                     (.put "q" "announce_meta")
+                     (.put "a" (doto (java.util.HashMap.)
+                                 (.put "test" "test"))))]
+          (send-custom-query node-info args))))))
+
 (defn get-public-node
   []
   (if-let [dht (.getDHT (.util manager))]
-    (.toPersistentString (.getNodeInfo dht))
+    (.toPersistentString (.getNodeInfo dht nil))
     (println "Failed to get our public node")))
 
 (defn get-private-node

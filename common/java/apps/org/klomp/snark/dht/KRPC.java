@@ -109,6 +109,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private final NID _myNID;
     /** 20 byte random id + 32 byte Hash + 2 byte port */
     private final NodeInfo _myNodeInfo;
+    /** if non-null, run this when receiving an unrecognized query */
+    private CustomQueryHandler _customQueryHandler;
     /** unsigned dgrams */
     private final int _rPort;
     /** signed dgrams */
@@ -158,12 +160,13 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private static final int LOW_CRYPTO_TAGS = 4;
 
     public KRPC (I2PAppContext ctx, I2PSession session) {
-	    this(ctx, session, null);
+	    this(ctx, session, null, null);
     }
 
-    public KRPC (I2PAppContext ctx, I2PSession session, NodeInfo myNodeInfo) {
+    public KRPC (I2PAppContext ctx, I2PSession session, NodeInfo myNodeInfo, CustomQueryHandler handler) {
         _context = ctx;
         _session = session;
+	_customQueryHandler = handler;
         _log = ctx.logManager().getLog(KRPC.class);
         _tracker = new DHTTracker(ctx);
 
@@ -218,8 +221,18 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     /**
      *  @return The NodeInfo object
      */
-    public NodeInfo getNodeInfo() {
-        return _myNodeInfo;
+    public NodeInfo getNodeInfo(Destination dest) {
+        if (dest == null) {
+            return _myNodeInfo;
+        }
+
+        for (NodeInfo nInfo : _knownNodes.values()) {
+            if (dest.equals(nInfo.getDestination())) {
+                return nInfo;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -795,7 +808,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param repliable true for all but announce
      *  @return null on error
      */
-    private ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
+    public ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
         if (nInfo.equals(_myNodeInfo))
             throw new IllegalArgumentException("wtf don't send to ourselves");
         if (_log.shouldLog(Log.DEBUG))
@@ -1082,8 +1095,15 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             byte[] token = args.get("token").getBytes();
             receiveAnnouncePeer(msgID, ih, token);
         } else {
-            if (_log.shouldLog(Log.WARN))
+            if (_customQueryHandler != null) {
+                Map<String, Object> map =
+                    _customQueryHandler.receiveQuery(args);
+                if (args != null) {
+                    sendResponse(nInfo, msgID, map);
+                }
+	    } else if (_log.shouldLog(Log.WARN)) {
                 _log.warn("Unknown query method rcvd: " + method);
+            }
         }
     }
 
