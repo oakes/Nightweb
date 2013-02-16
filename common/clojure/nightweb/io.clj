@@ -3,6 +3,7 @@
                                 input-stream
                                 output-stream]]
         [nightweb.constants :only [slash
+                                   meta-dir
                                    post-ext
                                    link-ext
                                    get-user-dir
@@ -124,3 +125,12 @@
     (write-file (str file-path link-ext)
                 (b-encode {"data" signed-data
                            "sig" signature}))))
+
+(defn read-link-file
+  [file-path]
+  (let [link-path (str file-path link-ext)]
+    (if (file-exists? link-path)
+      (if-let [link-bytes (read-file link-path)]
+        (b-decode link-bytes)
+        nil)
+      nil)))

@@ -97,7 +97,7 @@
   (future
     (while true
       (java.lang.Thread/sleep 10000)
-      (floodfill-meta-links))))
+      (floodfill-meta-links dir user-hash-str))))
 
 (defn stop-router
   []

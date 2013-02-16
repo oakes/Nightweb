@@ -1097,7 +1097,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         } else {
             if (_customQueryHandler != null) {
                 Map<String, Object> map =
-                    _customQueryHandler.receiveQuery(args);
+                    _customQueryHandler.receiveQuery(method, args);
                 if (args != null) {
                     sendResponse(nInfo, msgID, map);
                 }

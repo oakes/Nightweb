@@ -2,6 +2,9 @@
 
 (def slash java.io.File/separator)
 (def nw-dir (str slash "nwapp"))
+(def meta-dir (str slash "meta"))
+(def posts-dir (str slash "posts"))
+(def files-dir (str slash "files"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
@@ -24,12 +27,12 @@
 
 (defn get-meta-dir
   [user-hash]
-  (str (get-user-dir user-hash) slash "meta"))
+  (str (get-user-dir user-hash) meta-dir))
 
 (defn get-posts-dir
   [user-hash]
-  (str (get-meta-dir user-hash) slash "posts"))
+  (str (get-meta-dir user-hash) posts-dir))
 
 (defn get-files-dir
   [user-hash]
-  (str (get-meta-dir user-hash) slash "files"))
+  (str (get-meta-dir user-hash) files-dir))

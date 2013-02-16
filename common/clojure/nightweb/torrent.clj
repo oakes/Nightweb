@@ -1,9 +1,11 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file input-stream]]
-        [nightweb.io :only [base32-encode
+        [nightweb.io :only [file-exists?
+                            base32-encode
                             read-priv-node-key-file
-                            read-pub-node-key-file]]
-        [nightweb.constants :only [torrent-ext]]))
+                            read-pub-node-key-file
+                            read-link-file]]
+        [nightweb.constants :only [users-dir pub-key torrent-ext get-meta-dir]]))
 
 (def manager nil)
 
@@ -35,8 +37,9 @@
     (.setDHTCustomQueryHandler
       (.util manager)
       (reify org.klomp.snark.dht.CustomQueryHandler
-        (receiveQuery [this args]
-          (println "receiveQuery"))))
+        (receiveQuery [this method args]
+          (case method
+            "announce_meta" (println "receiveQuery")))))
     (.start manager false)))
 
 (defn send-custom-query
@@ -52,18 +55,23 @@
   (.getTorrent manager path))
 
 (defn floodfill-meta-links
-  []
+  [base-dir my-user-hash-str]
   (doseq [path (get-torrent-paths)]
-    (if-let [torrent (get-torrent-by-path path)]
-      (doseq [peer (.getPeerList torrent)]
-        (let [dht (.getDHT (.util manager))
-              destination (.getAddress (.getPeerID peer))
-              node-info (.getNodeInfo dht destination)
-              args (doto (java.util.HashMap.)
-                     (.put "q" "announce_meta")
-                     (.put "a" (doto (java.util.HashMap.)
-                                 (.put "test" "test"))))]
-          (send-custom-query node-info args))))))
+    (if (.contains path pub-key)
+      (if-let [torrent (get-torrent-by-path path)]
+        (doseq [peer (.getPeerList torrent)]
+          (let [dht (.getDHT (.util manager))
+                destination (.getAddress (.getPeerID peer))
+                node-info (.getNodeInfo dht destination)
+                user-hash-str (if (.contains path users-dir)
+                                (.getName (.getParentFile (file path)))
+                                my-user-hash-str)
+                meta-dir-path (str base-dir (get-meta-dir user-hash-str))]
+            (if-let [meta-link (read-link-file meta-dir-path)]
+              (send-custom-query node-info
+                                 (doto (java.util.HashMap.)
+                                   (.put "q" "announce_meta")
+                                   (.put "a" meta-link))))))))))
 
 (defn get-public-node
   []
@@ -76,6 +84,34 @@
   (if-let [socket-manager (.getSocketManager (.util manager))]
     (.getSession socket-manager)
     (println "Failed to get our private node")))
+
+(defn get-storage
+  [path]
+  (let [listener (reify org.klomp.snark.StorageListener
+                   (storageCreateFile [this storage file-name length]
+                     (println "storageCreateFile" file-name))
+                   (storageAllocated [this storage length]
+                     (println "storageAllocated" length))
+                   (storageChecked [this storage piece-num checked]
+                     (println "storageChecked" piece-num))
+                   (storageAllChecked [this storage]
+                     (println "storageAllChecked"))
+                   (storageCompleted [this storage]
+                     (println "storageCompleted"))
+                   (setWantedPieces [this storage]
+                     (println "setWantedPieces"))
+                   (addMessage [this message]
+                     (println "addMessage" message)))
+        torrent-path (str path torrent-ext)
+        storage (if (file-exists? torrent-path)
+                  (org.klomp.snark.Storage.
+                    (.util manager)
+                    (org.klomp.snark.MetaInfo. (input-stream torrent-path))
+                    listener)
+                  (org.klomp.snark.Storage.
+                    (.util manager) (file path) nil false listener))]
+    (.close storage)
+    storage))
 
 (defn add-node
   [node-info-str]
@@ -131,36 +167,13 @@
   ([path persistent? func]
    (try
      (let [base-file (file path)
-           root-path (.getParent base-file)
-           torrent-file (file root-path (str (.getName base-file) torrent-ext))
+           torrent-file (file (str path torrent-ext))
            torrent-path (.getCanonicalPath torrent-file)
-           listener (reify org.klomp.snark.StorageListener
-                      (storageCreateFile [this storage file-name length]
-                        (println "storageCreateFile" file-name))
-                      (storageAllocated [this storage length]
-                        (println "storageAllocated" length))
-                      (storageChecked [this storage piece-num checked]
-                        (println "storageChecked" piece-num))
-                      (storageAllChecked [this storage]
-                        (println "storageAllChecked"))
-                      (storageCompleted [this storage]
-                        (println "storageCompleted"))
-                      (setWantedPieces [this storage]
-                        (println "setWantedPieces"))
-                      (addMessage [this message]
-                        (println "addMessage" message)))
-           storage (if (and (not persistent?) (.exists torrent-file))
-                     (org.klomp.snark.Storage.
-                       (.util manager)
-                       (org.klomp.snark.MetaInfo. (input-stream torrent-path))
-                       listener)
-                     (org.klomp.snark.Storage.
-                       (.util manager) base-file nil false listener))
-           _ (.close storage)
+           storage (get-storage path)
            meta-info (.getMetaInfo storage)
            bit-field (.getBitField storage)]
        (future
-         (when (and (not persistent?) (.exists torrent-file))
+         (when (and (not persistent?) (file-exists? torrent-path))
            (.stopTorrent manager torrent-path true)
            (.delete torrent-file))
          (.addTorrent manager
@@ -168,7 +181,7 @@
                       bit-field
                       torrent-path
                       false
-                      root-path)
+                      (.getParent base-file))
          (if-let [torrent (get-torrent-by-path torrent-path)]
            (.setPersistent torrent persistent?))
          (println "Torrent added to" torrent-path)
