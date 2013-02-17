@@ -2,6 +2,9 @@
   (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [file-exists?
                             base32-encode
+                            b-decode
+                            b-decode-bytes
+                            b-decode-number
                             read-priv-node-key-file
                             read-pub-node-key-file
                             read-link-file]]
@@ -39,7 +42,16 @@
       (reify org.klomp.snark.dht.CustomQueryHandler
         (receiveQuery [this method args]
           (case method
-            "announce_meta" (println "receiveQuery")))))
+            "announce_meta"
+            (let [{data-val "data" sig-val "sig"} args
+                  data-map (b-decode (b-decode-bytes data-val))
+                  {user-hash-val "user_hash"
+                   link-hash-val "link_hash"
+                   time-val "time"} data-map
+                  user-hash-bytes (b-decode-bytes user-hash-val)
+                  link-hash-bytes (b-decode-bytes link-hash-val)
+                  time-num (b-decode-number time-val)]
+              (println data-val sig-val user-hash-bytes link-hash-bytes time-num))))))
     (.start manager false)))
 
 (defn send-custom-query
@@ -58,16 +70,17 @@
   [base-dir my-user-hash-str]
   (doseq [path (get-torrent-paths)]
     (if (.contains path pub-key)
-      (if-let [torrent (get-torrent-by-path path)]
-        (doseq [peer (.getPeerList torrent)]
-          (let [dht (.getDHT (.util manager))
-                destination (.getAddress (.getPeerID peer))
-                node-info (.getNodeInfo dht destination)
-                user-hash-str (if (.contains path users-dir)
-                                (.getName (.getParentFile (file path)))
-                                my-user-hash-str)
-                meta-dir-path (str base-dir (get-meta-dir user-hash-str))]
-            (if-let [meta-link (read-link-file meta-dir-path)]
+      (let [torrent (get-torrent-by-path path)
+            user-hash-str (if (.contains path users-dir)
+                            (.getName (.getParentFile (file path)))
+                            my-user-hash-str)
+            meta-dir-path (str base-dir (get-meta-dir user-hash-str))
+            meta-link (read-link-file meta-dir-path)]
+        (if (and torrent meta-link)
+          (doseq [peer (.getPeerList torrent)]
+            (let [dht (.getDHT (.util manager))
+                  destination (.getAddress (.getPeerID peer))
+                  node-info (.getNodeInfo dht destination)]
               (send-custom-query node-info
                                  (doto (java.util.HashMap.)
                                    (.put "q" "announce_meta")
@@ -173,9 +186,6 @@
            meta-info (.getMetaInfo storage)
            bit-field (.getBitField storage)]
        (future
-         (when (and (not persistent?) (file-exists? torrent-path))
-           (.stopTorrent manager torrent-path true)
-           (.delete torrent-file))
          (.addTorrent manager
                       meta-info
                       bit-field
@@ -190,3 +200,8 @@
      (catch java.io.IOException ioe
        (println "Error adding torrent:" (.getMessage ioe))
        nil))))
+
+(defn remove-torrent
+  [path]
+  (.stopTorrent manager path true)
+  (.delete (file path)))

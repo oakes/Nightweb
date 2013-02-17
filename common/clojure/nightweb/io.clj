@@ -3,7 +3,6 @@
                                 input-stream
                                 output-stream]]
         [nightweb.constants :only [slash
-                                   meta-dir
                                    post-ext
                                    link-ext
                                    get-user-dir
@@ -57,6 +56,24 @@
                (java.io.ByteArrayInputStream. data-barray)))
     (catch java.lang.Exception e nil)))
 
+(defn b-decode-bytes
+  [be-value]
+  (try
+    (.getBytes be-value)
+    (catch java.lang.Exception e nil)))
+
+(defn b-decode-number
+  [be-value]
+  (try
+    (.getNumber be-value)
+    (catch java.lang.Exception e nil)))
+
+(defn b-decode-string
+  [be-value]
+  (try
+    (.getString be-value)
+    (catch java.lang.Exception e nil)))
+
 (defn base32-encode
   [data-barray]
   (net.i2p.data.Base32/encode data-barray))
@@ -69,13 +86,13 @@
 
 (defn write-key-file
   [file-path key-data]
-  (write-file file-path (b-encode {"sign-key" key-data
-                                   "sign-algo" "DSA-SHA1"})))
+  (write-file file-path (b-encode {"sign_key" key-data
+                                   "sign_algo" "DSA-SHA1"})))
 
 (defn read-key-file
   [file-path]
   (let [priv-key-map (b-decode (read-file file-path))
-        sign-key-str (.get priv-key-map "sign-key")]
+        sign-key-str (.get priv-key-map "sign_key")]
     (.getBytes sign-key-str)))
 
 (defn write-priv-node-key-file
@@ -118,8 +135,9 @@
                          "about" about-text})))
 
 (defn write-link-file
-  [file-path meta-hash sign]
-  (let [signed-data (b-encode {"hash" meta-hash
+  [file-path user-hash link-hash sign]
+  (let [signed-data (b-encode {"user_hash" user-hash
+                               "link_hash" link-hash
                                "time" (.getTime (java.util.Date.))})
         signature (sign signed-data)]
     (write-file (str file-path link-ext)

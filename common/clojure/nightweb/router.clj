@@ -20,7 +20,8 @@
                                  get-private-node
                                  add-node
                                  add-hash
-                                 add-torrent]]))
+                                 add-torrent
+                                 remove-torrent]]))
 
 (def base-dir nil)
 (def user-hash-bytes nil)
@@ -47,7 +48,7 @@
                        pub-torrent-path (str pub-path torrent-ext)
                        meta-path (str base-dir (get-meta-dir dir-name))
                        meta-torrent-path (str meta-path torrent-ext)]
-                   (if (not= dir-name user-hash-str)
+                   (if (not= dir-name (get-user-hash false))
                      (if (file-exists? pub-torrent-path)
                        (add-torrent pub-path true)
                        (add-hash user-dir (base32-decode dir-name) true)))
@@ -68,8 +69,12 @@
 (defn create-meta-torrent
   []
   (let [path (str base-dir (get-meta-dir (get-user-hash false)))
-        info-hash (add-torrent path false)]
-    (write-link-file path info-hash (fn [data] (create-signature data)))))
+        _ (remove-torrent path)
+        link-hash-bytes (add-torrent path false)]
+    (write-link-file path
+                     user-hash-bytes
+                     link-hash-bytes
+                     (fn [data] (create-signature data)))))
 
 (defn parse-url
   [url]
