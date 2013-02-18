@@ -37,7 +37,7 @@
         path (str base-dir (get-user-dir their-hash-str))]
     (when-not (file-exists? path)
       (make-dir path)
-      (add-hash path their-hash-bytes true))))
+      (add-hash path their-hash-str true))))
 
 (defn add-user-torrents
   []
@@ -51,15 +51,18 @@
                    (if (not= dir-name (get-user-hash false))
                      (if (file-exists? pub-torrent-path)
                        (add-torrent pub-path true)
-                       (add-hash user-dir (base32-decode dir-name) true)))
+                       (add-hash user-dir dir-name true)))
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false))))))
 
 (defn dht-init-callback
   []
-  (write-priv-node-key-file base-dir (get-private-node))
-  (write-pub-node-key-file base-dir (get-public-node))
-  (add-node "9eVgs6E2RYAIml6BnHjYVvPJuTg=:9eVgs-3gaPVhgNMqlMR3HqeR3MXjcs3jWU~UZw0~kGw=:KLYFvjezm9bG0fI73KE2vqq3ixGYHylcyw0HallFAii7UrSv~boLMHXJAAEx4nkzj5wW-IldGzitWDoQOBDPCHwtg7z5Cw0VYcuyJh7f4o-WLlv~wOAOyERRdwpaH5OT0BPZdLJQJ3u~z4qZ2wgww2kB25GDHMA5sbNiaR4wuYHzIwAAPuyYisCmfDOQ7U1UyGf6PhTGdkASFZgZKuCqLkuc8D6eh4FNXnP3LFtmDBQ7zuYyZf0SGWlKhKoWT0Kspxr1Z~8ksBlk7RAF3s9353FM-vK8G2o5Q4RIxcRkroGi4rBYxXl39-6LCo4xHi~p-tTRxGS8HGqJjjozbZ~7PRS9zDkxJLnt7d8oQBmIECUlDw-E66gKlvUwYMSk6gSJbjG7uQTsMWqXd9SWqyL1AXCL2ynEytmgCwX0L77In8lyOI5SkE2SzNqwZMSr3FNaUkfdm0Vq9S8RH5ru~BTglJOp2ptGZUaBb-7Hmz3-Fs2DwsCxLIl-9rG19GXplwoJAAAA:19670"))
+  (let [priv-node (get-private-node)
+        pub-node (get-public-node)]
+    (when (and priv-node pub-node)
+      (write-priv-node-key-file base-dir priv-node)
+      (write-pub-node-key-file base-dir pub-node)))
+  (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701"))
 
 (defn create-user-torrent
   []

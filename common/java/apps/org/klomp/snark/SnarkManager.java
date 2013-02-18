@@ -802,9 +802,9 @@ public class SnarkManager implements CompleteListener {
      *  @throws RuntimeException via Snark.fatal()
      */
     private void addTorrent(String filename, boolean dontAutoStart) {
-        addTorrent(filename, dontAutoStart, getDataDir().getPath());
+        addTorrent(filename, dontAutoStart, this, getDataDir().getPath());
     }
-    private void addTorrent(String filename, boolean dontAutoStart, String dataDir) {
+    private void addTorrent(String filename, boolean dontAutoStart, CompleteListener listener, String dataDir) {
         if ((!dontAutoStart) && !_util.connected()) {
             addMessage(_("Connecting to I2P"));
             boolean ok = _util.connect();
@@ -884,7 +884,7 @@ public class SnarkManager implements CompleteListener {
                     } else {
                         // TODO load saved closest DHT nodes and pass to the Snark ?
                         // This may take a LONG time
-                        torrent = new Snark(_util, filename, null, -1, null, null, null,
+                        torrent = new Snark(_util, filename, null, -1, null, null, listener,
                                             _peerCoordinatorSet, _connectionAcceptor,
                                             false, dataDir);
                         loadSavedFilePriorities(torrent);
@@ -1040,9 +1040,9 @@ public class SnarkManager implements CompleteListener {
      * @since 0.8.4
      */
     public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
-        addTorrent(metainfo, bitfield, filename, dontAutoStart, getDataDir().getPath());
+        addTorrent(metainfo, bitfield, filename, dontAutoStart, this, getDataDir().getPath());
     }
-    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart, String dataDir) throws IOException {
+    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart, CompleteListener listener, String dataDir) throws IOException {
         // prevent interference by DirMonitor
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(metainfo.getInfoHash());
@@ -1055,7 +1055,7 @@ public class SnarkManager implements CompleteListener {
             try {
                 locked_writeMetaInfo(metainfo, filename, areFilesPublic());
                 // hold the lock for a long time
-                addTorrent(filename, dontAutoStart, dataDir);
+                addTorrent(filename, dontAutoStart, listener, dataDir);
             } catch (IOException ioe) {
                 addMessage(_("Failed to copy torrent file to {0}", filename));
                 _log.error("Failed to write torrent file", ioe);

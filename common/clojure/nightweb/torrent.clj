@@ -1,7 +1,7 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [file-exists?
-                            base32-encode
+                            base32-decode
                             b-decode
                             b-decode-bytes
                             b-decode-number
@@ -90,13 +90,13 @@
   []
   (if-let [dht (.getDHT (.util manager))]
     (.toPersistentString (.getNodeInfo dht nil))
-    (println "Failed to get our public node")))
+    nil))
 
 (defn get-private-node
   []
   (if-let [socket-manager (.getSocketManager (.util manager))]
     (.getSession socket-manager)
-    (println "Failed to get our private node")))
+    nil))
 
 (defn get-storage
   [path]
@@ -126,6 +126,36 @@
     (.close storage)
     storage))
 
+(defn get-listener
+  [path]
+  (reify org.klomp.snark.CompleteListener
+    (torrentComplete [this snark]
+      (println "torrentComplete")
+      (.torrentComplete manager snark))
+    (updateStatus [this snark]
+      (println "updateStatus")
+      (.updateStatus manager snark))
+    (gotMetaInfo [this snark]
+      (println "gotMetaInfo")
+      (.gotMetaInfo manager snark path))
+    (fatal [this snark error]
+      (println "fatal" error)
+      (.fatal manager snark error))
+    (addMessage [this snark message]
+      (println "addMessage" message)
+      (.addMessage manager snark message))
+    (gotPiece [this snark]
+      (println "gotPiece")
+      (.gotPiece manager snark))
+    (getSavedTorrentTime [this snark]
+      (println "getSavedTorrentTime")
+      ;(.getSavedTorrentTime manager snark)
+      0)
+    (getSavedTorrentBitField [this snark]
+      (println "getSavedTorrentBitField")
+      ;(.getSavedTorrentBitField manager snark)
+      nil)))
+
 (defn add-node
   [node-info-str]
   (if-let [dht (.getDHT (.util manager))]
@@ -133,45 +163,20 @@
     (println "Failed to add bootstrap node")))
 
 (defn add-hash
-  [path info-hash-bytes persistent?]
+  [path info-hash-str persistent?]
   (future
     (try
-      (let [info-hash-str (base32-encode info-hash-bytes)]
-        (.addMagnet manager
-                    info-hash-str
-                    info-hash-bytes
-                    nil
-                    false
-                    true
-                    (reify org.klomp.snark.CompleteListener
-                      (torrentComplete [this snark]
-                        (println "torrentComplete")
-                        (.torrentComplete manager snark))
-                      (updateStatus [this snark]
-                        (println "updateStatus")
-                        (.updateStatus manager snark))
-                      (gotMetaInfo [this snark]
-                        (println "gotMetaInfo")
-                        (.gotMetaInfo manager snark path))
-                      (fatal [this snark error]
-                        (println "fatal" error)
-                        (.fatal manager snark error))
-                      (addMessage [this snark message]
-                        (println "addMessage" message)
-                        (.addMessage manager snark message))
-                      (gotPiece [this snark]
-                        (println "gotPiece")
-                        (.gotPiece manager snark))
-                      (getSavedTorrentTime [this snark]
-                        (println "getSavedTorrentTime")
-                        (.getSavedTorrentTime manager snark))
-                      (getSavedTorrentBitField [this snark]
-                        (println "getSavedTorrentBitField")
-                        (.getSavedTorrentBitField manager snark)))
-                    path)
-        (if-let [torrent (get-torrent-by-path info-hash-str)]
-          (.setPersistent torrent persistent?))
-        (println "Hash added to" path))
+      (.addMagnet manager
+                  info-hash-str
+                  (base32-decode info-hash-str)
+                  nil
+                  false
+                  true
+                  (get-listener path)
+                  path)
+      (if-let [torrent (get-torrent-by-path info-hash-str)]
+        (.setPersistent torrent persistent?))
+      (println "Hash added to" path)
       (catch IllegalArgumentException iae
         (println "Error adding hash:" (.getMessage iae))))))
 
@@ -180,6 +185,7 @@
   ([path persistent? func]
    (try
      (let [base-file (file path)
+           root-path (.getParent base-file)
            torrent-file (file (str path torrent-ext))
            torrent-path (.getCanonicalPath torrent-file)
            storage (get-storage path)
@@ -191,7 +197,8 @@
                       bit-field
                       torrent-path
                       false
-                      (.getParent base-file))
+                      (get-listener root-path)
+                      root-path)
          (if-let [torrent (get-torrent-by-path torrent-path)]
            (.setPersistent torrent persistent?))
          (println "Torrent added to" torrent-path)
