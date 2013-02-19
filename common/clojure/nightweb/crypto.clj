@@ -34,10 +34,11 @@
   (.getData (.sign (net.i2p.crypto.DSAEngine/getInstance) message priv-key)))
 
 (defn verify-signature
-  [sig-bytes pub-key-bytes message-bytes]
-  (.verifySignature (net.i2p.crypto.DSAEngine/getInstance)
-                    (net.i2p.data.Signature. sig-bytes)
-                    message-bytes
-                    0
-                    (alength message-bytes)
-                    (net.i2p.data.SigningPublicKey. pub-key-bytes)))
+  [pub-key-bytes sig-bytes message-bytes]
+  (if (and pub-key-bytes sig-bytes message-bytes)
+    (.verifySignature (net.i2p.crypto.DSAEngine/getInstance)
+                      (net.i2p.data.Signature. sig-bytes)
+                      message-bytes
+                      0
+                      (alength message-bytes)
+                      (net.i2p.data.SigningPublicKey. pub-key-bytes))))

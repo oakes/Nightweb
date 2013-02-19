@@ -25,9 +25,17 @@
   [user-hash]
   (str users-dir slash user-hash))
 
+(defn get-user-pub-file
+  [user-hash]
+  (str (get-user-dir user-hash) slash pub-key))
+
 (defn get-meta-dir
   [user-hash]
   (str (get-user-dir user-hash) meta-dir))
+
+(defn get-meta-link-file
+  [user-hash]
+  (str (get-meta-dir user-hash) link-ext))
 
 (defn get-posts-dir
   [user-hash]

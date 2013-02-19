@@ -15,13 +15,16 @@
                                    get-meta-dir
                                    get-user-dir]]
         [nightweb.torrent :only [start-torrent-manager
-                                 floodfill-meta-links
-                                 get-public-node
-                                 get-private-node
-                                 add-node
+                                 iterate-peers-per-torrent
                                  add-hash
                                  add-torrent
-                                 remove-torrent]]))
+                                 remove-torrent]]
+        [nightweb.torrent-dht :only [get-public-node
+                                     get-private-node
+                                     add-node
+                                     send-meta-link
+                                     set-dht-node-keys-from-disk
+                                     set-dht-custom-query-handler]]))
 
 (def base-dir nil)
 (def user-hash-bytes nil)
@@ -57,6 +60,7 @@
 
 (defn dht-init-callback
   []
+  (java.lang.Thread/sleep 3000)
   (let [priv-node (get-private-node)
         pub-node (get-public-node)]
     (when (and priv-node pub-node)
@@ -98,14 +102,18 @@
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
   (start-torrent-manager dir)
+  (set-dht-node-keys-from-disk dir)
+  (set-dht-custom-query-handler dir)
   (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes))
   (add-user-torrents)
   (future
     (while true
-      (java.lang.Thread/sleep 10000)
-      (floodfill-meta-links dir user-hash-str))))
+      (java.lang.Thread/sleep 30000)
+      (iterate-peers-per-torrent
+        (fn [path node-info]
+          (send-meta-link path node-info dir (get-user-hash false)))))))
 
 (defn stop-router
   []

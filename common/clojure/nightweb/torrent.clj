@@ -1,14 +1,8 @@
 (ns nightweb.torrent
   (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [file-exists?
-                            base32-decode
-                            b-decode
-                            b-decode-bytes
-                            b-decode-number
-                            read-priv-node-key-file
-                            read-pub-node-key-file
-                            read-link-file]]
-        [nightweb.constants :only [users-dir pub-key torrent-ext get-meta-dir]]))
+                            base32-decode]]
+        [nightweb.constants :only [torrent-ext]]))
 
 (def manager nil)
 
@@ -33,30 +27,7 @@
                    false ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
-    (let [priv-node (read-priv-node-key-file base-dir)
-          pub-node (read-pub-node-key-file base-dir)]
-      (if (and priv-node pub-node)
-        (.setDHTNode (.util manager) priv-node pub-node)))
-    (.setDHTCustomQueryHandler
-      (.util manager)
-      (reify org.klomp.snark.dht.CustomQueryHandler
-        (receiveQuery [this method args]
-          (case method
-            "announce_meta"
-            (let [{data-val "data" sig-val "sig"} args
-                  data-map (b-decode (b-decode-bytes data-val))
-                  {user-hash-val "user_hash"
-                   link-hash-val "link_hash"
-                   time-val "time"} data-map
-                  user-hash-bytes (b-decode-bytes user-hash-val)
-                  link-hash-bytes (b-decode-bytes link-hash-val)
-                  time-num (b-decode-number time-val)]
-              (println data-val sig-val user-hash-bytes link-hash-bytes time-num))))))
     (.start manager false)))
-
-(defn send-custom-query
-  [node-info args]
-  (.sendQuery (.getDHT (.util manager)) node-info args true))
 
 (defn get-torrent-paths
   []
@@ -66,37 +37,15 @@
   [path]
   (.getTorrent manager path))
 
-(defn floodfill-meta-links
-  [base-dir my-user-hash-str]
+(defn iterate-peers-per-torrent
+  [func]
   (doseq [path (get-torrent-paths)]
-    (if (.contains path pub-key)
-      (let [torrent (get-torrent-by-path path)
-            user-hash-str (if (.contains path users-dir)
-                            (.getName (.getParentFile (file path)))
-                            my-user-hash-str)
-            meta-dir-path (str base-dir (get-meta-dir user-hash-str))
-            meta-link (read-link-file meta-dir-path)]
-        (if (and torrent meta-link)
-          (doseq [peer (.getPeerList torrent)]
-            (let [dht (.getDHT (.util manager))
-                  destination (.getAddress (.getPeerID peer))
-                  node-info (.getNodeInfo dht destination)]
-              (send-custom-query node-info
-                                 (doto (java.util.HashMap.)
-                                   (.put "q" "announce_meta")
-                                   (.put "a" meta-link))))))))))
-
-(defn get-public-node
-  []
-  (if-let [dht (.getDHT (.util manager))]
-    (.toPersistentString (.getNodeInfo dht nil))
-    nil))
-
-(defn get-private-node
-  []
-  (if-let [socket-manager (.getSocketManager (.util manager))]
-    (.getSession socket-manager)
-    nil))
+    (if-let [torrent (get-torrent-by-path path)]
+      (doseq [peer (.getPeerList torrent)]
+        (let [dht (.getDHT (.util manager))
+              destination (.getAddress (.getPeerID peer))
+              node-info (.getNodeInfo dht destination)]
+          (func path node-info))))))
 
 (defn get-storage
   [path]
@@ -156,12 +105,6 @@
       ;(.getSavedTorrentBitField manager snark)
       nil)))
 
-(defn add-node
-  [node-info-str]
-  (if-let [dht (.getDHT (.util manager))]
-    (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))
-    (println "Failed to add bootstrap node")))
-
 (defn add-hash
   [path info-hash-str persistent?]
   (future
@@ -210,5 +153,7 @@
 
 (defn remove-torrent
   [path]
-  (.stopTorrent manager path true)
-  (.delete (file path)))
+  (when path
+    (.stopTorrent manager path true)
+    (if (file-exists? path)
+      (.delete (file path)))))

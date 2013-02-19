@@ -27,11 +27,12 @@
 
 (defn read-file
   [path]
-  (let [length (.length (file path))
-        data-barray (byte-array length)]
-    (with-open [bis (input-stream path)]
-      (.read bis data-barray))
-    data-barray))
+  (when (file-exists? path)
+    (let [length (.length (file path))
+          data-barray (byte-array length)]
+      (with-open [bis (input-stream path)]
+        (.read bis data-barray))
+      data-barray)))
 
 (defn make-dir
   [path]
@@ -76,11 +77,13 @@
 
 (defn base32-encode
   [data-barray]
-  (net.i2p.data.Base32/encode data-barray))
+  (if data-barray
+    (net.i2p.data.Base32/encode data-barray)))
 
 (defn base32-decode
   [data-str]
-  (net.i2p.data.Base32/decode data-str))
+  (if data-str
+    (net.i2p.data.Base32/decode data-str)))
 
 ; read/write specific files
 
@@ -91,9 +94,9 @@
 
 (defn read-key-file
   [file-path]
-  (let [priv-key-map (b-decode (read-file file-path))
-        sign-key-str (.get priv-key-map "sign_key")]
-    (.getBytes sign-key-str)))
+  (if-let [priv-key-map (b-decode (read-file file-path))]
+    (if-let [sign-key-str (.get priv-key-map "sign_key")]
+      (.getBytes sign-key-str))))
 
 (defn write-priv-node-key-file
   [base-dir priv-node]
@@ -106,8 +109,7 @@
   [base-dir]
   (let [path (str base-dir priv-node-key-file)]
     (if (file-exists? path)
-      (input-stream (file path))
-      nil)))
+      (input-stream (file path)))))
 
 (defn write-pub-node-key-file
   [base-dir pub-node]
@@ -118,8 +120,7 @@
   [base-dir]
   (let [path (str base-dir pub-node-key-file)]
     (if (file-exists? path)
-      (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path))))
-      nil)))
+      (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
 (defn write-post-file
   [dir-path user-hash text]
@@ -149,6 +150,4 @@
   (let [link-path (str file-path link-ext)]
     (if (file-exists? link-path)
       (if-let [link-bytes (read-file link-path)]
-        (b-decode link-bytes)
-        nil)
-      nil)))
+        (b-decode link-bytes)))))
