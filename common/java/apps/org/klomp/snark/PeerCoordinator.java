@@ -414,6 +414,10 @@ class PeerCoordinator implements PeerListener
     persistent = isPersistent;
   }
 
+  public boolean getPersistent() {
+    return persistent;
+  }
+
   public boolean halted() { return halted; }
 
   public void halt()

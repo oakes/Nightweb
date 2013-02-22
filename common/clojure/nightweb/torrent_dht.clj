@@ -1,6 +1,8 @@
 (ns nightweb.torrent-dht
   (:use [clojure.java.io :only [file]]
         [nightweb.torrent :only [manager
+                                 iterate-torrents
+                                 iterate-peers
                                  add-hash
                                  remove-torrent]]
         [nightweb.io :only [write-file
@@ -11,6 +13,8 @@
                             b-decode-number
                             read-priv-node-key-file
                             read-pub-node-key-file
+                            write-priv-node-key-file
+                            write-pub-node-key-file
                             read-key-file
                             read-link-file]]
         [nightweb.constants :only [users-dir
@@ -21,6 +25,12 @@
                                    get-meta-dir
                                    get-meta-link-file]]
         [nightweb.crypto :only [verify-signature]]))
+
+(defn get-node-info-for-peer
+  [peer]
+  (let [dht (.getDHT (.util manager))
+        destination (.getAddress (.getPeerID peer))]
+    (.getNodeInfo dht destination)))
 
 (defn get-public-node
   []
@@ -54,15 +64,15 @@
       {:link (b-encode link)
        :data (b-decode-bytes data-val)
        :sig (b-decode-bytes sig-val)
-       :user-hash user-hash-bytes
-       :link-hash link-hash-bytes
+       :user-hash-str (base32-encode user-hash-bytes)
+       :link-hash-str (base32-encode link-hash-bytes)
        :time time-num})))
 
 (defn validate-meta-link
   [base-dir link-map]
   (and link-map
        (<= (get link-map :time) (.getTime (java.util.Date.)))
-       (let [user-hash-str (base32-encode (get link-map :user-hash))
+       (let [user-hash-str (get link-map :user-hash-str)
              pub-key-path (str base-dir (get-user-pub-file user-hash-str))]
          (verify-signature (read-key-file pub-key-path)
                            (get link-map :sig)
@@ -74,31 +84,36 @@
         link (read-link-file link-path)]
     (doto (java.util.HashMap.)
       (.put "q" "announce_meta")
-      (.put "a" link))))
+      (.put "a" (if link link (java.util.HashMap.))))))
 
 (defn set-meta-link
   [base-dir link-map]
-  (let [user-hash-str (base32-encode (get link-map :user-hash))
+  (let [user-hash-str (get link-map :user-hash-str)
         link-path (str base-dir (get-meta-link-file user-hash-str))]
     (write-file link-path (get link-map :link))))
 
+(defn replace-meta-link
+  [base-dir user-hash-str old-link-map new-link-map]
+  (let [user-dir (str base-dir (get-user-dir user-hash-str))
+        meta-file (str base-dir (get-meta-dir user-hash-str) torrent-ext)]
+    (set-meta-link base-dir new-link-map)
+    (remove-torrent meta-file)
+    (remove-torrent (get old-link-map :link-hash-str))
+    (add-hash user-dir (get new-link-map :link-hash-str) false)
+    (println "Saved meta link")))
+
 (defn compare-meta-link
   [base-dir link-map]
-  (let [user-hash-str (base32-encode (get link-map :user-hash))
+  (let [user-hash-str (get link-map :user-hash-str)
         my-link (get-meta-link base-dir user-hash-str)
         my-link-map (parse-meta-link (get my-link "a"))
         my-time (get my-link-map :time)
         their-time (get link-map :time)]
-    (if (and their-time (not= my-time their-time))
+    (if (not= my-time their-time)
       (if (or (nil? my-time) (> their-time my-time))
-        (let [user-dir (str base-dir (get-user-dir user-hash-str))
-              meta-file (str base-dir (get-meta-dir user-hash-str) torrent-ext)
-              link-hash-old (base32-encode (get my-link-map :link-hash))
-              link-hash-new (base32-encode (get link-map :link-hash))]
-          (set-meta-link base-dir link-map)
-          (remove-torrent meta-file)
-          (remove-torrent link-hash-old)
-          (add-hash user-dir link-hash-new false))
+        (if (validate-meta-link base-dir link-map)
+          (replace-meta-link base-dir user-hash-str my-link-map link-map)
+          (println "Invalid meta link" link-map))
         my-link))))
 
 (defn send-custom-query
@@ -106,29 +121,47 @@
   (.sendQuery (.getDHT (.util manager)) node-info args true))
 
 (defn send-meta-link
-  [path node-info base-dir my-user-hash-str]
-  (if (.contains path pub-key)
-    (let [user-hash-str (if (.contains path users-dir)
-                              (.getName (.getParentFile (file path)))
-                              my-user-hash-str)
-          link (get-meta-link base-dir user-hash-str)]
-      (send-custom-query node-info link))))
+  [base-dir torrent]
+  (if (.getPersistent torrent)
+    (iterate-peers torrent
+                   (fn [peer]
+                     (let [node-info (get-node-info-for-peer peer)
+                           info-hash-str (base32-encode (.getInfoHash torrent))
+                           link-map (get-meta-link base-dir info-hash-str)]
+                       (println "Sending meta link" node-info link-map)
+                       (send-custom-query node-info link-map))))))
 
-(defn set-dht-node-keys-from-disk
+(defn send-meta-link-periodically
+  [base-dir seconds]
+  (future
+    (while true
+      (java.lang.Thread/sleep (* seconds 1000))
+      (iterate-torrents (fn [torrent] (send-meta-link base-dir torrent))))))
+
+(defn init-dht
   [base-dir]
+  ; set the node keys from the disk
   (let [priv-node (read-priv-node-key-file base-dir)
         pub-node (read-pub-node-key-file base-dir)]
     (if (and priv-node pub-node)
-      (.setDHTNode (.util manager) priv-node pub-node))))
-
-(defn set-dht-custom-query-handler
-  [base-dir]
+      (.setDHTNode (.util manager) priv-node pub-node)))
+  ; set the custom query handler
   (.setDHTCustomQueryHandler
     (.util manager)
     (reify org.klomp.snark.dht.CustomQueryHandler
       (receiveQuery [this method args]
         (case method
           "announce_meta" (let [link (parse-meta-link args)]
-                            (if (validate-meta-link base-dir link)
-                              (compare-meta-link base-dir link)
-                              (println "Invalid meta link:" args))))))))
+                            (println "Received meta link")
+                            (compare-meta-link base-dir link))))))
+  ; set the init callback
+  (.setDHTInitCallback
+    (.util manager)
+    (fn []
+      (let [priv-node (get-private-node)
+            pub-node (get-public-node)]
+        (when (and priv-node pub-node)
+          (write-priv-node-key-file base-dir priv-node)
+          (write-pub-node-key-file base-dir pub-node)))
+      (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701")
+      (println "DHT initialized"))))

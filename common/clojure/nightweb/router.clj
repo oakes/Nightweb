@@ -5,8 +5,6 @@
                             iterate-dir
                             base32-encode
                             base32-decode
-                            write-priv-node-key-file
-                            write-pub-node-key-file
                             write-link-file]]
         [nightweb.constants :only [slash
                                    torrent-ext
@@ -15,16 +13,12 @@
                                    get-meta-dir
                                    get-user-dir]]
         [nightweb.torrent :only [start-torrent-manager
-                                 iterate-peers-per-torrent
                                  add-hash
                                  add-torrent
                                  remove-torrent]]
-        [nightweb.torrent-dht :only [get-public-node
-                                     get-private-node
-                                     add-node
-                                     send-meta-link
-                                     set-dht-node-keys-from-disk
-                                     set-dht-custom-query-handler]]))
+        [nightweb.torrent-dht :only [send-meta-link
+                                     send-meta-link-periodically
+                                     init-dht]]))
 
 (def base-dir nil)
 (def user-hash-bytes nil)
@@ -58,20 +52,10 @@
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false))))))
 
-(defn dht-init-callback
-  []
-  (java.lang.Thread/sleep 3000)
-  (let [priv-node (get-private-node)
-        pub-node (get-public-node)]
-    (when (and priv-node pub-node)
-      (write-priv-node-key-file base-dir priv-node)
-      (write-pub-node-key-file base-dir pub-node)))
-  (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701"))
-
 (defn create-user-torrent
   []
   (let [pub-key-path (create-user-keys base-dir)]
-    (add-torrent pub-key-path true dht-init-callback)))
+    (add-torrent pub-key-path true)))
 
 (defn create-meta-torrent
   []
@@ -101,19 +85,13 @@
   (java.lang.System/setProperty "i2p.dir.config" dir)
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
-  (start-torrent-manager dir)
-  (set-dht-node-keys-from-disk dir)
-  (set-dht-custom-query-handler dir)
+  (start-torrent-manager dir (fn [torrent] (send-meta-link dir torrent)))
+  (init-dht dir)
   (java.lang.Thread/sleep 3000)
   (def user-hash-bytes (create-user-torrent))
   (def user-hash-str (base32-encode user-hash-bytes))
   (add-user-torrents)
-  (future
-    (while true
-      (java.lang.Thread/sleep 30000)
-      (iterate-peers-per-torrent
-        (fn [path node-info]
-          (send-meta-link path node-info dir (get-user-hash false)))))))
+  (send-meta-link-periodically dir 30))
 
 (defn stop-router
   []

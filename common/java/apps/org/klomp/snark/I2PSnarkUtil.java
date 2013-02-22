@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.StringTokenizer;
+import java.lang.Runnable;
 
 import net.i2p.I2PAppContext;
 import net.i2p.I2PException;
@@ -76,6 +77,7 @@ public class I2PSnarkUtil {
     private InputStream _myPrivateKeyStream;
     private NodeInfo _myNodeInfo;
     private CustomQueryHandler _customQueryHandler;
+    private Runnable _dhtInitCallback;
 
     private static final int EEPGET_CONNECT_TIMEOUT = 45*1000;
     private static final int EEPGET_CONNECT_TIMEOUT_SHORT = 5*1000;
@@ -189,6 +191,10 @@ public class I2PSnarkUtil {
     public void setDHTCustomQueryHandler(CustomQueryHandler handler) {
         _customQueryHandler = handler;
     }
+
+    public void setDHTInitCallback(Runnable callback) {
+        _dhtInitCallback = callback;
+    }
     
     public String getI2CPHost() { return _i2cpHost; }
     public int getI2CPPort() { return _i2cpPort; }
@@ -276,6 +282,9 @@ public class I2PSnarkUtil {
                 _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
             } else {
                 _dht = new KRPC(_context, _manager.getSession());
+            }
+            if (_dhtInitCallback != null) {
+                _dhtInitCallback.run();
             }
         }
         return (_manager != null);

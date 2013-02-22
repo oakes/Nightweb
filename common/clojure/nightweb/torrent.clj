@@ -5,11 +5,13 @@
         [nightweb.constants :only [torrent-ext]]))
 
 (def manager nil)
+(def torrent-complete-callback nil)
 
 (defn start-torrent-manager
-  [base-dir]
+  [base-dir callback]
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
+    (def torrent-complete-callback callback)
     (.updateConfig manager
                    nil ;dataDir
                    true ;filesPublic
@@ -37,15 +39,16 @@
   [path]
   (.getTorrent manager path))
 
-(defn iterate-peers-per-torrent
+(defn iterate-torrents
   [func]
   (doseq [path (get-torrent-paths)]
     (if-let [torrent (get-torrent-by-path path)]
-      (doseq [peer (.getPeerList torrent)]
-        (let [dht (.getDHT (.util manager))
-              destination (.getAddress (.getPeerID peer))
-              node-info (.getNodeInfo dht destination)]
-          (func path node-info))))))
+      (func torrent))))
+
+(defn iterate-peers
+  [torrent func]
+  (doseq [peer (.getPeerList torrent)]
+    (func peer)))
 
 (defn get-storage
   [path]
@@ -80,7 +83,8 @@
   (reify org.klomp.snark.CompleteListener
     (torrentComplete [this snark]
       (println "torrentComplete")
-      (.torrentComplete manager snark))
+      (.torrentComplete manager snark)
+      (torrent-complete-callback snark))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
@@ -124,32 +128,30 @@
         (println "Error adding hash:" (.getMessage iae))))))
 
 (defn add-torrent
-  ([path persistent?] (add-torrent path persistent? nil))
-  ([path persistent? func]
-   (try
-     (let [base-file (file path)
-           root-path (.getParent base-file)
-           torrent-file (file (str path torrent-ext))
-           torrent-path (.getCanonicalPath torrent-file)
-           storage (get-storage path)
-           meta-info (.getMetaInfo storage)
-           bit-field (.getBitField storage)]
-       (future
-         (.addTorrent manager
-                      meta-info
-                      bit-field
-                      torrent-path
-                      false
-                      (get-listener root-path)
-                      root-path)
-         (if-let [torrent (get-torrent-by-path torrent-path)]
-           (.setPersistent torrent persistent?))
-         (println "Torrent added to" torrent-path)
-         (if func (func)))
-       (.getInfoHash meta-info))
-     (catch java.io.IOException ioe
-       (println "Error adding torrent:" (.getMessage ioe))
-       nil))))
+  [path persistent?]
+  (try
+    (let [base-file (file path)
+          root-path (.getParent base-file)
+          torrent-file (file (str path torrent-ext))
+          torrent-path (.getCanonicalPath torrent-file)
+          storage (get-storage path)
+          meta-info (.getMetaInfo storage)
+          bit-field (.getBitField storage)]
+      (future
+        (.addTorrent manager
+                     meta-info
+                     bit-field
+                     torrent-path
+                     false
+                     (get-listener root-path)
+                     root-path)
+        (if-let [torrent (get-torrent-by-path torrent-path)]
+          (.setPersistent torrent persistent?))
+        (println "Torrent added to" torrent-path))
+      (.getInfoHash meta-info))
+    (catch java.io.IOException ioe
+      (println "Error adding torrent:" (.getMessage ioe))
+      nil)))
 
 (defn remove-torrent
   [path]
