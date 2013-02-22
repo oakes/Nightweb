@@ -16,7 +16,8 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
-        [nightweb.router :only [get-user-hash parse-url]]))
+        [nightweb.router :only [parse-url]]
+        [nightweb.constants :only [my-hash-bytes]]))
 
 (defn set-share-content
   [context content]
@@ -40,7 +41,7 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :users :hash (get-user-hash true)}]
+                      #(let [content {:type :users :hash my-hash-bytes}]
                          (set-share-content this content)
                          (get-user-view this content)))
           (create-tab action-bar

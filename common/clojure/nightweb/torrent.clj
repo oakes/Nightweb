@@ -5,13 +5,11 @@
         [nightweb.constants :only [torrent-ext]]))
 
 (def manager nil)
-(def torrent-complete-callback nil)
 
 (defn start-torrent-manager
-  [base-dir callback]
+  []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))
-    (def torrent-complete-callback callback)
     (.updateConfig manager
                    nil ;dataDir
                    true ;filesPublic
@@ -79,12 +77,12 @@
     storage))
 
 (defn get-listener
-  [path]
+  [path complete-callback]
   (reify org.klomp.snark.CompleteListener
     (torrentComplete [this snark]
       (println "torrentComplete")
       (.torrentComplete manager snark)
-      (torrent-complete-callback snark))
+      (if complete-callback (complete-callback snark)))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
@@ -110,7 +108,7 @@
       nil)))
 
 (defn add-hash
-  [path info-hash-str persistent?]
+  [path info-hash-str complete-callback]
   (future
     (try
       (.addMagnet manager
@@ -119,16 +117,16 @@
                   nil
                   false
                   true
-                  (get-listener path)
+                  (get-listener path complete-callback)
                   path)
       (if-let [torrent (get-torrent-by-path info-hash-str)]
-        (.setPersistent torrent persistent?))
+        (.setPersistent torrent (not (nil? complete-callback))))
       (println "Hash added to" path)
       (catch IllegalArgumentException iae
         (println "Error adding hash:" (.getMessage iae))))))
 
 (defn add-torrent
-  [path persistent?]
+  [path complete-callback]
   (try
     (let [base-file (file path)
           root-path (.getParent base-file)
@@ -143,10 +141,10 @@
                      bit-field
                      torrent-path
                      false
-                     (get-listener root-path)
+                     (get-listener root-path complete-callback)
                      root-path)
         (if-let [torrent (get-torrent-by-path torrent-path)]
-          (.setPersistent torrent persistent?))
+          (.setPersistent torrent (not (nil? complete-callback))))
         (println "Torrent added to" torrent-path))
       (.getInfoHash meta-info))
     (catch java.io.IOException ioe

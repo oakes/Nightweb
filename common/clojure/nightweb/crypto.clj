@@ -1,5 +1,6 @@
 (ns nightweb.crypto
-  (:use [nightweb.constants :only [priv-key-file
+  (:use [nightweb.constants :only [base-dir
+                                   priv-key-file
                                    pub-key-file]]
         [nightweb.io :only [file-exists?
                             write-key-file
@@ -16,9 +17,9 @@
     (aget signing-keys 1)))
 
 (defn create-user-keys
-  [base-dir-path]
-  (let [priv-key-path (str base-dir-path priv-key-file)
-        pub-key-path (str base-dir-path pub-key-file)]
+  []
+  (let [priv-key-path (str base-dir priv-key-file)
+        pub-key-path (str base-dir pub-key-file)]
     (def priv-key (if (file-exists? priv-key-path)
                     (net.i2p.data.SigningPrivateKey.
                       (read-key-file priv-key-path))

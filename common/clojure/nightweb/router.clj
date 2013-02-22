@@ -1,17 +1,24 @@
 (ns nightweb.router
-  (:use [nightweb.crypto :only [create-user-keys create-signature]]
+  (:use [nightweb.crypto :only [create-user-keys
+                                create-signature]]
         [nightweb.io :only [file-exists?
                             make-dir
                             iterate-dir
                             base32-encode
                             base32-decode
                             write-link-file]]
-        [nightweb.constants :only [slash
+        [nightweb.constants :only [base-dir
+                                   set-base-dir
+                                   my-hash-bytes
+                                   set-my-hash-bytes
+                                   my-hash-str
+                                   set-my-hash-str
+                                   slash
                                    torrent-ext
-                                   pub-key
-                                   users-dir
-                                   get-meta-dir
-                                   get-user-dir]]
+                                   get-users-dir
+                                   get-user-dir
+                                   get-user-pub-file
+                                   get-meta-dir]]
         [nightweb.torrent :only [start-torrent-manager
                                  add-hash
                                  add-torrent
@@ -20,52 +27,41 @@
                                      send-meta-link-periodically
                                      init-dht]]))
 
-(def base-dir nil)
-(def user-hash-bytes nil)
-(def user-hash-str nil)
-
-(defn get-user-hash
-  [is-binary?]
-  (if is-binary? user-hash-bytes user-hash-str))
-
 (defn add-user-hash
   [their-hash-bytes]
   (let [their-hash-str (base32-encode their-hash-bytes)
-        path (str base-dir (get-user-dir their-hash-str))]
+        path (get-user-dir their-hash-str)]
     (when-not (file-exists? path)
       (make-dir path)
-      (add-hash path their-hash-str true))))
+      (add-hash path their-hash-str send-meta-link))))
 
 (defn add-user-torrents
   []
-  (iterate-dir (str base-dir users-dir)
-               (fn [dir-name]
-                 (let [user-dir (str base-dir (get-user-dir dir-name))
-                       pub-path (str user-dir slash pub-key)
+  (iterate-dir (get-users-dir)
+               (fn [their-hash-str]
+                 (let [user-dir (get-user-dir their-hash-str)
+                       pub-path (get-user-pub-file their-hash-str)
                        pub-torrent-path (str pub-path torrent-ext)
-                       meta-path (str base-dir (get-meta-dir dir-name))
+                       meta-path (get-meta-dir their-hash-str)
                        meta-torrent-path (str meta-path torrent-ext)]
-                   (if (not= dir-name (get-user-hash false))
+                   (if (not= their-hash-str my-hash-str)
                      (if (file-exists? pub-torrent-path)
-                       (add-torrent pub-path true)
-                       (add-hash user-dir dir-name true)))
+                       (add-torrent pub-path send-meta-link)
+                       (add-hash user-dir their-hash-str send-meta-link)))
                    (if (file-exists? meta-torrent-path)
-                     (add-torrent meta-path false))))))
+                     (add-torrent meta-path nil))))))
 
 (defn create-user-torrent
   []
-  (let [pub-key-path (create-user-keys base-dir)]
-    (add-torrent pub-key-path true)))
+  (let [pub-key-path (create-user-keys)]
+    (add-torrent pub-key-path send-meta-link)))
 
 (defn create-meta-torrent
   []
-  (let [path (str base-dir (get-meta-dir (get-user-hash false)))
+  (let [path (get-meta-dir my-hash-str)
         _ (remove-torrent path)
-        link-hash-bytes (add-torrent path false)]
-    (write-link-file path
-                     user-hash-bytes
-                     link-hash-bytes
-                     (fn [data] (create-signature data)))))
+        link-hash-bytes (add-torrent path nil)]
+    (write-link-file path link-hash-bytes create-signature)))
 
 (defn parse-url
   [url]
@@ -80,18 +76,18 @@
 
 (defn start-router
   [dir]
-  (def base-dir dir)
+  (set-base-dir dir)
   (java.lang.System/setProperty "i2p.dir.base" dir)
   (java.lang.System/setProperty "i2p.dir.config" dir)
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
-  (start-torrent-manager dir (fn [torrent] (send-meta-link dir torrent)))
-  (init-dht dir)
+  (start-torrent-manager)
+  (init-dht)
   (java.lang.Thread/sleep 3000)
-  (def user-hash-bytes (create-user-torrent))
-  (def user-hash-str (base32-encode user-hash-bytes))
+  (set-my-hash-bytes (create-user-torrent))
+  (set-my-hash-str (base32-encode my-hash-bytes))
   (add-user-torrents)
-  (send-meta-link-periodically dir 30))
+  (send-meta-link-periodically 30))
 
 (defn stop-router
   []

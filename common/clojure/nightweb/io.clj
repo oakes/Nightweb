@@ -2,7 +2,10 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
-        [nightweb.constants :only [slash
+        [nightweb.constants :only [base-dir
+                                   my-hash-bytes
+                                   my-hash-str
+                                   slash
                                    post-ext
                                    link-ext
                                    get-user-dir
@@ -99,45 +102,44 @@
       (.getBytes sign-key-str))))
 
 (defn write-priv-node-key-file
-  [base-dir priv-node]
+  [priv-node]
   (let [priv-node-file (net.i2p.data.PrivateKeyFile.
                          (file (str base-dir priv-node-key-file))
                          priv-node)]
     (.write priv-node-file)))
 
 (defn read-priv-node-key-file
-  [base-dir]
+  []
   (let [path (str base-dir priv-node-key-file)]
     (if (file-exists? path)
       (input-stream (file path)))))
 
 (defn write-pub-node-key-file
-  [base-dir pub-node]
+  [pub-node]
   (write-file (str base-dir pub-node-key-file)
               (.getBytes pub-node)))
 
 (defn read-pub-node-key-file
-  [base-dir]
+  []
   (let [path (str base-dir pub-node-key-file)]
     (if (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
 (defn write-post-file
-  [dir-path user-hash text]
-  (write-file (str dir-path
-                   (get-posts-dir user-hash)
+  [text]
+  (write-file (str (get-posts-dir my-hash-str)
                    slash (.getTime (java.util.Date.)) post-ext)
               (b-encode {"text" text})))
 
 (defn write-profile-file
-  [dir-path user-hash name-text about-text]
-  (write-file (str dir-path (get-meta-dir user-hash) profile-file)
+  [name-text about-text]
+  (write-file (str (get-meta-dir my-hash-str) profile-file)
               (b-encode {"name" name-text
                          "about" about-text})))
 
 (defn write-link-file
-  [file-path user-hash link-hash sign]
-  (let [signed-data (b-encode {"user_hash" user-hash
+  [file-path link-hash sign]
+  (let [signed-data (b-encode {"user_hash" my-hash-bytes
                                "link_hash" link-hash
                                "time" (.getTime (java.util.Date.))})
         signature (sign signed-data)]

@@ -1,6 +1,6 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
-        [nightweb.router :only [base-dir get-user-hash create-meta-torrent]]
+        [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [base32-encode
                             write-post-file
                             write-profile-file]]))
@@ -65,7 +65,7 @@
 (defn do-send-new-post
   [dialog-view]
   (let [text (.toString (.getText dialog-view))]
-    (write-post-file base-dir (get-user-hash false) text)
+    (write-post-file text)
     (create-meta-torrent)))
 
 (defn do-attach-to-new-post
@@ -79,7 +79,7 @@
         about-field (.getChildAt linear-layout 1)
         name-text (.toString (.getText name-field))
         about-text (.toString (.getText about-field))]
-    (write-profile-file base-dir (get-user-hash false) name-text about-text))
+    (write-profile-file name-text about-text))
     (create-meta-torrent))
 
 (defn do-cancel
