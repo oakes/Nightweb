@@ -49,23 +49,18 @@
     (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))
     (println "Failed to add bootstrap node")))
 
-(defn get-meta-link
-  [user-hash-str]
-  (let [link-path (get-meta-dir user-hash-str)
-        link (read-link-file link-path)]
-    (doto (java.util.HashMap.)
-      (.put "q" "announce_meta")
-      (.put "a" (if link link (java.util.HashMap.))))))
-
-(defn set-meta-link
+(defn save-meta-link
   [link-map]
   (let [user-hash-str (get link-map :user-hash-str)
         link-path (get-meta-link-file user-hash-str)]
     (write-file link-path (get link-map :link))))
 
 (defn send-custom-query
-  [node-info args]
-  (.sendQuery (.getDHT (.util manager)) node-info args true))
+  [node-info method args]
+  (let [query (doto (java.util.HashMap.)
+                (.put "q" method)
+                (.put "a" args))]
+    (.sendQuery (.getDHT (.util manager)) node-info query true)))
 
 (defn send-meta-link
   [torrent]
@@ -74,9 +69,9 @@
                    (fn [peer]
                      (let [node-info (get-node-info-for-peer peer)
                            info-hash-str (base32-encode (.getInfoHash torrent))
-                           link-map (get-meta-link info-hash-str)]
-                       (println "Sending meta link" node-info link-map)
-                       (send-custom-query node-info link-map))))))
+                           args (read-link-file info-hash-str)]
+                       (println "Sending meta link" node-info args)
+                       (send-custom-query node-info "announce_meta" args))))))
 
 (defn send-meta-link-periodically
   [seconds]
@@ -95,7 +90,7 @@
         user-hash-bytes (b-decode-bytes user-hash-val)
         link-hash-bytes (b-decode-bytes link-hash-val)
         time-num (b-decode-number time-val)]
-    (if (and user-hash-bytes link-hash-bytes time-num)
+    (if (and link data-val user-hash-bytes)
       {:link (b-encode link)
        :data (b-decode-bytes data-val)
        :sig (b-decode-bytes sig-val)
@@ -106,6 +101,7 @@
 (defn validate-meta-link
   [link-map]
   (and link-map
+       (get link-map :time)
        (<= (get link-map :time) (.getTime (java.util.Date.)))
        (let [user-hash-str (get link-map :user-hash-str)
              pub-key-path (get-user-pub-file user-hash-str)]
@@ -117,25 +113,33 @@
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (get-user-dir user-hash-str)
         meta-file (str (get-meta-dir user-hash-str) torrent-ext)]
-    (set-meta-link new-link-map)
+    (save-meta-link new-link-map)
     (remove-torrent meta-file)
     (remove-torrent (get old-link-map :link-hash-str))
-    (add-hash user-dir (get new-link-map :link-hash-str) send-meta-link)
+    (add-hash user-dir (get new-link-map :link-hash-str) nil)
     (println "Saved meta link")))
 
 (defn compare-meta-link
   [link-map]
   (let [user-hash-str (get link-map :user-hash-str)
-        my-link (get-meta-link user-hash-str)
-        my-link-map (parse-meta-link (get my-link "a"))
+        my-link (read-link-file user-hash-str)
+        my-link-map (parse-meta-link my-link)
         my-time (get my-link-map :time)
         their-time (get link-map :time)]
     (if (not= my-time their-time)
-      (if (or (nil? my-time) (> their-time my-time))
-        (if (validate-meta-link link-map)
+      (if (validate-meta-link link-map)
+        (if (or (nil? my-time) (> their-time my-time))
           (replace-meta-link user-hash-str my-link-map link-map)
-          (println "Invalid meta link" link-map))
-        my-link))))
+          my-link)
+        my-link)
+      (println "Received identical link" my-time their-time))))
+
+(defn receive-meta-link
+  [args]
+  (println "Received meta link" args)
+  (if-let [link (parse-meta-link args)]
+    (compare-meta-link link)
+    (println "Meta link can't be parsed")))
 
 (defn init-dht
   []
@@ -150,9 +154,9 @@
     (reify org.klomp.snark.dht.CustomQueryHandler
       (receiveQuery [this method args]
         (case method
-          "announce_meta" (let [link (parse-meta-link args)]
-                            (println "Received meta link")
-                            (compare-meta-link link))))))
+          "announce_meta" (receive-meta-link args)))
+      (receiveResponse [this args]
+        (receive-meta-link args))))
   ; set the init callback
   (.setDHTInitCallback
     (.util manager)

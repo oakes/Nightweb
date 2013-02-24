@@ -138,18 +138,19 @@
                          "about" about-text})))
 
 (defn write-link-file
-  [file-path link-hash sign]
+  [link-hash sign]
   (let [signed-data (b-encode {"user_hash" my-hash-bytes
                                "link_hash" link-hash
                                "time" (.getTime (java.util.Date.))})
         signature (sign signed-data)]
-    (write-file (str file-path link-ext)
+    (write-file (str (get-meta-dir my-hash-str) link-ext)
                 (b-encode {"data" signed-data
                            "sig" signature}))))
 
 (defn read-link-file
-  [file-path]
-  (let [link-path (str file-path link-ext)]
-    (if (file-exists? link-path)
-      (if-let [link-bytes (read-file link-path)]
-        (b-decode link-bytes)))))
+  [user-hash-str]
+  (let [link-path (str (get-meta-dir user-hash-str) link-ext)]
+    (if-let [link-bytes (read-file link-path)]
+      (b-decode link-bytes)
+      (doto (java.util.HashMap.)
+        (.put "data" (b-encode {"user_hash" (base32-decode user-hash-str)}))))))

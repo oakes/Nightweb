@@ -10,4 +10,5 @@ import org.klomp.snark.bencode.BEValue;
 public interface CustomQueryHandler
 {
     Map<String, Object> receiveQuery(String method, Map<String, BEValue> args);
+    void receiveResponse(Map<String, BEValue> args);
 }

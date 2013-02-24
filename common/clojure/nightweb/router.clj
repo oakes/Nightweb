@@ -61,7 +61,7 @@
   (let [path (get-meta-dir my-hash-str)
         _ (remove-torrent path)
         link-hash-bytes (add-torrent path nil)]
-    (write-link-file path link-hash-bytes create-signature)))
+    (write-link-file link-hash-bytes create-signature)))
 
 (defn parse-url
   [url]
@@ -87,7 +87,7 @@
   (set-my-hash-bytes (create-user-torrent))
   (set-my-hash-str (base32-encode my-hash-bytes))
   (add-user-torrents)
-  (send-meta-link-periodically 30))
+  (send-meta-link-periodically 60))
 
 (defn stop-router
   []

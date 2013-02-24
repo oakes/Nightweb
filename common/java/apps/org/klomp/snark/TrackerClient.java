@@ -76,7 +76,7 @@ public class TrackerClient implements Runnable {
   private static final String DEFAULT_BACKUP_TRACKER = "http://tracker.welterde.i2p/a";
 
 
-  private final static int SLEEP = 1; // minutes.
+  private final static int SLEEP = 5; // 5 minutes.
   private final static int DELAY_MIN = 2000; // 2 secs.
   private final static int DELAY_RAND = 6*1000;
   private final static int MAX_REGISTER_FAILS = 10; // * INITIAL_SLEEP = 15m to register

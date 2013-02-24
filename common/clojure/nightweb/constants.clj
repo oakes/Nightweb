@@ -42,7 +42,7 @@
 
 (defn get-user-dir
   [user-hash]
-  (str base-dir slash users-dir slash user-hash))
+  (str base-dir users-dir slash user-hash))
 
 (defn get-user-pub-file
   [user-hash]

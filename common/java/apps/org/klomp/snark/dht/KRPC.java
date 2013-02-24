@@ -1096,9 +1096,11 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             receiveAnnouncePeer(msgID, ih, token);
         } else {
             if (_customQueryHandler != null) {
-                Map<String, Object> map =
+                Map<String, Object> resps =
                     _customQueryHandler.receiveQuery(method, args);
-                if (args != null) {
+                if (resps != null) {
+                    Map<String, Object> map = new HashMap();
+                    map.put("r", resps);
                     sendResponse(nInfo, msgID, map);
                 }
 	    } else if (_log.shouldLog(Log.WARN)) {
@@ -1308,7 +1310,9 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             List<BEValue> peers = values.getList();
             List<Hash> rlist = receivePeers(nInfo, peers);
             waiter.gotReply(REPLY_PEERS, rlist);
-        } else {
+        } else if (_customQueryHandler != null && response.size() > 1) {
+            _customQueryHandler.receiveResponse(response);
+	} else {
             // a ping response or an announce peer response
             byte[] nid = response.get("id").getBytes();
             receivePong(nInfo, nid);
