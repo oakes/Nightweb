@@ -18,13 +18,14 @@
 (def slash java.io.File/separator)
 (def nw-dir (str slash "nwapp"))
 (def meta-dir (str slash "meta"))
+(def posts-dir (str slash "posts"))
+(def torrents-dir (str slash "torrents"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
+(def profile "user.profile")
 
 (def torrent-ext ".torrent")
-(def profile-ext ".profile")
-(def post-ext ".post")
 (def link-ext ".link")
 
 (def priv-key-file (str nw-dir slash priv-key))
@@ -57,3 +58,11 @@
 (defn get-meta-link-file
   [user-hash]
   (str (get-meta-dir user-hash) link-ext))
+
+(defn get-posts-dir
+  [user-hash]
+  (str (get-meta-dir user-hash) posts-dir))
+
+(defn get-torrents-dir
+  [user-hash]
+  (str (get-meta-dir user-hash) torrents-dir))

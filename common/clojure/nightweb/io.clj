@@ -8,13 +8,13 @@
                                    my-hash-bytes
                                    my-hash-str
                                    slash
-                                   post-ext
-                                   profile-ext
                                    link-ext
+                                   profile
+                                   priv-node-key-file
+                                   pub-node-key-file
                                    get-user-dir
                                    get-meta-dir
-                                   priv-node-key-file
-                                   pub-node-key-file]]))
+                                   get-posts-dir]]))
 
 ; basic file operations
 
@@ -133,19 +133,16 @@
         signed-data (b-encode args)
         signature (create-signature signed-data)
         signature-str (base32-encode signature)]
-    (write-file (str (get-meta-dir my-hash-str) slash signature-str post-ext)
+    (write-file (str (get-posts-dir my-hash-str) slash signature-str)
                 signed-data)
     (insert-post my-hash-bytes signature args)))
 
 (defn write-profile-file
   [name-text about-text]
   (let [args {"name" name-text
-              "about" about-text}
-        signed-data (b-encode args)
-        signature (create-signature signed-data)
-        signature-str (base32-encode signature)]
-    (write-file (str (get-meta-dir my-hash-str) slash signature-str profile-ext)
-                signed-data)))
+              "about" about-text}]
+    (write-file (str (get-meta-dir my-hash-str) slash profile)
+                (b-encode args))))
 
 (defn write-link-file
   [link-hash]
