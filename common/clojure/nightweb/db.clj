@@ -37,14 +37,14 @@
     [:time "BIGINT"])
   (create-table-if-not-exists
     :posts
-    [:sig "BINARY"]
+    [:hash "BINARY"]
     [:userhash "BINARY"]
     [:text "VARCHAR"]
     [:time "BIGINT"])
   (create-table-if-not-exists
     :files
-    [:sig "BINARY"]
-    [:postsig "BINARY"]
+    [:hash "BINARY"]
+    [:posthash "BINARY"]
     [:name "VARCHAR"]
     [:ext "VARCHAR"]
     [:bytes "BIGINT"])
@@ -80,14 +80,14 @@
        :time (get args "time")})))
 
 (defn insert-post
-  [user-hash sig args]
+  [user-hash post-hash args]
   (with-connection
     spec
     (update-or-insert-values
       :posts
-      ["userhash = ? AND sig = ?" user-hash sig]
-      {:userhash user-hash
-       :sig sig
+      ["hash = ? AND userhash = ?" user-hash post-hash]
+      {:hash post-hash
+       :userhash user-hash
        :text (get args "text")
        :time (get args "time")})))
 

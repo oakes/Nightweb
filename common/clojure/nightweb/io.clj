@@ -2,7 +2,8 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
-        [nightweb.db :only [insert-post]]
+        [nightweb.db :only [insert-profile
+                            insert-post]]
         [nightweb.crypto :only [create-signature]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
@@ -142,7 +143,8 @@
   (let [args {"name" name-text
               "about" about-text}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
-                (b-encode args))))
+                (b-encode args))
+    (insert-profile my-hash-bytes args)))
 
 (defn write-link-file
   [link-hash]

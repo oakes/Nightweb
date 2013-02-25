@@ -154,41 +154,48 @@
     (.addView linear-layout image-view)
     view))
 
+(defn update-user-view
+  [context content grid-view]
+  (let [user (run-query get-user-data content)
+        first-tiles [{:text (get-string :profile)
+                      :add-emphasis? true
+                      :content user
+                      :type :custom-func
+                      :func
+                      (fn [context item]
+                        (show-dialog
+                          context
+                          (get-profile-view context user)
+                          (if (get user :is-me?)
+                            {:positive-name (get-string :save)
+                             :positive-func
+                             (fn [v]
+                               (do-save-profile v)
+                               (update-user-view context content grid-view))
+                             :negative-name (get-string :cancel)
+                             :negative-func do-cancel}
+                            {:positive-name (get-string :ok)
+                             :positive-func do-cancel})))}
+                     {:text (get-string :favorites)
+                      :add-emphasis? true
+                      :content user
+                      :type :favorites}
+                     (if (get user :is-me?)
+                       {:text (get-string :transfers)
+                        :add-emphasis? true
+                        :content user
+                        :type :transfers}
+                       {:text (get-string :add_to_favorites)
+                        :add-emphasis? true
+                        :type :add-to-favorites})]
+        posts (run-query get-post-data content)
+        grid-content (into [] (concat first-tiles posts))]
+    (on-ui (set-grid-view-tiles context grid-content grid-view))))
+
 (defn get-user-view
   [context content]
   (let [grid-view (get-grid-view context [])]
-    (future
-      (let [user (run-query get-user-data content)
-            first-tiles [{:text (get-string :profile)
-                          :add-emphasis? true
-                          :content user
-                          :type :custom-func
-                          :func (fn [context content]
-                                  (show-dialog
-                                    context
-                                    (get-profile-view context user)
-                                    (if (get user :is-me?)
-                                      {:positive-name (get-string :save)
-                                       :positive-func do-save-profile
-                                       :negative-name (get-string :cancel)
-                                       :negative-func do-cancel}
-                                      {:positive-name (get-string :ok)
-                                       :positive-func do-cancel})))}
-                         {:text (get-string :favorites)
-                          :add-emphasis? true
-                          :content user
-                          :type :favorites}
-                         (if (get user :is-me?)
-                           {:text (get-string :transfers)
-                            :add-emphasis? true
-                            :content user
-                            :type :transfers}
-                           {:text (get-string :add_to_favorites)
-                            :add-emphasis? true
-                            :type :add-to-favorites})]
-            posts (run-query get-post-data content)
-            grid-content (into [] (concat first-tiles posts))]
-        (on-ui (set-grid-view-tiles context grid-content grid-view))))
+    (future (update-user-view context content grid-view))
     grid-view))
 
 (defn get-category-view
