@@ -36,7 +36,8 @@
       service-name
       (fn [binder]
         (let [action-bar (.getActionBar this)]
-          (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
+          (.setNavigationMode action-bar 
+                              android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar

@@ -1,11 +1,14 @@
 (ns nightweb.router
-  (:use [nightweb.crypto :only [create-user-keys
-                                create-signature]]
+  (:use [nightweb.crypto :only [priv-key
+                                pub-key
+                                load-user-keys]]
         [nightweb.io :only [file-exists?
                             make-dir
                             iterate-dir
                             base32-encode
                             base32-decode
+                            write-key-file
+                            read-key-file
                             write-link-file]]
         [nightweb.constants :only [base-dir
                                    set-base-dir
@@ -17,6 +20,7 @@
                                    torrent-ext
                                    get-users-dir
                                    get-user-dir
+                                   get-user-priv-file
                                    get-user-pub-file
                                    get-meta-dir]]
         [nightweb.torrent :only [start-torrent-manager
@@ -53,7 +57,13 @@
 
 (defn create-user-torrent
   []
-  (let [pub-key-path (create-user-keys)]
+  (let [priv-key-path (get-user-priv-file)
+        pub-key-path (get-user-pub-file)
+        priv-key-bytes (read-key-file priv-key-path)]
+    (load-user-keys priv-key-bytes)
+    (when (nil? priv-key-bytes)
+      (write-key-file priv-key-path priv-key)
+      (write-key-file pub-key-path pub-key))
     (add-torrent pub-key-path send-meta-link)))
 
 (defn create-meta-torrent
@@ -61,7 +71,7 @@
   (let [path (get-meta-dir my-hash-str)
         _ (remove-torrent path)
         link-hash-bytes (add-torrent path nil)]
-    (write-link-file link-hash-bytes create-signature)))
+    (write-link-file link-hash-bytes)))
 
 (defn parse-url
   [url]

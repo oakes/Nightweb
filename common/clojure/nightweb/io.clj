@@ -2,18 +2,19 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
+        [nightweb.db :only [insert-post]]
+        [nightweb.crypto :only [create-signature]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
                                    my-hash-str
                                    slash
                                    post-ext
+                                   profile-ext
                                    link-ext
                                    get-user-dir
                                    get-meta-dir
-                                   get-posts-dir
                                    priv-node-key-file
-                                   pub-node-key-file
-                                   profile-file]]))
+                                   pub-node-key-file]]))
 
 ; basic file operations
 
@@ -91,14 +92,14 @@
 ; read/write specific files
 
 (defn write-key-file
-  [file-path key-data]
-  (write-file file-path (b-encode {"sign_key" key-data
+  [file-path key-obj]
+  (write-file file-path (b-encode {"sign_key" (.getData key-obj)
                                    "sign_algo" "DSA-SHA1"})))
 
 (defn read-key-file
   [file-path]
-  (if-let [priv-key-map (b-decode (read-file file-path))]
-    (if-let [sign-key-str (.get priv-key-map "sign_key")]
+  (if-let [key-map (b-decode (read-file file-path))]
+    (if-let [sign-key-str (.get key-map "sign_key")]
       (.getBytes sign-key-str))))
 
 (defn write-priv-node-key-file
@@ -127,22 +128,32 @@
 
 (defn write-post-file
   [text]
-  (write-file (str (get-posts-dir my-hash-str)
-                   slash (.getTime (java.util.Date.)) post-ext)
-              (b-encode {"text" text})))
+  (let [args {"text" text
+              "time" (.getTime (java.util.Date.))}
+        signed-data (b-encode args)
+        signature (create-signature signed-data)
+        signature-str (base32-encode signature)]
+    (write-file (str (get-meta-dir my-hash-str) slash signature-str post-ext)
+                signed-data)
+    (insert-post my-hash-bytes signature args)))
 
 (defn write-profile-file
   [name-text about-text]
-  (write-file (str (get-meta-dir my-hash-str) profile-file)
-              (b-encode {"name" name-text
-                         "about" about-text})))
+  (let [args {"name" name-text
+              "about" about-text}
+        signed-data (b-encode args)
+        signature (create-signature signed-data)
+        signature-str (base32-encode signature)]
+    (write-file (str (get-meta-dir my-hash-str) slash signature-str profile-ext)
+                signed-data)))
 
 (defn write-link-file
-  [link-hash sign]
-  (let [signed-data (b-encode {"user_hash" my-hash-bytes
-                               "link_hash" link-hash
-                               "time" (.getTime (java.util.Date.))})
-        signature (sign signed-data)]
+  [link-hash]
+  (let [args {"user_hash" my-hash-bytes
+              "link_hash" link-hash
+              "time" (.getTime (java.util.Date.))}
+        signed-data (b-encode args)
+        signature (create-signature signed-data)]
     (write-file (str (get-meta-dir my-hash-str) link-ext)
                 (b-encode {"data" signed-data
                            "sig" signature}))))

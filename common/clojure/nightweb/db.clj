@@ -3,7 +3,7 @@
                               transaction
                               drop-table
                               create-table-if-not-exists
-                              insert-records
+                              update-or-insert-values
                               with-query-results]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
@@ -34,30 +34,28 @@
     [:hash "BINARY"]
     [:text "VARCHAR"]
     [:about "VARCHAR"]
-    [:time "TIMESTAMP"])
+    [:time "BIGINT"])
   (create-table-if-not-exists
     :posts
-    [:hash "BINARY"]
-    [:user "BINARY"]
+    [:sig "BINARY"]
+    [:userhash "BINARY"]
     [:text "VARCHAR"]
-    [:time "TIMESTAMP"])
+    [:time "BIGINT"])
   (create-table-if-not-exists
     :files
-    [:hash "BINARY"]
-    [:post "BINARY"]
+    [:sig "BINARY"]
+    [:postsig "BINARY"]
     [:name "VARCHAR"]
     [:ext "VARCHAR"]
-    [:bytes "BIGINT"]
-    [:time "TIMESTAMP"])
+    [:bytes "BIGINT"])
   (create-table-if-not-exists
     :prevs
     [:hash "BINARY"]
     [:pointer "BINARY"])
   (create-table-if-not-exists
     :favs
-    [:hash "BINARY"]
-    [:user "BINARY"]
-    [:pointer "BINARY"]))
+    [:userhash "BINARY"]
+    [:ptrhash "BINARY"]))
 
 (defn init-db
   [base-dir]
@@ -69,32 +67,39 @@
     ;(run-query drop-tables nil)
     (run-query create-tables nil)))
 
-(defn insert-test-data
-  [params callback]
-  (let [oskar (byte-array (map byte [0]))
-        papa (byte-array (map byte [1]))
-        quebec (byte-array (map byte [2]))
-        post1 (byte-array (map byte [3]))
-        post2 (byte-array (map byte [4]))
-        post3 (byte-array (map byte [5]))
-        fav1 (byte-array (map byte [6]))
-        fav2 (byte-array (map byte [7]))
-        fav3 (byte-array (map byte [8]))]
-    (insert-records
+(defn insert-profile
+  [user-hash args]
+  (with-connection
+    spec
+    (update-or-insert-values
       :users
-      {:hash oskar :text "oskar" :about "Hello, World!"}
-      {:hash papa :text "papa" :about "Hello, World!"}
-      {:hash quebec :text "quebec" :about "Hello, World!"})
-    (insert-records
+      ["hash = ?" user-hash]
+      {:hash user-hash 
+       :text (get args "name")
+       :about (get args "about")
+       :time (get args "time")})))
+
+(defn insert-post
+  [user-hash sig args]
+  (with-connection
+    spec
+    (update-or-insert-values
       :posts
-      {:hash post1 :user oskar :text "First post!"}
-      {:hash post2 :user papa :text "From papa!"}
-      {:hash post3 :user quebec :text "From quebec!"})
-    (insert-records
-      :favs
-      {:hash fav1 :user oskar :pointer papa}
-      {:hash fav2 :user papa :pointer oskar}
-      {:hash fav3 :user quebec :pointer papa})))
+      ["userhash = ? AND sig = ?" user-hash sig]
+      {:userhash user-hash
+       :sig sig
+       :text (get args "text")
+       :time (get args "time")})))
+
+(defn insert-fav
+  [user-hash args]
+  (if-let [ptr-hash (get args "ptrhash")]
+    (with-connection
+      spec
+      (update-or-insert-values
+        :favs
+        ["userhash = ? AND ptrhash = ?" user-hash ptr-hash]
+        {:userhash user-hash :ptrhash ptr-hash}))))
 
 (defn get-user-data
   [params callback]
@@ -112,7 +117,7 @@
   (let [user-hash (get params :hash)]
     (with-query-results
       rs
-      ["SELECT * FROM posts WHERE user = ?" user-hash]
+      ["SELECT * FROM posts WHERE userhash = ? ORDER BY time DESC" user-hash]
       (callback (doall
                   (for [row rs]
                     (assoc row :type :posts)))))))
@@ -123,7 +128,7 @@
         user-hash (get params :hash)
         statement (case data-type
                     :users ["SELECT * FROM users"]
-                    :posts ["SELECT * FROM posts"]
+                    :posts ["SELECT * FROM posts ORDER BY time DESC"]
                     :users-favorites
                     [(str "SELECT * FROM users "
                           "INNER JOIN favs ON users.hash = favs.pointer "
@@ -131,8 +136,9 @@
                      user-hash]
                     :posts-favorites
                     [(str "SELECT * FROM posts "
-                          "INNER JOIN favs ON posts.hash = favs.pointer "
-                          "WHERE favs.user = ?")
+                          "INNER JOIN favs ON posts.userhash = favs.ptrhash "
+                          "WHERE favs.userhash = ? "
+                          "ORDER BY time DESC")
                      user-hash]
                     :all-transfers ["SELECT * FROM files"]
                     :photos-transfers ["SELECT * FROM files"]
