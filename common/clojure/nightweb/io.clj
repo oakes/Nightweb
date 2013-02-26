@@ -2,8 +2,6 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
-        [nightweb.db :only [insert-profile
-                            insert-post]]
         [nightweb.crypto :only [create-signature]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
@@ -135,16 +133,14 @@
         signature (create-signature signed-data)
         signature-str (base32-encode signature)]
     (write-file (str (get-posts-dir my-hash-str) slash signature-str)
-                signed-data)
-    (insert-post my-hash-bytes signature args)))
+                signed-data)))
 
 (defn write-profile-file
   [name-text about-text]
   (let [args {"name" name-text
               "about" about-text}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
-                (b-encode args))
-    (insert-profile my-hash-bytes args)))
+                (b-encode args))))
 
 (defn write-link-file
   [link-hash]
