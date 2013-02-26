@@ -32,7 +32,7 @@
         btn-action (fn [func]
                      (proxy [android.content.DialogInterface$OnClickListener] []
                        (onClick [dialog which]
-                         (if func (func view)))))]
+                         (if func (func context view)))))]
     (if-let [positive-name (get buttons :positive-name)]
       (.setPositiveButton builder
                           positive-name
@@ -62,18 +62,24 @@
   [context content]
   (show-page context "net.nightweb.GridPage" content))
 
+(defn do-refresh-page
+  [context]
+  (.finish context)
+  (.startActivity context (.getIntent context)))
+
 (defn do-send-new-post
-  [dialog-view]
+  [context dialog-view]
   (let [text (.toString (.getText dialog-view))]
     (write-post-file text)
-    (create-meta-torrent)))
+    (create-meta-torrent)
+    (do-refresh-page context)))
 
 (defn do-attach-to-new-post
-  [dialog-view]
+  [context dialog-view]
   (println "attach"))
 
 (defn do-save-profile
-  [dialog-view]
+  [context dialog-view]
   (let [linear-layout (.getChildAt dialog-view 0)
         name-field (.getChildAt linear-layout 0)
         about-field (.getChildAt linear-layout 1)
@@ -83,7 +89,7 @@
     (create-meta-torrent))
 
 (defn do-cancel
-  [dialog-view]
+  [context dialog-view]
   (println "cancel"))
 
 (defn do-menu-action

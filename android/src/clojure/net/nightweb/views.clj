@@ -169,8 +169,8 @@
                           (if (get user :is-me?)
                             {:positive-name (get-string :save)
                              :positive-func
-                             (fn [v]
-                               (do-save-profile v)
+                             (fn [context dialog-view]
+                               (do-save-profile context dialog-view)
                                (update-user-view context content grid-view))
                              :negative-name (get-string :cancel)
                              :negative-func do-cancel}
@@ -218,7 +218,7 @@
   (let [tab (.newTab action-bar)
         fragment (proxy [android.app.Fragment] []
                    (onCreateView [layout-inflater viewgroup bundle]
-                                 (create-view)))
+                     (create-view)))
         listener (proxy [android.app.ActionBar$TabListener] []
                    (onTabSelected [tab ft]
                                   (.add ft
