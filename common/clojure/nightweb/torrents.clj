@@ -181,30 +181,33 @@
         (println "Error adding hash:" (.getMessage iae))))))
 
 (defn add-torrent
-  [path is-persistent?]
-  (try
-    (let [base-file (file path)
-          root-path (.getParent base-file)
-          torrent-file (file (str path torrent-ext))
-          torrent-path (.getCanonicalPath torrent-file)
-          storage (get-storage path)
-          meta-info (.getMetaInfo storage)
-          bit-field (.getBitField storage)]
-      (future
-        (.addTorrent manager
-                     meta-info
-                     bit-field
-                     torrent-path
-                     false
-                     (get-complete-listener root-path is-persistent?)
-                     root-path)
-        (if-let [torrent (get-torrent-by-path torrent-path)]
-          (.setPersistent torrent is-persistent?))
-        (println "Torrent added to" torrent-path))
-      (.getInfoHash meta-info))
-    (catch java.io.IOException ioe
-      (println "Error adding torrent:" (.getMessage ioe))
-      nil)))
+  ([path is-persistent?] (add-torrent path is-persistent? false))
+  ([path is-persistent? should-block?]
+   (try
+     (let [base-file (file path)
+           root-path (.getParent base-file)
+           torrent-file (file (str path torrent-ext))
+           torrent-path (.getCanonicalPath torrent-file)
+           storage (get-storage path)
+           meta-info (.getMetaInfo storage)
+           bit-field (.getBitField storage)
+           listener (get-complete-listener root-path is-persistent?)
+           thread (future
+                    (.addTorrent manager
+                                 meta-info
+                                 bit-field
+                                 torrent-path
+                                 false
+                                 listener
+                                 root-path)
+                    (if-let [torrent (get-torrent-by-path torrent-path)]
+                      (.setPersistent torrent is-persistent?))
+                    (println "Torrent added to" torrent-path))]
+       (if should-block? (deref thread))
+       (.getInfoHash meta-info))
+     (catch java.io.IOException ioe
+       (println "Error adding torrent:" (.getMessage ioe))
+       nil))))
 
 (defn remove-torrent
   [path]

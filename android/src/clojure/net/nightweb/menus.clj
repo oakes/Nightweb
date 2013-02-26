@@ -38,6 +38,7 @@
         (onMenuItemClick [menu-item]
           (show-dialog context
                        (get-new-post-view context [])
+                       nil
                        {:positive-name (get-string :send)
                         :positive-func do-send-new-post
                         :neutral-name (get-string :attach)

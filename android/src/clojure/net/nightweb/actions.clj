@@ -27,12 +27,14 @@
     (.startActivity context intent)))
 
 (defn show-dialog
-  [context view buttons]
+  [context view callback buttons]
   (let [builder (android.app.AlertDialog$Builder. context)
         btn-action (fn [func]
                      (proxy [android.content.DialogInterface$OnClickListener] []
                        (onClick [dialog which]
-                         (if func (func context view)))))]
+                         (future
+                           (if func (func context view))
+                           (if callback (callback))))))]
     (if-let [positive-name (get buttons :positive-name)]
       (.setPositiveButton builder
                           positive-name

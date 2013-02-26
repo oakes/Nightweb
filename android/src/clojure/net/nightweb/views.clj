@@ -166,12 +166,10 @@
                         (show-dialog
                           context
                           (get-profile-view context user)
+                          #(update-user-view context content grid-view)
                           (if (get user :is-me?)
                             {:positive-name (get-string :save)
-                             :positive-func
-                             (fn [context dialog-view]
-                               (do-save-profile context dialog-view)
-                               (update-user-view context content grid-view))
+                             :positive-func do-save-profile
                              :negative-name (get-string :cancel)
                              :negative-func do-cancel}
                             {:positive-name (get-string :ok)

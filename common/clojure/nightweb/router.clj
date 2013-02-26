@@ -66,7 +66,7 @@
   []
   (let [path (get-meta-dir my-hash-str)]
     (remove-torrent (str path torrent-ext))
-    (write-link-file (add-torrent path false))))
+    (write-link-file (add-torrent path false true))))
 
 (defn parse-url
   [url]
