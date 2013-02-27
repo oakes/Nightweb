@@ -13,7 +13,7 @@
                                    pub-node-key-file
                                    get-user-dir
                                    get-meta-dir
-                                   get-posts-dir]]))
+                                   get-post-dir]]))
 
 ; basic file operations
 
@@ -66,10 +66,10 @@
     (.getBytes be-value)
     (catch java.lang.Exception e nil)))
 
-(defn b-decode-number
+(defn b-decode-integer
   [be-value]
   (try
-    (.getNumber be-value)
+    (.getLong be-value)
     (catch java.lang.Exception e nil)))
 
 (defn b-decode-string
@@ -87,6 +87,23 @@
   [data-str]
   (if data-str
     (net.i2p.data.Base32/decode data-str)))
+
+(defn long-decode
+  [data-str]
+  (try
+    (Long/parseLong data-str)
+    (catch java.lang.Exception e nil)))
+
+(defn parse-url
+  [url]
+  (let [url-str (subs url (+ 1 (.indexOf url "#")))
+        url-vec (clojure.string/split url-str #"[&=]")
+        url-map (if (even? (count url-vec))
+                  (apply hash-map url-vec)
+                  {})
+        {type-val "type" hash-val "hash"} url-map]
+    {:type (if type-val (keyword type-val) nil)
+     :hash (if hash-val (base32-decode hash-val) nil)}))
 
 ; read/write specific files
 
@@ -127,13 +144,10 @@
 
 (defn write-post-file
   [text]
-  (let [args {"text" text
-              "time" (.getTime (java.util.Date.))}
-        signed-data (b-encode args)
-        signature (create-signature signed-data)
-        signature-str (base32-encode signature)]
-    (write-file (str (get-posts-dir my-hash-str) slash signature-str)
-                signed-data)))
+  (let [unix-time (.getTime (java.util.Date.))
+        args {"text" text}]
+    (write-file (str (get-post-dir my-hash-str) slash unix-time)
+                (b-encode args))))
 
 (defn write-profile-file
   [name-text about-text]

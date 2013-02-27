@@ -17,7 +17,6 @@
                                    set-my-hash-str
                                    slash
                                    torrent-ext
-                                   get-users-dir
                                    get-user-dir
                                    get-user-priv-file
                                    get-user-pub-file
@@ -37,7 +36,7 @@
 
 (defn add-user-torrents
   []
-  (iterate-dir (get-users-dir)
+  (iterate-dir (get-user-dir)
                (fn [their-hash-str]
                  (let [user-dir (get-user-dir their-hash-str)
                        pub-path (get-user-pub-file their-hash-str)
@@ -67,17 +66,6 @@
   (let [path (get-meta-dir my-hash-str)]
     (remove-torrent (str path torrent-ext))
     (write-link-file (add-torrent path false true))))
-
-(defn parse-url
-  [url]
-  (let [url-str (subs url (+ 1 (.indexOf url "#")))
-        url-vec (clojure.string/split url-str #"[&=]")
-        url-map (if (even? (count url-vec))
-                  (apply hash-map url-vec)
-                  {})
-        {type-val "type" hash-val "hash"} url-map]
-    {:type (if type-val (keyword type-val) nil)
-     :hash (if hash-val (base32-decode hash-val) nil)}))
 
 (defn start-router
   [dir]

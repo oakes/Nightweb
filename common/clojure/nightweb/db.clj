@@ -5,7 +5,16 @@
                               create-table-if-not-exists
                               update-or-insert-values
                               with-query-results]]
-        [nightweb.constants :only [db-file my-hash-bytes]]))
+        [clojure.java.io :only [file]]
+        [nightweb.io :only [read-file
+                            base32-decode
+                            b-decode
+                            b-decode-string
+                            long-decode]]
+        [nightweb.constants :only [slash
+                                   meta-dir
+                                   db-file
+                                   my-hash-bytes]]))
 
 (def spec nil)
 
@@ -16,46 +25,48 @@
      spec
      (transaction (f params callback)))))
 
+; initialization
+
 (defn drop-tables
   [params callback]
   (try
     (do
-      (drop-table :users)
-      (drop-table :posts)
-      (drop-table :files)
-      (drop-table :prevs)
-      (drop-table :favs))
+      (drop-table :user)
+      (drop-table :post)
+      (drop-table :file)
+      (drop-table :prev)
+      (drop-table :fav))
     (catch java.lang.Exception e (println "Tables don't exist"))))
 
 (defn create-tables
   [params callback]
   (create-table-if-not-exists
-    :users
+    :user
     [:hash "BINARY"]
     [:text "VARCHAR"]
-    [:about "VARCHAR"]
-    [:time "BIGINT"])
+    [:about "VARCHAR"])
   (create-table-if-not-exists
-    :posts
-    [:hash "BINARY"]
+    :post
     [:userhash "BINARY"]
     [:text "VARCHAR"]
     [:time "BIGINT"])
   (create-table-if-not-exists
-    :files
+    :file
     [:hash "BINARY"]
-    [:posthash "BINARY"]
+    [:userhash "BINARY"]
+    [:time "BIGINT"]
     [:name "VARCHAR"]
     [:ext "VARCHAR"]
     [:bytes "BIGINT"])
   (create-table-if-not-exists
-    :prevs
+    :prev
     [:hash "BINARY"]
-    [:pointer "BINARY"])
-  (create-table-if-not-exists
-    :favs
     [:userhash "BINARY"]
-    [:ptrhash "BINARY"]))
+    [:filehash "BINARY"])
+  (create-table-if-not-exists
+    :fav
+    [:hash "BINARY"]
+    [:userhash "BINARY"]))
 
 (defn init-db
   [base-dir]
@@ -67,39 +78,57 @@
     ;(run-query drop-tables nil)
     (run-query create-tables nil)))
 
+; insertion
+
 (defn insert-profile
   [user-hash args]
   (with-connection
     spec
     (update-or-insert-values
-      :users
+      :user
       ["hash = ?" user-hash]
       {:hash user-hash 
-       :text (get args "name")
-       :about (get args "about")
-       :time (get args "time")})))
+       :text (b-decode-string (get args "name"))
+       :about (b-decode-string (get args "about"))})))
 
 (defn insert-post
-  [user-hash post-hash args]
-  (with-connection
-    spec
-    (update-or-insert-values
-      :posts
-      ["hash = ? AND userhash = ?" user-hash post-hash]
-      {:hash post-hash
-       :userhash user-hash
-       :text (get args "text")
-       :time (get args "time")})))
-
-(defn insert-fav
-  [user-hash args]
-  (if-let [ptr-hash (get args "ptrhash")]
+  [user-hash time-str args]
+  (if-let [time-long (long-decode time-str)]
     (with-connection
       spec
       (update-or-insert-values
-        :favs
-        ["userhash = ? AND ptrhash = ?" user-hash ptr-hash]
-        {:userhash user-hash :ptrhash ptr-hash}))))
+        :post
+        ["userhash = ? AND time = ?" user-hash time-long]
+        {:userhash user-hash
+         :text (b-decode-string (get args "text"))
+         :time time-long}))))
+
+(defn insert-fav
+  [user-hash fav-hash]
+  (with-connection
+    spec
+    (update-or-insert-values
+      :fav
+      ["hash = ? AND userhash = ?" fav-hash user-hash]
+      {:hash fav-hash
+       :userhash user-hash})))
+
+(defn insert-data
+  [user-dir path-leaves]
+  (let [end-path (str slash (clojure.string/join slash path-leaves))
+        full-path (str (.getAbsolutePath user-dir) meta-dir end-path)
+        user-hash-str (.getName user-dir)
+        user-hash-bytes (base32-decode user-hash-str)
+        rev-leaves (reverse path-leaves)
+        file-name (nth rev-leaves 0 nil)
+        type-name (nth rev-leaves 1 nil)]
+    (if-let [args (b-decode (read-file full-path))]
+      (case type-name
+        "post" (insert-post user-hash-bytes file-name args)
+        nil (case file-name
+              "user.profile" (insert-profile user-hash-bytes args))))))
+
+; retrieval
 
 (defn get-user-data
   [params callback]
@@ -107,7 +136,7 @@
         is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
     (with-query-results
       rs
-      ["SELECT * FROM users WHERE hash = ?" user-hash]
+      ["SELECT * FROM user WHERE hash = ?" user-hash]
       (if-let [user (first rs)]
         (callback (assoc user :is-me? is-me?))
         (callback (assoc params :is-me? is-me?))))))
@@ -117,33 +146,33 @@
   (let [user-hash (get params :hash)]
     (with-query-results
       rs
-      ["SELECT * FROM posts WHERE userhash = ? ORDER BY time DESC" user-hash]
+      ["SELECT * FROM post WHERE userhash = ? ORDER BY time DESC" user-hash]
       (callback (doall
                   (for [row rs]
-                    (assoc row :type :posts)))))))
+                    (assoc row :type :post)))))))
 
 (defn get-category-data
   [params callback]
   (let [data-type (get params :type)
         user-hash (get params :hash)
         statement (case data-type
-                    :users ["SELECT * FROM users"]
-                    :posts ["SELECT * FROM posts ORDER BY time DESC"]
-                    :users-favorites
-                    [(str "SELECT * FROM users "
-                          "INNER JOIN favs ON users.hash = favs.pointer "
-                          "WHERE favs.user = ?")
+                    :user ["SELECT * FROM user"]
+                    :post ["SELECT * FROM post ORDER BY time DESC"]
+                    :user-fav
+                    [(str "SELECT * FROM user "
+                          "INNER JOIN fav ON user.hash = fav.pointer "
+                          "WHERE fav.user = ?")
                      user-hash]
-                    :posts-favorites
-                    [(str "SELECT * FROM posts "
-                          "INNER JOIN favs ON posts.userhash = favs.ptrhash "
-                          "WHERE favs.userhash = ? "
+                    :post-fav
+                    [(str "SELECT * FROM post "
+                          "INNER JOIN fav ON post.userhash = fav.hash "
+                          "WHERE fav.userhash = ? "
                           "ORDER BY time DESC")
                      user-hash]
-                    :all-transfers ["SELECT * FROM files"]
-                    :photos-transfers ["SELECT * FROM files"]
-                    :videos-transfers ["SELECT * FROM files"]
-                    :audio-transfers ["SELECT * FROM files"])]
+                    :all-tran ["SELECT * FROM file"]
+                    :photos-tran ["SELECT * FROM file"]
+                    :videos-tran ["SELECT * FROM file"]
+                    :audio-tran ["SELECT * FROM file"])]
     (with-query-results
       rs
       statement

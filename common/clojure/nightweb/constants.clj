@@ -18,8 +18,8 @@
 (def slash java.io.File/separator)
 (def nw-dir (str slash "nwapp"))
 (def meta-dir (str slash "meta"))
-(def posts-dir (str slash "posts"))
-(def torrents-dir (str slash "torrents"))
+(def post-dir (str slash "post"))
+(def torrent-dir (str slash "torrent"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
@@ -33,15 +33,11 @@
 (def priv-node-key-file (str nw-dir slash "private.node.key"))
 (def pub-node-key-file (str nw-dir slash "public.node.key"))
 (def db-file (str nw-dir slash "main"))
-(def users-dir (str nw-dir slash "users"))
-
-(defn get-users-dir
-  []
-  (str base-dir users-dir))
+(def user-dir (str nw-dir slash "user"))
 
 (defn get-user-dir
-  [user-hash]
-  (str base-dir users-dir slash user-hash))
+  ([] (str base-dir user-dir))
+  ([user-hash] (str base-dir user-dir slash user-hash)))
 
 (defn get-user-priv-file
   ([] (str base-dir priv-key-file))
@@ -59,10 +55,10 @@
   [user-hash]
   (str (get-meta-dir user-hash) link-ext))
 
-(defn get-posts-dir
+(defn get-post-dir
   [user-hash]
-  (str (get-meta-dir user-hash) posts-dir))
+  (str (get-meta-dir user-hash) post-dir))
 
-(defn get-torrents-dir
+(defn get-torrent-dir
   [user-hash]
-  (str (get-meta-dir user-hash) torrents-dir))
+  (str (get-meta-dir user-hash) torrent-dir))

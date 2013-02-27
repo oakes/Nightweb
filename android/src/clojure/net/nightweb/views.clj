@@ -177,15 +177,15 @@
                      {:text (get-string :favorites)
                       :add-emphasis? true
                       :content user
-                      :type :favorites}
+                      :type :fav}
                      (if (get user :is-me?)
                        {:text (get-string :transfers)
                         :add-emphasis? true
                         :content user
-                        :type :transfers}
+                        :type :tran}
                        {:text (get-string :add_to_favorites)
                         :add-emphasis? true
-                        :type :add-to-favorites})]
+                        :type :add-to-fav})]
         posts (run-query get-post-data content)
         grid-content (into [] (concat first-tiles posts))]
     (on-ui (set-grid-view-tiles context grid-content grid-view))))
@@ -205,7 +205,7 @@
              tags (if show-tags?
                     [{:text (get-string :tags)
                       :add-emphasis? true
-                      :type :tags}]
+                      :type :tag}]
                     [])
              grid-content (into [] (concat tags results))]
          (on-ui (set-grid-view-tiles context grid-content grid-view))))

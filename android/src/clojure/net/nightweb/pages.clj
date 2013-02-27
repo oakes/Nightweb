@@ -16,7 +16,7 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
-        [nightweb.router :only [parse-url]]
+        [nightweb.io :only [parse-url]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn set-share-content
@@ -42,17 +42,17 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :users :hash my-hash-bytes}]
+                      #(let [content {:type :user :hash my-hash-bytes}]
                          (set-share-content this content)
                          (get-user-view this content)))
           (create-tab action-bar
                       (get-string :users)
-                      #(let [content {:type :users}]
+                      #(let [content {:type :user}]
                          (set-share-content this content)
                          (get-category-view this content true)))
           (create-tab action-bar
                       (get-string :posts)
-                      #(let [content {:type :posts}]
+                      #(let [content {:type :post}]
                          (set-share-content this content)
                          (get-category-view this content true))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
@@ -77,11 +77,11 @@
       (create-tab action-bar
                   (get-string :users)
                   #(get-category-view this
-                                      (assoc params :type :users-favorites)))
+                                      (assoc params :type :user-fav)))
       (create-tab action-bar
                   (get-string :posts)
                   #(get-category-view this
-                                      (assoc params :type :posts-favorites)))))
+                                      (assoc params :type :post-fav)))))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name))
@@ -103,16 +103,16 @@
       (.setTitle action-bar (get-string :transfers))
       (create-tab action-bar
                   (get-string :all)
-                  #(get-category-view this {:type :all-transfers}))
+                  #(get-category-view this {:type :all-tran}))
       (create-tab action-bar
                   (get-string :photos)
-                  #(get-category-view this {:type :photos-transfers}))
+                  #(get-category-view this {:type :photos-tran}))
       (create-tab action-bar
                   (get-string :videos)
-                  #(get-category-view this {:type :videos-transfers}))
+                  #(get-category-view this {:type :videos-tran}))
       (create-tab action-bar
                   (get-string :audio)
-                  #(get-category-view this {:type :audio-transfers}))))
+                  #(get-category-view this {:type :audio-tran}))))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name))
@@ -136,7 +136,7 @@
                        (parse-url url)
                        (.getSerializableExtra (.getIntent this) "params"))
               grid-view (case (get params :type)
-                          :users 
+                          :user
                           (do
                             (send-broadcast this params download-receiver-name)
                             (get-user-view this params))

@@ -102,10 +102,10 @@
 (defn do-tile-action
   [context item]
   (if-let [func (case (get item :type)
-                  :tags show-grid
-                  :users show-grid
-                  :favorites show-favorites
-                  :transfers show-transfers
+                  :tag show-grid
+                  :user show-grid
+                  :fav show-favorites
+                  :tran show-transfers
                   :custom-func (get item :func)
                   nil)]
     (func context item)))

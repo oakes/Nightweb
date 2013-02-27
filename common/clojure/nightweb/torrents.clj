@@ -7,16 +7,16 @@
                             b-encode
                             b-decode
                             b-decode-bytes
-                            b-decode-number
+                            b-decode-integer
                             read-priv-node-key-file
                             read-pub-node-key-file
                             write-priv-node-key-file
                             write-pub-node-key-file
                             read-key-file
                             read-link-file]]
+        [nightweb.db :only [insert-data]]
         [nightweb.crypto :only [verify-signature]]
-        [nightweb.constants :only [users-dir
-                                   torrent-ext
+        [nightweb.constants :only [torrent-ext
                                    get-user-dir
                                    get-user-pub-file
                                    get-meta-dir
@@ -137,7 +137,9 @@
       (.torrentComplete manager snark)
       (if is-persistent?
         (send-meta-link snark)
-        (println "Meta torrent downloaded")))
+        (if-let [parent-dir (.getParentFile (file (.getName snark)))]
+          (doseq [path-list (.getFiles (.getMetaInfo snark))]
+            (insert-data parent-dir path-list)))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
@@ -224,7 +226,7 @@
          time-val "time"} data-map
         user-hash-bytes (b-decode-bytes user-hash-val)
         link-hash-bytes (b-decode-bytes link-hash-val)
-        time-num (b-decode-number time-val)]
+        time-num (b-decode-integer time-val)]
     (if (and link data-val user-hash-bytes)
       {:link (b-encode link)
        :data (b-decode-bytes data-val)
