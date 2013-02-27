@@ -7,7 +7,7 @@
                             b-encode
                             b-decode
                             b-decode-bytes
-                            b-decode-integer
+                            b-decode-long
                             read-priv-node-key-file
                             read-pub-node-key-file
                             write-priv-node-key-file
@@ -226,7 +226,7 @@
          time-val "time"} data-map
         user-hash-bytes (b-decode-bytes user-hash-val)
         link-hash-bytes (b-decode-bytes link-hash-val)
-        time-num (b-decode-integer time-val)]
+        time-num (b-decode-long time-val)]
     (if (and link data-val user-hash-bytes)
       {:link (b-encode link)
        :data (b-decode-bytes data-val)

@@ -1,5 +1,6 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
+        [neko.threading :only [on-ui]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [base32-encode
                             write-post-file
@@ -27,14 +28,12 @@
     (.startActivity context intent)))
 
 (defn show-dialog
-  [context view callback buttons]
+  [context view buttons]
   (let [builder (android.app.AlertDialog$Builder. context)
         btn-action (fn [func]
                      (proxy [android.content.DialogInterface$OnClickListener] []
                        (onClick [dialog which]
-                         (future
-                           (if func (func context view))
-                           (if callback (callback))))))]
+                         (if func (func context view)))))]
     (if-let [positive-name (get buttons :positive-name)]
       (.setPositiveButton builder
                           positive-name
@@ -66,13 +65,13 @@
 
 (defn do-refresh-page
   [context]
-  (.finish context)
-  (.startActivity context (.getIntent context)))
+  (on-ui (.recreate context)))
 
 (defn do-send-new-post
   [context dialog-view]
   (let [text (.toString (.getText dialog-view))]
-    (write-post-file text)
+    (write-post-file text))
+  (future
     (create-meta-torrent)
     (do-refresh-page context)))
 
@@ -88,7 +87,9 @@
         name-text (.toString (.getText name-field))
         about-text (.toString (.getText about-field))]
     (write-profile-file name-text about-text))
-    (create-meta-torrent))
+  (future
+    (create-meta-torrent)
+    (do-refresh-page context)))
 
 (defn do-cancel
   [context dialog-view]

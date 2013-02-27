@@ -66,7 +66,7 @@
     (.getBytes be-value)
     (catch java.lang.Exception e nil)))
 
-(defn b-decode-integer
+(defn b-decode-long
   [be-value]
   (try
     (.getLong be-value)
