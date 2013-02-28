@@ -3,19 +3,14 @@
         [neko.threading :only [on-ui]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [base32-encode
+                            url-encode
                             write-post-file
                             write-profile-file]]))
 
 (defn share-url
   [context]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        content (get @(.state context) :share-content)
-        type-param (get content :type)
-        hash-param (get content :hash)
-        params (concat
-                 (if type-param [(str "type=" (name type-param))] nil)
-                 (if hash-param [(str "hash=" (base32-encode hash-param))] nil))
-        url (str "http://nightweb.net#" (clojure.string/join "&" params))]
+        url (url-encode (get @(.state context) :share-content))]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
@@ -59,9 +54,9 @@
   [context content]
   (show-page context "net.nightweb.TransfersPage" (get content :content)))
 
-(defn show-grid
+(defn show-basic
   [context content]
-  (show-page context "net.nightweb.GridPage" content))
+  (show-page context "net.nightweb.BasicPage" content))
 
 (defn do-refresh-page
   [context]
@@ -83,10 +78,10 @@
   [context dialog-view]
   (let [linear-layout (.getChildAt dialog-view 0)
         name-field (.getChildAt linear-layout 0)
-        about-field (.getChildAt linear-layout 1)
+        body-field (.getChildAt linear-layout 1)
         name-text (.toString (.getText name-field))
-        about-text (.toString (.getText about-field))]
-    (write-profile-file name-text about-text))
+        body-text (.toString (.getText body-field))]
+    (write-profile-file name-text body-text))
   (future
     (create-meta-torrent)
     (do-refresh-page context)))
@@ -103,10 +98,8 @@
 (defn do-tile-action
   [context item]
   (if-let [func (case (get item :type)
-                  :tag show-grid
-                  :user show-grid
                   :fav show-favorites
                   :tran show-transfers
                   :custom-func (get item :func)
-                  nil)]
+                  show-basic)]
     (func context item)))

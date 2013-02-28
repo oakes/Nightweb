@@ -10,9 +10,15 @@
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
+                            get-single-post-data
                             get-category-data]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
+
+(defn set-text-size
+  ([view] (set-text-size view 20))
+  ([view size]
+   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size)))
 
 (defn get-adjusted-tile-width
   ([context] (get-adjusted-tile-width context 160))
@@ -63,8 +69,10 @@
                     text-bottom (.getChildAt tile-view 1)]
                 (.setPadding tile-view 5 5 5 5)
                 (.setBackgroundResource tile-view border)
-                (.setText text-top (get-in content [position :text]))
-                (.setText text-bottom (get-in content [position :subtext]))
+                (if-let [title (get-in content [position :title])]
+                  (.setText text-top title)
+                  (.setText text-top (get-in content [position :body])))
+                (.setText text-bottom (get-in content [position :subtitle]))
                 (.setShadowLayer text-top 10 0 0 black)
                 (.setShadowLayer text-bottom 10 0 0 black)))
             tile-view))))
@@ -99,12 +107,24 @@
 (defn get-new-post-view
   [context content]
   (let [view (make-ui context [:edit-text {:min-lines 10}])]
+    (set-text-size view)
     view))
 
 (defn get-post-view
   [context content]
-  (let [view (make-ui context [:linear-layout {}])]
-    (.addView view (get-grid-view context content))
+  (let [view (make-ui context [:scroll-view {}
+                               [:linear-layout {:orientation 1}
+                                [:text-view {:layout-width :fill
+                                             :text-is-selectable true}]]])
+        linear-layout (.getChildAt view 0)
+        text-body (.getChildAt linear-layout 0)]
+    (.setPadding linear-layout 10 10 10 10)
+    (set-text-size text-body)
+    (future
+      (let [post (if (get content :body)
+                   content
+                   (run-query get-single-post-data content))]
+        (on-ui (.setText text-body (get post :body)))))
     view))
 
 (defn get-file-view
@@ -131,11 +151,13 @@
                                  [:linear-layout {:orientation 1}
                                   [:text-view {:lines 1
                                                :layout-width :fill
+                                               :text-is-selectable true
                                                :typeface bold}]
-                                  [:text-view {:layout-width :fill}]]]))
+                                  [:text-view {:layout-width :fill
+                                               :text-is-selectable true}]]]))
         linear-layout (.getChildAt view 0)
         text-name (.getChildAt linear-layout 0)
-        text-about (.getChildAt linear-layout 1)
+        text-body (.getChildAt linear-layout 1)
         image-view (proxy [android.widget.ImageView] [context]
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
@@ -143,12 +165,12 @@
         layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
         border (get-resource :drawable :border)]
     (.setPadding linear-layout 10 10 10 10)
+    (set-text-size text-name)
+    (set-text-size text-body)
     (.setHint text-name (get-string :name))
-    (.setHint text-about (get-string :about_me))
-    (if-let [name-str (get content :text)]
-      (.setText text-name name-str))
-    (if-let [about-str (get content :about)]
-      (.setText text-about about-str))
+    (.setHint text-body (get-string :about_me))
+    (.setText text-name (get content :title))
+    (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
     (.setBackgroundResource image-view border)
     (.addView linear-layout image-view)
@@ -159,7 +181,7 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (run-query get-user-data content)
-            first-tiles [{:text (get-string :profile)
+            first-tiles [{:title (get-string :profile)
                           :add-emphasis? true
                           :content user
                           :type :custom-func
@@ -175,16 +197,16 @@
                                  :negative-func do-cancel}
                                 {:positive-name (get-string :ok)
                                  :positive-func do-cancel})))}
-                         {:text (get-string :favorites)
+                         {:title (get-string :favorites)
                           :add-emphasis? true
                           :content user
                           :type :fav}
                          (if (get user :is-me?)
-                           {:text (get-string :transfers)
+                           {:title (get-string :transfers)
                             :add-emphasis? true
                             :content user
                             :type :tran}
-                           {:text (get-string :add_to_favorites)
+                           {:title (get-string :add_to_favorites)
                             :add-emphasis? true
                             :type :add-to-fav})]
             posts (run-query get-post-data content)
@@ -199,7 +221,7 @@
      (future
        (let [results (run-query get-category-data content)
              tags (if show-tags?
-                    [{:text (get-string :tags)
+                    [{:title (get-string :tags)
                       :add-emphasis? true
                       :type :tag}]
                     [])

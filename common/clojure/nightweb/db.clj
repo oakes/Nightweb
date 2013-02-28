@@ -43,19 +43,19 @@
   (create-table-if-not-exists
     :user
     [:hash "BINARY"]
-    [:text "VARCHAR"]
-    [:about "VARCHAR"])
+    [:title "VARCHAR"]
+    [:body "VARCHAR"])
   (create-table-if-not-exists
     :post
     [:userhash "BINARY"]
-    [:text "VARCHAR"]
+    [:body "VARCHAR"]
     [:time "BIGINT"])
   (create-table-if-not-exists
     :file
     [:hash "BINARY"]
     [:userhash "BINARY"]
     [:time "BIGINT"]
-    [:name "VARCHAR"]
+    [:title "VARCHAR"]
     [:ext "VARCHAR"]
     [:bytes "BIGINT"])
   (create-table-if-not-exists
@@ -88,8 +88,8 @@
       :user
       ["hash = ?" user-hash]
       {:hash user-hash 
-       :text (b-decode-string (get args "name"))
-       :about (b-decode-string (get args "about"))})))
+       :title (b-decode-string (get args "title"))
+       :body (b-decode-string (get args "body"))})))
 
 (defn insert-post
   [user-hash time-str args]
@@ -100,7 +100,7 @@
         :post
         ["userhash = ? AND time = ?" user-hash time-long]
         {:userhash user-hash
-         :text (b-decode-string (get args "text"))
+         :body (b-decode-string (get args "body"))
          :time time-long}))))
 
 (defn insert-fav
@@ -140,6 +140,17 @@
       (if-let [user (first rs)]
         (callback (assoc user :is-me? is-me?))
         (callback (assoc params :is-me? is-me?))))))
+
+(defn get-single-post-data
+  [params callback]
+  (let [user-hash (get params :userhash)
+        unix-time (get params :time)]
+    (with-query-results
+      rs
+      ["SELECT * FROM post WHERE userhash = ? AND time = ?" user-hash unix-time]
+      (if-let [post (first rs)]
+        (callback post)
+        (callback params)))))
 
 (defn get-post-data
   [params callback]

@@ -13,10 +13,11 @@
         [net.nightweb.views :only [create-tab
                                    get-grid-view
                                    get-user-view
+                                   get-post-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [do-menu-action]]
-        [nightweb.io :only [parse-url]]
+        [nightweb.io :only [url-decode]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn set-share-content
@@ -124,8 +125,8 @@
     (do-menu-action this item)))
 
 (defactivity
-  net.nightweb.GridPage
-  :def grid-page
+  net.nightweb.BasicPage
+  :def basic-page
   :on-create
   (fn [this bundle]
     (start-service
@@ -133,21 +134,21 @@
       service-name
       (fn [binder]
         (let [params (if-let [url (.getDataString (.getIntent this))]
-                       (parse-url url)
+                       (let [parsed-url (url-decode url)]
+                         (send-broadcast this parsed-url download-receiver-name)
+                         parsed-url)
                        (.getSerializableExtra (.getIntent this) "params"))
-              grid-view (case (get params :type)
-                          :user
-                          (do
-                            (send-broadcast this params download-receiver-name)
-                            (get-user-view this params))
-                          (get-grid-view this []))
+              view (case (get params :type)
+                     :user (get-user-view this params)
+                     :post (get-post-view this params)
+                     (get-grid-view this []))
               action-bar (.getActionBar this)]
           (set-share-content this params)
           (.setDisplayHomeAsUpEnabled action-bar true)
-          (if-let [title (get params :text)]
+          (if-let [title (get params :title)]
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
-          (set-content-view! grid-page grid-view))))
+          (set-content-view! basic-page view))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

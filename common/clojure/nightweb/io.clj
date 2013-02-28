@@ -94,16 +94,34 @@
     (Long/parseLong data-str)
     (catch java.lang.Exception e nil)))
 
-(defn parse-url
+(defn url-encode
+  [content]
+  (let [params (concat
+                 (if-let [type-val (get content :type)]
+                   [(str "type=" (name type-val))])
+                 (if-let [hash-val (get content :hash)]
+                   [(str "hash=" (base32-encode hash-val))])
+                 (if-let [userhash-val (get content :userhash)]
+                   [(str "userhash=" (base32-encode userhash-val))])
+                 (if-let [time-val (get content :time)]
+                   [(str "time=" time-val)]))]
+    (str "http://nightweb.net#" (clojure.string/join "&" params))))
+
+(defn url-decode
   [url]
   (let [url-str (subs url (+ 1 (.indexOf url "#")))
         url-vec (clojure.string/split url-str #"[&=]")
         url-map (if (even? (count url-vec))
                   (apply hash-map url-vec)
                   {})
-        {type-val "type" hash-val "hash"} url-map]
-    {:type (if type-val (keyword type-val) nil)
-     :hash (if hash-val (base32-decode hash-val) nil)}))
+        {type-val "type"
+         hash-val "hash"
+         userhash-val "userhash"
+         time-val "time"} url-map]
+    {:type (if type-val (keyword type-val))
+     :hash (if hash-val (base32-decode hash-val))
+     :userhash (if userhash-val (base32-decode userhash-val))
+     :time (if time-val (long-decode time-val))}))
 
 ; read/write specific files
 
@@ -145,14 +163,14 @@
 (defn write-post-file
   [text]
   (let [unix-time (.getTime (java.util.Date.))
-        args {"text" text}]
+        args {"body" text}]
     (write-file (str (get-post-dir my-hash-str) slash unix-time)
                 (b-encode args))))
 
 (defn write-profile-file
-  [name-text about-text]
-  (let [args {"name" name-text
-              "about" about-text}]
+  [name-text body-text]
+  (let [args {"title" name-text
+              "body" body-text}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode args))))
 
