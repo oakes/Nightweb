@@ -1,7 +1,8 @@
 (ns net.nightweb.pages
   (:use [neko.resource :only [get-resource get-string]]
         [neko.activity :only [set-content-view!]]
-        [net.nightweb.clandroid.activity :only [defactivity]]
+        [net.nightweb.clandroid.activity :only [set-state
+                                                defactivity]]
         [net.nightweb.clandroid.service :only [start-service
                                                stop-service
                                                start-receiver
@@ -16,13 +17,10 @@
                                    get-post-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [do-menu-action]]
+        [net.nightweb.actions :only [receive-result
+                                     do-menu-action]]
         [nightweb.io :only [url-decode]]
         [nightweb.constants :only [my-hash-bytes]]))
-
-(defn set-share-content
-  [context content]
-  (swap! (.state context) assoc :share-content content))
 
 (defn shutdown-receiver-func
   [context intent]
@@ -44,17 +42,17 @@
           (create-tab action-bar
                       (get-string :me)
                       #(let [content {:type :user :hash my-hash-bytes}]
-                         (set-share-content this content)
+                         (set-state this :share content)
                          (get-user-view this content)))
           (create-tab action-bar
                       (get-string :users)
                       #(let [content {:type :user}]
-                         (set-share-content this content)
+                         (set-state this :share content)
                          (get-category-view this content true)))
           (create-tab action-bar
                       (get-string :posts)
                       #(let [content {:type :post}]
-                         (set-share-content this content)
+                         (set-state this :share content)
                          (get-category-view this content true))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
@@ -63,7 +61,9 @@
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu true)))
+    (create-main-menu this menu true))
+  :on-activity-result
+  receive-result)
 
 (defactivity
   net.nightweb.FavoritesPage
@@ -133,22 +133,22 @@
       this
       service-name
       (fn [binder]
-        (let [params (if-let [url (.getDataString (.getIntent this))]
-                       (let [parsed-url (url-decode url)]
-                         (send-broadcast this parsed-url download-receiver-name)
-                         parsed-url)
+        (let [url (.getDataString (.getIntent this))
+              params (if url url
                        (.getSerializableExtra (.getIntent this) "params"))
               view (case (get params :type)
                      :user (get-user-view this params)
                      :post (get-post-view this params)
                      (get-grid-view this []))
               action-bar (.getActionBar this)]
-          (set-share-content this params)
+          (set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
           (if-let [title (get params :title)]
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
-          (set-content-view! basic-page view))))
+          (set-content-view! basic-page view)
+          (if url
+            (send-broadcast this (url-decode url) download-receiver-name)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

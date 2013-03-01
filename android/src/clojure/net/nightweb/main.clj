@@ -20,8 +20,8 @@
 (defn download-receiver-func
   [context intent]
   (if-let [params (.getSerializableExtra intent "params")]
-    (if-let [download-hash (get params :hash)]
-      (add-user-hash download-hash))))
+    (case (get params :type)
+      :user (add-user-hash (get params :hash)))))
 
 (defservice
   net.nightweb.MainService

@@ -1,6 +1,8 @@
 (ns net.nightweb.actions
   (:use [neko.resource :only [get-resource get-string]]
         [neko.threading :only [on-ui]]
+        [neko.find-view :only [find-view]]
+        [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [base32-encode
                             url-encode
@@ -9,11 +11,27 @@
 
 (defn share-url
   [context]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        url (url-encode (get @(.state context) :share-content))]
+  (let [intent (android.content.Intent.
+                 android.content.Intent/ACTION_SEND)
+        url (url-encode (get-state context :share))]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
+
+(defn request-image
+  [context callback]
+  (set-state context :request-image callback)
+  (let [intent (android.content.Intent.
+                 android.content.Intent/ACTION_GET_CONTENT)]
+    (.setType intent "image/*")
+    (.startActivityForResult context intent 1)))
+
+(defn receive-result
+  [context request-code result-code intent]
+  (if intent
+    (case request-code
+      1 (if-let [callback (get-state context :request-image)]
+          (callback (.getData intent))))))
 
 (defn show-page
   [context class-name params]

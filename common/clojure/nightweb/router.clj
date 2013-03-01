@@ -28,11 +28,12 @@
 
 (defn add-user-hash
   [their-hash-bytes]
-  (let [their-hash-str (base32-encode their-hash-bytes)
-        path (get-user-dir their-hash-str)]
-    (when-not (file-exists? path)
-      (make-dir path)
-      (add-hash path their-hash-str true))))
+  (if their-hash-bytes
+    (let [their-hash-str (base32-encode their-hash-bytes)
+          path (get-user-dir their-hash-str)]
+      (when-not (file-exists? path)
+        (make-dir path)
+        (add-hash path their-hash-str true)))))
 
 (defn add-user-torrents
   []

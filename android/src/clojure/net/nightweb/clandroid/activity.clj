@@ -4,6 +4,14 @@
                             keyword->camelcase
                             capitalize]]))
 
+(defn set-state
+  [context content-key content-val]
+  (swap! (.state context) assoc content-key content-val))
+
+(defn get-state
+  [context content-key]
+  (get @(.state context) content-key))
+
 (defmacro defactivity
   "Creates an activity with the given full package-qualified name.
   Optional arguments should be provided in a key-value fashion.
@@ -29,6 +37,7 @@
                   on-create
                   on-create-options-menu
                   on-options-item-selected
+                  on-activity-result
                   def]
            :as options}]
   (let [options (or options {}) ;; Handle no-options case
@@ -51,7 +60,8 @@
                           ~'onStop ~'superOnStop
                           ~'onDestroy ~'superOnDestroy
                           ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu
-                          ~'onOptionsItemSelected ~'superOnOptionsItemSelected})
+                          ~'onOptionsItemSelected ~'superOnOptionsItemSelected
+                          ~'onActivityResult ~'superOnActivityResult})
        (defn ~(symbol (str prefix "init"))
          [] [[] (atom {})])
        ~(when on-create
@@ -76,6 +86,15 @@
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-options-item-selected ~'this ~'item)
              true))
+       ~(when on-activity-result
+          `(defn ~(symbol (str prefix "onActivityResult"))
+             [~(vary-meta 'this assoc :tag name),
+              ^int ~'requestCode,
+              ^int ~'resultCode,
+              ^android.content.Intent ~'intent]
+             (.superOnActivityResult ~'this ~'requestCode ~'resultCode ~'intent)
+             (def ~(vary-meta def assoc :tag name) ~'this)
+             (~on-activity-result ~'this ~'requestCode ~'resultCode ~'intent)))
        ~@(map #(let [func (options %)
                      event-name (keyword->camelcase %)]
                  (when func

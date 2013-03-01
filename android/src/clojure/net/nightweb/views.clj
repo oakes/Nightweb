@@ -3,10 +3,11 @@
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
         [neko.ui.mapping :only [set-classname!]]
-        [net.nightweb.actions :only [do-tile-action
+        [net.nightweb.actions :only [request-image
+                                     show-dialog
+                                     do-tile-action
                                      do-save-profile
-                                     do-cancel
-                                     show-dialog]]
+                                     do-cancel]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
@@ -138,6 +139,12 @@
   (let [view (make-ui context [:linear-layout {}])]
     view))
 
+(defn set-image-uri
+  [context image-view uri]
+  (let [cr (.getContentResolver context)
+        bitmap (android.provider.MediaStore$Images$Media/getBitmap cr uri)]
+    (.setImageBitmap image-view bitmap)))
+
 (defn get-profile-view
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
@@ -158,7 +165,7 @@
         linear-layout (.getChildAt view 0)
         text-name (.getChildAt linear-layout 0)
         text-body (.getChildAt linear-layout 1)
-        image-view (proxy [android.widget.ImageView] [context]
+        image-view (proxy [android.widget.ImageButton] [context]
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
         fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
@@ -173,6 +180,12 @@
     (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
     (.setBackgroundResource image-view border)
+    (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
+    (.setOnClickListener image-view
+                         (proxy [android.view.View$OnClickListener] []
+                           (onClick [v]
+                             (request-image context
+                                            #(set-image-uri context v %1)))))
     (.addView linear-layout image-view)
     view))
 
