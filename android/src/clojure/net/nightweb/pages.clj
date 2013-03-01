@@ -134,7 +134,8 @@
       service-name
       (fn [binder]
         (let [url (.getDataString (.getIntent this))
-              params (if url url
+              params (if url
+                       (url-decode url)
                        (.getSerializableExtra (.getIntent this) "params"))
               view (case (get params :type)
                      :user (get-user-view this params)
@@ -147,8 +148,7 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if url
-            (send-broadcast this (url-decode url) download-receiver-name)))))
+          (if url (send-broadcast this params download-receiver-name)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

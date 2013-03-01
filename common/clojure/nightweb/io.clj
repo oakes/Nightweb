@@ -127,8 +127,7 @@
         full-path (str (.getAbsolutePath user-dir) meta-dir end-path)
         user-hash-str (.getName user-dir)
         rev-leaves (reverse path-leaves)]
-    {:full-path full-path
-     :user-hash (base32-decode user-hash-str)
+    {:user-hash (base32-decode user-hash-str)
      :file-name (nth rev-leaves 0 nil)
      :dir-name (nth rev-leaves 1 nil)
      :contents (b-decode (read-file full-path))}))
