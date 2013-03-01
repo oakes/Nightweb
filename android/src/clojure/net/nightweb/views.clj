@@ -21,6 +21,12 @@
   ([view size]
    (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size)))
 
+(defn set-image-uri
+  [context image-view uri]
+  (let [cr (.getContentResolver context)
+        bitmap (android.provider.MediaStore$Images$Media/getBitmap cr uri)]
+    (.setImageBitmap image-view bitmap)))
+
 (defn get-adjusted-tile-width
   ([context] (get-adjusted-tile-width context 160))
   ([context width]
@@ -138,12 +144,6 @@
   [context content]
   (let [view (make-ui context [:linear-layout {}])]
     view))
-
-(defn set-image-uri
-  [context image-view uri]
-  (let [cr (.getContentResolver context)
-        bitmap (android.provider.MediaStore$Images$Media/getBitmap cr uri)]
-    (.setImageBitmap image-view bitmap)))
 
 (defn get-profile-view
   [context content]

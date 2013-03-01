@@ -4,10 +4,10 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [base32-encode
-                            url-encode
-                            write-post-file
-                            write-profile-file]]))
+        [nightweb.io :only [write-post-file
+                            write-profile-file]]
+        [nightweb.formats :only [base32-encode
+                                 url-encode]]))
 
 (defn share-url
   [context]
@@ -97,9 +97,12 @@
   (let [linear-layout (.getChildAt dialog-view 0)
         name-field (.getChildAt linear-layout 0)
         body-field (.getChildAt linear-layout 1)
+        image-view (.getChildAt linear-layout 2)
         name-text (.toString (.getText name-field))
-        body-text (.toString (.getText body-field))]
-    (write-profile-file name-text body-text))
+        body-text (.toString (.getText body-field))
+        image-bitmap (if-let [drawable (.getDrawable image-view)]
+                       (.getBitmap drawable))]
+    (write-profile-file name-text body-text image-bitmap))
   (future
     (create-meta-torrent)
     (do-refresh-page context)))

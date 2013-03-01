@@ -5,16 +5,11 @@
                               create-table-if-not-exists
                               update-or-insert-values
                               with-query-results]]
-        [clojure.java.io :only [file]]
-        [nightweb.io :only [read-file
-                            base32-decode
-                            b-decode
-                            b-decode-string
-                            long-decode]]
-        [nightweb.constants :only [slash
-                                   meta-dir
-                                   db-file
-                                   my-hash-bytes]]))
+        [nightweb.formats :only [base32-decode
+                                 b-decode
+                                 b-decode-string
+                                 long-decode]]
+        [nightweb.constants :only [db-file my-hash-bytes]]))
 
 (def spec nil)
 
@@ -114,19 +109,14 @@
        :userhash user-hash})))
 
 (defn insert-data
-  [user-dir path-leaves]
-  (let [end-path (str slash (clojure.string/join slash path-leaves))
-        full-path (str (.getAbsolutePath user-dir) meta-dir end-path)
-        user-hash-str (.getName user-dir)
-        user-hash-bytes (base32-decode user-hash-str)
-        rev-leaves (reverse path-leaves)
-        file-name (nth rev-leaves 0 nil)
-        type-name (nth rev-leaves 1 nil)]
-    (if-let [args (b-decode (read-file full-path))]
-      (case type-name
-        "post" (insert-post user-hash-bytes file-name args)
-        nil (case file-name
-              "user.profile" (insert-profile user-hash-bytes args))))))
+  [data-map]
+  (case (get data-map :dir-name)
+    "post" (insert-post (get data-map :user-hash)
+                        (get data-map :file-name)
+                        (get data-map :contents))
+    nil (case (get data-map :file-name)
+          "user.profile" (insert-profile (get data-map :user-hash)
+                                         (get data-map :contents)))))
 
 ; retrieval
 

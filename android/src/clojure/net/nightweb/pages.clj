@@ -19,7 +19,7 @@
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [receive-result
                                      do-menu-action]]
-        [nightweb.io :only [url-decode]]
+        [nightweb.formats :only [url-decode]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn shutdown-receiver-func

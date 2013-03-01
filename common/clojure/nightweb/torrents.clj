@@ -2,18 +2,19 @@
   (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [file-exists?
                             write-file
-                            base32-encode
-                            base32-decode
-                            b-encode
-                            b-decode
-                            b-decode-bytes
-                            b-decode-long
                             read-priv-node-key-file
                             read-pub-node-key-file
                             write-priv-node-key-file
                             write-pub-node-key-file
                             read-key-file
-                            read-link-file]]
+                            read-link-file
+                            read-meta-file]]
+        [nightweb.formats :only [base32-encode
+                                 base32-decode
+                                 b-encode
+                                 b-decode
+                                 b-decode-bytes
+                                 b-decode-long]]
         [nightweb.db :only [insert-data]]
         [nightweb.crypto :only [verify-signature]]
         [nightweb.constants :only [torrent-ext
@@ -138,8 +139,8 @@
       (if is-persistent?
         (send-meta-link snark)
         (if-let [parent-dir (.getParentFile (file (.getName snark)))]
-          (doseq [path-list (.getFiles (.getMetaInfo snark))]
-            (insert-data parent-dir path-list)))))
+          (doseq [path-leaves (.getFiles (.getMetaInfo snark))]
+            (insert-data (read-meta-file parent-dir path-leaves))))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))

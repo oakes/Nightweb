@@ -5,11 +5,11 @@
         [nightweb.io :only [file-exists?
                             make-dir
                             iterate-dir
-                            base32-encode
-                            base32-decode
                             write-key-file
                             read-key-file
                             write-link-file]]
+        [nightweb.formats :only [base32-encode
+                                 base32-decode]]
         [nightweb.constants :only [set-base-dir
                                    my-hash-bytes
                                    set-my-hash-bytes
