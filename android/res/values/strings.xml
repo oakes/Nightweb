@@ -30,4 +30,8 @@
   <string name="save">Save</string>
   <string name="send">Send</string>
   <string name="ok">OK</string>
+
+  <string name="saving">Saving...</string>
+  <string name="sending">Sending...</string>
+  <string name="connecting">Nightweb is still loading, so please wait.</string>
 </resources>

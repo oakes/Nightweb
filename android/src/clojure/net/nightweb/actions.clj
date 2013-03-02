@@ -41,28 +41,49 @@
     (.startActivity context intent)))
 
 (defn show-dialog
-  [context view buttons]
-  (let [builder (android.app.AlertDialog$Builder. context)
-        btn-action (fn [func]
-                     (proxy [android.content.DialogInterface$OnClickListener] []
-                       (onClick [dialog which]
-                         (if func (func context view)))))]
-    (if-let [positive-name (get buttons :positive-name)]
-      (.setPositiveButton builder
-                          positive-name
-                          (btn-action (get buttons :positive-func))))
-    (if-let [neutral-name (get buttons :neutral-name)]
-      (.setNeutralButton builder
-                         neutral-name
-                         (btn-action (get buttons :neutral-func))))
-    (if-let [negative-name (get buttons :negative-name)]
-      (.setNegativeButton builder
-                          negative-name
-                          (btn-action (get buttons :negative-func))))
-    (.setView builder view)
-    (let [dialog (.create builder)]
-      (.setCanceledOnTouchOutside dialog false)
-      (.show dialog))))
+  ([context message]
+   (let [builder (android.app.AlertDialog$Builder. context)]
+     (.setPositiveButton builder (get-string :ok) nil)
+     (let [dialog (.create builder)]
+       (.setMessage dialog message)
+       (.setCanceledOnTouchOutside dialog false)
+       (.show dialog))))
+  ([context view buttons]
+   (let [builder (android.app.AlertDialog$Builder. context)
+         btn-action (fn [func]
+                      (proxy [android.content.DialogInterface$OnClickListener] []
+                        (onClick [dialog which]
+                          (if func (func context view)))))]
+     (if-let [positive-name (get buttons :positive-name)]
+       (.setPositiveButton builder
+                           positive-name
+                           (btn-action (get buttons :positive-func))))
+     (if-let [neutral-name (get buttons :neutral-name)]
+       (.setNeutralButton builder
+                          neutral-name
+                          (btn-action (get buttons :neutral-func))))
+     (if-let [negative-name (get buttons :negative-name)]
+       (.setNegativeButton builder
+                           negative-name
+                           (btn-action (get buttons :negative-func))))
+     (.setView builder view)
+     (let [dialog (.create builder)]
+       (.setCanceledOnTouchOutside dialog false)
+       (.show dialog)))))
+
+(defn show-spinner
+  [context message func]
+  (on-ui
+    (let [spinner (android.app.ProgressDialog/show context nil message true)]
+      (future
+        (func)
+        (on-ui
+          (.dismiss spinner)
+          (.recreate context))))))
+
+(defn show-message
+  [context message]
+  (show-dialog context))
 
 (defn show-favorites
   [context content]
@@ -76,17 +97,11 @@
   [context content]
   (show-page context "net.nightweb.BasicPage" content))
 
-(defn do-refresh-page
-  [context]
-  (on-ui (.recreate context)))
-
 (defn do-send-new-post
   [context dialog-view]
   (let [text (.toString (.getText dialog-view))]
     (write-post-file text))
-  (future
-    (create-meta-torrent)
-    (do-refresh-page context)))
+  (show-spinner context (get-string :sending) create-meta-torrent))
 
 (defn do-attach-to-new-post
   [context dialog-view]
@@ -103,9 +118,7 @@
         image-bitmap (if-let [drawable (.getDrawable image-view)]
                        (.getBitmap drawable))]
     (write-profile-file name-text body-text image-bitmap))
-  (future
-    (create-meta-torrent)
-    (do-refresh-page context)))
+  (show-spinner context (get-string :saving) create-meta-torrent))
 
 (defn do-cancel
   [context dialog-view]

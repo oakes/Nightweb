@@ -1,8 +1,8 @@
 (ns net.nightweb.views
   (:use [neko.ui :only [make-ui]]
+        [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
-        [neko.ui.mapping :only [set-classname!]]
         [net.nightweb.actions :only [request-image
                                      show-dialog
                                      do-tile-action
@@ -13,7 +13,8 @@
                             get-user-data
                             get-post-data
                             get-single-post-data
-                            get-category-data]]))
+                            get-category-data]]
+        [nightweb.torrents :only [is-connecting?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 
@@ -205,16 +206,18 @@
                           :type :custom-func
                           :func
                           (fn [context item]
-                            (show-dialog
-                              context
-                              (get-profile-view context user)
-                              (if (get user :is-me?)
-                                {:positive-name (get-string :save)
-                                 :positive-func do-save-profile
-                                 :negative-name (get-string :cancel)
-                                 :negative-func do-cancel}
-                                {:positive-name (get-string :ok)
-                                 :positive-func do-cancel})))}
+                            (if (is-connecting?)
+                              (show-dialog context (get-string :connecting))
+                              (show-dialog
+                                context
+                                (get-profile-view context user)
+                                (if (get user :is-me?)
+                                  {:positive-name (get-string :save)
+                                   :positive-func do-save-profile
+                                   :negative-name (get-string :cancel)
+                                   :negative-func do-cancel}
+                                  {:positive-name (get-string :ok)
+                                   :positive-func do-cancel}))))}
                          {:title (get-string :favorites)
                           :add-emphasis? true
                           :content user

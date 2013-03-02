@@ -52,6 +52,12 @@
     (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))
     (println "Failed to add bootstrap node")))
 
+(defn is-connecting?
+  []
+  (if-let [util (.util manager)]
+    (.isConnecting util)
+    true))
+
 ; active torrents
 
 (defn get-torrent-paths
