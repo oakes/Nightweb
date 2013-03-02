@@ -20,6 +20,7 @@
 (def meta-dir (str slash "meta"))
 (def post-dir (str slash "post"))
 (def torrent-dir (str slash "torrent"))
+(def prev-dir (str slash "prev"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
@@ -62,3 +63,7 @@
 (defn get-torrent-dir
   [user-hash]
   (str (get-meta-dir user-hash) torrent-dir))
+
+(defn get-prev-dir
+  [user-hash]
+  (str (get-meta-dir user-hash) prev-dir))

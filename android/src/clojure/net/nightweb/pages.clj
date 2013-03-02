@@ -41,7 +41,7 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :user :hash my-hash-bytes}]
+                      #(let [content {:type :user :userhash my-hash-bytes}]
                          (set-state this :share content)
                          (get-user-view this content)))
           (create-tab action-bar

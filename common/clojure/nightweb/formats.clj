@@ -56,8 +56,6 @@
   (let [params (concat
                  (if-let [type-val (get content :type)]
                    [(str "type=" (name type-val))])
-                 (if-let [hash-val (get content :hash)]
-                   [(str "hash=" (base32-encode hash-val))])
                  (if-let [userhash-val (get content :userhash)]
                    [(str "userhash=" (base32-encode userhash-val))])
                  (if-let [time-val (get content :time)]
@@ -72,10 +70,8 @@
                   (apply hash-map url-vec)
                   {})
         {type-val "type"
-         hash-val "hash"
          userhash-val "userhash"
          time-val "time"} url-map]
     {:type (if type-val (keyword type-val))
-     :hash (if hash-val (base32-decode hash-val))
      :userhash (if userhash-val (base32-decode userhash-val))
      :time (if time-val (long-decode time-val))}))

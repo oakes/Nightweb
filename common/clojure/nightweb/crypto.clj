@@ -20,6 +20,11 @@
                   (gen-priv-key)))
   (def pub-key (.toPublic priv-key)))
 
+(defn create-hash
+  [data-barray]
+  (let [sha1 (java.security.MessageDigest/getInstance "SHA1")]
+    (.digest sha1 data-barray)))
+
 (defn create-signature
   [message]
   (.getData (.sign (net.i2p.crypto.DSAEngine/getInstance) message priv-key)))

@@ -2,9 +2,11 @@
   (:use [clojure.java.io :only [file
                                 input-stream
                                 output-stream]]
-        [nightweb.crypto :only [create-signature]]
+        [nightweb.crypto :only [create-hash
+                                create-signature]]
         [nightweb.formats :only [b-encode
                                  b-decode
+                                 base32-encode
                                  base32-decode]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
@@ -17,6 +19,7 @@
                                    pub-node-key-file
                                    get-user-dir
                                    get-meta-dir
+                                   get-prev-dir
                                    get-post-dir]]))
 
 ; basic file operations
@@ -90,17 +93,35 @@
 
 (defn write-post-file
   [text]
-  (let [unix-time (.getTime (java.util.Date.))
-        args {"body" text}]
-    (write-file (str (get-post-dir my-hash-str) slash unix-time)
-                (b-encode args))))
+  (let [args {"body" text
+              "time" (.getTime (java.util.Date.))}
+        data-barray (b-encode args)
+        hash-str (base32-encode (create-hash data-barray))]
+    (write-file (str (get-post-dir my-hash-str) slash hash-str)
+                data-barray)))
+
+(defn write-image-file
+  [image-bitmap]
+  (if image-bitmap
+    (let [out (java.io.ByteArrayOutputStream.)
+          png android.graphics.Bitmap$CompressFormat/PNG
+          _ (.compress image-bitmap png 90 out)
+          data-barray (.toByteArray out)
+          image-hash (create-hash data-barray)
+          file-name (base32-encode image-hash)]
+      (write-file (str (get-prev-dir my-hash-str) slash file-name)
+                  data-barray)
+      image-hash)))
 
 (defn write-profile-file
   [name-text body-text image-bitmap]
   (let [args {"title" name-text
-              "body" body-text}]
-    (write-file (str (get-meta-dir my-hash-str) slash profile)
-                (b-encode args))))
+              "body" body-text}
+        image-hash (write-image-file image-bitmap)]
+  (write-file (str (get-meta-dir my-hash-str) slash profile)
+              (b-encode (if image-hash
+                          (assoc args "prev" image-hash)
+                          args)))))
 
 (defn write-link-file
   [link-hash]
