@@ -8,14 +8,15 @@
                             write-pub-node-key-file
                             read-key-file
                             read-link-file
-                            read-meta-file]]
+                            read-meta-file
+                            delete-meta-files]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
                                  b-decode
                                  b-decode-bytes
                                  b-decode-long]]
-        [nightweb.db :only [insert-data]]
+        [nightweb.db :only [insert-meta-data]]
         [nightweb.crypto :only [verify-signature]]
         [nightweb.constants :only [torrent-ext
                                    get-user-dir
@@ -138,9 +139,14 @@
       (.torrentComplete manager snark)
       (if is-persistent?
         (send-meta-link snark)
-        (if-let [parent-dir (.getParentFile (file (.getName snark)))]
+        (let [parent-dir (.getParentFile (file (.getName snark)))
+              user-hash-bytes (base32-decode (.getName parent-dir))
+              last-updated (.getTime (java.util.Date.))]
           (doseq [path-leaves (.getFiles (.getMetaInfo snark))]
-            (insert-data (read-meta-file parent-dir path-leaves))))))
+            (insert-meta-data user-hash-bytes
+                              (read-meta-file parent-dir path-leaves)
+                              last-updated))
+          (delete-meta-files user-hash-bytes last-updated))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))

@@ -8,6 +8,12 @@
                                  b-decode
                                  base32-encode
                                  base32-decode]]
+        [nightweb.db :only [run-query
+                            get-prev-data
+                            get-old-prev-data
+                            get-old-post-data
+                            delete-old-prev-data
+                            delete-old-post-data]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
                                    my-hash-str
@@ -43,6 +49,11 @@
       (with-open [bis (input-stream path)]
         (.read bis data-barray))
       data-barray)))
+
+(defn delete-file
+  [path]
+  (when (file-exists? path)
+    (.delete (file path))))
 
 (defn make-dir
   [path]
@@ -102,10 +113,10 @@
 
 (defn read-image-file
   [user-hash-bytes image-hash-bytes]
-  (if (and user-hash-bytes image-hash-bytes)
-    (if-let [path (str (get-prev-dir (base32-encode user-hash-bytes))
-                       slash
-                       (base32-encode image-hash-bytes))]
+  (let [path (str (get-prev-dir (base32-encode user-hash-bytes))
+                     slash
+                     (base32-encode image-hash-bytes))]
+    (if (and user-hash-bytes image-hash-bytes (file-exists? path))
       (android.graphics.BitmapFactory/decodeFile path))))
 
 (defn write-image-file
@@ -123,13 +134,19 @@
 
 (defn write-profile-file
   [name-text body-text image-bitmap]
+  (let [args {:userhash my-hash-bytes
+              :ptrhash my-hash-bytes}]
+    (doseq [prev (run-query get-prev-data args)]
+      (delete-file (str (get-prev-dir my-hash-str)
+                        slash
+                        (base32-encode (get prev :prevhash))))))
   (let [args {"title" name-text
               "body" body-text}
         image-hash (write-image-file image-bitmap)]
-  (write-file (str (get-meta-dir my-hash-str) slash profile)
-              (b-encode (if image-hash
-                          (assoc args "prev" image-hash)
-                          args)))))
+    (write-file (str (get-meta-dir my-hash-str) slash profile)
+                (b-encode (if image-hash
+                            (assoc args "prev" image-hash)
+                            args)))))
 
 (defn write-link-file
   [link-hash]
@@ -154,9 +171,22 @@
   [user-dir path-leaves]
   (let [end-path (str slash (clojure.string/join slash path-leaves))
         full-path (str (.getAbsolutePath user-dir) meta-dir end-path)
-        user-hash-str (.getName user-dir)
         rev-leaves (reverse path-leaves)]
-    {:user-hash (base32-decode user-hash-str)
-     :file-name (nth rev-leaves 0 nil)
+    {:file-name (nth rev-leaves 0 nil)
      :dir-name (nth rev-leaves 1 nil)
      :contents (b-decode (read-file full-path))}))
+
+(defn delete-meta-files
+  [user-hash-bytes last-updated]
+  (let [args {:userhash user-hash-bytes
+              :lastupdated last-updated}]
+    (doseq [prev (run-query get-old-prev-data args)]
+      (delete-file (str (get-prev-dir (base32-encode user-hash-bytes))
+                        slash
+                        (base32-encode (get prev :prevhash)))))
+    (doseq [post (run-query get-old-post-data args)]
+      (delete-file (str (get-post-dir (base32-encode user-hash-bytes))
+                        slash
+                        (base32-encode (get post :posthash)))))
+    (run-query delete-old-prev-data args)
+    (run-query delete-old-post-data args)))
