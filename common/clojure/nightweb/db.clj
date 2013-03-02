@@ -7,6 +7,7 @@
                               with-query-results]]
         [nightweb.formats :only [base32-decode
                                  b-decode
+                                 b-decode-bytes
                                  b-decode-string
                                  b-decode-long]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
@@ -85,7 +86,15 @@
       ["userhash = ?" user-hash]
       {:userhash user-hash 
        :title (b-decode-string (get args "title"))
-       :body (b-decode-string (get args "body"))})))
+       :body (b-decode-string (get args "body"))})
+    (if-let [prev-hash (b-decode-bytes (get args "prev"))]
+      (update-or-insert-values
+        :prev
+        ["prevhash = ? and userhash = ? and ptrhash = ?"
+         prev-hash user-hash user-hash]
+        {:prevhash prev-hash
+         :userhash user-hash
+         :ptrhash user-hash}))))
 
 (defn insert-post
   [user-hash post-hash args]
@@ -118,7 +127,8 @@
                         (get data-map :contents))
     nil (case (get data-map :file-name)
           "user.profile" (insert-profile (get data-map :user-hash)
-                                         (get data-map :contents)))))
+                                         (get data-map :contents)))
+    nil))
 
 ; retrieval
 
@@ -128,7 +138,10 @@
         is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
     (with-query-results
       rs
-      ["SELECT * FROM user WHERE userhash = ?" user-hash]
+      [(str "SELECT * FROM user LEFT JOIN prev "
+            "ON user.userhash = prev.userhash "
+            "AND user.userhash = prev.ptrhash "
+            "WHERE user.userhash = ?") user-hash]
       (if-let [user (first rs)]
         (callback (assoc user :is-me? is-me?))
         (callback (assoc params :is-me? is-me?))))))

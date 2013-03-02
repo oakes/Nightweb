@@ -21,7 +21,8 @@
   [context intent]
   (if-let [params (.getSerializableExtra intent "params")]
     (case (get params :type)
-      :user (add-user-hash (get params :hash)))))
+      :user (add-user-hash (get params :hash))
+      nil)))
 
 (defservice
   net.nightweb.MainService

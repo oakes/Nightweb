@@ -8,6 +8,7 @@
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
+        [nightweb.io :only [read-image-file]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
@@ -181,11 +182,15 @@
     (.setLayoutParams image-view layout-params)
     (.setBackgroundResource image-view border)
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (.setOnClickListener image-view
-                         (proxy [android.view.View$OnClickListener] []
-                           (onClick [v]
-                             (request-image context
-                                            #(set-image-uri context v %1)))))
+    (if-let [image-bitmap (read-image-file (get content :userhash)
+                                           (get content :prevhash))]
+      (.setImageBitmap image-view image-bitmap))
+    (if (get content :is-me?)
+      (.setOnClickListener image-view
+                           (proxy [android.view.View$OnClickListener] []
+                             (onClick [v]
+                               (request-image context
+                                              #(set-image-uri context v %1))))))
     (.addView linear-layout image-view)
     view))
 

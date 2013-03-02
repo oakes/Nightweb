@@ -100,6 +100,14 @@
     (write-file (str (get-post-dir my-hash-str) slash hash-str)
                 data-barray)))
 
+(defn read-image-file
+  [user-hash-bytes image-hash-bytes]
+  (if (and user-hash-bytes image-hash-bytes)
+    (if-let [path (str (get-prev-dir (base32-encode user-hash-bytes))
+                       slash
+                       (base32-encode image-hash-bytes))]
+      (android.graphics.BitmapFactory/decodeFile path))))
+
 (defn write-image-file
   [image-bitmap]
   (if image-bitmap
