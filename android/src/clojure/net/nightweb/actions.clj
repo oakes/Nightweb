@@ -18,20 +18,20 @@
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
 
-(defn request-image
-  [context callback]
-  (set-state context :request-image callback)
+(defn request-files
+  [context file-type callback]
+  (set-state context :file-request callback)
   (let [intent (android.content.Intent.
                  android.content.Intent/ACTION_GET_CONTENT)]
-    (.setType intent "image/*")
+    (.setType intent file-type)
+    (.addCategory intent android.content.Intent/CATEGORY_OPENABLE)
     (.startActivityForResult context intent 1)))
 
 (defn receive-result
   [context request-code result-code intent]
   (if intent
-    (case request-code
-      1 (if-let [callback (get-state context :request-image)]
-          (callback (.getData intent))))))
+    (if-let [callback (get-state context :file-request)]
+      (callback (.getData intent)))))
 
 (defn show-page
   [context class-name params]
@@ -49,25 +49,42 @@
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog))))
   ([context view buttons]
-   (let [builder (android.app.AlertDialog$Builder. context)
-         btn-action (fn [func]
-                      (proxy [android.content.DialogInterface$OnClickListener] []
-                        (onClick [dialog which]
-                          (if func (func context view)))))]
+   (let [builder (android.app.AlertDialog$Builder. context)]
      (if-let [positive-name (get buttons :positive-name)]
-       (.setPositiveButton builder
-                           positive-name
-                           (btn-action (get buttons :positive-func))))
+       (.setPositiveButton builder positive-name nil))
      (if-let [neutral-name (get buttons :neutral-name)]
-       (.setNeutralButton builder
-                          neutral-name
-                          (btn-action (get buttons :neutral-func))))
+       (.setNeutralButton builder neutral-name nil))
      (if-let [negative-name (get buttons :negative-name)]
-       (.setNegativeButton builder
-                           negative-name
-                           (btn-action (get buttons :negative-func))))
+       (.setNegativeButton builder negative-name nil))
      (.setView builder view)
-     (let [dialog (.create builder)]
+     (let [dialog (.create builder)
+           positive-type android.app.AlertDialog/BUTTON_POSITIVE
+           neutral-type android.app.AlertDialog/BUTTON_NEUTRAL
+           negative-type android.app.AlertDialog/BUTTON_NEGATIVE
+           btn-action (fn [dialog button func]
+                        (proxy [android.view.View$OnClickListener] []
+                          (onClick [v]
+                            (if (func context view button)
+                              (.dismiss dialog)))))]
+       (.setOnShowListener
+         dialog
+         (proxy [android.content.DialogInterface$OnShowListener] []
+           (onShow [d]
+             (if-let [positive-btn (.getButton d positive-type)]
+               (.setOnClickListener
+                 positive-btn (btn-action d
+                                          positive-btn
+                                          (get buttons :positive-func))))
+             (if-let [neutral-btn (.getButton d neutral-type)]
+               (.setOnClickListener
+                 neutral-btn (btn-action d
+                                         neutral-btn
+                                         (get buttons :neutral-func))))
+             (if-let [negative-btn (.getButton d negative-type)]
+               (.setOnClickListener
+                 negative-btn (btn-action d
+                                          negative-btn
+                                          (get buttons :negative-func)))))))
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog)))))
 
@@ -98,17 +115,19 @@
   (show-page context "net.nightweb.BasicPage" content))
 
 (defn do-send-new-post
-  [context dialog-view]
+  [context dialog-view button-view]
   (let [text (.toString (.getText dialog-view))]
     (write-post-file text))
-  (show-spinner context (get-string :sending) create-meta-torrent))
+  (show-spinner context (get-string :sending) create-meta-torrent)
+  true)
 
 (defn do-attach-to-new-post
-  [context dialog-view]
-  (println "attach"))
+  [context dialog-view button-view]
+  (request-files context "*/*" #(println "attach" %1))
+  false)
 
 (defn do-save-profile
-  [context dialog-view]
+  [context dialog-view button-view]
   (let [linear-layout (.getChildAt dialog-view 0)
         name-field (.getChildAt linear-layout 0)
         body-field (.getChildAt linear-layout 1)
@@ -118,11 +137,13 @@
         image-bitmap (if-let [drawable (.getDrawable image-view)]
                        (.getBitmap drawable))]
     (write-profile-file name-text body-text image-bitmap))
-  (show-spinner context (get-string :saving) create-meta-torrent))
+  (show-spinner context (get-string :saving) create-meta-torrent)
+  true)
 
 (defn do-cancel
-  [context dialog-view]
-  (println "cancel"))
+  [context dialog-view button-view]
+  (println "cancel")
+  true)
 
 (defn do-menu-action
   [context item]

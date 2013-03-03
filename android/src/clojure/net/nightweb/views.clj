@@ -3,7 +3,7 @@
         [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
-        [net.nightweb.actions :only [request-image
+        [net.nightweb.actions :only [request-files
                                      show-dialog
                                      do-tile-action
                                      do-save-profile
@@ -20,10 +20,12 @@
 (set-classname! :frame-layout android.widget.FrameLayout)
 (set-classname! :image-view android.widget.ImageView)
 
+(def default-text-size 20)
+(def default-tile-width 160)
+
 (defn set-text-size
-  ([view] (set-text-size view 20))
-  ([view size]
-   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size)))
+  [view size]
+  (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn set-image-uri
   [context image-view uri]
@@ -31,77 +33,80 @@
         bitmap (android.provider.MediaStore$Images$Media/getBitmap cr uri)]
     (.setImageBitmap image-view bitmap)))
 
-(defn get-adjusted-tile-width
-  ([context] (get-adjusted-tile-width context 160))
-  ([context width]
-   (int (* (.density (.getDisplayMetrics (.getResources context))) width))))
+(defn make-dip
+  [context width]
+  (int (* (.density (.getDisplayMetrics (.getResources context))) width)))
 
 (defn set-grid-view-tiles
   [context content view]
-  (let [tile-view-min (get-adjusted-tile-width context)]
-    (.setAdapter
-      view
-      (proxy [android.widget.BaseAdapter] []
-        (getItem [position] nil)
-        (getItemId [position] 0)
-        (getCount [] (count content))
-        (getView [position convert-view parent]
-          (let [not-initialized (= convert-view nil)
-                bottom android.view.Gravity/BOTTOM
-                tile-view (if not-initialized
-                            (make-ui context
-                                     [:frame-layout {}
-                                      [:image-view {}]
-                                      [:linear-layout {:orientation 1}
-                                       [:text-view {:layout-weight 3}]
-                                       [:text-view {:layout-weight 1
-                                                    :gravity bottom}]]])
-                            convert-view)
-                num-columns (.getNumColumns view)
-                width (.getWidth view)
-                tile-view-width (if (and (> width 0) (> num-columns 0))
-                                  (int (/ width num-columns))
-                                  tile-view-min)
-                layout-params (android.widget.AbsListView$LayoutParams.
-                                                          tile-view-width
-                                                          tile-view-width)]
-            (if not-initialized
-              (let [black android.graphics.Color/BLACK
-                    item (get content position)
-                    image-view (.getChildAt tile-view 0)
-                    linear-layout (.getChildAt tile-view 1)
-                    text-top (.getChildAt linear-layout 0)
-                    text-bottom (.getChildAt linear-layout 1)]
-                (set-text-size text-top)
-                (set-text-size text-bottom 14)
-                (if (get item :add-emphasis?)
-                  (.setTypeface text-top
-                                android.graphics.Typeface/DEFAULT_BOLD))
-                (.setImageBitmap image-view
-                                 (read-image-file (get item :userhash)
-                                                  (get item :prevhash)))
-                (.setPadding linear-layout 5 5 5 5)
-                (.setBackgroundResource tile-view
-                                        (get-resource :drawable :border))
-                (if-let [title (get item :title)]
-                  (.setText text-top title)
-                  (.setText text-top (get item :body)))
-                (.setText text-bottom (get item :subtitle))
-                (.setShadowLayer text-top 10 0 0 black)
-                (.setShadowLayer text-bottom 10 0 0 black)))
-            (.setLayoutParams tile-view layout-params)
-            tile-view))))
-    (.setOnItemClickListener
-      view
-      (proxy [android.widget.AdapterView$OnItemClickListener] []
-        (onItemClick [parent v position id]
-          (do-tile-action context (get content position)))))
-    (.notifyDataSetChanged (.getAdapter view))))
+  (.setAdapter
+    view
+    (proxy [android.widget.BaseAdapter] []
+      (getItem [position] nil)
+      (getItemId [position] 0)
+      (getCount [] (count content))
+      (getView [position convert-view parent]
+        (let [not-initialized (= convert-view nil)
+              bottom android.view.Gravity/BOTTOM
+              tile-view (if not-initialized
+                          (make-ui context
+                                   [:frame-layout {}
+                                    [:image-view {}]
+                                    [:linear-layout {:orientation 1}
+                                     [:text-view {}]
+                                     [:text-view {:gravity bottom}]]])
+                          convert-view)
+              num-columns (.getNumColumns view)
+              width (.getWidth view)
+              tile-view-width (if (and (> width 0) (> num-columns 0))
+                                (int (/ width num-columns))
+                                (make-dip context default-tile-width))
+              layout-params (android.widget.AbsListView$LayoutParams.
+                                                        tile-view-width
+                                                        tile-view-width)]
+          (if not-initialized
+            (let [black android.graphics.Color/BLACK
+                  item (get content position)
+                  image-view (.getChildAt tile-view 0)
+                  linear-layout (.getChildAt tile-view 1)
+                  text-top (.getChildAt linear-layout 0)
+                  text-bottom (.getChildAt linear-layout 1)
+                  pad (make-dip context 5)
+                  radius (make-dip context 10)]
+              (if (get item :add-emphasis?)
+                (.setTypeface text-top
+                              android.graphics.Typeface/DEFAULT_BOLD))
+              (.setImageBitmap image-view
+                               (read-image-file (get item :userhash)
+                                                (get item :prevhash)))
+              (set-text-size text-top default-text-size)
+              (set-text-size text-bottom 14)
+              (.setPadding linear-layout pad pad pad pad)
+              (.setMaxLines text-top
+                            (int (- (/ (- tile-view-width pad pad)
+                                       (make-dip context default-text-size))
+                                    1)))
+              (.setBackgroundResource tile-view
+                                      (get-resource :drawable :border))
+              (if-let [title (get item :title)]
+                (.setText text-top title)
+                (.setText text-top (get item :body)))
+              (.setText text-bottom (get item :subtitle))
+              (.setShadowLayer text-top radius 0 0 black)
+              (.setShadowLayer text-bottom radius 0 0 black)))
+          (.setLayoutParams tile-view layout-params)
+          tile-view))))
+  (.setOnItemClickListener
+    view
+    (proxy [android.widget.AdapterView$OnItemClickListener] []
+      (onItemClick [parent v position id]
+        (do-tile-action context (get content position)))))
+  (.notifyDataSetChanged (.getAdapter view)))
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false))
   ([context content make-height-fit-content?]
-   (let [tile-view-min (get-adjusted-tile-width context)
+   (let [tile-view-min (make-dip context default-tile-width)
          view (proxy [android.widget.GridView] [context]
                 (onMeasure [width-spec height-spec]
                   (let [w (android.view.View$MeasureSpec/getSize width-spec)
@@ -121,8 +126,10 @@
 
 (defn get-new-post-view
   [context content]
-  (let [view (make-ui context [:edit-text {:min-lines 10}])]
-    (set-text-size view)
+  (let [view (make-ui context [:linear-layout {:orientation 1}
+                               [:edit-text {:min-lines 10}]])
+        text-view (.getChildAt view 0)]
+    (set-text-size text-view default-text-size)
     view))
 
 (defn get-post-view
@@ -134,7 +141,7 @@
         linear-layout (.getChildAt view 0)
         text-body (.getChildAt linear-layout 0)]
     (.setPadding linear-layout 10 10 10 10)
-    (set-text-size text-body)
+    (set-text-size text-body default-text-size)
     (future
       (let [post (if (get content :body)
                    content
@@ -179,8 +186,8 @@
         fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
         layout-params (android.widget.LinearLayout$LayoutParams. fill 0)]
     (.setPadding linear-layout 10 10 10 10)
-    (set-text-size text-name)
-    (set-text-size text-body)
+    (set-text-size text-name default-text-size)
+    (set-text-size text-body default-text-size)
     (.setHint text-name (get-string :name))
     (.setHint text-body (get-string :about_me))
     (.setText text-name (get content :title))
@@ -195,7 +202,8 @@
       (.setOnClickListener image-view
                            (proxy [android.view.View$OnClickListener] []
                              (onClick [v]
-                               (request-image context
+                               (request-files context
+                                              "image/*"
                                               #(set-image-uri context v %1))))))
     (.addView linear-layout image-view)
     view))
