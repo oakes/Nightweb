@@ -17,6 +17,8 @@
         [nightweb.torrents :only [is-connecting?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
+(set-classname! :frame-layout android.widget.FrameLayout)
+(set-classname! :image-view android.widget.ImageView)
 
 (defn set-text-size
   ([view] (set-text-size view 20))
@@ -46,20 +48,14 @@
         (getView [position convert-view parent]
           (let [not-initialized (= convert-view nil)
                 bottom android.view.Gravity/BOTTOM
-                bold android.graphics.Typeface/DEFAULT_BOLD
                 tile-view (if not-initialized
-                            (if (get-in content [position :add-emphasis?])
-                              (make-ui context
-                                       [:linear-layout {:orientation 1}
-                                        [:text-view {:layout-weight 3
-                                                     :typeface bold}]
-                                        [:text-view {:layout-weight 1
-                                                     :gravity bottom}]])
-                              (make-ui context
-                                       [:linear-layout {:orientation 1}
-                                        [:text-view {:layout-weight 3}]
-                                        [:text-view {:layout-weight 1
-                                                     :gravity bottom}]]))
+                            (make-ui context
+                                     [:frame-layout {}
+                                      [:image-view {}]
+                                      [:linear-layout {:orientation 1}
+                                       [:text-view {:layout-weight 3}]
+                                       [:text-view {:layout-weight 1
+                                                    :gravity bottom}]]])
                             convert-view)
                 num-columns (.getNumColumns view)
                 width (.getWidth view)
@@ -69,21 +65,27 @@
                 layout-params (android.widget.AbsListView$LayoutParams.
                                                           tile-view-width
                                                           tile-view-width)]
-            (.setLayoutParams tile-view layout-params)
             (if not-initialized
               (let [black android.graphics.Color/BLACK
-                    border (get-resource :drawable :border)
                     item (get content position)
-                    text-top (.getChildAt tile-view 0)
-                    text-bottom (.getChildAt tile-view 1)]
+                    image-view (.getChildAt tile-view 0)
+                    linear-layout (.getChildAt tile-view 1)
+                    text-top (.getChildAt linear-layout 0)
+                    text-bottom (.getChildAt linear-layout 1)]
+                (if (get item :add-emphasis?)
+                  (.setTypeface text-top
+                                android.graphics.Typeface/DEFAULT_BOLD))
+                (.setImageBitmap image-view (get item :bitmap))
                 (.setPadding tile-view 5 5 5 5)
-                (.setBackgroundResource tile-view border)
-                (if-let [title (get-in content [position :title])]
+                (.setBackgroundResource tile-view
+                                        (get-resource :drawable :border))
+                (if-let [title (get item :title)]
                   (.setText text-top title)
-                  (.setText text-top (get-in content [position :body])))
-                (.setText text-bottom (get-in content [position :subtitle]))
+                  (.setText text-top (get item :body)))
+                (.setText text-bottom (get item :subtitle))
                 (.setShadowLayer text-top 10 0 0 black)
                 (.setShadowLayer text-bottom 10 0 0 black)))
+            (.setLayoutParams tile-view layout-params)
             tile-view))))
     (.setOnItemClickListener
       view
@@ -171,8 +173,7 @@
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
         fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
-        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)
-        border (get-resource :drawable :border)]
+        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)]
     (.setPadding linear-layout 10 10 10 10)
     (set-text-size text-name)
     (set-text-size text-body)
@@ -181,11 +182,11 @@
     (.setText text-name (get content :title))
     (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
-    (.setBackgroundResource image-view border)
+    (.setBackgroundResource image-view
+                            (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (if-let [image-bitmap (read-image-file (get content :userhash)
-                                           (get content :prevhash))]
-      (.setImageBitmap image-view image-bitmap))
+    (.setImageBitmap image-view (read-image-file (get content :userhash)
+                                                 (get content :prevhash)))
     (if (get content :is-me?)
       (.setOnClickListener image-view
                            (proxy [android.view.View$OnClickListener] []
@@ -203,6 +204,8 @@
             first-tiles [{:title (get-string :profile)
                           :add-emphasis? true
                           :content user
+                          :bitmap (read-image-file (get user :userhash)
+                                                   (get user :prevhash))
                           :type :custom-func
                           :func
                           (fn [context item]
