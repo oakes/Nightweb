@@ -33,6 +33,15 @@
     (if-let [callback (get-state context :file-request)]
       (callback (.getData intent)))))
 
+(defn receive-file-to-attach
+  [context uri button-view]
+  (if (= (.getText button-view) (get-string :attach))
+    (set-state context :attachments nil))
+  (let [attachments (get-state context :attachments)
+        new-count (+ 1 (count attachments))]
+    (set-state context :attachments (conj attachments uri))
+    (.setText button-view (str (get-string :attach) " (" new-count ")"))))
+
 (defn show-page
   [context class-name params]
   (let [class-symbol (java.lang.Class/forName class-name)
@@ -123,7 +132,9 @@
 
 (defn do-attach-to-new-post
   [context dialog-view button-view]
-  (request-files context "*/*" #(println "attach" %1))
+  (request-files context
+                 "*/*"
+                 (fn [uri] (receive-file-to-attach context uri button-view)))
   false)
 
 (defn do-save-profile
