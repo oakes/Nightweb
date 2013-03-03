@@ -183,11 +183,15 @@
   (let [data-type (get params :type)
         user-hash (get params :userhash)
         statement (case data-type
-                    :user ["SELECT * FROM user"]
+                    :user [(str "SELECT * FROM user LEFT JOIN prev "
+                                "ON user.userhash = prev.userhash "
+                                "AND user.userhash = prev.ptrhash")]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :user-fav
                     [(str "SELECT * FROM user "
                           "INNER JOIN fav ON user.userhash = fav.favhash "
+                          "LEFT JOIN prev ON user.userhash = prev.userhash "
+                          "AND user.userhash = prev.ptrhash "
                           "WHERE fav.userhash = ?")
                      user-hash]
                     :post-fav

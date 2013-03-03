@@ -72,11 +72,15 @@
                     linear-layout (.getChildAt tile-view 1)
                     text-top (.getChildAt linear-layout 0)
                     text-bottom (.getChildAt linear-layout 1)]
+                (set-text-size text-top)
+                (set-text-size text-bottom 14)
                 (if (get item :add-emphasis?)
                   (.setTypeface text-top
                                 android.graphics.Typeface/DEFAULT_BOLD))
-                (.setImageBitmap image-view (get item :bitmap))
-                (.setPadding tile-view 5 5 5 5)
+                (.setImageBitmap image-view
+                                 (read-image-file (get item :userhash)
+                                                  (get item :prevhash)))
+                (.setPadding linear-layout 5 5 5 5)
                 (.setBackgroundResource tile-view
                                         (get-resource :drawable :border))
                 (if-let [title (get item :title)]
@@ -204,8 +208,8 @@
             first-tiles [{:title (get-string :profile)
                           :add-emphasis? true
                           :content user
-                          :bitmap (read-image-file (get user :userhash)
-                                                   (get user :prevhash))
+                          :userhash (get user :userhash)
+                          :prevhash (get user :prevhash)
                           :type :custom-func
                           :func
                           (fn [context item]
