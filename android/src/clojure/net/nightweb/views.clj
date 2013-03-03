@@ -4,6 +4,7 @@
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
         [net.nightweb.actions :only [request-files
+                                     clear-attachments
                                      show-dialog
                                      do-tile-action
                                      do-save-profile
@@ -47,14 +48,16 @@
       (getCount [] (count content))
       (getView [position convert-view parent]
         (let [not-initialized (= convert-view nil)
+              white android.graphics.Color/WHITE
               bottom android.view.Gravity/BOTTOM
               tile-view (if not-initialized
                           (make-ui context
                                    [:frame-layout {}
                                     [:image-view {}]
                                     [:linear-layout {:orientation 1}
-                                     [:text-view {}]
-                                     [:text-view {:gravity bottom}]]])
+                                     [:text-view {:text-color white}]
+                                     [:text-view {:text-color white
+                                                  :gravity bottom}]]])
                           convert-view)
               num-columns (.getNumColumns view)
               width (.getWidth view)
@@ -130,6 +133,7 @@
                                [:edit-text {:min-lines 10}]])
         text-view (.getChildAt view 0)]
     (set-text-size text-view default-text-size)
+    (clear-attachments context)
     view))
 
 (defn get-post-view

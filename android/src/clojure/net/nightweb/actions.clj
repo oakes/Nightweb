@@ -4,7 +4,8 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [write-post-file
+        [nightweb.io :only [list-files-in-uri
+                            write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode]]))
@@ -29,18 +30,22 @@
 
 (defn receive-result
   [context request-code result-code intent]
-  (if intent
-    (if-let [callback (get-state context :file-request)]
-      (callback (.getData intent)))))
+  (let [callback (get-state context :file-request)
+        data-result (if intent (.getData intent))]
+    (if (and callback data-result)
+      (callback data-result))))
 
-(defn receive-file-to-attach
+(defn receive-attachments
   [context uri button-view]
-  (if (= (.getText button-view) (get-string :attach))
-    (set-state context :attachments nil))
-  (let [attachments (get-state context :attachments)
-        new-count (+ 1 (count attachments))]
-    (set-state context :attachments (conj attachments uri))
-    (.setText button-view (str (get-string :attach) " (" new-count ")"))))
+  (let [attachments (set (concat (get-state context :attachments)
+                                 (list-files-in-uri uri)))]
+    (set-state context :attachments attachments)
+    (.setText button-view (str (get-string :attach)
+                               " (" (count attachments) ")"))))
+
+(defn clear-attachments
+  [context]
+  (set-state context :attachments nil))
 
 (defn show-page
   [context class-name params]
@@ -134,7 +139,7 @@
   [context dialog-view button-view]
   (request-files context
                  "*/*"
-                 (fn [uri] (receive-file-to-attach context uri button-view)))
+                 (fn [uri] (receive-attachments context uri button-view)))
   false)
 
 (defn do-save-profile

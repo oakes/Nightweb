@@ -65,6 +65,13 @@
     (if (.isDirectory f)
       (func (.getName f)))))
 
+(defn list-files-in-uri
+  [uri]
+  (let [uri-str (.toString uri)
+        java-uri (java.net.URI/create uri-str)]
+    (for [uri-file (file-seq (file java-uri))]
+      (.getCanonicalPath uri-file))))
+
 ; read/write specific files
 
 (defn write-key-file
