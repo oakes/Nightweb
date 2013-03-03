@@ -1,8 +1,10 @@
 (ns nightweb.io
   (:use [clojure.java.io :only [file
                                 input-stream
-                                output-stream]]
+                                output-stream
+                                copy]]
         [nightweb.crypto :only [create-hash
+                                create-hash-input-stream
                                 create-signature]]
         [nightweb.formats :only [b-encode
                                  b-decode
@@ -26,7 +28,8 @@
                                    get-user-dir
                                    get-meta-dir
                                    get-prev-dir
-                                   get-post-dir]]))
+                                   get-post-dir
+                                   get-internal-dir]]))
 
 ; basic file operations
 
@@ -66,9 +69,8 @@
       (func (.getName f)))))
 
 (defn list-files-in-uri
-  [uri]
-  (let [uri-str (.toString uri)
-        java-uri (java.net.URI/create uri-str)]
+  [uri-str]
+  (let [java-uri (java.net.URI/create uri-str)]
     (for [uri-file (file-seq (file java-uri))]
       (.getCanonicalPath uri-file))))
 
@@ -118,7 +120,7 @@
     (write-file (str (get-post-dir my-hash-str) slash hash-str)
                 data-barray)))
 
-(defn read-image-file
+(defn read-prev-file
   [user-hash-bytes image-hash-bytes]
   (let [path (str (get-prev-dir (base32-encode user-hash-bytes))
                      slash
@@ -126,7 +128,7 @@
     (if (and user-hash-bytes image-hash-bytes (file-exists? path))
       (android.graphics.BitmapFactory/decodeFile path))))
 
-(defn write-image-file
+(defn write-prev-file
   [image-bitmap]
   (if image-bitmap
     (let [out (java.io.ByteArrayOutputStream.)
@@ -149,7 +151,7 @@
                         (base32-encode (get prev :prevhash))))))
   (let [args {"title" name-text
               "body" body-text}
-        image-hash (write-image-file image-bitmap)]
+        image-hash (write-prev-file image-bitmap)]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode (if image-hash
                             (assoc args "prev" image-hash)
@@ -197,3 +199,14 @@
                         (base32-encode (get post :posthash)))))
     (run-query delete-old-prev-data args)
     (run-query delete-old-post-data args)))
+
+(defn write-internal-file
+  [context uri]
+  (let [cr (.getContentResolver context)
+        is (.openInputStream cr uri)
+        hash-is (create-hash-input-stream is)
+        temp-path (str (get-internal-dir) slash "temp")]
+    (make-dir (get-internal-dir))
+    (delete-file temp-path)
+    (copy hash-is (file temp-path))
+    (base32-encode (.digest (.getMessageDigest hash-is)))))

@@ -35,6 +35,7 @@
 (def pub-node-key-file (str nw-dir slash "public.node.key"))
 (def db-file (str nw-dir slash "main"))
 (def user-dir (str nw-dir slash "user"))
+(def internal-dir (str nw-dir slash "internal"))
 
 (defn get-user-dir
   ([] (str base-dir user-dir))
@@ -67,3 +68,7 @@
 (defn get-prev-dir
   [user-hash]
   (str (get-meta-dir user-hash) prev-dir))
+
+(defn get-internal-dir
+  []
+  (str base-dir internal-dir))

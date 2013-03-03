@@ -6,7 +6,8 @@
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [list-files-in-uri
                             write-post-file
-                            write-profile-file]]
+                            write-profile-file
+                            write-internal-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode]]))
 
@@ -37,8 +38,13 @@
 
 (defn receive-attachments
   [context uri button-view]
-  (let [attachments (set (concat (get-state context :attachments)
-                                 (list-files-in-uri uri)))]
+  (let [uri-str (.toString uri)
+        new-attachments (if (.startsWith uri-str "file://")
+                          (list-files-in-uri uri-str)
+                          (if (.startsWith uri-str "content://")
+                            #{uri-str}))
+        attachments (set (concat (get-state context :attachments)
+                                 new-attachments))]
     (set-state context :attachments attachments)
     (.setText button-view (str (get-string :attach)
                                " (" (count attachments) ")"))))

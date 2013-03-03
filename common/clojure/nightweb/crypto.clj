@@ -20,10 +20,18 @@
                   (gen-priv-key)))
   (def pub-key (.toPublic priv-key)))
 
+(defn get-hash-algo
+  []
+  (java.security.MessageDigest/getInstance "SHA1"))
+
 (defn create-hash
   [data-barray]
-  (let [sha1 (java.security.MessageDigest/getInstance "SHA1")]
-    (.digest sha1 data-barray)))
+  (let [algo (get-hash-algo)]
+    (.digest algo data-barray)))
+
+(defn create-hash-input-stream
+  [is]
+  (java.security.DigestInputStream. is (get-hash-algo)))
 
 (defn create-signature
   [message]

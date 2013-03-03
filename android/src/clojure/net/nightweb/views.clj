@@ -9,7 +9,7 @@
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
-        [nightweb.io :only [read-image-file]]
+        [nightweb.io :only [read-prev-file]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
@@ -80,7 +80,7 @@
                 (.setTypeface text-top
                               android.graphics.Typeface/DEFAULT_BOLD))
               (.setImageBitmap image-view
-                               (read-image-file (get item :userhash)
+                               (read-prev-file (get item :userhash)
                                                 (get item :prevhash)))
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom 14)
@@ -200,7 +200,7 @@
     (.setBackgroundResource image-view
                             (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (.setImageBitmap image-view (read-image-file (get content :userhash)
+    (.setImageBitmap image-view (read-prev-file (get content :userhash)
                                                  (get content :prevhash)))
     (if (get content :is-me?)
       (.setOnClickListener image-view
