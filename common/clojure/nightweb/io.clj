@@ -29,7 +29,7 @@
                                    get-meta-dir
                                    get-prev-dir
                                    get-post-dir
-                                   get-internal-dir]]))
+                                   get-torrent-dir]]))
 
 ; basic file operations
 
@@ -68,11 +68,13 @@
     (if (.isDirectory f)
       (func (.getName f)))))
 
-(defn list-files-in-uri
+(defn get-files-in-uri
   [uri-str]
-  (let [java-uri (java.net.URI/create uri-str)]
-    (for [uri-file (file-seq (file java-uri))]
-      (.getCanonicalPath uri-file))))
+  (let [java-uri (java.net.URI/create uri-str)
+        files (for [uri-file (file-seq (file java-uri))]
+                (if (.isFile uri-file)
+                  (.getCanonicalPath uri-file)))]
+    (disj (set files) nil)))
 
 ; read/write specific files
 
@@ -200,13 +202,13 @@
     (run-query delete-old-prev-data args)
     (run-query delete-old-post-data args)))
 
-(defn write-internal-file
+(defn copy-content-file
   [context uri]
   (let [cr (.getContentResolver context)
         is (.openInputStream cr uri)
         hash-is (create-hash-input-stream is)
-        temp-path (str (get-internal-dir) slash "temp")]
-    (make-dir (get-internal-dir))
+        temp-path (str (get-torrent-dir) slash "temp")]
+    (make-dir (get-torrent-dir))
     (delete-file temp-path)
     (copy hash-is (file temp-path))
     (base32-encode (.digest (.getMessageDigest hash-is)))))

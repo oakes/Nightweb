@@ -4,17 +4,15 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [list-files-in-uri
+        [nightweb.io :only [get-files-in-uri
                             write-post-file
-                            write-profile-file
-                            write-internal-file]]
+                            write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode]]))
 
 (defn share-url
   [context]
-  (let [intent (android.content.Intent.
-                 android.content.Intent/ACTION_SEND)
+  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
         url (url-encode (get-state context :share))]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
@@ -37,21 +35,23 @@
       (callback data-result))))
 
 (defn receive-attachments
-  [context uri button-view]
+  [context uri]
   (let [uri-str (.toString uri)
-        new-attachments (if (.startsWith uri-str "file://")
-                          (list-files-in-uri uri-str)
-                          (if (.startsWith uri-str "content://")
-                            #{uri-str}))
-        attachments (set (concat (get-state context :attachments)
-                                 new-attachments))]
-    (set-state context :attachments attachments)
-    (.setText button-view (str (get-string :attach)
-                               " (" (count attachments) ")"))))
+        attach-total (get-state context :attach-total)]
+    (if (.startsWith uri-str "file://")
+      (let [attach-files (get-state context :attach-files)
+            files (get-files-in-uri uri-str)]
+        (set-state context :attach-files (set (conj attach-files uri-str)))
+        (set-state context :attach-total (set (concat attach-total files))))
+      (let [attach-content (get-state context :attach-content)]
+        (set-state context :attach-content (set (conj attach-content uri-str)))
+        (set-state context :attach-total (set (conj attach-total uri-str)))))))
 
 (defn clear-attachments
   [context]
-  (set-state context :attachments nil))
+  (set-state context :attach-files nil)
+  (set-state context :attach-content nil)
+  (set-state context :attach-total nil))
 
 (defn show-page
   [context class-name params]
@@ -138,14 +138,21 @@
   [context dialog-view button-view]
   (let [text (.toString (.getText dialog-view))]
     (write-post-file text))
-  (show-spinner context (get-string :sending) create-meta-torrent)
+  (show-spinner context
+                (get-string :sending)
+                (fn []
+                  (create-meta-torrent)))
   true)
 
 (defn do-attach-to-new-post
   [context dialog-view button-view]
   (request-files context
                  "*/*"
-                 (fn [uri] (receive-attachments context uri button-view)))
+                 (fn [uri]
+                   (receive-attachments context uri)
+                   (let [total-count (count (get-state context :attach-total))
+                         text (str (get-string :attach) " (" total-count ")")]
+                     (on-ui (.setText button-view text)))))
   false)
 
 (defn do-save-profile
