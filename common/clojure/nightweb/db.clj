@@ -201,7 +201,10 @@
                     :user [(str "SELECT * FROM user LEFT JOIN pic "
                                 "ON user.userhash = pic.userhash "
                                 "AND user.userhash = pic.ptrhash")]
-                    :post ["SELECT * FROM post ORDER BY time DESC"]
+                    :post [(str "SELECT * FROM post LEFT JOIN pic "
+                                "ON post.userhash = pic.userhash "
+                                "AND post.posthash = pic.ptrhash "
+                                "ORDER BY post.time DESC")]
                     :user-fav
                     [(str "SELECT * FROM user "
                           "INNER JOIN fav ON user.userhash = fav.favhash "
