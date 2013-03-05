@@ -16,17 +16,16 @@
 
 (def spec nil)
 
-(defn run-query
-  ([f params] (run-query f params (fn [results] results)))
-  ([f params callback]
-   (with-connection
+(defmacro run-query
+  [& body]
+  `(with-connection
      spec
-     (transaction (f params callback)))))
+     (transaction ~@body)))
 
 ; initialization
 
 (defn drop-tables
-  [params callback]
+  [params]
   (try
     (do
       (drop-table :user)
@@ -37,7 +36,7 @@
     (catch java.lang.Exception e (println "Tables don't exist"))))
 
 (defn create-tables
-  [params callback]
+  [params]
   (create-table-if-not-exists
     :user
     [:userhash "BINARY"]
@@ -79,38 +78,41 @@
       {:classname "org.h2.Driver"
        :subprotocol "h2"
        :subname (str base-dir db-file)})
-    ;(run-query drop-tables nil)
-    (run-query create-tables nil)))
+    ;(run-query (drop-tables nil))
+    (run-query (create-tables nil))))
 
 ; insertion
 
+(defn insert-pic-list
+  [user-hash ptr-hash args last-updated]
+  (run-query
+    (doseq [pic (b-decode-list (get args "pics"))]
+      (if-let [pic-hash (b-decode-bytes pic)]
+        (update-or-insert-values
+          :pic
+          ["pichash = ? AND userhash = ? AND ptrhash = ?"
+           pic-hash user-hash ptr-hash]
+          {:pichash pic-hash
+           :userhash user-hash
+           :ptrhash ptr-hash
+           :lastupdated last-updated})))))
+
 (defn insert-profile
   [user-hash args last-updated]
-  (with-connection
-    spec
+  (run-query
     (update-or-insert-values
       :user
       ["userhash = ?" user-hash]
       {:userhash user-hash 
        :title (b-decode-string (get args "title"))
        :body (b-decode-string (get args "body"))
-       :lastupdated last-updated})
-    (if-let [pic-list (b-decode-list (get args "pics"))]
-      (if-let [pic-hash (b-decode-bytes (.get pic-list 0))]
-        (update-or-insert-values
-          :pic
-          ["pichash = ? AND userhash = ? AND ptrhash = ?"
-           pic-hash user-hash user-hash]
-          {:pichash pic-hash
-           :userhash user-hash
-           :ptrhash user-hash
-           :lastupdated last-updated})))))
+       :lastupdated last-updated}))
+  (insert-pic-list user-hash user-hash args last-updated))
 
 (defn insert-post
   [user-hash post-hash args last-updated]
   (if-let [time-long (b-decode-long (get args "time"))]
-    (with-connection
-      spec
+    (run-query
       (update-or-insert-values
         :post
         ["userhash = ? AND time = ?" user-hash time-long]
@@ -118,7 +120,8 @@
          :userhash user-hash
          :body (b-decode-string (get args "body"))
          :time time-long
-         :lastupdated last-updated}))))
+         :lastupdated last-updated})))
+  (insert-pic-list user-hash post-hash args last-updated))
 
 (defn insert-meta-data
   [user-hash data-map last-updated]
@@ -136,52 +139,62 @@
 ; retrieval
 
 (defn get-user-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
-    (with-query-results
-      rs
-      [(str "SELECT * FROM user LEFT JOIN pic "
-            "ON user.userhash = pic.userhash "
-            "AND user.userhash = pic.ptrhash "
-            "WHERE user.userhash = ?") user-hash]
-      (if-let [user (first rs)]
-        (callback (assoc user :is-me? is-me?))
-        (callback (assoc params :is-me? is-me?))))))
+    (run-query
+      (with-query-results
+        rs
+        [(str "SELECT * FROM user LEFT JOIN pic "
+              "ON user.userhash = pic.userhash "
+              "AND user.userhash = pic.ptrhash "
+              "WHERE user.userhash = ?") user-hash]
+        (if-let [user (first rs)]
+          (assoc user :is-me? is-me?)
+          (assoc params :is-me? is-me?))))))
 
 (defn get-single-post-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         unix-time (get params :time)]
-    (with-query-results
-      rs
-      ["SELECT * FROM post WHERE userhash = ? AND time = ?" user-hash unix-time]
-      (if-let [post (first rs)]
-        (callback post)
-        (callback params)))))
+    (run-query
+      (with-query-results
+        rs
+        [(str "SELECT * FROM post LEFT JOIN pic "
+              "ON post.userhash = pic.userhash "
+              "AND post.posthash = pic.ptrhash "
+              "WHERE post.userhash = ? AND post.time = ?") user-hash unix-time]
+        (if-let [post (first rs)]
+          post
+          params)))))
 
 (defn get-pic-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         ptr-hash (get params :ptrhash)]
-    (with-query-results
-      rs
-      ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
-       user-hash ptr-hash]
-      (callback (doall rs)))))
+    (run-query
+      (with-query-results
+        rs
+        ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
+         user-hash ptr-hash]
+        (doall rs)))))
 
 (defn get-post-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)]
-    (with-query-results
-      rs
-      ["SELECT * FROM post WHERE userhash = ? ORDER BY time DESC" user-hash]
-      (callback (doall
-                  (for [row rs]
-                    (assoc row :type :post)))))))
+    (run-query
+      (with-query-results
+        rs
+        [(str "SELECT * FROM post LEFT JOIN pic "
+              "ON post.userhash = pic.userhash "
+              "AND post.posthash = pic.ptrhash "
+              "WHERE post.userhash = ? ORDER BY post.time DESC") user-hash]
+        (doall
+          (for [row rs]
+            (assoc row :type :post)))))))
 
 (defn get-category-data
-  [params callback]
+  [params]
   (let [data-type (get params :type)
         user-hash (get params :userhash)
         statement (case data-type
@@ -200,53 +213,58 @@
                     [(str "SELECT * FROM post "
                           "INNER JOIN fav ON post.userhash = fav.favhash "
                           "WHERE fav.userhash = ? "
-                          "ORDER BY time DESC")
+                          "ORDER BY post.time DESC")
                      user-hash]
                     :all-tran ["SELECT * FROM file"]
                     :photos-tran ["SELECT * FROM file"]
                     :videos-tran ["SELECT * FROM file"]
                     :audio-tran ["SELECT * FROM file"])]
-    (with-query-results
-      rs
-      statement
-      (callback (doall
-                  (for [row rs]
-                    (assoc row :type data-type)))))))
+    (run-query
+      (with-query-results
+        rs
+        statement
+        (doall
+          (for [row rs]
+            (assoc row :type data-type)))))))
 
 (defn get-old-pic-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
-    (with-query-results
-      rs
-      ["SELECT * FROM pic WHERE userhash = ? AND lastupdated <> ?"
-       user-hash last-updated]
-      (callback (doall rs)))))
+    (run-query
+      (with-query-results
+        rs
+        ["SELECT * FROM pic WHERE userhash = ? AND lastupdated <> ?"
+         user-hash last-updated]
+        (doall rs)))))
 
 (defn get-old-post-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
-    (with-query-results
-      rs
-      ["SELECT * FROM post WHERE userhash = ? AND lastupdated <> ?"
-       user-hash last-updated]
-      (callback (doall rs)))))
+    (run-query
+      (with-query-results
+        rs
+        ["SELECT * FROM post WHERE userhash = ? AND lastupdated <> ?"
+         user-hash last-updated]
+        (doall rs)))))
 
 ; deletion
 
 (defn delete-old-pic-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
-    (delete-rows
-      :pic
-      ["userhash = ? AND lastupdated <> ?" user-hash last-updated])))
+    (run-query
+      (delete-rows
+        :pic
+        ["userhash = ? AND lastupdated <> ?" user-hash last-updated]))))
 
 (defn delete-old-post-data
-  [params callback]
+  [params]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
-    (delete-rows
-      :post
-      ["userhash = ? AND lastupdated <> ?" user-hash last-updated])))
+    (run-query
+      (delete-rows
+        :post
+        ["userhash = ? AND lastupdated <> ?" user-hash last-updated]))))

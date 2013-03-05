@@ -4,7 +4,10 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [write-post-file
+        [nightweb.io :only [get-files-in-uri
+                            read-pic-uri
+                            read-pic-file
+                            write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode]]))
@@ -37,9 +40,14 @@
   [context uri]
   (let [uri-str (.toString uri)
         attachments (get-state context :attachments)
-        new-attachments (set (conj attachments uri-str))]
-    (set-state context :attachments new-attachments)
-    new-attachments))
+        new-attachments (if (.startsWith uri-str "file://")
+                          (for [path (get-files-in-uri uri-str)]
+                            (if (read-pic-file path) path))
+                          (if (.startsWith uri-str "content://")
+                            #{uri-str}))
+        total-attachments (disj (set (concat attachments new-attachments)) nil)]
+    (set-state context :attachments total-attachments)
+    total-attachments))
 
 (defn clear-attachments
   [context]
@@ -124,12 +132,18 @@
 
 (defn do-send-new-post
   [context dialog-view button-view]
-  (let [text (.toString (.getText dialog-view))]
-    (write-post-file text))
-  (show-spinner context
-                (get-string :sending)
-                (fn []
-                  (create-meta-torrent)))
+  (let [text-view (.findViewWithTag dialog-view "post-body")
+        text (.toString (.getText text-view))
+        attachments (get-state context :attachments)]
+    (show-spinner context
+                  (get-string :sending)
+                  (fn []
+                    (write-post-file text
+                                     (for [path attachments]
+                                       (if (.startsWith path "content://")
+                                         (read-pic-uri context path)
+                                         (read-pic-file path))))
+                    (create-meta-torrent))))
   true)
 
 (defn do-attach-to-new-post
@@ -144,16 +158,18 @@
 
 (defn do-save-profile
   [context dialog-view button-view]
-  (let [linear-layout (.getChildAt dialog-view 0)
-        name-field (.getChildAt linear-layout 0)
-        body-field (.getChildAt linear-layout 1)
-        image-view (.getChildAt linear-layout 2)
+  (let [name-field (.findViewWithTag dialog-view "profile-title")
+        body-field (.findViewWithTag dialog-view "profile-body")
+        image-view (.findViewWithTag dialog-view "profile-image")
         name-text (.toString (.getText name-field))
         body-text (.toString (.getText body-field))
         image-bitmap (if-let [drawable (.getDrawable image-view)]
                        (.getBitmap drawable))]
-    (write-profile-file name-text body-text image-bitmap))
-  (show-spinner context (get-string :saving) create-meta-torrent)
+    (show-spinner context
+                  (get-string :saving)
+                  (fn []
+                    (write-profile-file name-text body-text image-bitmap)
+                    (create-meta-torrent))))
   true)
 
 (defn do-cancel

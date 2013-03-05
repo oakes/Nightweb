@@ -9,8 +9,7 @@
                                  b-decode
                                  base32-encode
                                  base32-decode]]
-        [nightweb.db :only [run-query
-                            get-pic-data
+        [nightweb.db :only [get-pic-data
                             get-old-pic-data
                             get-old-post-data
                             delete-old-pic-data
@@ -66,6 +65,14 @@
     (if (.isDirectory f)
       (func (.getName f)))))
 
+(defn get-files-in-uri
+  [uri-str]
+  (let [java-uri (java.net.URI/create uri-str)
+        files (for [uri-file (file-seq (file java-uri))]
+                (if (.isFile uri-file)
+                  (.getCanonicalPath uri-file)))]
+    (disj (set files) nil)))
+
 ; read/write specific files
 
 (defn write-key-file
@@ -103,22 +110,25 @@
     (if (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
-(defn write-post-file
-  [text]
-  (let [args {"body" text
-              "time" (.getTime (java.util.Date.))}
-        data-barray (b-encode args)
-        hash-str (base32-encode (create-hash data-barray))]
-    (write-file (str (get-post-dir my-hash-str) slash hash-str)
-                data-barray)))
+(defn read-pic-uri
+  [context uri-str]
+  (try
+    (let [cr (.getContentResolver context)
+          uri (android.net.Uri/parse uri-str)]
+      (android.provider.MediaStore$Images$Media/getBitmap cr uri))
+    (catch java.lang.Exception e nil)))
 
 (defn read-pic-file
-  [user-hash-bytes image-hash-bytes]
-  (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
-                     slash
-                     (base32-encode image-hash-bytes))]
-    (if (and user-hash-bytes image-hash-bytes (file-exists? path))
-      (android.graphics.BitmapFactory/decodeFile path))))
+  ([user-hash-bytes image-hash-bytes]
+   (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
+                   slash
+                   (base32-encode image-hash-bytes))]
+     (if (and user-hash-bytes image-hash-bytes)
+       (read-pic-file path))))
+  ([path]
+   (try
+     (android.graphics.BitmapFactory/decodeFile path)
+     (catch java.lang.Exception e nil))))
 
 (defn write-pic-file
   [image-bitmap]
@@ -133,11 +143,23 @@
                   data-barray)
       image-hash)))
 
+(defn write-post-file
+  [text image-bitmaps]
+  (let [image-hashes (for [bitmap image-bitmaps]
+                       (write-pic-file bitmap))
+        args {"body" text
+              "time" (.getTime (java.util.Date.))
+              "pics" (vec (disj (set image-hashes) nil))}
+        data-barray (b-encode args)
+        hash-str (base32-encode (create-hash data-barray))]
+    (write-file (str (get-post-dir my-hash-str) slash hash-str)
+                data-barray)))
+
 (defn write-profile-file
   [name-text body-text image-bitmap]
   (let [args {:userhash my-hash-bytes
               :ptrhash my-hash-bytes}]
-    (doseq [pic (run-query get-pic-data args)]
+    (doseq [pic (get-pic-data args)]
       (delete-file (str (get-pic-dir my-hash-str)
                         slash
                         (base32-encode (get pic :pichash))))))
@@ -180,13 +202,13 @@
   [user-hash-bytes last-updated]
   (let [args {:userhash user-hash-bytes
               :lastupdated last-updated}]
-    (doseq [pic (run-query get-old-pic-data args)]
+    (doseq [pic (get-old-pic-data args)]
       (delete-file (str (get-pic-dir (base32-encode user-hash-bytes))
                         slash
                         (base32-encode (get pic :pichash)))))
-    (doseq [post (run-query get-old-post-data args)]
+    (doseq [post (get-old-post-data args)]
       (delete-file (str (get-post-dir (base32-encode user-hash-bytes))
                         slash
                         (base32-encode (get post :posthash)))))
-    (run-query delete-old-pic-data args)
-    (run-query delete-old-post-data args)))
+    (delete-old-pic-data args)
+    (delete-old-post-data args)))

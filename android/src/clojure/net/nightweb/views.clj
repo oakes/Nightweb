@@ -9,9 +9,9 @@
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
-        [nightweb.io :only [read-pic-file]]
-        [nightweb.db :only [run-query
-                            get-user-data
+        [nightweb.io :only [read-pic-uri
+                            read-pic-file]]
+        [nightweb.db :only [get-user-data
                             get-post-data
                             get-single-post-data
                             get-category-data]]
@@ -27,12 +27,6 @@
 (defn set-text-size
   [view size]
   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
-
-(defn set-image-uri
-  [context image-view uri]
-  (let [cr (.getContentResolver context)
-        bitmap (android.provider.MediaStore$Images$Media/getBitmap cr uri)]
-    (.setImageBitmap image-view bitmap)))
 
 (defn make-dip
   [context number]
@@ -130,7 +124,8 @@
 (defn get-new-post-view
   [context content]
   (let [view (make-ui context [:linear-layout {:orientation 1}
-                               [:edit-text {:min-lines 10}]])
+                               [:edit-text {:min-lines 10
+                                            :tag "post-body"}]])
         text-view (.getChildAt view 0)]
     (set-text-size text-view default-text-size)
     (clear-attachments context)
@@ -149,7 +144,7 @@
     (future
       (let [post (if (get content :body)
                    content
-                   (run-query get-single-post-data content))]
+                   (get-single-post-data content))]
         (on-ui (.setText text-body (get post :body)))))
     view))
 
@@ -171,8 +166,10 @@
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:edit-text {:lines 1
-                                               :layout-width :fill}]
-                                  [:edit-text {:layout-width :fill}]]])
+                                               :layout-width :fill
+                                               :tag "profile-title"}]
+                                  [:edit-text {:layout-width :fill
+                                               :tag "profile-body"}]]])
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:text-view {:lines 1
@@ -197,18 +194,22 @@
     (.setText text-name (get content :title))
     (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
+    (.setTag image-view "profile-image")
     (.setBackgroundResource image-view
                             (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setImageBitmap image-view (read-pic-file (get content :userhash)
                                                (get content :pichash)))
     (if (get content :is-me?)
-      (.setOnClickListener image-view
-                           (proxy [android.view.View$OnClickListener] []
-                             (onClick [v]
-                               (request-files context
-                                              "image/*"
-                                              #(set-image-uri context v %1))))))
+      (.setOnClickListener
+        image-view
+        (proxy [android.view.View$OnClickListener] []
+          (onClick [v]
+            (request-files context
+                           "image/*"
+                           (fn [uri]
+                             (let [pic (read-pic-uri context (.toString uri))]
+                               (.setImageBitmap image-view pic))))))))
     (.addView linear-layout image-view)
     view))
 
@@ -216,7 +217,7 @@
   [context content]
   (let [grid-view (get-grid-view context [])]
     (future
-      (let [user (run-query get-user-data content)
+      (let [user (get-user-data content)
             first-tiles [{:title (get-string :profile)
                           :add-emphasis? true
                           :content user
@@ -244,7 +245,7 @@
             add-to-fav [{:title (get-string :add_to_favorites)
                          :add-emphasis? true
                          :type :add-to-fav}]
-            posts (run-query get-post-data content)
+            posts (get-post-data content)
             grid-content (into [] (concat first-tiles
                                           (if-not (get user :is-me?) add-to-fav)
                                           posts))]
@@ -255,7 +256,7 @@
   [context content]
   (let [grid-view (get-grid-view context [])]
     (future
-      (let [results (run-query get-category-data content)
+      (let [results (get-category-data content)
             grid-content (into [] results)]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
