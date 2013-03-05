@@ -14,6 +14,7 @@
                                  base32-decode
                                  b-encode
                                  b-decode
+                                 b-decode-map
                                  b-decode-bytes
                                  b-decode-long]]
         [nightweb.db :only [insert-meta-data]]
@@ -147,12 +148,11 @@
         (send-meta-link snark)
         (let [parent-dir (.getParentFile (file (.getName snark)))
               user-hash-bytes (base32-decode (.getName parent-dir))
-              last-updated (.getTime (java.util.Date.))]
-          (doseq [path-leaves (.getFiles (.getMetaInfo snark))]
+              paths (.getFiles (.getMetaInfo snark))]
+          (doseq [path-leaves paths]
             (insert-meta-data user-hash-bytes
-                              (read-meta-file parent-dir path-leaves)
-                              last-updated))
-          (delete-meta-files user-hash-bytes last-updated))))
+                              (read-meta-file parent-dir path-leaves)))
+          (delete-meta-files user-hash-bytes paths))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
@@ -233,7 +233,7 @@
 (defn parse-meta-link
   [link]
   (let [{data-val "data" sig-val "sig"} link
-        data-map (b-decode (b-decode-bytes data-val))
+        data-map (b-decode-map (b-decode (b-decode-bytes data-val)))
         {user-hash-val "user_hash"
          link-hash-val "link_hash"
          time-val "time"} data-map

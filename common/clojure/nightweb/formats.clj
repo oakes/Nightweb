@@ -1,14 +1,22 @@
 (ns nightweb.formats)
 
 (defn b-encode
-  [data-map]
-  (org.klomp.snark.bencode.BEncoder/bencode data-map))
+  [data-value]
+  (try
+    (org.klomp.snark.bencode.BEncoder/bencode data-value)
+    (catch java.lang.Exception e nil)))
 
 (defn b-decode
   [data-barray]
   (try
-    (.getMap (org.klomp.snark.bencode.BDecoder/bdecode
-               (java.io.ByteArrayInputStream. data-barray)))
+    (org.klomp.snark.bencode.BDecoder/bdecode
+      (java.io.ByteArrayInputStream. data-barray))
+    (catch java.lang.Exception e nil)))
+
+(defn b-decode-map
+  [be-value]
+  (try
+    (.getMap be-value)
     (catch java.lang.Exception e nil)))
 
 (defn b-decode-list
@@ -34,6 +42,12 @@
   (try
     (.getString be-value)
     (catch java.lang.Exception e nil)))
+
+(defn b-decode-byte-list
+  [be-value]
+  (vec
+    (for [list-item (b-decode-list be-value)]
+      (b-decode-bytes list-item))))
 
 (defn base32-encode
   [data-barray]
