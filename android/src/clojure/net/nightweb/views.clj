@@ -9,7 +9,7 @@
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
-        [nightweb.io :only [read-prev-file]]
+        [nightweb.io :only [read-pic-file]]
         [nightweb.db :only [run-query
                             get-user-data
                             get-post-data
@@ -35,8 +35,8 @@
     (.setImageBitmap image-view bitmap)))
 
 (defn make-dip
-  [context width]
-  (int (* (.density (.getDisplayMetrics (.getResources context))) width)))
+  [context number]
+  (int (* (.density (.getDisplayMetrics (.getResources context))) number)))
 
 (defn set-grid-view-tiles
   [context content view]
@@ -80,8 +80,8 @@
                 (.setTypeface text-top
                               android.graphics.Typeface/DEFAULT_BOLD))
               (.setImageBitmap image-view
-                               (read-prev-file (get item :userhash)
-                                                (get item :prevhash)))
+                               (read-pic-file (get item :userhash)
+                                              (get item :pichash)))
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom 14)
               (.setPadding linear-layout pad pad pad pad)
@@ -200,8 +200,8 @@
     (.setBackgroundResource image-view
                             (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (.setImageBitmap image-view (read-prev-file (get content :userhash)
-                                                 (get content :prevhash)))
+    (.setImageBitmap image-view (read-pic-file (get content :userhash)
+                                               (get content :pichash)))
     (if (get content :is-me?)
       (.setOnClickListener image-view
                            (proxy [android.view.View$OnClickListener] []
@@ -221,7 +221,7 @@
                           :add-emphasis? true
                           :content user
                           :userhash (get user :userhash)
-                          :prevhash (get user :prevhash)
+                          :pichash (get user :pichash)
                           :type :custom-func
                           :func
                           (fn [context item]
@@ -240,34 +240,25 @@
                          {:title (get-string :favorites)
                           :add-emphasis? true
                           :content user
-                          :type :fav}
-                         (if (get user :is-me?)
-                           {:title (get-string :transfers)
-                            :add-emphasis? true
-                            :content user
-                            :type :tran}
-                           {:title (get-string :add_to_favorites)
-                            :add-emphasis? true
-                            :type :add-to-fav})]
+                          :type :fav}]
+            add-to-fav [{:title (get-string :add_to_favorites)
+                         :add-emphasis? true
+                         :type :add-to-fav}]
             posts (run-query get-post-data content)
-            grid-content (into [] (concat first-tiles posts))]
+            grid-content (into [] (concat first-tiles
+                                          (if-not (get user :is-me?) add-to-fav)
+                                          posts))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
 
 (defn get-category-view
-  ([context content] (get-category-view context content false))
-  ([context content show-tags?]
-   (let [grid-view (get-grid-view context [])]
-     (future
-       (let [results (run-query get-category-data content)
-             tags (if show-tags?
-                    [{:title (get-string :tags)
-                      :add-emphasis? true
-                      :type :tag}]
-                    [])
-             grid-content (into [] (concat tags results))]
-         (on-ui (set-grid-view-tiles context grid-content grid-view))))
-     grid-view)))
+  [context content]
+  (let [grid-view (get-grid-view context [])]
+    (future
+      (let [results (run-query get-category-data content)
+            grid-content (into [] results)]
+        (on-ui (set-grid-view-tiles context grid-content grid-view))))
+    grid-view))
 
 (defn create-tab
   [action-bar title create-view]

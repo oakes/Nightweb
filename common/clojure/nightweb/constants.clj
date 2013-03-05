@@ -19,8 +19,7 @@
 (def nw-dir (str slash "nwapp"))
 (def meta-dir (str slash "meta"))
 (def post-dir (str slash "post"))
-(def torrent-dir (str slash "torrent"))
-(def prev-dir (str slash "prev"))
+(def pic-dir (str slash "pic"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
@@ -60,10 +59,6 @@
   [user-hash]
   (str (get-meta-dir user-hash) post-dir))
 
-(defn get-torrent-dir
-  ([] (str base-dir nw-dir torrent-dir))
-  ([user-hash] (str (get-meta-dir user-hash) torrent-dir)))
-
-(defn get-prev-dir
+(defn get-pic-dir
   [user-hash]
-  (str (get-meta-dir user-hash) prev-dir))
+  (str (get-meta-dir user-hash) pic-dir))

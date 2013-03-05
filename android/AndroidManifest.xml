@@ -26,9 +26,6 @@
 			android:name=".FavoritesPage">
 		</activity>
 		<activity
-			android:name=".TransfersPage">
-		</activity>
-		<activity
 			android:name=".BasicPage">
 			<intent-filter>
 				<action android:name="android.intent.action.VIEW"/>

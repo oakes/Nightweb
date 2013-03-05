@@ -48,12 +48,12 @@
                       (get-string :users)
                       #(let [content {:type :user}]
                          (set-state this :share content)
-                         (get-category-view this content true)))
+                         (get-category-view this content)))
           (create-tab action-bar
                       (get-string :posts)
                       #(let [content {:type :post}]
                          (set-state this :share content)
-                         (get-category-view this content true))))))
+                         (get-category-view this content))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
@@ -83,37 +83,6 @@
                   (get-string :posts)
                   #(get-category-view this
                                       (assoc params :type :post-fav)))))
-  :on-destroy
-  (fn [this]
-    (stop-receiver this shutdown-receiver-name))
-  :on-create-options-menu
-  (fn [this menu]
-    (create-main-menu this menu false))
-  :on-options-item-selected
-  (fn [this item]
-    (do-menu-action this item)))
-
-(defactivity
-  net.nightweb.TransfersPage
-  :on-create
-  (fn [this bundle]
-    (start-receiver this shutdown-receiver-name shutdown-receiver-func)
-    (let [action-bar (.getActionBar this)]
-      (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
-      (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get-string :transfers))
-      (create-tab action-bar
-                  (get-string :all)
-                  #(get-category-view this {:type :all-tran}))
-      (create-tab action-bar
-                  (get-string :photos)
-                  #(get-category-view this {:type :photos-tran}))
-      (create-tab action-bar
-                  (get-string :videos)
-                  #(get-category-view this {:type :videos-tran}))
-      (create-tab action-bar
-                  (get-string :audio)
-                  #(get-category-view this {:type :audio-tran}))))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name))

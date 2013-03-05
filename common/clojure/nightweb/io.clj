@@ -4,17 +4,16 @@
                                 output-stream
                                 copy]]
         [nightweb.crypto :only [create-hash
-                                create-hash-input-stream
                                 create-signature]]
         [nightweb.formats :only [b-encode
                                  b-decode
                                  base32-encode
                                  base32-decode]]
         [nightweb.db :only [run-query
-                            get-prev-data
-                            get-old-prev-data
+                            get-pic-data
+                            get-old-pic-data
                             get-old-post-data
-                            delete-old-prev-data
+                            delete-old-pic-data
                             delete-old-post-data]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
@@ -27,9 +26,8 @@
                                    pub-node-key-file
                                    get-user-dir
                                    get-meta-dir
-                                   get-prev-dir
-                                   get-post-dir
-                                   get-torrent-dir]]))
+                                   get-pic-dir
+                                   get-post-dir]]))
 
 ; basic file operations
 
@@ -67,14 +65,6 @@
   (doseq [f (.listFiles (file path))]
     (if (.isDirectory f)
       (func (.getName f)))))
-
-(defn get-files-in-uri
-  [uri-str]
-  (let [java-uri (java.net.URI/create uri-str)
-        files (for [uri-file (file-seq (file java-uri))]
-                (if (.isFile uri-file)
-                  (.getCanonicalPath uri-file)))]
-    (disj (set files) nil)))
 
 ; read/write specific files
 
@@ -122,24 +112,24 @@
     (write-file (str (get-post-dir my-hash-str) slash hash-str)
                 data-barray)))
 
-(defn read-prev-file
+(defn read-pic-file
   [user-hash-bytes image-hash-bytes]
-  (let [path (str (get-prev-dir (base32-encode user-hash-bytes))
+  (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
                      slash
                      (base32-encode image-hash-bytes))]
     (if (and user-hash-bytes image-hash-bytes (file-exists? path))
       (android.graphics.BitmapFactory/decodeFile path))))
 
-(defn write-prev-file
+(defn write-pic-file
   [image-bitmap]
   (if image-bitmap
     (let [out (java.io.ByteArrayOutputStream.)
-          png android.graphics.Bitmap$CompressFormat/PNG
-          _ (.compress image-bitmap png 90 out)
+          image-format android.graphics.Bitmap$CompressFormat/WEBP
+          _ (.compress image-bitmap image-format 90 out)
           data-barray (.toByteArray out)
           image-hash (create-hash data-barray)
           file-name (base32-encode image-hash)]
-      (write-file (str (get-prev-dir my-hash-str) slash file-name)
+      (write-file (str (get-pic-dir my-hash-str) slash file-name)
                   data-barray)
       image-hash)))
 
@@ -147,17 +137,16 @@
   [name-text body-text image-bitmap]
   (let [args {:userhash my-hash-bytes
               :ptrhash my-hash-bytes}]
-    (doseq [prev (run-query get-prev-data args)]
-      (delete-file (str (get-prev-dir my-hash-str)
+    (doseq [pic (run-query get-pic-data args)]
+      (delete-file (str (get-pic-dir my-hash-str)
                         slash
-                        (base32-encode (get prev :prevhash))))))
-  (let [args {"title" name-text
-              "body" body-text}
-        image-hash (write-prev-file image-bitmap)]
+                        (base32-encode (get pic :pichash))))))
+  (let [image-hash (write-pic-file image-bitmap)
+        args {"title" name-text
+              "body" body-text
+              "pics" (if image-hash [image-hash] [])}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
-                (b-encode (if image-hash
-                            (assoc args "prev" image-hash)
-                            args)))))
+                (b-encode args))))
 
 (defn write-link-file
   [link-hash]
@@ -191,24 +180,13 @@
   [user-hash-bytes last-updated]
   (let [args {:userhash user-hash-bytes
               :lastupdated last-updated}]
-    (doseq [prev (run-query get-old-prev-data args)]
-      (delete-file (str (get-prev-dir (base32-encode user-hash-bytes))
+    (doseq [pic (run-query get-old-pic-data args)]
+      (delete-file (str (get-pic-dir (base32-encode user-hash-bytes))
                         slash
-                        (base32-encode (get prev :prevhash)))))
+                        (base32-encode (get pic :pichash)))))
     (doseq [post (run-query get-old-post-data args)]
       (delete-file (str (get-post-dir (base32-encode user-hash-bytes))
                         slash
                         (base32-encode (get post :posthash)))))
-    (run-query delete-old-prev-data args)
+    (run-query delete-old-pic-data args)
     (run-query delete-old-post-data args)))
-
-(defn copy-content-file
-  [context uri]
-  (let [cr (.getContentResolver context)
-        is (.openInputStream cr uri)
-        hash-is (create-hash-input-stream is)
-        temp-path (str (get-torrent-dir) slash "temp")]
-    (make-dir (get-torrent-dir))
-    (delete-file temp-path)
-    (copy hash-is (file temp-path))
-    (base32-encode (.digest (.getMessageDigest hash-is)))))

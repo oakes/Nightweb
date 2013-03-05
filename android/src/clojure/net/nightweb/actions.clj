@@ -4,8 +4,7 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [get-files-in-uri
-                            write-post-file
+        [nightweb.io :only [write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode]]))
@@ -37,21 +36,14 @@
 (defn receive-attachments
   [context uri]
   (let [uri-str (.toString uri)
-        attach-total (get-state context :attach-total)]
-    (if (.startsWith uri-str "file://")
-      (let [attach-files (get-state context :attach-files)
-            files (get-files-in-uri uri-str)]
-        (set-state context :attach-files (set (conj attach-files uri-str)))
-        (set-state context :attach-total (set (concat attach-total files))))
-      (let [attach-content (get-state context :attach-content)]
-        (set-state context :attach-content (set (conj attach-content uri-str)))
-        (set-state context :attach-total (set (conj attach-total uri-str)))))))
+        attachments (get-state context :attachments)
+        new-attachments (set (conj attachments uri-str))]
+    (set-state context :attachments new-attachments)
+    new-attachments))
 
 (defn clear-attachments
   [context]
-  (set-state context :attach-files nil)
-  (set-state context :attach-content nil)
-  (set-state context :attach-total nil))
+  (set-state context :attachments nil))
 
 (defn show-page
   [context class-name params]
@@ -126,10 +118,6 @@
   [context content]
   (show-page context "net.nightweb.FavoritesPage" (get content :content)))
 
-(defn show-transfers
-  [context content]
-  (show-page context "net.nightweb.TransfersPage" (get content :content)))
-
 (defn show-basic
   [context content]
   (show-page context "net.nightweb.BasicPage" content))
@@ -147,10 +135,9 @@
 (defn do-attach-to-new-post
   [context dialog-view button-view]
   (request-files context
-                 "*/*"
+                 "image/*"
                  (fn [uri]
-                   (receive-attachments context uri)
-                   (let [total-count (count (get-state context :attach-total))
+                   (let [total-count (count (receive-attachments context uri))
                          text (str (get-string :attach) " (" total-count ")")]
                      (on-ui (.setText button-view text)))))
   false)
@@ -183,7 +170,6 @@
   [context item]
   (if-let [func (case (get item :type)
                   :fav show-favorites
-                  :tran show-transfers
                   :custom-func (get item :func)
                   show-basic)]
     (func context item)))

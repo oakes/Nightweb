@@ -10,7 +10,8 @@
                                  b-decode
                                  b-decode-bytes
                                  b-decode-string
-                                 b-decode-long]]
+                                 b-decode-long
+                                 b-decode-list]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
 (def spec nil)
@@ -31,7 +32,7 @@
       (drop-table :user)
       (drop-table :post)
       (drop-table :file)
-      (drop-table :prev)
+      (drop-table :pic)
       (drop-table :fav))
     (catch java.lang.Exception e (println "Tables don't exist"))))
 
@@ -60,8 +61,8 @@
     [:bytes "BIGINT"]
     [:lastupdated "BIGINT"])
   (create-table-if-not-exists
-    :prev
-    [:prevhash "BINARY"]
+    :pic
+    [:pichash "BINARY"]
     [:userhash "BINARY"]
     [:ptrhash "BINARY"]
     [:lastupdated "BIGINT"])
@@ -94,15 +95,16 @@
        :title (b-decode-string (get args "title"))
        :body (b-decode-string (get args "body"))
        :lastupdated last-updated})
-    (if-let [prev-hash (b-decode-bytes (get args "prev"))]
-      (update-or-insert-values
-        :prev
-        ["prevhash = ? and userhash = ? and ptrhash = ?"
-         prev-hash user-hash user-hash]
-        {:prevhash prev-hash
-         :userhash user-hash
-         :ptrhash user-hash
-         :lastupdated last-updated}))))
+    (if-let [pic-list (b-decode-list (get args "pics"))]
+      (if-let [pic-hash (b-decode-bytes (.get pic-list 0))]
+        (update-or-insert-values
+          :pic
+          ["pichash = ? AND userhash = ? AND ptrhash = ?"
+           pic-hash user-hash user-hash]
+          {:pichash pic-hash
+           :userhash user-hash
+           :ptrhash user-hash
+           :lastupdated last-updated})))))
 
 (defn insert-post
   [user-hash post-hash args last-updated]
@@ -139,9 +141,9 @@
         is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
     (with-query-results
       rs
-      [(str "SELECT * FROM user LEFT JOIN prev "
-            "ON user.userhash = prev.userhash "
-            "AND user.userhash = prev.ptrhash "
+      [(str "SELECT * FROM user LEFT JOIN pic "
+            "ON user.userhash = pic.userhash "
+            "AND user.userhash = pic.ptrhash "
             "WHERE user.userhash = ?") user-hash]
       (if-let [user (first rs)]
         (callback (assoc user :is-me? is-me?))
@@ -158,13 +160,13 @@
         (callback post)
         (callback params)))))
 
-(defn get-prev-data
+(defn get-pic-data
   [params callback]
   (let [user-hash (get params :userhash)
         ptr-hash (get params :ptrhash)]
     (with-query-results
       rs
-      ["SELECT * FROM prev WHERE userhash = ? AND ptrhash = ?"
+      ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
        user-hash ptr-hash]
       (callback (doall rs)))))
 
@@ -183,15 +185,15 @@
   (let [data-type (get params :type)
         user-hash (get params :userhash)
         statement (case data-type
-                    :user [(str "SELECT * FROM user LEFT JOIN prev "
-                                "ON user.userhash = prev.userhash "
-                                "AND user.userhash = prev.ptrhash")]
+                    :user [(str "SELECT * FROM user LEFT JOIN pic "
+                                "ON user.userhash = pic.userhash "
+                                "AND user.userhash = pic.ptrhash")]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :user-fav
                     [(str "SELECT * FROM user "
                           "INNER JOIN fav ON user.userhash = fav.favhash "
-                          "LEFT JOIN prev ON user.userhash = prev.userhash "
-                          "AND user.userhash = prev.ptrhash "
+                          "LEFT JOIN pic ON user.userhash = pic.userhash "
+                          "AND user.userhash = pic.ptrhash "
                           "WHERE fav.userhash = ?")
                      user-hash]
                     :post-fav
@@ -211,13 +213,13 @@
                   (for [row rs]
                     (assoc row :type data-type)))))))
 
-(defn get-old-prev-data
+(defn get-old-pic-data
   [params callback]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
     (with-query-results
       rs
-      ["SELECT * FROM prev WHERE userhash = ? AND lastupdated <> ?"
+      ["SELECT * FROM pic WHERE userhash = ? AND lastupdated <> ?"
        user-hash last-updated]
       (callback (doall rs)))))
 
@@ -233,12 +235,12 @@
 
 ; deletion
 
-(defn delete-old-prev-data
+(defn delete-old-pic-data
   [params callback]
   (let [user-hash (get params :userhash)
         last-updated (get params :lastupdated)]
     (delete-rows
-      :prev
+      :pic
       ["userhash = ? AND lastupdated <> ?" user-hash last-updated])))
 
 (defn delete-old-post-data

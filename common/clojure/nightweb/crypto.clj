@@ -29,10 +29,6 @@
   (let [algo (get-hash-algo)]
     (.digest algo data-barray)))
 
-(defn create-hash-input-stream
-  [is]
-  (java.security.DigestInputStream. is (get-hash-algo)))
-
 (defn create-signature
   [message]
   (.getData (.sign (net.i2p.crypto.DSAEngine/getInstance) message priv-key)))
