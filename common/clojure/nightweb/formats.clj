@@ -22,7 +22,7 @@
 (defn b-decode-list
   [be-value]
   (try
-    (.getList be-value)
+    (vec (.getList be-value))
     (catch java.lang.Exception e nil)))
 
 (defn b-decode-bytes

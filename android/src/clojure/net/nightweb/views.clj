@@ -75,7 +75,7 @@
                               android.graphics.Typeface/DEFAULT_BOLD))
               (.setImageBitmap image-view
                                (read-pic-file (get item :userhash)
-                                              (get-in item [:pics 0])))
+                                              (get item :pic)))
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom 14)
               (.setPadding linear-layout pad pad pad pad)
@@ -199,7 +199,7 @@
                             (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setImageBitmap image-view (read-pic-file (get content :userhash)
-                                               (get-in content [:pics 0])))
+                                               (get content :pic)))
     (if (get content :is-me?)
       (.setOnClickListener
         image-view
@@ -222,7 +222,7 @@
                           :add-emphasis? true
                           :content user
                           :userhash (get user :userhash)
-                          :pics (get user :pics)
+                          :pic (get user :pic)
                           :type :custom-func
                           :func
                           (fn [context item]

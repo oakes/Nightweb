@@ -12,6 +12,7 @@
                                  b-decode-bytes
                                  b-decode-string
                                  b-decode-long
+                                 b-decode-list
                                  b-decode-byte-list]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
@@ -26,13 +27,13 @@
 ; initialization
 
 (defn check-table
-  ([table-name] (check-table table-name "COUNT(*)"))
+  ([table-name] (check-table table-name "*"))
   ([table-name column-name]
    (try
      (run-query
        (with-query-results
          rs
-         [(str "SELECT " (name column-name) " FROM " (name table-name))]
+         [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
          rs))
      (catch java.lang.Exception e nil))))
 
@@ -45,7 +46,7 @@
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
-        [:pics "BINARY"])))
+        [:pic "BINARY"])))
   (if-not (check-table :post)
     (run-query
       (create-table
@@ -54,7 +55,15 @@
         [:userhash "BINARY"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
-        [:pics "BINARY"])))
+        [:pic "BINARY"]
+        [:count "BIGINT"])))
+  (if-not (check-table :pic)
+    (run-query
+      (create-table
+        :pic
+        [:pichash "BINARY"]
+        [:userhash "BINARY"]
+        [:ptrhash "BINARY"])))
   (if-not (check-table :fav)
     (run-query
       (create-table
@@ -68,6 +77,7 @@
     (run-query
       (drop-table :user)
       (drop-table :post)
+      (drop-table :pic)
       (drop-table :fav))
     (catch java.lang.Exception e (println "Tables don't exist"))))
 
@@ -83,20 +93,37 @@
 
 ; insertion
 
+(defn insert-pic-list
+  [user-hash ptr-hash args]
+  (let [pics (b-decode-list (get args "pics"))]
+    (run-query
+      (doseq [pic pics]
+        (if-let [pic-hash (b-decode-bytes pic)]
+          (update-or-insert-values
+            :pic
+            ["pichash = ? AND userhash = ? AND ptrhash = ?"
+             pic-hash user-hash ptr-hash]
+            {:pichash pic-hash
+             :userhash user-hash
+             :ptrhash ptr-hash}))))
+    pics))
+
 (defn insert-profile
   [user-hash args]
-  (run-query
-    (update-or-insert-values
-      :user
-      ["userhash = ?" user-hash]
-      {:userhash user-hash 
-       :title (b-decode-string (get args "title"))
-       :body (b-decode-string (get args "body"))
-       :pics (b-encode (b-decode-byte-list (get args "pics")))})))
+  (let [pics (insert-pic-list user-hash user-hash args)]
+    (run-query
+      (update-or-insert-values
+        :user
+        ["userhash = ?" user-hash]
+        {:userhash user-hash 
+         :title (b-decode-string (get args "title"))
+         :body (b-decode-string (get args "body"))
+         :pic (b-decode-bytes (get pics 0))}))))
 
 (defn insert-post
   [user-hash post-hash args]
-  (if-let [time-long (b-decode-long (get args "time"))]
+  (let [time-long (b-decode-long (get args "time"))
+        pics (insert-pic-list user-hash post-hash args)]
     (run-query
       (update-or-insert-values
         :post
@@ -105,7 +132,8 @@
          :userhash user-hash
          :body (b-decode-string (get args "body"))
          :time time-long
-         :pics (b-encode (b-decode-byte-list (get args "pics")))}))))
+         :pic (b-decode-bytes (get pics 0))
+         :count (count pics)}))))
 
 (defn insert-meta-data
   [user-hash data-map]
@@ -128,9 +156,7 @@
         rs
         [(str "SELECT * FROM user WHERE userhash = ?") user-hash]
         (if-let [user (first rs)]
-          (assoc user
-                 :is-me? is-me?
-                 :pics (b-decode-byte-list (b-decode (get user :pics))))
+          (assoc user :is-me? is-me?)
           (assoc params :is-me? is-me?))))))
 
 (defn get-single-post-data
@@ -143,7 +169,7 @@
         [(str "SELECT * FROM post "
               "WHERE userhash = ? AND time = ?") user-hash unix-time]
         (if-let [post (first rs)]
-          (assoc post :pics (b-decode-byte-list (b-decode (get post :pics))))
+          post
           params)))))
 
 (defn get-post-data
@@ -156,9 +182,7 @@
               "ORDER BY time DESC") user-hash]
         (doall
           (for [row rs]
-            (assoc row
-                   :type :post
-                   :pics (b-decode-byte-list (b-decode (get row :pics))))))))))
+            (assoc row :type :post)))))))
 
 (defn get-category-data
   [params]
@@ -189,6 +213,4 @@
         statement
         (doall
           (for [row rs]
-            (assoc row
-                   :type data-type
-                   :pics (b-decode-byte-list (b-decode (get row :pics))))))))))
+            (assoc row :type data-type)))))))
