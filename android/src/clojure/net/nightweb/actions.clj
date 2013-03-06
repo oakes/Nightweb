@@ -10,7 +10,8 @@
                             write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
-                                 url-encode]]))
+                                 url-encode
+                                 remove-dupes-and-nils]]))
 
 (defn share-url
   [context]
@@ -44,8 +45,9 @@
                           (for [path (get-files-in-uri uri-str)]
                             (if (read-pic-file path) path))
                           (if (.startsWith uri-str "content://")
-                            #{uri-str}))
-        total-attachments (disj (set (concat attachments new-attachments)) nil)]
+                            [uri-str]))
+        total-attachments (remove-dupes-and-nils
+                            (concat attachments new-attachments))]
     (set-state context :attachments total-attachments)
     total-attachments))
 

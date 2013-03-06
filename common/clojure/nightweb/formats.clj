@@ -89,3 +89,9 @@
     {:type (if type-val (keyword type-val))
      :userhash (if userhash-val (base32-decode userhash-val))
      :time (if time-val (long-decode time-val))}))
+
+(defn remove-dupes-and-nils
+  [the-list]
+  (->> the-list
+       (distinct)
+       (filter identity)))

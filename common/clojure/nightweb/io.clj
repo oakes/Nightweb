@@ -9,7 +9,8 @@
                                  b-decode
                                  b-decode-map
                                  base32-encode
-                                 base32-decode]]
+                                 base32-decode
+                                 remove-dupes-and-nils]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
                                    my-hash-str
@@ -67,7 +68,7 @@
         files (for [uri-file (file-seq (file java-uri))]
                 (if (.isFile uri-file)
                   (.getCanonicalPath uri-file)))]
-    (disj (set files) nil)))
+    (remove-dupes-and-nils files)))
 
 ; read/write specific files
 
@@ -145,7 +146,7 @@
                        (write-pic-file bitmap))
         args {"body" text
               "time" (.getTime (java.util.Date.))
-              "pics" (vec (disj (set image-hashes) nil))}
+              "pics" (remove-dupes-and-nils image-hashes)}
         data-barray (b-encode args)
         hash-str (base32-encode (create-hash data-barray))]
     (write-file (str (get-post-dir my-hash-str) slash hash-str)
