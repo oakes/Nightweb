@@ -1,8 +1,8 @@
 (ns nightweb.db
   (:use [nightweb.jdbc :only [with-connection
                               transaction
+                              create-table
                               drop-table
-                              create-table-if-not-exists
                               update-or-insert-values
                               with-query-results
                               delete-rows]]
@@ -25,36 +25,51 @@
 
 ; initialization
 
-(defn drop-tables
-  [params]
-  (try
-    (do
-      (drop-table :user)
-      (drop-table :post)
-      (drop-table :file)
-      (drop-table :pic)
-      (drop-table :fav))
-    (catch java.lang.Exception e (println "Tables don't exist"))))
+(defn check-table
+  ([table-name] (check-table table-name "COUNT(*)"))
+  ([table-name column-name]
+   (try
+     (run-query
+       (with-query-results
+         rs
+         [(str "SELECT " (name column-name) " FROM " (name table-name))]
+         rs))
+     (catch java.lang.Exception e nil))))
 
 (defn create-tables
-  [params]
-  (create-table-if-not-exists
-    :user
-    [:userhash "BINARY"]
-    [:title "VARCHAR"]
-    [:body "VARCHAR"]
-    [:pics "BINARY"])
-  (create-table-if-not-exists
-    :post
-    [:posthash "BINARY"]
-    [:userhash "BINARY"]
-    [:body "VARCHAR"]
-    [:time "BIGINT"]
-    [:pics "BINARY"])
-  (create-table-if-not-exists
-    :fav
-    [:favhash "BINARY"]
-    [:userhash "BINARY"]))
+  []
+  (if-not (check-table :user)
+    (run-query
+      (create-table
+        :user
+        [:userhash "BINARY"]
+        [:title "VARCHAR"]
+        [:body "VARCHAR"]
+        [:pics "BINARY"])))
+  (if-not (check-table :post)
+    (run-query
+      (create-table
+        :post
+        [:posthash "BINARY"]
+        [:userhash "BINARY"]
+        [:body "VARCHAR"]
+        [:time "BIGINT"]
+        [:pics "BINARY"])))
+  (if-not (check-table :fav)
+    (run-query
+      (create-table
+        :fav
+        [:favhash "BINARY"]
+        [:userhash "BINARY"]))))
+
+(defn drop-tables
+  []
+  (try
+    (run-query
+      (drop-table :user)
+      (drop-table :post)
+      (drop-table :fav))
+    (catch java.lang.Exception e (println "Tables don't exist"))))
 
 (defn init-db
   [base-dir]
@@ -63,8 +78,8 @@
       {:classname "org.h2.Driver"
        :subprotocol "h2"
        :subname (str base-dir db-file)})
-    ;(run-query (drop-tables nil))
-    (run-query (create-tables nil))))
+    ;(drop-tables)
+    (create-tables)))
 
 ; insertion
 

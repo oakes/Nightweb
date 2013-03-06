@@ -520,13 +520,6 @@ generated keys are returned (as a map)." }
   [name & specs]
   (do-commands (apply create-table-ddl name specs)))
 
-(defn create-table-if-not-exists
-  [name & specs]
-  (do-commands (clojure.string/replace
-                     (apply create-table-ddl name specs)
-                     "CREATE TABLE"
-                     "CREATE TABLE IF NOT EXISTS")))
-
 (defn drop-table
   "Drops a table on the open database connection given its name, a string
   or keyword"
