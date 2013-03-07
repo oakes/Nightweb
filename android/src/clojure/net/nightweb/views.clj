@@ -13,6 +13,7 @@
                             read-pic-file]]
         [nightweb.db :only [get-user-data
                             get-post-data
+                            get-pic-data
                             get-single-post-data
                             get-category-data]]
         [nightweb.torrents :only [is-connecting?]]))
@@ -75,7 +76,7 @@
                               android.graphics.Typeface/DEFAULT_BOLD))
               (.setImageBitmap image-view
                                (read-pic-file (get item :userhash)
-                                              (get item :pic)))
+                                              (get item :pichash)))
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom 14)
               (.setPadding linear-layout pad pad pad pad)
@@ -138,14 +139,21 @@
                                 [:text-view {:layout-width :fill
                                              :text-is-selectable true}]]])
         linear-layout (.getChildAt view 0)
-        text-body (.getChildAt linear-layout 0)]
-    (.setPadding linear-layout 10 10 10 10)
-    (set-text-size text-body default-text-size)
+        text-view (.getChildAt linear-layout 0)
+        grid-view (get-grid-view context [])
+        pad (make-dip context 10)]
+    (.setPadding linear-layout pad pad pad pad)
+    (.setPadding grid-view 0 pad 0 0)
+    (.addView linear-layout grid-view)
+    (set-text-size text-view default-text-size)
     (future
       (let [post (if (get content :body)
                    content
-                   (get-single-post-data content))]
-        (on-ui (.setText text-body (get post :body)))))
+                   (get-single-post-data content))
+            pics (get-pic-data (get content :userhash)
+                               (get content :posthash))]
+        (on-ui (.setText text-view (get post :body))
+               (set-grid-view-tiles context pics grid-view))))
     view))
 
 (defn get-file-view
@@ -199,7 +207,7 @@
                             (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setImageBitmap image-view (read-pic-file (get content :userhash)
-                                               (get content :pic)))
+                                               (get content :pichash)))
     (if (get content :is-me?)
       (.setOnClickListener
         image-view
@@ -222,7 +230,7 @@
                           :add-emphasis? true
                           :content user
                           :userhash (get user :userhash)
-                          :pic (get user :pic)
+                          :pichash (get user :pichash)
                           :type :custom-func
                           :func
                           (fn [context item]

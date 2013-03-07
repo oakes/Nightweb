@@ -46,7 +46,7 @@
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
-        [:pic "BINARY"])))
+        [:pichash "BINARY"])))
   (if-not (check-table :post)
     (run-query
       (create-table
@@ -55,7 +55,7 @@
         [:userhash "BINARY"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
-        [:pic "BINARY"]
+        [:pichash "BINARY"]
         [:count "BIGINT"])))
   (if-not (check-table :pic)
     (run-query
@@ -118,7 +118,7 @@
         {:userhash user-hash 
          :title (b-decode-string (get args "title"))
          :body (b-decode-string (get args "body"))
-         :pic (b-decode-bytes (get pics 0))}))))
+         :pichash (b-decode-bytes (get pics 0))}))))
 
 (defn insert-post
   [user-hash post-hash args]
@@ -132,7 +132,7 @@
          :userhash user-hash
          :body (b-decode-string (get args "body"))
          :time time-long
-         :pic (b-decode-bytes (get pics 0))
+         :pichash (b-decode-bytes (get pics 0))
          :count (count pics)}))))
 
 (defn insert-meta-data
@@ -180,9 +180,10 @@
         rs
         [(str "SELECT * FROM post WHERE userhash = ? "
               "ORDER BY time DESC") user-hash]
-        (doall
-          (for [row rs]
-            (assoc row :type :post)))))))
+        (vec
+          (doall
+            (for [row rs]
+              (assoc row :type :post))))))))
 
 (defn get-category-data
   [params]
@@ -211,6 +212,16 @@
       (with-query-results
         rs
         statement
-        (doall
-          (for [row rs]
-            (assoc row :type data-type)))))))
+        (vec
+          (doall
+            (for [row rs]
+              (assoc row :type data-type))))))))
+
+(defn get-pic-data
+  [user-hash ptr-hash]
+  (run-query
+    (with-query-results
+      rs
+      ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
+       user-hash ptr-hash]
+      (vec (doall rs)))))
