@@ -43,7 +43,7 @@
                          (get-new-post-view context [])
                          {:positive-name (get-string :send)
                           :positive-func do-send-new-post
-                          :neutral-name (get-string :attach)
+                          :neutral-name (get-string :attach_pics)
                           :neutral-func do-attach-to-new-post
                           :negative-name (get-string :cancel)
                           :negative-func do-cancel}))

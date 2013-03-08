@@ -29,7 +29,7 @@
   [page & body]
   `(format (str ~@body " LIMIT %d OFFSET %d")
            (+ ~limit 1)
-           (* ~limit (or ~page 0))))
+           (* ~limit (if ~page (- ~page 1) 0))))
 
 (defn prepare-results
   [rs table]
@@ -57,6 +57,7 @@
     (run-query
       (create-table
         :user
+        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
@@ -65,16 +66,20 @@
     (run-query
       (create-table
         :post
+        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:posthash "BINARY"]
         [:userhash "BINARY"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
         [:pichash "BINARY"]
-        [:count "BIGINT"])))
+        [:count "BIGINT"]
+        [:userptrhash "BINARY"]
+        [:postptrhash "BINARY"])))
   (if-not (check-table :pic)
     (run-query
       (create-table
         :pic
+        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:pichash "BINARY"]
         [:userhash "BINARY"]
         [:ptrhash "BINARY"])))
@@ -82,6 +87,7 @@
     (run-query
       (create-table
         :fav
+        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:favhash "BINARY"]
         [:userhash "BINARY"]))))
 

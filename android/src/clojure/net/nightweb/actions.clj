@@ -158,7 +158,8 @@
                  "image/*"
                  (fn [uri]
                    (let [total-count (count (receive-attachments context uri))
-                         text (str (get-string :attach) " (" total-count ")")]
+                         text (str (get-string :attach_pics)
+                                   " (" total-count ")")]
                      (on-ui (.setText button-view text)))))
   false)
 

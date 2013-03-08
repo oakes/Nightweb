@@ -20,7 +20,8 @@
   <string name="about_me">About me</string>
 
   <string name="cancel">Cancel</string>
-  <string name="attach">Attach Pics...</string>
+  <string name="attach">Attach...</string>
+  <string name="attach_pics">Attach Pics...</string>
   <string name="save">Save</string>
   <string name="send">Send</string>
   <string name="ok">OK</string>

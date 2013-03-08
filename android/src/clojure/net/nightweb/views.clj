@@ -42,11 +42,13 @@
 (defn add-last-tile
   [content results]
   (if (> (count results) limit)
-    (let [next-page (+ (or (get content :page) 0) 1)]
+    (let [next-page (-> (get content :page)
+                        (or 1)
+                        (+ 1))]
       (-> results
           (pop)
           (conj (assoc content
-                       :title (str (get-string :page) " " (+ next-page 1))
+                       :title (str (get-string :page) " " next-page)
                        :add-emphasis? true
                        :page next-page))))
     results))
@@ -168,7 +170,7 @@
       (let [post (if (get content :body)
                    content
                    (get-single-post-data content))
-            pics (add-last-tile content (get-pic-data content :posthash))]
+            pics (get-pic-data content :posthash)]
         (on-ui (.setText text-view (get post :body))
                (set-grid-view-tiles context pics grid-view))))
     view))
