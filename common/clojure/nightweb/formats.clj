@@ -94,4 +94,4 @@
   [the-list]
   (->> the-list
        (distinct)
-       (filter identity)))
+       (remove nil?)))

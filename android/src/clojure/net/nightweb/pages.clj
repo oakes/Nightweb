@@ -15,6 +15,7 @@
                                    get-grid-view
                                    get-user-view
                                    get-post-view
+                                   get-gallery-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [receive-result
@@ -92,6 +93,21 @@
   :on-options-item-selected
   (fn [this item]
     (do-menu-action this item)))
+
+(defactivity
+  net.nightweb.GalleryPage
+  :def gallery-page
+  :on-create
+  (fn [this bundle]
+    (start-receiver this shutdown-receiver-name shutdown-receiver-func)
+    (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
+          action-bar (.getActionBar this)
+          view (get-gallery-view this params)]
+      (.hide action-bar)
+      (set-content-view! gallery-page view)))
+  :on-destroy
+  (fn [this]
+    (stop-receiver this shutdown-receiver-name)))
 
 (defactivity
   net.nightweb.BasicPage

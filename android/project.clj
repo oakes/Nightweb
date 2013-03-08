@@ -9,6 +9,7 @@
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
+  :resource-paths ["libs/android-support-v13.jar"]
   ;; The following two definitions are optional. The default
   ;; target-path is "target", but you can change it to whatever you like.
   ;; :target-path "bin"

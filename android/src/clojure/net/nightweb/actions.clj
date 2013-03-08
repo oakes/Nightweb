@@ -128,6 +128,10 @@
   [context content]
   (show-page context "net.nightweb.FavoritesPage" (get content :content)))
 
+(defn show-gallery
+  [context content]
+  (show-page context "net.nightweb.GalleryPage" content))
+
 (defn show-basic
   [context content]
   (show-page context "net.nightweb.BasicPage" content))
@@ -188,6 +192,7 @@
   [context item]
   (if-let [func (case (get item :type)
                   :fav show-favorites
+                  :pic show-gallery
                   :custom-func (get item :func)
                   show-basic)]
     (func context item)))

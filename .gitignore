@@ -1,7 +1,6 @@
 target/
 gen/
 pom.xml
-*.jar
 *.class
 *.swp
 .lein-deps-sum

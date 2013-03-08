@@ -180,10 +180,10 @@
         rs
         [(str "SELECT * FROM post WHERE userhash = ? "
               "ORDER BY time DESC") user-hash]
-        (vec
-          (doall
-            (for [row rs]
-              (assoc row :type :post))))))))
+        (-> (for [row rs]
+              (assoc row :type :post))
+            (doall)
+            (vec))))))
 
 (defn get-category-data
   [params]
@@ -212,10 +212,10 @@
       (with-query-results
         rs
         statement
-        (vec
-          (doall
-            (for [row rs]
-              (assoc row :type data-type))))))))
+        (-> (for [row rs]
+              (assoc row :type data-type))
+            (doall)
+            (vec))))))
 
 (defn get-pic-data
   [user-hash ptr-hash]
@@ -224,4 +224,7 @@
       rs
       ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
        user-hash ptr-hash]
-      (vec (doall rs)))))
+      (-> (for [row rs]
+            (assoc row :type :pic))
+          (doall)
+          (vec)))))

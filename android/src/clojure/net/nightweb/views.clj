@@ -21,6 +21,7 @@
 (set-classname! :scroll-view android.widget.ScrollView)
 (set-classname! :frame-layout android.widget.FrameLayout)
 (set-classname! :image-view android.widget.ImageView)
+(set-classname! :view-pager android.support.v4.view.ViewPager)
 
 (def default-text-size 20)
 (def default-tile-width 160)
@@ -156,10 +157,36 @@
                (set-grid-view-tiles context pics grid-view))))
     view))
 
-(defn get-file-view
+(defn get-gallery-view
   [context content]
-  (let [view (make-ui context [:linear-layout {}])]
-    (.addView view (get-grid-view context content))
+  (let [view (make-ui context [:view-pager {}])]
+    (future
+      (let [pics (get-pic-data (get content :userhash)
+                               (get content :ptrhash))]
+        (on-ui
+          (.setAdapter
+            view
+            (proxy [android.support.v4.view.PagerAdapter] []
+              (destroyItem [container position object]
+                (.removeView container object))
+              (getCount [] (count pics))
+              (instantiateItem [container pos]
+                (let [image-view (net.nightweb.TouchImageView. context)
+                      bitmap (read-pic-file (get-in pics [pos :userhash])
+                                            (get-in pics [pos :pichash]))]
+                  (.setImageBitmap image-view bitmap)
+                  (.addView container image-view)
+                  image-view))
+              (isViewFromObject [view object] (= view object))
+              (setPrimaryItem [container position object])))
+          (.setCurrentItem view
+                           (->> pics
+                                (filter (fn [pic]
+                                          (java.util.Arrays/equals
+                                            (get pic :pichash)
+                                            (get content :pichash))))
+                                (first)
+                                (.indexOf pics))))))
     view))
 
 (defn get-search-view
