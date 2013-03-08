@@ -11,7 +11,8 @@
                                      do-cancel]]
         [nightweb.io :only [read-pic-uri
                             read-pic-file]]
-        [nightweb.db :only [get-user-data
+        [nightweb.db :only [limit
+                            get-user-data
                             get-post-data
                             get-pic-data
                             get-single-post-data
@@ -32,7 +33,23 @@
 
 (defn make-dip
   [context number]
-  (int (* (.density (.getDisplayMetrics (.getResources context))) number)))
+  (-> (.getResources context)
+      (.getDisplayMetrics)
+      (.density)
+      (* number)
+      (int)))
+
+(defn add-last-tile
+  [content results]
+  (if (> (count results) limit)
+    (let [next-page (+ (or (get content :page) 0) 1)]
+      (-> results
+          (pop)
+          (conj (assoc content
+                       :title (str (get-string :page) " " (+ next-page 1))
+                       :add-emphasis? true
+                       :page next-page))))
+    results))
 
 (defn set-grid-view-tiles
   [context content view]
@@ -151,8 +168,7 @@
       (let [post (if (get content :body)
                    content
                    (get-single-post-data content))
-            pics (get-pic-data (get content :userhash)
-                               (get content :posthash))]
+            pics (add-last-tile content (get-pic-data content :posthash))]
         (on-ui (.setText text-view (get post :body))
                (set-grid-view-tiles context pics grid-view))))
     view))
@@ -161,8 +177,7 @@
   [context content]
   (let [view (make-ui context [:view-pager {}])]
     (future
-      (let [pics (get-pic-data (get content :userhash)
-                               (get content :ptrhash))]
+      (let [pics (get-pic-data content :ptrhash)]
         (on-ui
           (.setAdapter
             view
@@ -280,9 +295,11 @@
             add-to-fav [{:title (get-string :add_to_favorites)
                          :add-emphasis? true
                          :type :add-to-fav}]
-            posts (get-post-data content)
-            grid-content (into [] (concat first-tiles
-                                          (if-not (get user :is-me?) add-to-fav)
+            posts (add-last-tile content (get-post-data content))
+            grid-content (into [] (concat (if (nil? (get content :page))
+                                            first-tiles)
+                                          (if-not (get user :is-me?)
+                                            add-to-fav)
                                           posts))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
@@ -291,7 +308,7 @@
   [context content]
   (let [grid-view (get-grid-view context [])]
     (future
-      (let [results (get-category-data content)
+      (let [results (add-last-tile content (get-category-data content))
             grid-content (into [] results)]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))

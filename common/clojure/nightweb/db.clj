@@ -17,12 +17,26 @@
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
 (def spec nil)
+(def limit 25)
 
 (defmacro run-query
   [& body]
   `(with-connection
      spec
      (transaction ~@body)))
+
+(defmacro paginate
+  [page & body]
+  `(format (str ~@body " LIMIT %d OFFSET %d")
+           (+ ~limit 1)
+           (* ~limit (or ~page 0))))
+
+(defn prepare-results
+  [rs table]
+  (->> (for [row rs]
+         (assoc row :type table))
+       (doall)
+       (vec)))
 
 ; initialization
 
@@ -166,33 +180,33 @@
     (run-query
       (with-query-results
         rs
-        [(str "SELECT * FROM post "
-              "WHERE userhash = ? AND time = ?") user-hash unix-time]
+        ["SELECT * FROM post WHERE userhash = ? AND time = ?"
+         user-hash unix-time]
         (if-let [post (first rs)]
           post
           params)))))
 
 (defn get-post-data
   [params]
-  (let [user-hash (get params :userhash)]
+  (let [user-hash (get params :userhash)
+        page (get params :page)]
     (run-query
       (with-query-results
         rs
-        [(str "SELECT * FROM post WHERE userhash = ? "
-              "ORDER BY time DESC") user-hash]
-        (-> (for [row rs]
-              (assoc row :type :post))
-            (doall)
-            (vec))))))
+        [(paginate page
+                   "SELECT * FROM post "
+                   "WHERE userhash = ? ORDER BY time DESC")
+         user-hash]
+        (prepare-results rs :post)))))
 
 (defn get-category-data
   [params]
   (let [data-type (get params :type)
         user-hash (get params :userhash)
+        page (get params :page)
         statement (case data-type
-                    :user [(str "SELECT * FROM user")]
-                    :post [(str "SELECT * FROM post "
-                                "ORDER BY time DESC")]
+                    :user ["SELECT * FROM user"]
+                    :post ["SELECT * FROM post ORDER BY time DESC"]
                     :user-fav
                     [(str "SELECT * FROM user "
                           "INNER JOIN fav ON user.userhash = fav.favhash "
@@ -203,28 +217,22 @@
                           "INNER JOIN fav ON post.userhash = fav.favhash "
                           "WHERE fav.userhash = ? "
                           "ORDER BY post.time DESC")
-                     user-hash]
-                    :all-tran ["SELECT * FROM file"]
-                    :photos-tran ["SELECT * FROM file"]
-                    :videos-tran ["SELECT * FROM file"]
-                    :audio-tran ["SELECT * FROM file"])]
+                     user-hash])]
     (run-query
       (with-query-results
         rs
-        statement
-        (-> (for [row rs]
-              (assoc row :type data-type))
-            (doall)
-            (vec))))))
+        (vec (concat [(paginate page (first statement))]
+                     (rest statement)))
+        (prepare-results rs data-type)))))
 
 (defn get-pic-data
-  [user-hash ptr-hash]
-  (run-query
-    (with-query-results
-      rs
-      ["SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?"
-       user-hash ptr-hash]
-      (-> (for [row rs]
-            (assoc row :type :pic))
-          (doall)
-          (vec)))))
+  [params ptr-key]
+  (let [user-hash (get params :userhash)
+        ptr-hash (get params ptr-key)
+        page (get params :page)]
+    (run-query
+      (with-query-results
+        rs
+        [(paginate page "SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?")
+         user-hash ptr-hash]
+        (prepare-results rs :pic)))))
