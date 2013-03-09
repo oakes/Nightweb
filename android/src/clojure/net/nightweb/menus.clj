@@ -25,9 +25,8 @@
         (onQueryTextChange [new-text]
           false)
         (onQueryTextSubmit [query]
-          (show-categories context {:title (str (get-string :search)
-                                                ": " query)
-                                    :content {:term query}
+          (show-categories context {:title (str (get-string :search) ": " query)
+                                    :query query
                                     :type :search})
           true)))
     (.setActionView search-item search-view))

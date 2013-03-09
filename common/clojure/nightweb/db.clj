@@ -242,8 +242,16 @@
                                        "ORDER BY post.time DESC")
                                   (get-in params [:content :userhash])])
                     :search (case sub-type
-                              :user [(str "SELECT * FROM user")]
-                              :post [(str "SELECT * FROM post")]))]
+                              :user [(str "SELECT u.* FROM "
+                                          "FT_SEARCH_DATA(?, 0, 0) ft, user u "
+                                          "WHERE ft.TABLE='USER' "
+                                          "AND u.ID=ft.KEYS[0]")
+                                     (get params :query)]
+                              :post [(str "SELECT p.* FROM "
+                                          "FT_SEARCH_DATA(?, 0, 0) ft, post p "
+                                          "WHERE ft.TABLE='POST' "
+                                          "AND p.ID=ft.KEYS[0]")
+                                     (get params :query)]))]
     (with-connection
       spec
       (with-query-results
