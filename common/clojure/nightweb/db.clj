@@ -1,11 +1,12 @@
 (ns nightweb.db
-  (:use [nightweb.jdbc :only [with-connection
-                              transaction
-                              create-table
-                              drop-table
-                              update-or-insert-values
-                              with-query-results
-                              delete-rows]]
+  (:use [nightweb.db.jdbc :only [with-connection
+                                 transaction
+                                 create-table
+                                 drop-table
+                                 update-or-insert-values
+                                 with-query-results
+                                 delete-rows
+                                 do-commands]]
         [nightweb.formats :only [base32-decode
                                  b-encode
                                  b-decode
@@ -18,12 +19,6 @@
 
 (def spec nil)
 (def limit 25)
-
-(defmacro run-query
-  [& body]
-  `(with-connection
-     spec
-     (transaction ~@body)))
 
 (defmacro paginate
   [page & body]
@@ -44,26 +39,36 @@
   ([table-name] (check-table table-name "*"))
   ([table-name column-name]
    (try
-     (run-query
-       (with-query-results
-         rs
-         [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
-         rs))
+     (with-query-results
+       rs
+       [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
+       rs)
      (catch java.lang.Exception e nil))))
+
+(defn create-index
+  [table-name columns]
+  (do-commands
+    "CREATE ALIAS IF NOT EXISTS FT_INIT FOR \"org.h2.fulltext.FullText.init\";"
+    "CALL FT_INIT();"
+    (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
+            table-name (clojure.string/join "," columns))))
 
 (defn create-tables
   []
   (if-not (check-table :user)
-    (run-query
+    (with-connection
+      spec
       (create-table
         :user
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
-        [:pichash "BINARY"])))
+        [:pichash "BINARY"])
+      (create-index "USER" ["ID" "TITLE" "BODY"])))
   (if-not (check-table :post)
-    (run-query
+    (with-connection
+      spec
       (create-table
         :post
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
@@ -74,9 +79,11 @@
         [:pichash "BINARY"]
         [:count "BIGINT"]
         [:userptrhash "BINARY"]
-        [:postptrhash "BINARY"])))
+        [:postptrhash "BINARY"])
+      (create-index "POST" ["ID" "BODY"])))
   (if-not (check-table :pic)
-    (run-query
+    (with-connection
+      spec
       (create-table
         :pic
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
@@ -84,7 +91,8 @@
         [:userhash "BINARY"]
         [:ptrhash "BINARY"])))
   (if-not (check-table :fav)
-    (run-query
+    (with-connection
+      spec
       (create-table
         :fav
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
@@ -94,7 +102,8 @@
 (defn drop-tables
   []
   (try
-    (run-query
+    (with-connection
+      spec
       (drop-table :user)
       (drop-table :post)
       (drop-table :pic)
@@ -116,7 +125,8 @@
 (defn insert-pic-list
   [user-hash ptr-hash args]
   (let [pics (b-decode-list (get args "pics"))]
-    (run-query
+    (with-connection
+      spec
       (doseq [pic pics]
         (if-let [pic-hash (b-decode-bytes pic)]
           (update-or-insert-values
@@ -131,7 +141,8 @@
 (defn insert-profile
   [user-hash args]
   (let [pics (insert-pic-list user-hash user-hash args)]
-    (run-query
+    (with-connection
+      spec
       (update-or-insert-values
         :user
         ["userhash = ?" user-hash]
@@ -144,7 +155,8 @@
   [user-hash post-hash args]
   (let [time-long (b-decode-long (get args "time"))
         pics (insert-pic-list user-hash post-hash args)]
-    (run-query
+    (with-connection
+      spec
       (update-or-insert-values
         :post
         ["userhash = ? AND time = ?" user-hash time-long]
@@ -171,7 +183,8 @@
   [params]
   (let [user-hash (get params :userhash)
         is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
-    (run-query
+    (with-connection
+      spec
       (with-query-results
         rs
         [(str "SELECT * FROM user WHERE userhash = ?") user-hash]
@@ -183,7 +196,8 @@
   [params]
   (let [user-hash (get params :userhash)
         unix-time (get params :time)]
-    (run-query
+    (with-connection
+      spec
       (with-query-results
         rs
         ["SELECT * FROM post WHERE userhash = ? AND time = ?"
@@ -196,7 +210,8 @@
   [params]
   (let [user-hash (get params :userhash)
         page (get params :page)]
-    (run-query
+    (with-connection
+      spec
       (with-query-results
         rs
         [(paginate page
@@ -224,7 +239,8 @@
                           "WHERE fav.userhash = ? "
                           "ORDER BY post.time DESC")
                      user-hash])]
-    (run-query
+    (with-connection
+      spec
       (with-query-results
         rs
         (vec (concat [(paginate page (first statement))]
@@ -236,7 +252,8 @@
   (let [user-hash (get params :userhash)
         ptr-hash (get params ptr-key)
         page (get params :page)]
-    (run-query
+    (with-connection
+      spec
       (with-query-results
         rs
         [(paginate page "SELECT * FROM pic WHERE userhash = ? AND ptrhash = ?")
