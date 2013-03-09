@@ -39,10 +39,12 @@
   ([table-name] (check-table table-name "*"))
   ([table-name column-name]
    (try
-     (with-query-results
-       rs
-       [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
-       rs)
+     (with-connection
+       spec
+       (with-query-results
+         rs
+         [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
+         rs))
      (catch java.lang.Exception e nil))))
 
 (defn create-index
@@ -55,7 +57,7 @@
 
 (defn create-tables
   []
-  (if-not (check-table :user)
+  (when-not (check-table :user)
     (with-connection
       spec
       (create-table
@@ -66,7 +68,7 @@
         [:body "VARCHAR"]
         [:pichash "BINARY"])
       (create-index "USER" ["ID" "TITLE" "BODY"])))
-  (if-not (check-table :post)
+  (when-not (check-table :post)
     (with-connection
       spec
       (create-table
@@ -81,7 +83,7 @@
         [:userptrhash "BINARY"]
         [:postptrhash "BINARY"])
       (create-index "POST" ["ID" "BODY"])))
-  (if-not (check-table :pic)
+  (when-not (check-table :pic)
     (with-connection
       spec
       (create-table
@@ -90,7 +92,7 @@
         [:pichash "BINARY"]
         [:userhash "BINARY"]
         [:ptrhash "BINARY"])))
-  (if-not (check-table :fav)
+  (when-not (check-table :fav)
     (with-connection
       spec
       (create-table
@@ -223,29 +225,32 @@
 (defn get-category-data
   [params]
   (let [data-type (get params :type)
-        user-hash (get params :userhash)
-        page (get params :page)
+        sub-type (get params :subtype)
         statement (case data-type
                     :user ["SELECT * FROM user"]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
-                    :user-fav
-                    [(str "SELECT * FROM user "
-                          "INNER JOIN fav ON user.userhash = fav.favhash "
-                          "WHERE fav.userhash = ?")
-                     user-hash]
-                    :post-fav
-                    [(str "SELECT * FROM post "
-                          "INNER JOIN fav ON post.userhash = fav.favhash "
-                          "WHERE fav.userhash = ? "
-                          "ORDER BY post.time DESC")
-                     user-hash])]
+                    :fav (case sub-type
+                           :user [(str "SELECT * FROM user "
+                                       "INNER JOIN fav "
+                                       "ON user.userhash = fav.favhash "
+                                       "WHERE fav.userhash = ?")
+                                  (get-in params [:content :userhash])]
+                           :post [(str "SELECT * FROM post "
+                                       "INNER JOIN fav "
+                                       "ON post.userhash = fav.favhash "
+                                       "WHERE fav.userhash = ? "
+                                       "ORDER BY post.time DESC")
+                                  (get-in params [:content :userhash])])
+                    :search (case sub-type
+                              :user [(str "SELECT * FROM user")]
+                              :post [(str "SELECT * FROM post")]))]
     (with-connection
       spec
       (with-query-results
         rs
-        (vec (concat [(paginate page (first statement))]
+        (vec (concat [(paginate (get params :page) (first statement))]
                      (rest statement)))
-        (prepare-results rs data-type)))))
+        (prepare-results rs (or sub-type data-type))))))
 
 (defn get-pic-data
   [params ptr-key]

@@ -23,7 +23,7 @@
 			</intent-filter>
 		</activity>
 		<activity
-			android:name=".FavoritesPage">
+			android:name=".CategoryPage">
 		</activity>
 		<activity
 			android:name=".GalleryPage">

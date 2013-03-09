@@ -67,7 +67,7 @@
   receive-result)
 
 (defactivity
-  net.nightweb.FavoritesPage
+  net.nightweb.CategoryPage
   :on-create
   (fn [this bundle]
     (start-receiver this shutdown-receiver-name shutdown-receiver-func)
@@ -75,15 +75,14 @@
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get-string :favorites))
+      (.setTitle action-bar (get params :title))
+      (println params)
       (create-tab action-bar
                   (get-string :users)
-                  #(get-category-view this
-                                      (assoc params :type :user-fav)))
+                  #(get-category-view this (assoc params :subtype :user)))
       (create-tab action-bar
                   (get-string :posts)
-                  #(get-category-view this
-                                      (assoc params :type :post-fav)))))
+                  #(get-category-view this (assoc params :subtype :post)))))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name))

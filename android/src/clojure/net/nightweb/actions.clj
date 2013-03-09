@@ -124,9 +124,9 @@
   [context message]
   (show-dialog context))
 
-(defn show-favorites
+(defn show-categories
   [context content]
-  (show-page context "net.nightweb.FavoritesPage" (get content :content)))
+  (show-page context "net.nightweb.CategoryPage" content))
 
 (defn show-gallery
   [context content]
@@ -192,7 +192,8 @@
 (defn do-tile-action
   [context item]
   (if-let [func (case (get item :type)
-                  :fav show-favorites
+                  :fav show-categories
+                  :search show-categories
                   :pic show-gallery
                   :custom-func (get item :func)
                   show-basic)]

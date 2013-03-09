@@ -3,6 +3,7 @@
         [net.nightweb.views :only [get-new-post-view]]
         [net.nightweb.actions :only [share-url
                                      show-dialog
+                                     show-categories
                                      do-send-new-post
                                      do-attach-to-new-post
                                      do-cancel]]
@@ -22,10 +23,12 @@
       search-view
       (proxy [android.widget.SearchView$OnQueryTextListener] []
         (onQueryTextChange [new-text]
-          (println "typing:" new-text)
-          true)
+          false)
         (onQueryTextSubmit [query]
-          (println "submitted:" query)
+          (show-categories context {:title (str (get-string :search)
+                                                ": " query)
+                                    :content {:term query}
+                                    :type :search})
           true)))
     (.setActionView search-item search-view))
   ; create new post button
