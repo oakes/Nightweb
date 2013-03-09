@@ -32,4 +32,5 @@
             ;; here or in your ~/.lein/profiles.clj file.
             ;; :sdk-path "/home/user/path/to/android-sdk/"
             :target-version "15"
-            :aot-exclude-ns ["clojure.parallel"]})
+            :aot-exclude-ns ["clojure.parallel"]
+            :dex-opts ["-JXmx2048M"]})

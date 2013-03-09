@@ -160,10 +160,9 @@
                                              :text-is-selectable true}]]])
         linear-layout (.getChildAt view 0)
         text-view (.getChildAt linear-layout 0)
-        grid-view (get-grid-view context [])
+        grid-view (get-grid-view context [] true)
         pad (make-dip context 10)]
-    (.setPadding linear-layout pad pad pad pad)
-    (.setPadding grid-view 0 pad 0 0)
+    (.setPadding text-view pad pad pad pad)
     (.addView linear-layout grid-view)
     (set-text-size text-view default-text-size)
     (future
