@@ -15,6 +15,10 @@
   [hash-str]
   (def my-hash-str hash-str))
 
+(defn is-me?
+  [user-hash]
+  (java.util.Arrays/equals user-hash my-hash-bytes))
+
 (def slash java.io.File/separator)
 (def nw-dir (str slash "nwapp"))
 (def meta-dir (str slash "meta"))

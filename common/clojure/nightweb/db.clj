@@ -29,7 +29,7 @@
 (defn prepare-results
   [rs table]
   (->> (for [row rs]
-         (assoc row :type table))
+         (into {} (assoc row :type table)))
        (doall)
        (vec)))
 
@@ -183,16 +183,15 @@
 
 (defn get-user-data
   [params]
-  (let [user-hash (get params :userhash)
-        is-me? (java.util.Arrays/equals user-hash my-hash-bytes)]
+  (let [user-hash (get params :userhash)]
     (with-connection
       spec
       (with-query-results
         rs
         [(str "SELECT * FROM user WHERE userhash = ?") user-hash]
-        (if-let [user (first rs)]
-          (assoc user :is-me? is-me? :type :user)
-          (assoc params :is-me? is-me? :type :user))))))
+        (if-let [user (first (prepare-results rs :user))]
+          user
+          {:userhash user-hash :type :user})))))
 
 (defn get-single-post-data
   [params]
@@ -204,9 +203,9 @@
         rs
         ["SELECT * FROM post WHERE userhash = ? AND time = ?"
          user-hash unix-time]
-        (if-let [post (first rs)]
-          (assoc post :type :post)
-          (assoc params :type :post))))))
+        (if-let [post (first (prepare-results rs :post))]
+          post
+          {:userhash user-hash :time unix-time :type :post})))))
 
 (defn get-post-data
   [params]

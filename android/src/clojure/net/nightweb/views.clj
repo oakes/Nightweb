@@ -17,7 +17,8 @@
                             get-pic-data
                             get-single-post-data
                             get-category-data]]
-        [nightweb.torrents :only [is-connecting?]]))
+        [nightweb.torrents :only [is-connecting?]]
+        [nightweb.constants :only [is-me?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 (set-classname! :frame-layout android.widget.FrameLayout)
@@ -71,6 +72,7 @@
                                     [:linear-layout {:orientation 1}
                                      [:text-view {:text-color white
                                                   :layout-height 0
+                                                  :layout-width :fill
                                                   :layout-weight 1}]
                                      [:text-view {:text-color white}]]])
                           convert-view)
@@ -91,9 +93,9 @@
                   text-bottom (.getChildAt linear-layout 1)
                   pad (make-dip context 5)
                   radius (make-dip context 10)]
-              (if (get item :add-emphasis?)
-                (.setTypeface text-top
-                              android.graphics.Typeface/DEFAULT_BOLD))
+              (when (get item :add-emphasis?)
+                (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
+                (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
               (if-let [background (get item :background)]
                 (.setBackgroundResource image-view background))
               (.setScaleType image-view
@@ -219,7 +221,7 @@
 (defn get-profile-view
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (get content :is-me?)
+        view (if (is-me? (get content :userhash))
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:edit-text {:lines 1
@@ -256,7 +258,7 @@
     (.setBackgroundResource image-view (get-resource :drawable :profile))
     (.setImageBitmap image-view (read-pic-file (get content :userhash)
                                                (get content :pichash)))
-    (if (get content :is-me?)
+    (if (is-me? (get content :userhash))
       (.setOnClickListener
         image-view
         (proxy [android.view.View$OnClickListener] []
@@ -287,7 +289,7 @@
                                     (show-dialog
                                       context
                                       (get-profile-view context user)
-                                      (if (get user :is-me?)
+                                      (if (is-me? (get user :userhash))
                                         {:positive-name (get-string :save)
                                          :positive-func do-save-profile
                                          :negative-name (get-string :cancel)
@@ -307,7 +309,7 @@
             posts (add-last-tile content (get-post-data content))
             grid-content (into [] (concat (if (nil? (get content :page))
                                             first-tiles)
-                                          (if-not (get user :is-me?)
+                                          (if-not (is-me? (get user :userhash))
                                             add-to-fav)
                                           posts))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
