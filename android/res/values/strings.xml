@@ -31,4 +31,5 @@
   <string name="connecting">Nightweb is still loading, so try again later.</string>
 
   <string name="page">Page</string>
+  <string name="author">Author</string>
 </resources>

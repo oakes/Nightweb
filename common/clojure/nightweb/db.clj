@@ -191,8 +191,8 @@
         rs
         [(str "SELECT * FROM user WHERE userhash = ?") user-hash]
         (if-let [user (first rs)]
-          (assoc user :is-me? is-me?)
-          (assoc params :is-me? is-me?))))))
+          (assoc user :is-me? is-me? :type :user)
+          (assoc params :is-me? is-me? :type :user))))))
 
 (defn get-single-post-data
   [params]
@@ -205,8 +205,8 @@
         ["SELECT * FROM post WHERE userhash = ? AND time = ?"
          user-hash unix-time]
         (if-let [post (first rs)]
-          post
-          params)))))
+          (assoc post :type :post)
+          (assoc params :type :post))))))
 
 (defn get-post-data
   [params]

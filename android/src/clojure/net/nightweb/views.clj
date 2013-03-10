@@ -62,17 +62,17 @@
       (getItemId [position] 0)
       (getCount [] (count content))
       (getView [position convert-view parent]
-        (let [not-initialized (= convert-view nil)
+        (let [not-initialized true ;(= convert-view nil)
               white android.graphics.Color/WHITE
-              bottom android.view.Gravity/BOTTOM
               tile-view (if not-initialized
                           (make-ui context
                                    [:frame-layout {}
                                     [:image-view {}]
                                     [:linear-layout {:orientation 1}
-                                     [:text-view {:text-color white}]
                                      [:text-view {:text-color white
-                                                  :gravity bottom}]]])
+                                                  :layout-height 0
+                                                  :layout-weight 1}]
+                                     [:text-view {:text-color white}]]])
                           convert-view)
               num-columns (.getNumColumns view)
               width (.getWidth view)
@@ -171,9 +171,13 @@
       (let [post (if (get content :body)
                    content
                    (get-single-post-data content))
-            pics (get-pic-data content :posthash)]
+            user (assoc (get-user-data content)
+                        :background (get-resource :drawable :profile)
+                        :subtitle (get-string :author))
+            pics (get-pic-data content :posthash)
+            total-results (vec (concat [user] pics))]
         (on-ui (.setText text-view (get post :body))
-               (set-grid-view-tiles context pics grid-view))))
+               (set-grid-view-tiles context total-results grid-view))))
     view))
 
 (defn get-gallery-view
@@ -270,35 +274,36 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (get-user-data content)
-            first-tiles [{:title (get-string :profile)
-                          :add-emphasis? true
-                          :content user
-                          :userhash (get user :userhash)
-                          :pichash (get user :pichash)
-                          :background (get-resource :drawable :profile)
-                          :type :custom-func
-                          :func
-                          (fn [context item]
-                            (if (is-connecting?)
-                              (show-dialog context (get-string :connecting))
-                              (show-dialog
-                                context
-                                (get-profile-view context user)
-                                (if (get user :is-me?)
-                                  {:positive-name (get-string :save)
-                                   :positive-func do-save-profile
-                                   :negative-name (get-string :cancel)
-                                   :negative-func do-cancel}
-                                  {:positive-name (get-string :ok)
-                                   :positive-func do-cancel}))))}
-                         {:title (get-string :favorites)
-                          :add-emphasis? true
-                          :content user
-                          :background (get-resource :drawable :favs)
-                          :type :fav}]
-            add-to-fav [{:title (get-string :add_to_favorites)
-                         :add-emphasis? true
-                         :type :add-to-fav}]
+            first-tiles [(assoc user
+                                :title (get-string :profile)
+                                :add-emphasis? true
+                                :background (get-resource :drawable :profile)
+                                :type :custom-func
+                                :func
+                                (fn [context item]
+                                  (if (is-connecting?)
+                                    (show-dialog context
+                                                 (get-string :connecting))
+                                    (show-dialog
+                                      context
+                                      (get-profile-view context user)
+                                      (if (get user :is-me?)
+                                        {:positive-name (get-string :save)
+                                         :positive-func do-save-profile
+                                         :negative-name (get-string :cancel)
+                                         :negative-func do-cancel}
+                                        {:positive-name (get-string :ok)
+                                         :positive-func do-cancel})))))
+                         (assoc user
+                                :title (get-string :favorites)
+                                :add-emphasis? true
+                                :pichash nil
+                                :background (get-resource :drawable :favs)
+                                :type :fav)]
+            add-to-fav [(assoc user
+                               :title (get-string :add_to_favorites)
+                               :add-emphasis? true
+                               :type :add-to-fav)]
             posts (add-last-tile content (get-post-data content))
             grid-content (into [] (concat (if (nil? (get content :page))
                                             first-tiles)
