@@ -5,13 +5,20 @@
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [get-files-in-uri
-                            read-pic-uri
                             read-pic-file
                             write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode
                                  remove-dupes-and-nils]]))
+
+(defn read-pic-uri
+  [context uri-str]
+  (try
+    (let [cr (.getContentResolver context)
+          uri (android.net.Uri/parse uri-str)]
+      (android.provider.MediaStore$Images$Media/getBitmap cr uri))
+    (catch java.lang.Exception e nil)))
 
 (defn share-url
   [context]

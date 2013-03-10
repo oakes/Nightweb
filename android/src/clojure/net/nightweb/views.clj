@@ -3,14 +3,14 @@
         [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
-        [net.nightweb.actions :only [request-files
+        [net.nightweb.actions :only [read-pic-uri
+                                     request-files
                                      clear-attachments
                                      show-dialog
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
-        [nightweb.io :only [read-pic-uri
-                            read-pic-file]]
+        [nightweb.io :only [read-pic-file]]
         [nightweb.db :only [limit
                             get-user-data
                             get-post-data

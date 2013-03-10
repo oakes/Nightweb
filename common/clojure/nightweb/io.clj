@@ -107,14 +107,6 @@
     (if (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
-(defn read-pic-uri
-  [context uri-str]
-  (try
-    (let [cr (.getContentResolver context)
-          uri (android.net.Uri/parse uri-str)]
-      (android.provider.MediaStore$Images$Media/getBitmap cr uri))
-    (catch java.lang.Exception e nil)))
-
 (defn read-pic-file
   ([user-hash-bytes image-hash-bytes]
    (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
