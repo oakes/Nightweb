@@ -98,14 +98,14 @@
                                (read-pic-file (get item :userhash)
                                               (get item :pichash)))
               (set-text-size text-top default-text-size)
-              (set-text-size text-bottom 14)
+              (set-text-size text-bottom default-text-size)
               (.setPadding linear-layout pad pad pad pad)
               (.setMaxLines text-top
                             (int (- (/ (- tile-view-width pad pad)
                                        (make-dip context default-text-size))
                                     1)))
-              (.setBackgroundResource tile-view
-                                      (get-resource :drawable :border))
+              (if-let [background (get item :background)]
+                (.setBackgroundResource tile-view background))
               (if-let [title (get item :title)]
                 (.setText text-top title)
                 (.setText text-top (get item :body)))
@@ -246,9 +246,8 @@
     (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
     (.setTag image-view "profile-image")
-    (.setBackgroundResource image-view
-                            (get-resource :drawable :border))
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
+    (.setBackgroundResource image-view (get-resource :drawable :profile))
     (.setImageBitmap image-view (read-pic-file (get content :userhash)
                                                (get content :pichash)))
     (if (get content :is-me?)
@@ -274,6 +273,7 @@
                           :content user
                           :userhash (get user :userhash)
                           :pichash (get user :pichash)
+                          :background (get-resource :drawable :profile)
                           :type :custom-func
                           :func
                           (fn [context item]
@@ -292,6 +292,7 @@
                          {:title (get-string :favorites)
                           :add-emphasis? true
                           :content user
+                          :background (get-resource :drawable :favs)
                           :type :fav}]
             add-to-fav [{:title (get-string :add_to_favorites)
                          :add-emphasis? true
