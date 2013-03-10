@@ -94,6 +94,10 @@
               (if (get item :add-emphasis?)
                 (.setTypeface text-top
                               android.graphics.Typeface/DEFAULT_BOLD))
+              (if-let [background (get item :background)]
+                (.setBackgroundResource image-view background))
+              (.setScaleType image-view
+                             android.widget.ImageView$ScaleType/CENTER_CROP)
               (.setImageBitmap image-view
                                (read-pic-file (get item :userhash)
                                               (get item :pichash)))
@@ -104,8 +108,6 @@
                             (int (- (/ (- tile-view-width pad pad)
                                        (make-dip context default-text-size))
                                     1)))
-              (if-let [background (get item :background)]
-                (.setBackgroundResource tile-view background))
               (if-let [title (get item :title)]
                 (.setText text-top title)
                 (.setText text-top (get item :body)))

@@ -5,17 +5,17 @@
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
 
-  :warn-on-reflection true
+  :warn-on-reflection false
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
-  :resource-paths ["libs/android-support-v13.jar"]
+  :resource-paths ["libs/android-support-v13.jar" "libs/jsr166y.jar"]
   ;; The following two definitions are optional. The default
   ;; target-path is "target", but you can change it to whatever you like.
   ;; :target-path "bin"
   ;; :compile-path "bin/classes"
 
-  :dependencies [[android/clojure "1.4.0"]
+  :dependencies [[android/clojure "1.5.0"]
                  [neko/neko "2.0.0-beta1"]
                  [com.h2database/h2 "1.3.170"]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
