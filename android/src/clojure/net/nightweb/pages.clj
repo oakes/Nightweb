@@ -76,7 +76,6 @@
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (get params :title))
-      (println params)
       (create-tab action-bar
                   (get-string :users)
                   #(get-category-view this (assoc params :subtype :user)))

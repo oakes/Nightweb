@@ -3,7 +3,8 @@
         [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
-        [net.nightweb.actions :only [read-pic-uri
+        [net.nightweb.actions :only [uri-to-bitmap
+                                     byte-array-to-bitmap
                                      request-files
                                      clear-attachments
                                      show-dialog
@@ -101,8 +102,9 @@
               (.setScaleType image-view
                              android.widget.ImageView$ScaleType/CENTER_CROP)
               (.setImageBitmap image-view
-                               (read-pic-file (get item :userhash)
-                                              (get item :pichash)))
+                               (byte-array-to-bitmap
+                                 (read-pic-file (get item :userhash)
+                                                (get item :pichash))))
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom default-text-size)
               (.setPadding linear-layout pad pad pad pad)
@@ -196,8 +198,9 @@
               (getCount [] (count pics))
               (instantiateItem [container pos]
                 (let [image-view (net.nightweb.TouchImageView. context)
-                      bitmap (read-pic-file (get-in pics [pos :userhash])
-                                            (get-in pics [pos :pichash]))]
+                      bitmap (byte-array-to-bitmap
+                               (read-pic-file (get-in pics [pos :userhash])
+                                              (get-in pics [pos :pichash])))]
                   (.setImageBitmap image-view bitmap)
                   (.addView container image-view)
                   image-view))
@@ -256,8 +259,9 @@
     (.setTag image-view "profile-image")
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setBackgroundResource image-view (get-resource :drawable :profile))
-    (.setImageBitmap image-view (read-pic-file (get content :userhash)
-                                               (get content :pichash)))
+    (.setImageBitmap image-view (byte-array-to-bitmap
+                                  (read-pic-file (get content :userhash)
+                                                 (get content :pichash))))
     (if (is-me? (get content :userhash))
       (.setOnClickListener
         image-view
@@ -266,7 +270,7 @@
             (request-files context
                            "image/*"
                            (fn [uri]
-                             (let [pic (read-pic-uri context (.toString uri))]
+                             (let [pic (uri-to-bitmap context (.toString uri))]
                                (.setImageBitmap image-view pic))))))))
     (.addView linear-layout image-view)
     view))

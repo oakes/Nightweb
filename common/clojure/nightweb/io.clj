@@ -41,11 +41,12 @@
 (defn read-file
   [path]
   (when (file-exists? path)
-    (let [length (.length (file path))
-          data-barray (byte-array length)]
-      (with-open [bis (input-stream path)]
-        (.read bis data-barray))
-      data-barray)))
+    (let [length (.length (file path))]
+      (if (< length 1000000)
+        (let [data-barray (byte-array length)]
+          (with-open [bis (input-stream path)]
+            (.read bis data-barray))
+          data-barray)))))
 
 (defn delete-file
   [path]
@@ -108,33 +109,25 @@
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
 (defn read-pic-file
-  ([user-hash-bytes image-hash-bytes]
-   (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
-                   slash
-                   (base32-encode image-hash-bytes))]
-     (if (and user-hash-bytes image-hash-bytes)
-       (read-pic-file path))))
-  ([path]
-   (try
-     (android.graphics.BitmapFactory/decodeFile path)
-     (catch java.lang.Exception e nil))))
+  [user-hash-bytes image-hash-bytes]
+  (if (and user-hash-bytes image-hash-bytes)
+    (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
+                    slash
+                    (base32-encode image-hash-bytes))]
+      (read-file path))))
 
 (defn write-pic-file
-  [image-bitmap]
-  (if image-bitmap
-    (let [out (java.io.ByteArrayOutputStream.)
-          image-format android.graphics.Bitmap$CompressFormat/WEBP
-          _ (.compress image-bitmap image-format 90 out)
-          data-barray (.toByteArray out)
-          image-hash (create-hash data-barray)
+  [data-barray]
+  (if data-barray
+    (let [image-hash (create-hash data-barray)
           file-name (base32-encode image-hash)]
       (write-file (str (get-pic-dir my-hash-str) slash file-name)
                   data-barray)
       image-hash)))
 
 (defn write-post-file
-  [text image-bitmaps]
-  (let [image-hashes (for [bitmap image-bitmaps]
+  [text image-barrays]
+  (let [image-hashes (for [bitmap image-barrays]
                        (write-pic-file bitmap))
         args {"body" text
               "time" (.getTime (java.util.Date.))
@@ -145,8 +138,8 @@
                 data-barray)))
 
 (defn write-profile-file
-  [name-text body-text image-bitmap]
-  (let [image-hash (write-pic-file image-bitmap)
+  [name-text body-text image-barray]
+  (let [image-hash (write-pic-file image-barray)
         args {"title" name-text
               "body" body-text
               "pics" (if image-hash [image-hash] [])}]

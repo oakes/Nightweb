@@ -4,21 +4,37 @@
         [neko.find-view :only [find-view]]
         [net.nightweb.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
-        [nightweb.io :only [get-files-in-uri
-                            read-pic-file
+        [nightweb.io :only [read-file
+                            get-files-in-uri
+                            write-pic-file
                             write-post-file
                             write-profile-file]]
         [nightweb.formats :only [base32-encode
                                  url-encode
                                  remove-dupes-and-nils]]))
 
-(defn read-pic-uri
+(defn uri-to-bitmap
   [context uri-str]
   (try
     (let [cr (.getContentResolver context)
           uri (android.net.Uri/parse uri-str)]
       (android.provider.MediaStore$Images$Media/getBitmap cr uri))
     (catch java.lang.Exception e nil)))
+
+(defn byte-array-to-bitmap
+  [ba]
+  (if ba
+    (try
+      (android.graphics.BitmapFactory/decodeByteArray ba 0 (alength ba))
+      (catch java.lang.Exception e nil))))
+
+(defn bitmap-to-byte-array
+  [image-bitmap]
+  (if image-bitmap
+    (let [out (java.io.ByteArrayOutputStream.)
+          image-format android.graphics.Bitmap$CompressFormat/WEBP]
+      (.compress image-bitmap image-format 90 out)
+      (.toByteArray out))))
 
 (defn share-url
   [context]
@@ -50,7 +66,7 @@
         attachments (get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
                           (for [path (get-files-in-uri uri-str)]
-                            (if (read-pic-file path) path))
+                            (if (byte-array-to-bitmap (read-file path)) path))
                           (if (.startsWith uri-str "content://")
                             [uri-str]))
         total-attachments (remove-dupes-and-nils
@@ -153,9 +169,11 @@
                   (fn []
                     (write-post-file text
                                      (for [path attachments]
-                                       (if (.startsWith path "content://")
-                                         (read-pic-uri context path)
-                                         (read-pic-file path))))
+                                       (bitmap-to-byte-array
+                                         (if (.startsWith path "content://")
+                                           (uri-to-bitmap context path)
+                                           (byte-array-to-bitmap
+                                             (read-file path))))))
                     (create-meta-torrent))))
   true)
 
@@ -178,11 +196,12 @@
         name-text (.toString (.getText name-field))
         body-text (.toString (.getText body-field))
         image-bitmap (if-let [drawable (.getDrawable image-view)]
-                       (.getBitmap drawable))]
+                       (.getBitmap drawable))
+        image-barray (bitmap-to-byte-array image-bitmap)]
     (show-spinner context
                   (get-string :saving)
                   (fn []
-                    (write-profile-file name-text body-text image-bitmap)
+                    (write-profile-file name-text body-text image-barray)
                     (create-meta-torrent))))
   true)
 
