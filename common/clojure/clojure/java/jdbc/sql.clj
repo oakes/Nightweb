@@ -23,7 +23,7 @@ Domain Specific Language - that generates raw SQL strings. Any other DSL
 can be used instead. This DSL is entirely optional and is deliberately
 not very sophisticated. It is sufficient to support the delete!, insert!
 and update! high-level operations within clojure.java.jdbc directly." }
-  nightweb.db.sql
+  clojure.java.jdbc.sql
   (:require [clojure.string :as str]
             [clojure.walk :as walk]))
 

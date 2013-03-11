@@ -1,12 +1,12 @@
 (ns nightweb.db
-  (:use [nightweb.db.jdbc :only [with-connection
-                                 transaction
-                                 create-table
-                                 drop-table
-                                 update-or-insert-values
-                                 with-query-results
-                                 delete-rows
-                                 do-commands]]
+  (:use [clojure.java.jdbc :only [with-connection
+                                  transaction
+                                  create-table
+                                  drop-table
+                                  update-or-insert-values
+                                  with-query-results
+                                  delete-rows
+                                  do-commands]]
         [nightweb.formats :only [base32-decode
                                  b-encode
                                  b-decode
@@ -233,13 +233,13 @@
                                        "INNER JOIN fav "
                                        "ON user.userhash = fav.favhash "
                                        "WHERE fav.userhash = ?")
-                                  (get-in params [:content :userhash])]
+                                  (get params :userhash)]
                            :post [(str "SELECT * FROM post "
                                        "INNER JOIN fav "
                                        "ON post.userhash = fav.favhash "
                                        "WHERE fav.userhash = ? "
                                        "ORDER BY post.time DESC")
-                                  (get-in params [:content :userhash])])
+                                  (get params :userhash)])
                     :search (case sub-type
                               :user [(str "SELECT u.* FROM "
                                           "FT_SEARCH_DATA(?, 0, 0) ft, user u "

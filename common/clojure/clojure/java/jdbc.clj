@@ -35,14 +35,14 @@ is the SQL string, with ? for each parameter, and the remaining elements
 are the parameter values to be substituted. In general, operations return
 the number of rows affected, except for a single record insert where any
 generated keys are returned (as a map)." }
-  nightweb.db.jdbc
+  clojure.java.jdbc
   (:import [java.net URI]
            [java.sql BatchUpdateException DriverManager PreparedStatement ResultSet SQLException Statement]
            [java.util Hashtable Map Properties]
            [javax.sql DataSource])
   (:refer-clojure :exclude [resultset-seq])
   (:require [clojure.string :as str]
-            [nightweb.db.sql :as sql]))
+            [clojure.java.jdbc.sql :as sql]))
 
 (def ^{:private true :dynamic true
        :doc "The default entity naming strategy is to do nothing."}
