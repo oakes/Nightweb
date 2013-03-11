@@ -73,13 +73,13 @@ public class DeliveryInstructions extends DataStructureImpl {
     public void setEncrypted(boolean encrypted) { _encrypted = encrypted; }
 
     /**
-     * For cloves only (not tunnels), default false, unused
+     * For cloves only (not tunnels), default null, unused
      * @deprecated unused
      */
     public SessionKey getEncryptionKey() { return _encryptionKey; }
 
     /**
-     * For cloves only (not tunnels), default false, unused
+     * For cloves only (not tunnels), default null, unused
      * @deprecated unused
      */
     public void setEncryptionKey(SessionKey key) { _encryptionKey = key; }

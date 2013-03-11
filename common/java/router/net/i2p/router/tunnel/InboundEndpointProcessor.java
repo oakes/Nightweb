@@ -47,9 +47,10 @@ class InboundEndpointProcessor {
     public boolean retrievePreprocessedData(byte orig[], int offset, int length, Hash prev) {
         Hash last = _config.getPeer(_config.getLength()-2);
         if (!last.equals(prev)) {
-            if (_log.shouldLog(Log.ERROR))
-                _log.error("Invalid previous peer - attempted hostile loop?  from " + prev 
-                           + ", expected " + last);
+            // shouldn't happen now that we have good dup ID detection in BuildHandler
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Attempted IBEP injection from " + prev 
+                               + ", expected " + last);
             return false;
         }
         

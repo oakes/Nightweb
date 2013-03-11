@@ -393,7 +393,8 @@ public class DataHelper {
      * A more efficient Properties.load
      *
      * Some of the other differences:
-     * - This does not process or drop backslashes
+     * - UTF-8 encoding, not ISO-8859-1
+     * - No escaping! This does not process or drop backslashes
      * - '#' or ';' starts a comment line, but '!' does not
      * - Leading whitespace is not trimmed
      * - '=' is the only key-termination character (not ':' or whitespace)
@@ -1724,6 +1725,19 @@ public class DataHelper {
             throw new RuntimeException("no utf8!?");
         }
     }
-    
-    
+
+    /**
+     *  Roughly the same as orig.getBytes("ISO-8859-1") but much faster and
+     *  will not throw an exception.
+     *
+     *  @param orig non-null, must be 7-bit chars
+     *  @since 0.9.5
+     */
+    public static byte[] getASCII(String orig) {
+        byte[] rv = new byte[orig.length()];
+        for (int i = 0; i < rv.length; i++) {
+            rv[i] = (byte)orig.charAt(i);
+        }
+        return rv;
+    }
 }

@@ -109,8 +109,6 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private final NID _myNID;
     /** 20 byte random id + 32 byte Hash + 2 byte port */
     private final NodeInfo _myNodeInfo;
-    /** if non-null, run this when receiving an unrecognized query */
-    private CustomQueryHandler _customQueryHandler;
     /** unsigned dgrams */
     private final int _rPort;
     /** signed dgrams */
@@ -160,13 +158,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private static final int LOW_CRYPTO_TAGS = 4;
 
     public KRPC (I2PAppContext ctx, I2PSession session) {
-	    this(ctx, session, null, null);
-    }
-
-    public KRPC (I2PAppContext ctx, I2PSession session, NodeInfo myNodeInfo, CustomQueryHandler handler) {
         _context = ctx;
         _session = session;
-	_customQueryHandler = handler;
         _log = ctx.logManager().getLog(KRPC.class);
         _tracker = new DHTTracker(ctx);
 
@@ -178,24 +171,17 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         // Construct my NodeInfo
         // Pick ports over a big range to marginally increase security
         // If we add a search DHT, adjust to stay out of each other's way
-        if (myNodeInfo == null) {
-            _qPort = 2555 + ctx.random().nextInt(61111);
-            if (SECURE_NID) {
-                _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
-                _myID = _myNID.getData();
-            } else {
-                _myID = new byte[NID.HASH_LENGTH];
-                ctx.random().nextBytes(_myID);
-                _myNID = new NID(_myID);
-            }
-            _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
-        } else {
-	    _myNodeInfo = myNodeInfo;
-            _myNID = myNodeInfo.getNID();
-            _myID = _myNID.getData();
-            _qPort = myNodeInfo.getPort();
-	}
+        _qPort = 2555 + ctx.random().nextInt(61111);
         _rPort = _qPort + 1;
+        if (SECURE_NID) {
+            _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
+            _myID = _myNID.getData();
+        } else {
+            _myID = new byte[NID.HASH_LENGTH];
+            ctx.random().nextBytes(_myID);
+            _myNID = new NID(_myID);
+        }
+        _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
         _dhtFile = new File(ctx.getConfigDir(), DHT_FILE);
         _knownNodes = new DHTNodes(ctx, _myNID);
 
@@ -216,23 +202,6 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      */
     public int getPort() {
         return _qPort;
-    }
-
-    /**
-     *  @return The NodeInfo object
-     */
-    public NodeInfo getNodeInfo(Destination dest) {
-        if (dest == null) {
-            return _myNodeInfo;
-        }
-
-        for (NodeInfo nInfo : _knownNodes.values()) {
-            if (dest.equals(nInfo.getDestination())) {
-                return nInfo;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -808,7 +777,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param repliable true for all but announce
      *  @return null on error
      */
-    public ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
+    private ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
         if (nInfo.equals(_myNodeInfo))
             throw new IllegalArgumentException("wtf don't send to ourselves");
         if (_log.shouldLog(Log.DEBUG))
@@ -1095,17 +1064,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             byte[] token = args.get("token").getBytes();
             receiveAnnouncePeer(msgID, ih, token);
         } else {
-            if (_customQueryHandler != null) {
-                Map<String, Object> resps =
-                    _customQueryHandler.receiveQuery(method, args);
-                if (resps != null) {
-                    Map<String, Object> map = new HashMap();
-                    map.put("r", resps);
-                    sendResponse(nInfo, msgID, map);
-                }
-	    } else if (_log.shouldLog(Log.WARN)) {
+            if (_log.shouldLog(Log.WARN))
                 _log.warn("Unknown query method rcvd: " + method);
-            }
         }
     }
 
@@ -1144,7 +1104,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  Package private for PersistDHT.
      *  @return non-null nodeInfo from DB if present, otherwise the nInfo parameter is returned
      */
-    public NodeInfo heardAbout(NodeInfo nInfo) {
+    NodeInfo heardAbout(NodeInfo nInfo) {
         // try to keep ourselves out of the DHT
         if (nInfo.equals(_myNodeInfo))
             return _myNodeInfo;
@@ -1310,9 +1270,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             List<BEValue> peers = values.getList();
             List<Hash> rlist = receivePeers(nInfo, peers);
             waiter.gotReply(REPLY_PEERS, rlist);
-        } else if (_customQueryHandler != null && response.size() > 1) {
-            _customQueryHandler.receiveResponse(response);
-	} else {
+        } else {
             // a ping response or an announce peer response
             byte[] nid = response.get("id").getBytes();
             receivePong(nInfo, nid);

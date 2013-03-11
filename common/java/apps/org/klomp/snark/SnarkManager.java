@@ -120,7 +120,7 @@ public class SnarkManager implements CompleteListener {
 //       , "Galen", "http://5jpwQMI5FT303YwKa5Rd38PYSX04pbIKgTaKQsWbqoWjIfoancFdWCShXHLI5G5ofOb0Xu11vl2VEMyPsg1jUFYSVnu4-VfMe3y4TKTR6DTpetWrnmEK6m2UXh91J5DZJAKlgmO7UdsFlBkQfR2rY853-DfbJtQIFl91tbsmjcA5CGQi4VxMFyIkBzv-pCsuLQiZqOwWasTlnzey8GcDAPG1LDcvfflGV~6F5no9mnuisZPteZKlrv~~TDoXTj74QjByWc4EOYlwqK8sbU9aOvz~s31XzErbPTfwiawiaZ0RUI-IDrKgyvmj0neuFTWgjRGVTH8bz7cBZIc3viy6ioD-eMQOrXaQL0TCWZUelRwHRvgdPiQrxdYQs7ixkajeHzxi-Pq0EMm5Vbh3j3Q9kfUFW3JjFDA-MLB4g6XnjCbM5J1rC0oOBDCIEfhQkszru5cyLjHiZ5yeA0VThgu~c7xKHybv~OMXION7V8pBKOgET7ZgAkw1xgYe3Kkyq5syAAAA.i2p/tr/announce.php=http://galen.i2p/tr/"
        "Postman", "http://tracker2.postman.i2p/announce.php=http://tracker2.postman.i2p/"
        ,"Welterde", "http://tracker.welterde.i2p/a=http://tracker.welterde.i2p/stats?mode=top5"
-       ,"Diftracker", "http://n--XWjHjUPjnMNrSwXA2OYXpMIUL~u4FNXnrt2HtjK3y6j~4SOClyyeKzd0zRPlixxkCe2wfBIYye3bZsaqAD8bd0QMmowxbq91WpjsPfKMiphJbePKXtYAVARiy0cqyvh1d2LyDE-6wkvgaw45hknmS0U-Dg3YTJZbAQRU2SKXgIlAbWCv4R0kDFBLEVpReDiJef3rzAWHiW8yjmJuJilkYjMwlfRjw8xx1nl2s~yhlljk1pl13jGYb0nfawQnuOWeP-ASQWvAAyVgKvZRJE2O43S7iveu9piuv7plXWbt36ef7ndu2GNoNyPOBdpo9KUZ-NOXm4Kgh659YtEibL15dEPAOdxprY0sYUurVw8OIWqrpX7yn08nbi6qHVGqQwTpxH35vkL8qrCbm-ym7oQJQnNmSDrNTyWYRFSq5s5~7DAdFDzqRPW-pX~g0zEivWj5tzkhvG9rVFgFo0bpQX3X0PUAV9Xbyf8u~v8Zbr9K1pCPqBq9XEr4TqaLHw~bfAAAA.i2p/announce.php=http://diftracker.i2p/"
+       ,"Diftracker", "http://diftracker.i2p/announce.php=http://diftracker.i2p/"
 //       , "CRSTRACK", "http://b4G9sCdtfvccMAXh~SaZrPqVQNyGQbhbYMbw6supq2XGzbjU4NcOmjFI0vxQ8w1L05twmkOvg5QERcX6Mi8NQrWnR0stLExu2LucUXg1aYjnggxIR8TIOGygZVIMV3STKH4UQXD--wz0BUrqaLxPhrm2Eh9Hwc8TdB6Na4ShQUq5Xm8D4elzNUVdpM~RtChEyJWuQvoGAHY3ppX-EJJLkiSr1t77neS4Lc-KofMVmgI9a2tSSpNAagBiNI6Ak9L1T0F9uxeDfEG9bBSQPNMOSUbAoEcNxtt7xOW~cNOAyMyGydwPMnrQ5kIYPY8Pd3XudEko970vE0D6gO19yoBMJpKx6Dh50DGgybLQ9CpRaynh2zPULTHxm8rneOGRcQo8D3mE7FQ92m54~SvfjXjD2TwAVGI~ae~n9HDxt8uxOecAAvjjJ3TD4XM63Q9TmB38RmGNzNLDBQMEmJFpqQU8YeuhnS54IVdUoVQFqui5SfDeLXlSkh4vYoMU66pvBfWbAAAA.i2p/tracker/announce.php=http://crstrack.i2p/tracker/"
 //       ,"Exotrack", "http://blbgywsjubw3d2zih2giokakhe3o2cko7jtte4risb3hohbcoyva.b32.i2p/announce.php=http://exotrack.i2p/"
     };
@@ -147,16 +147,11 @@ public class SnarkManager implements CompleteListener {
      *  for i2cp host/port or i2psnark.dir
      */
     public void start() {
-        start(true);
-    }
-    public void start(boolean runDirMonitor) {
         _running = true;
         _peerCoordinatorSet = new PeerCoordinatorSet();
         _connectionAcceptor = new ConnectionAcceptor(_util);
-        if (runDirMonitor) {
-            _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
-            _monitor.start();
-        }
+        _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
+        _monitor.start();
         // delay until UpdateManager is there
         _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
         // Not required, Jetty has a shutdown hook
@@ -802,9 +797,6 @@ public class SnarkManager implements CompleteListener {
      *  @throws RuntimeException via Snark.fatal()
      */
     private void addTorrent(String filename, boolean dontAutoStart) {
-        addTorrent(filename, dontAutoStart, this, getDataDir().getPath());
-    }
-    private void addTorrent(String filename, boolean dontAutoStart, CompleteListener listener, String dataDir) {
         if ((!dontAutoStart) && !_util.connected()) {
             addMessage(_("Connecting to I2P"));
             boolean ok = _util.connect();
@@ -821,6 +813,7 @@ public class SnarkManager implements CompleteListener {
             addMessage(_("Error: Could not add the torrent {0}", filename) + ": " + ioe.getMessage());
             return;
         }
+        File dataDir = getDataDir();
         Snark torrent = null;
         synchronized (_snarks) {
             torrent = _snarks.get(filename);
@@ -884,16 +877,18 @@ public class SnarkManager implements CompleteListener {
                     } else {
                         // TODO load saved closest DHT nodes and pass to the Snark ?
                         // This may take a LONG time
-                        torrent = new Snark(_util, filename, null, -1, null, null, listener,
+                        torrent = new Snark(_util, filename, null, -1, null, null, this,
                                             _peerCoordinatorSet, _connectionAcceptor,
-                                            false, dataDir);
+                                            false, dataDir.getPath());
                         loadSavedFilePriorities(torrent);
                         synchronized (_snarks) {
                             _snarks.put(filename, torrent);
                         }
                     }
                 } catch (IOException ioe) {
-                    addMessage(_("Torrent in \"{0}\" is invalid", sfile.getName()) + ": " + ioe.getMessage());
+                    String err = _("Torrent in \"{0}\" is invalid", sfile.getName()) + ": " + ioe.getMessage();
+                    addMessage(err);
+                    _log.error(err, ioe);
                     if (sfile.exists())
                         sfile.delete();
                     return;
@@ -943,20 +938,15 @@ public class SnarkManager implements CompleteListener {
      *                     to save it across restarts, in case we don't get
      *                     the metadata before shutdown?
      * @param listener to intercept callbacks, should pass through to this
-     * @param dataDir directory to store the file(s)
      * @return the new Snark or null on failure
      * @throws RuntimeException via Snark.fatal()
      * @since 0.9.4
      */
     public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
                           boolean autoStart, CompleteListener listener) {
-        return addMagnet(name, ih, trackerURL, updateStatus, autoStart, listener, getDataDir().getPath());
-    }
-    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
-                          boolean autoStart, CompleteListener listener, String dataDir) {
         Snark torrent = new Snark(_util, name, ih, trackerURL, listener,
                                   _peerCoordinatorSet, _connectionAcceptor,
-                                  false, dataDir);
+                                  false, getDataDir().getPath());
 
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(ih);
@@ -1035,14 +1025,10 @@ public class SnarkManager implements CompleteListener {
      * @param bitfield the current completion status of the torrent
      * @param filename the absolute path to save the metainfo to, generally ending in ".torrent", which is also the name of the torrent
      *                 Must be a filesystem-safe name.
-     * @param dataDir directory to store the file(s)
      * @throws RuntimeException via Snark.fatal()
      * @since 0.8.4
      */
     public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
-        addTorrent(metainfo, bitfield, filename, dontAutoStart, this, getDataDir().getPath());
-    }
-    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart, CompleteListener listener, String dataDir) throws IOException {
         // prevent interference by DirMonitor
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(metainfo.getInfoHash());
@@ -1055,7 +1041,7 @@ public class SnarkManager implements CompleteListener {
             try {
                 locked_writeMetaInfo(metainfo, filename, areFilesPublic());
                 // hold the lock for a long time
-                addTorrent(filename, dontAutoStart, listener, dataDir);
+                addTorrent(filename, dontAutoStart);
             } catch (IOException ioe) {
                 addMessage(_("Failed to copy torrent file to {0}", filename));
                 _log.error("Failed to write torrent file", ioe);
@@ -1103,7 +1089,7 @@ public class SnarkManager implements CompleteListener {
     private static void locked_writeMetaInfo(MetaInfo metainfo, String filename, boolean areFilesPublic) throws IOException {
         File file = new File(filename);
         if (file.exists())
-            return;
+            throw new IOException("Cannot overwrite an existing .torrent file: " + file.getPath());
         OutputStream out = null;
         try {
             if (areFilesPublic)
@@ -1487,9 +1473,6 @@ public class SnarkManager implements CompleteListener {
      * @since 0.8.4
      */
     public String gotMetaInfo(Snark snark) {
-        return gotMetaInfo(snark, getDataDir().getPath());
-    }
-    public String gotMetaInfo(Snark snark, String dataDir) {
         MetaInfo meta = snark.getMetaInfo();
         Storage storage = snark.getStorage();
         if (meta != null && storage != null) {
@@ -1504,7 +1487,7 @@ public class SnarkManager implements CompleteListener {
             String name = storage.getBaseName();
             try {
                 // _snarks must use canonical
-                name = (new File(dataDir, storage.getBaseName() + ".torrent")).getCanonicalPath();
+                name = (new File(getDataDir(), storage.getBaseName() + ".torrent")).getCanonicalPath();
                 // put the announce URL in the file
                 String announce = snark.getTrackerURL();
                 if (announce != null)

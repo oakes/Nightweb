@@ -8,6 +8,7 @@ import java.io.InputStream;
 import java.io.PipedInputStream;
 import java.io.PipedOutputStream;
 import java.io.OutputStream;
+import java.net.ConnectException;
 import java.net.MalformedURLException;
 import java.net.Socket;
 import java.net.URL;
@@ -30,8 +31,6 @@ import net.i2p.util.InternalSocket;
  *        [-o outputFile]
  *        [-m markSize lineLen]
  *        url
- *
- * Bug: a malformed url http://example.i2p (no trailing '/') fails cryptically
  */
 public class EepGet {
     protected final I2PAppContext _context;
@@ -66,6 +65,8 @@ public class EepGet {
     protected boolean _shouldWriteErrorToOutput;
     protected String _etag;
     protected String _lastModified;
+    protected final String _etagOrig;
+    protected final String _lastModifiedOrig;
     protected boolean _encodingChunked;
     protected boolean _notModified;
     protected String _contentType;
@@ -144,6 +145,8 @@ public class EepGet {
         _listeners = new ArrayList(1);
         _etag = etag;
         _lastModified = lastModified;
+        _etagOrig = etag;
+        _lastModifiedOrig = lastModified;
     }
 
     /**
@@ -526,7 +529,8 @@ public class EepGet {
                     _listeners.get(i).attemptFailed(_url, _bytesTransferred, _bytesRemaining, _currentAttempt, _numRetries, ioe);
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("ERR: doFetch failed ", ioe);
-                if (ioe instanceof MalformedURLException)
+                if (ioe instanceof MalformedURLException ||
+                    ioe instanceof ConnectException) // proxy or nonproxied host Connection Refused
                     _keepFetching = false;
             } finally {
                 if (_out != null) {
@@ -612,8 +616,8 @@ public class EepGet {
             // reset some important variables, we don't want to save the values from the redirect
             _bytesRemaining = -1;
             _redirectLocation = null;
-            _etag = null;
-            _lastModified = null;
+            _etag = _etagOrig;
+            _lastModified = _lastModifiedOrig;
             _contentType = null;
             _encodingChunked = false;
 
@@ -726,8 +730,13 @@ public class EepGet {
 
         if (_transferFailed) {
             // 404, etc - transferFailed is called after all attempts fail, by fetch() above
-            for (int i = 0; i < _listeners.size(); i++) 
-                _listeners.get(i).attemptFailed(_url, _bytesTransferred, _bytesRemaining, _currentAttempt, _numRetries, new Exception("Attempt failed"));
+            if (!_listeners.isEmpty()) {
+                Exception e = new IOException("Attempt failed " + _responseCode);
+                for (int i = 0; i < _listeners.size(); i++)  {
+                    _listeners.get(i).attemptFailed(_url, _bytesTransferred, _bytesRemaining, _currentAttempt,
+                                                    _numRetries, e);
+                }
+            }
         } else if ((_minSize > 0) && (_alreadyTransferred < _minSize)) {
             throw new IOException("Bytes transferred " + _alreadyTransferred + " violates minimum of " + _minSize + " bytes");
         } else if ( (_bytesRemaining == -1) || (remaining == 0) ) {
@@ -1078,24 +1087,36 @@ public class EepGet {
         if ( (_postData != null) && (_postData.length() > 0) )
             post = true;
         URL url = new URL(_actualURL);
-        String proto = url.getProtocol();
         String host = url.getHost();
         int port = url.getPort();
         String path = url.getPath();
         String query = url.getQuery();
-        if (query != null)
-            path = path + '?' + query;
-        if (!path.startsWith("/"))
-	    path = "/" + path;
-        if ( (port == 80) || (port == 443) || (port <= 0) ) path = proto + "://" + host + path;
-        else path = proto + "://" + host + ":" + port + path;
-        if (_log.shouldLog(Log.DEBUG)) _log.debug("Requesting " + path);
-        if (post) {
-            buf.append("POST ").append(_actualURL).append(" HTTP/1.1\r\n");
+        if (_log.shouldLog(Log.DEBUG))
+            _log.debug("Requesting " + _actualURL);
+        // RFC 2616 sec 5.1.2 - full URL if proxied, absolute path only if not proxied
+        String urlToSend;
+        if (_shouldProxy) {
+            urlToSend = _actualURL;
+            if ((path == null || path.length()<= 0) &&
+                (query == null || query.length()<= 0))
+                urlToSend += "/";
         } else {
-            buf.append("GET ").append(_actualURL).append(" HTTP/1.1\r\n");
+            urlToSend = path;
+            if (urlToSend == null || urlToSend.length()<= 0)
+                urlToSend = "/";
+            if (query != null)
+                urlToSend += '?' + query;
         }
-        buf.append("Host: ").append(url.getHost()).append("\r\n");
+        if (post) {
+            buf.append("POST ").append(urlToSend).append(" HTTP/1.1\r\n");
+        } else {
+            buf.append("GET ").append(urlToSend).append(" HTTP/1.1\r\n");
+        }
+        // RFC 2616 sec 5.1.2 - host + port (NOT authority, which includes userinfo)
+        buf.append("Host: ").append(host);
+        if (port >= 0)
+            buf.append(':').append(port);
+        buf.append("\r\n");
         if (_alreadyTransferred > 0) {
             buf.append("Range: bytes=");
             buf.append(_alreadyTransferred);
@@ -1207,7 +1228,7 @@ public class EepGet {
     public void addAuthorization(String userName, String password) {
         if (_shouldProxy)
             addHeader("Proxy-Authorization", 
-                      "Basic " + Base64.encode((userName + ':' + password).getBytes(), true));  // true = use standard alphabet
+                      "Basic " + Base64.encode(DataHelper.getUTF8(userName + ':' + password), true));  // true = use standard alphabet
     }
 
     /**
