@@ -142,6 +142,7 @@
   (let [image-hash (write-pic-file image-barray)
         args {"title" name-text
               "body" body-text
+              "time" (.getTime (java.util.Date.))
               "pics" (if image-hash [image-hash] [])}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode args))))

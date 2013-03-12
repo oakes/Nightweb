@@ -66,7 +66,8 @@
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
-        [:pichash "BINARY"])
+        [:pichash "BINARY"]
+        [:time "BIGINT"])
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
     (with-connection
@@ -142,32 +143,36 @@
 
 (defn insert-profile
   [user-hash args]
-  (let [pics (insert-pic-list user-hash user-hash args)]
-    (with-connection
-      spec
-      (update-or-insert-values
-        :user
-        ["userhash = ?" user-hash]
-        {:userhash user-hash 
-         :title (b-decode-string (get args "title"))
-         :body (b-decode-string (get args "body"))
-         :pichash (b-decode-bytes (get pics 0))}))))
+  (let [time-long (b-decode-long (get args "time"))
+        pics (insert-pic-list user-hash user-hash args)]
+    (if (and time-long (<= time-long (.getTime (java.util.Date.))))
+      (with-connection
+        spec
+        (update-or-insert-values
+          :user
+          ["userhash = ?" user-hash]
+          {:userhash user-hash 
+           :title (b-decode-string (get args "title"))
+           :body (b-decode-string (get args "body"))
+           :time (b-decode-long (get args "time"))
+           :pichash (b-decode-bytes (get pics 0))})))))
 
 (defn insert-post
   [user-hash post-hash args]
   (let [time-long (b-decode-long (get args "time"))
         pics (insert-pic-list user-hash post-hash args)]
-    (with-connection
-      spec
-      (update-or-insert-values
-        :post
-        ["userhash = ? AND time = ?" user-hash time-long]
-        {:posthash post-hash
-         :userhash user-hash
-         :body (b-decode-string (get args "body"))
-         :time time-long
-         :pichash (b-decode-bytes (get pics 0))
-         :count (count pics)}))))
+    (if (and time-long (<= time-long (.getTime (java.util.Date.))))
+      (with-connection
+        spec
+        (update-or-insert-values
+          :post
+          ["userhash = ? AND time = ?" user-hash time-long]
+          {:posthash post-hash
+           :userhash user-hash
+           :body (b-decode-string (get args "body"))
+           :time time-long
+           :pichash (b-decode-bytes (get pics 0))
+           :count (count pics)})))))
 
 (defn insert-meta-data
   [user-hash data-map]
@@ -226,13 +231,14 @@
   (let [data-type (get params :type)
         sub-type (get params :subtype)
         statement (case data-type
-                    :user ["SELECT * FROM user"]
+                    :user ["SELECT * FROM user ORDER BY time DESC"]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :fav (case sub-type
                            :user [(str "SELECT * FROM user "
                                        "INNER JOIN fav "
                                        "ON user.userhash = fav.favhash "
-                                       "WHERE fav.userhash = ?")
+                                       "WHERE fav.userhash = ? "
+                                       "ORDER BY user.time DESC")
                                   (get params :userhash)]
                            :post [(str "SELECT * FROM post "
                                        "INNER JOIN fav "
@@ -241,15 +247,17 @@
                                        "ORDER BY post.time DESC")
                                   (get params :userhash)])
                     :search (case sub-type
-                              :user [(str "SELECT u.* FROM "
-                                          "FT_SEARCH_DATA(?, 0, 0) ft, user u "
+                              :user [(str "SELECT user.* FROM "
+                                          "FT_SEARCH_DATA(?, 0, 0) ft, user "
                                           "WHERE ft.TABLE='USER' "
-                                          "AND u.ID=ft.KEYS[0]")
+                                          "AND user.ID=ft.KEYS[0] "
+                                          "ORDER BY user.time DESC")
                                      (get params :query)]
-                              :post [(str "SELECT p.* FROM "
-                                          "FT_SEARCH_DATA(?, 0, 0) ft, post p "
+                              :post [(str "SELECT post.* FROM "
+                                          "FT_SEARCH_DATA(?, 0, 0) ft, post "
                                           "WHERE ft.TABLE='POST' "
-                                          "AND p.ID=ft.KEYS[0]")
+                                          "AND post.ID=ft.KEYS[0] "
+                                          "ORDER BY post.time DESC")
                                      (get params :query)]))]
     (with-connection
       spec
