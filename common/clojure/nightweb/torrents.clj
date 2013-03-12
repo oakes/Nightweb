@@ -134,7 +134,7 @@
                     (org.klomp.snark.MetaInfo. (input-stream torrent-path))
                     listener)
                   (org.klomp.snark.Storage.
-                    (.util manager) (file path) nil false listener))]
+                    (.util manager) (file path) nil nil false listener))]
     (.close storage)
     storage))
 
