@@ -135,6 +135,9 @@ class PeerCoordinator implements PeerListener
   private final I2PSnarkUtil _util;
   private final Random _random;
   
+  /** Maintain connections with peers even after torrent has finished. */
+  private boolean persistent = false;
+
   /**
    *  @param metainfo null if in magnet mode
    *  @param storage null if in magnet mode
@@ -377,7 +380,7 @@ class PeerCoordinator implements PeerListener
   public boolean needOutboundPeers() {
         //return wantedBytes != 0 && needPeers();
         // minus one to make it a little easier for new peers to get in on large swarms
-        return wantedBytes != 0 &&
+        return (wantedBytes != 0 || persistent) &&
                !halted &&
                peers.size() < getMaxConnections() - 1 &&
                (storage == null || !storage.isChecking());
@@ -405,6 +408,14 @@ class PeerCoordinator implements PeerListener
     //if (size <= 1024*1024)
     //  return (max + max + 2) / 3;
     //return (max + 2) / 3;
+  }
+
+  public void setPersistent(boolean isPersistent) {
+    persistent = isPersistent;
+  }
+
+  public boolean getPersistent() {
+    return persistent;
   }
 
   public boolean halted() { return halted; }
@@ -688,7 +699,7 @@ class PeerCoordinator implements PeerListener
             }
         }
     }
-    return rv;
+    return rv || (wantedBytes == 0 && persistent);
   }
 
   /**
@@ -1031,8 +1042,10 @@ class PeerCoordinator implements PeerListener
     }
 
     if (done) {
-        for (Peer p : toDisconnect) {
-            p.disconnect(true);
+        if (!persistent) {
+            for (Peer p : toDisconnect) {
+                p.disconnect(true);
+            }
         }
     
         // put msg on the console if partial, since Storage won't do it

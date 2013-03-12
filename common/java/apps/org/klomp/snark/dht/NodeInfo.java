@@ -24,7 +24,7 @@ import net.i2p.util.RandomSource;
  * @author zzz
  */
 
-class NodeInfo extends SimpleDataStructure {
+public class NodeInfo extends SimpleDataStructure {
 
     private final NID nID;
     private final Hash hash;
