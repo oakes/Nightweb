@@ -3,6 +3,7 @@
                                 pub-key
                                 load-user-keys]]
         [nightweb.io :only [file-exists?
+                            read-file
                             make-dir
                             iterate-dir
                             write-key-file
@@ -17,6 +18,7 @@
                                    set-my-hash-str
                                    slash
                                    torrent-ext
+                                   link-ext
                                    get-user-dir
                                    get-user-priv-file
                                    get-user-pub-file
@@ -24,7 +26,8 @@
         [nightweb.torrents :only [start-torrent-manager
                                   add-hash
                                   add-torrent
-                                  remove-torrent]]))
+                                  remove-torrent
+                                  parse-meta-link]]))
 
 (defn add-user-hash
   [their-hash-bytes]
@@ -35,7 +38,7 @@
         (make-dir path)
         (add-hash path their-hash-str true)))))
 
-(defn add-user-torrents
+(defn add-user-and-meta-torrents
   []
   (iterate-dir (get-user-dir)
                (fn [their-hash-str]
@@ -43,13 +46,21 @@
                        pub-path (get-user-pub-file their-hash-str)
                        pub-torrent-path (str pub-path torrent-ext)
                        meta-path (get-meta-dir their-hash-str)
-                       meta-torrent-path (str meta-path torrent-ext)]
+                       meta-torrent-path (str meta-path torrent-ext)
+                       meta-link-path (str meta-path link-ext)
+                       link-map (if (file-exists? meta-link-path)
+                                  (-> (read-file meta-link-path)
+                                      (parse-meta-link)))]
+                   ; add user torrent
                    (if (not= their-hash-str my-hash-str)
                      (if (file-exists? pub-torrent-path)
                        (add-torrent pub-path true)
                        (add-hash user-dir their-hash-str true)))
+                   ; add meta torrent
                    (if (file-exists? meta-torrent-path)
-                     (add-torrent meta-path false))))))
+                     (add-torrent meta-path false)
+                     (if-let [new-link-str (get link-map :link-hash-str)]
+                       (add-hash user-dir new-link-str false)))))))
 
 (defn create-user-torrent
   []
@@ -79,7 +90,7 @@
   (java.lang.Thread/sleep 3000)
   (set-my-hash-bytes (create-user-torrent))
   (set-my-hash-str (base32-encode my-hash-bytes))
-  (add-user-torrents))
+  (add-user-and-meta-torrents))
 
 (defn stop-router
   []

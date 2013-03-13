@@ -268,11 +268,11 @@
 (defn replace-meta-link
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (get-user-dir user-hash-str)
-        meta-file (str (get-meta-dir user-hash-str) torrent-ext)]
-    (save-meta-link new-link-map)
-    (remove-torrent meta-file)
+        meta-torrent-path (str (get-meta-dir user-hash-str) torrent-ext)]
+    (remove-torrent meta-torrent-path)
     (if-let [old-hash-str (get old-link-map :link-hash-str)]
       (remove-torrent old-hash-str))
+    (save-meta-link new-link-map)
     (add-hash user-dir (get new-link-map :link-hash-str) false)
     (println "Saved meta link")))
 
