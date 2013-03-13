@@ -168,6 +168,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         _session = session;
         _log = ctx.logManager().getLog(KRPC.class);
         _tracker = new DHTTracker(ctx);
+        _customQueryHandler = handler;
 
         _sentQueries = new ConcurrentHashMap();
         _outgoingTokens = new ConcurrentHashMap();
