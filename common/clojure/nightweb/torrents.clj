@@ -271,7 +271,8 @@
         meta-file (str (get-meta-dir user-hash-str) torrent-ext)]
     (save-meta-link new-link-map)
     (remove-torrent meta-file)
-    (remove-torrent (get old-link-map :link-hash-str))
+    (if-let [old-hash-str (get old-link-map :link-hash-str)]
+      (remove-torrent old-hash-str))
     (add-hash user-dir (get new-link-map :link-hash-str) false)
     (println "Saved meta link")))
 

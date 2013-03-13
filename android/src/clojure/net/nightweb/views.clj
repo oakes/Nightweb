@@ -280,36 +280,36 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (get-user-data content)
-            first-tiles [(assoc user
-                                :title (get-string :profile)
-                                :add-emphasis? true
-                                :background (get-resource :drawable :profile)
-                                :type :custom-func
-                                :func
-                                (fn [context item]
-                                  (if (is-connecting?)
-                                    (show-dialog context
-                                                 (get-string :connecting))
-                                    (show-dialog
-                                      context
-                                      (get-profile-view context user)
-                                      (if (is-me? (get user :userhash))
-                                        {:positive-name (get-string :save)
-                                         :positive-func do-save-profile
-                                         :negative-name (get-string :cancel)
-                                         :negative-func do-cancel}
-                                        {:positive-name (get-string :ok)
-                                         :positive-func do-cancel})))))
-                         (assoc user
-                                :title (get-string :favorites)
-                                :add-emphasis? true
-                                :pichash nil
-                                :background (get-resource :drawable :favs)
-                                :type :fav)]
-            add-to-fav [(assoc user
-                               :title (get-string :add_to_favorites)
-                               :add-emphasis? true
-                               :type :add-to-fav)]
+            first-tiles [{:title (get-string :profile)
+                          :add-emphasis? true
+                          :background (get-resource :drawable :profile)
+                          :userhash (get user :userhash)
+                          :pichash (get user :pichash)
+                          :type :custom-func
+                          :func
+                          (fn [context item]
+                            (if (is-connecting?)
+                              (show-dialog context
+                                           (get-string :connecting))
+                              (show-dialog
+                                context
+                                (get-profile-view context user)
+                                (if (is-me? (get user :userhash))
+                                  {:positive-name (get-string :save)
+                                   :positive-func do-save-profile
+                                   :negative-name (get-string :cancel)
+                                   :negative-func do-cancel}
+                                  {:positive-name (get-string :ok)
+                                   :positive-func do-cancel}))))}
+                         {:title (get-string :favorites)
+                          :add-emphasis? true
+                          :userhash (get user :userhash)
+                          :background (get-resource :drawable :favs)
+                          :type :fav}]
+            add-to-fav [{:title (get-string :add_to_favorites)
+                         :add-emphasis? true
+                         :userhash (get user :userhash)
+                         :type :add-to-fav}]
             posts (add-last-tile content (get-post-data content))
             grid-content (into [] (concat (if (nil? (get content :page))
                                             first-tiles)
