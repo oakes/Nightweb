@@ -63,11 +63,13 @@
       (create-table
         :user
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
+        [:origuserhash "BINARY"]
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
-        [:pichash "BINARY"]
-        [:time "BIGINT"])
+        [:time "BIGINT"]
+        [:mtime "BIGINT"]
+        [:pichash "BINARY"])
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
     (with-connection
@@ -79,6 +81,7 @@
         [:userhash "BINARY"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
+        [:mtime "BIGINT"]
         [:pichash "BINARY"]
         [:count "BIGINT"]
         [:userptrhash "BINARY"]
@@ -100,7 +103,8 @@
         :fav
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:favhash "BINARY"]
-        [:userhash "BINARY"]))))
+        [:userhash "BINARY"]
+        [:mtime "BIGINT"]))))
 
 (defn drop-tables
   []
@@ -143,34 +147,41 @@
 
 (defn insert-profile
   [user-hash args]
-  (let [time-long (b-decode-long (get args "time"))
+  (let [edit-time (b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash user-hash args)]
-    (if (and time-long (<= time-long (.getTime (java.util.Date.))))
+    (if (and edit-time (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
           :user
           ["userhash = ?" user-hash]
-          {:userhash user-hash 
+          {:origuserhash user-hash
+           :userhash user-hash 
            :title (b-decode-string (get args "title"))
            :body (b-decode-string (get args "body"))
-           :time (b-decode-long (get args "time"))
+           :time (.getTime (java.util.Date.))
+           :mtime edit-time
            :pichash (b-decode-bytes (get pics 0))})))))
 
 (defn insert-post
   [user-hash post-hash args]
-  (let [time-long (b-decode-long (get args "time"))
+  (let [create-time (b-decode-long (get args "time"))
+        edit-time (b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash post-hash args)]
-    (if (and time-long (<= time-long (.getTime (java.util.Date.))))
+    (if (and create-time
+             edit-time
+             (<= create-time (.getTime (java.util.Date.)))
+             (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
           :post
-          ["userhash = ? AND time = ?" user-hash time-long]
+          ["userhash = ? AND time = ?" user-hash create-time]
           {:posthash post-hash
            :userhash user-hash
            :body (b-decode-string (get args "body"))
-           :time time-long
+           :time create-time
+           :mtime edit-time
            :pichash (b-decode-bytes (get pics 0))
            :count (count pics)})))))
 
@@ -201,16 +212,16 @@
 (defn get-single-post-data
   [params]
   (let [user-hash (get params :userhash)
-        unix-time (get params :time)]
+        create-time (get params :time)]
     (with-connection
       spec
       (with-query-results
         rs
         ["SELECT * FROM post WHERE userhash = ? AND time = ?"
-         user-hash unix-time]
+         user-hash create-time]
         (if-let [post (first (prepare-results rs :post))]
           post
-          {:userhash user-hash :time unix-time :type :post})))))
+          {:userhash user-hash :time create-time :type :post})))))
 
 (defn get-post-data
   [params]
@@ -234,17 +245,17 @@
                     :user ["SELECT * FROM user ORDER BY time DESC"]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :fav (case sub-type
-                           :user [(str "SELECT * FROM user "
-                                       "INNER JOIN fav "
-                                       "ON user.userhash = fav.favhash "
+                           :user [(str "SELECT * FROM fav "
+                                       "LEFT JOIN user "
+                                       "ON fav.favhash = user.userhash "
                                        "WHERE fav.userhash = ? "
-                                       "ORDER BY user.time DESC")
+                                       "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
-                           :post [(str "SELECT * FROM post "
-                                       "INNER JOIN fav "
-                                       "ON post.userhash = fav.favhash "
+                           :post [(str "SELECT * FROM fav "
+                                       "LEFT JOIN post "
+                                       "ON fav.favhash = post.userhash "
                                        "WHERE fav.userhash = ? "
-                                       "ORDER BY post.time DESC")
+                                       "ORDER BY fav.mtime DESC")
                                   (get params :userhash)])
                     :search (case sub-type
                               :user [(str "SELECT user.* FROM "

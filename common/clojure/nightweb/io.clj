@@ -129,8 +129,10 @@
   [text image-barrays]
   (let [image-hashes (for [bitmap image-barrays]
                        (write-pic-file bitmap))
+        create-time (.getTime (java.util.Date.))
         args {"body" text
-              "time" (.getTime (java.util.Date.))
+              "time" create-time
+              "mtime" create-time
               "pics" (remove-dupes-and-nils image-hashes)}
         data-barray (b-encode args)
         hash-str (base32-encode (create-hash data-barray))]
@@ -142,7 +144,7 @@
   (let [image-hash (write-pic-file image-barray)
         args {"title" name-text
               "body" body-text
-              "time" (.getTime (java.util.Date.))
+              "mtime" (.getTime (java.util.Date.))
               "pics" (if image-hash [image-hash] [])}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode args))))

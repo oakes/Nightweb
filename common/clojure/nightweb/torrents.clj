@@ -91,13 +91,13 @@
 
 (defn send-meta-link
   [torrent]
-  (iterate-peers torrent
-                 (fn [peer]
-                   (let [node-info (get-node-info-for-peer peer)
-                         info-hash-str (base32-encode (.getInfoHash torrent))
-                         args (read-link-file info-hash-str)]
-                     (println "Sending meta link" node-info args)
-                     (send-custom-query node-info "announce_meta" args)))))
+  (let [info-hash-str (base32-encode (.getInfoHash torrent))
+        args (read-link-file info-hash-str)]
+    (iterate-peers torrent
+                   (fn [peer]
+                     (let [node-info (get-node-info-for-peer peer)]
+                       (println "Sending meta link" node-info args)
+                       (send-custom-query node-info "announce_meta" args))))))
 
 (defn send-meta-link-periodically
   [seconds]

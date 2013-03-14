@@ -39,7 +39,8 @@
       this
       service-name
       (fn [binder]
-        (let [action-bar (.getActionBar this)]
+        (let [action-bar (.getActionBar this)
+              params (.getSerializableExtra (.getIntent this) "params")]
           (.setNavigationMode action-bar 
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
@@ -147,7 +148,7 @@
                        (get-meta-torrent-file)
                        (file-exists?)
                        (not)))
-            (show-page this "net.nightweb.MainPage" {})))))
+            (show-page this "net.nightweb.MainPage" params)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
