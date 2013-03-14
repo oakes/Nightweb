@@ -10,7 +10,9 @@
                             read-key-file
                             write-link-file]]
         [nightweb.formats :only [base32-encode
-                                 base32-decode]]
+                                 base32-decode
+                                 b-decode
+                                 b-decode-map]]
         [nightweb.constants :only [set-base-dir
                                    my-hash-bytes
                                    set-my-hash-bytes
@@ -50,6 +52,8 @@
                        meta-link-path (str meta-path link-ext)
                        link-map (if (file-exists? meta-link-path)
                                   (-> (read-file meta-link-path)
+                                      (b-decode)
+                                      (b-decode-map)
                                       (parse-meta-link)))]
                    ; add user torrent
                    (if (not= their-hash-str my-hash-str)
