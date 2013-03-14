@@ -55,6 +55,10 @@
   [user-hash]
   (str (get-user-dir user-hash) meta-dir))
 
+(defn get-meta-torrent-file
+  [user-hash]
+  (str (get-meta-dir user-hash) torrent-ext))
+
 (defn get-meta-link-file
   [user-hash]
   (str (get-meta-dir user-hash) link-ext))

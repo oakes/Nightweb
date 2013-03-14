@@ -18,10 +18,14 @@
                                    get-gallery-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [receive-result
+        [net.nightweb.actions :only [show-page
+                                     receive-result
                                      do-menu-action]]
-        [nightweb.formats :only [url-decode]]
-        [nightweb.constants :only [my-hash-bytes]]))
+        [nightweb.formats :only [base32-encode
+                                 url-decode]]
+        [nightweb.io :only [file-exists?]]
+        [nightweb.constants :only [my-hash-bytes
+                                   get-meta-torrent-file]]))
 
 (defn shutdown-receiver-func
   [context intent]
@@ -135,7 +139,15 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if url (send-broadcast this params download-receiver-name)))))
+          (if url (send-broadcast this params download-receiver-name))
+          (if (and url
+                   (get params :userhash)
+                   (-> (get params :userhash)
+                       (base32-encode)
+                       (get-meta-torrent-file)
+                       (file-exists?)
+                       (not)))
+            (show-page this "net.nightweb.MainPage" {})))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
