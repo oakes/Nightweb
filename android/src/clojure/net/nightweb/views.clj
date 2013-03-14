@@ -8,6 +8,7 @@
                                      request-files
                                      clear-attachments
                                      show-dialog
+                                     show-lost-post-dialog
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
@@ -180,8 +181,10 @@
                         :subtitle (get-string :author))
             pics (get-pic-data content :posthash)
             total-results (vec (concat [user] pics))]
-        (on-ui (.setText text-view (get post :body))
-               (set-grid-view-tiles context total-results grid-view))))
+        (if (nil? (get post :body))
+          (show-lost-post-dialog context)
+          (on-ui (.setText text-view (get post :body))
+                 (set-grid-view-tiles context total-results grid-view)))))
     view))
 
 (defn get-gallery-view
@@ -290,9 +293,11 @@
                           (fn [context item]
                             (if (is-connecting?)
                               (show-dialog context
+                                           nil
                                            (get-string :connecting))
                               (show-dialog
                                 context
+                                nil
                                 (get-profile-view context user)
                                 (if (is-me? (get user :userhash))
                                   {:positive-name (get-string :save)

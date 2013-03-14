@@ -3,6 +3,8 @@
         [neko.threading :only [on-ui]]
         [neko.find-view :only [find-view]]
         [net.clandroid.activity :only [set-state get-state]]
+        [net.clandroid.service :only [send-broadcast]]
+        [net.nightweb.main :only [download-receiver-name]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [read-file
                             get-files-in-uri
@@ -86,14 +88,15 @@
     (.startActivity context intent)))
 
 (defn show-dialog
-  ([context message]
+  ([context title message]
    (let [builder (android.app.AlertDialog$Builder. context)]
      (.setPositiveButton builder (get-string :ok) nil)
      (let [dialog (.create builder)]
+       (.setTitle dialog title)
        (.setMessage dialog message)
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog))))
-  ([context view buttons]
+  ([context message view buttons]
    (let [builder (android.app.AlertDialog$Builder. context)]
      (if-let [positive-name (get buttons :positive-name)]
        (.setPositiveButton builder positive-name nil))
@@ -101,6 +104,7 @@
        (.setNeutralButton builder neutral-name nil))
      (if-let [negative-name (get buttons :negative-name)]
        (.setNegativeButton builder negative-name nil))
+     (.setMessage builder message)
      (.setView builder view)
      (let [dialog (.create builder)
            positive-type android.app.AlertDialog/BUTTON_POSITIVE
@@ -133,6 +137,35 @@
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog)))))
 
+(defn show-new-user-dialog
+  [context params]
+  (show-dialog context
+               (get-string :new_user)
+               nil
+               {:positive-name (get-string :download_user)
+                :positive-func
+                (fn [context dialog-view button-view]
+                  (send-broadcast context params download-receiver-name)
+                  (show-page context "net.nightweb.MainPage" params))
+                :negative-name (get-string :cancel)
+                :negative-func
+                (fn [context dialog-view button-view]
+                  (.finish context))}))
+
+(defn show-pending-user-dialog
+  [context]
+  (show-dialog context nil (get-string :pending_user)))
+
+(defn show-lost-post-dialog
+  [context]
+  (show-dialog context
+               (get-string :lost_post)
+               nil
+               {:positive-name (get-string :ok)
+                :positive-func
+                (fn [context dialog-view button-view]
+                  (.finish context))}))
+
 (defn show-spinner
   [context message func]
   (on-ui
@@ -142,10 +175,6 @@
         (on-ui
           (.dismiss spinner)
           (.recreate context))))))
-
-(defn show-message
-  [context message]
-  (show-dialog context))
 
 (defn show-categories
   [context content]

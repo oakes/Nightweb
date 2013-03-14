@@ -3,9 +3,9 @@
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
         [net.clandroid.service :only [defservice
-                                               start-foreground
-                                               start-receiver
-                                               stop-receiver]]
+                                      start-foreground
+                                      start-receiver
+                                      stop-receiver]]
         [nightweb.router :only [add-user-hash
                                 start-router
                                 stop-router]]

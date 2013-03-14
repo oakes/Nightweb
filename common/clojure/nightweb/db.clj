@@ -154,8 +154,7 @@
         (update-or-insert-values
           :user
           ["userhash = ?" user-hash]
-          {:origuserhash user-hash
-           :userhash user-hash 
+          {:userhash user-hash 
            :title (b-decode-string (get args "title"))
            :body (b-decode-string (get args "body"))
            :time (.getTime (java.util.Date.))

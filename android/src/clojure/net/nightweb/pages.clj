@@ -2,15 +2,13 @@
   (:use [neko.resource :only [get-resource get-string]]
         [neko.activity :only [set-content-view!]]
         [net.clandroid.activity :only [set-state
-                                                defactivity]]
+                                       defactivity]]
         [net.clandroid.service :only [start-service
-                                               stop-service
-                                               start-receiver
-                                               stop-receiver
-                                               send-broadcast]]
+                                      stop-service
+                                      start-receiver
+                                      stop-receiver]]
         [net.nightweb.main :only [service-name
-                                  shutdown-receiver-name
-                                  download-receiver-name]]
+                                  shutdown-receiver-name]]
         [net.nightweb.views :only [create-tab
                                    get-grid-view
                                    get-user-view
@@ -19,13 +17,15 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [show-page
+                                     show-new-user-dialog
+                                     show-pending-user-dialog
                                      receive-result
                                      do-menu-action]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
-        [nightweb.io :only [file-exists?]]
-        [nightweb.constants :only [my-hash-bytes
-                                   get-meta-torrent-file]]))
+        [nightweb.constants :only [my-hash-bytes]]
+        [nightweb.router :only [user-exists?
+                                user-has-content?]]))
 
 (defn shutdown-receiver-func
   [context intent]
@@ -39,8 +39,7 @@
       this
       service-name
       (fn [binder]
-        (let [action-bar (.getActionBar this)
-              params (.getSerializableExtra (.getIntent this) "params")]
+        (let [action-bar (.getActionBar this)]
           (.setNavigationMode action-bar 
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
@@ -140,15 +139,11 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if url (send-broadcast this params download-receiver-name))
-          (if (and url
-                   (get params :userhash)
-                   (-> (get params :userhash)
-                       (base32-encode)
-                       (get-meta-torrent-file)
-                       (file-exists?)
-                       (not)))
-            (show-page this "net.nightweb.MainPage" params)))))
+          (if url
+            (if (not (user-exists? (get params :userhash)))
+              (show-new-user-dialog this params)
+              (if (not (user-has-content? (get params :userhash)))
+                (show-pending-user-dialog this)))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

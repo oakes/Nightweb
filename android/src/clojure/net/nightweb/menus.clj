@@ -40,8 +40,9 @@
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
           (if (is-connecting?)
-            (show-dialog context (get-string :connecting))
+            (show-dialog context nil (get-string :connecting))
             (show-dialog context
+                         nil
                          (get-new-post-view context [])
                          {:positive-name (get-string :send)
                           :positive-func do-send-new-post

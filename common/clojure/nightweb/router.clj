@@ -24,12 +24,25 @@
                                    get-user-dir
                                    get-user-priv-file
                                    get-user-pub-file
-                                   get-meta-dir]]
+                                   get-meta-dir
+                                   get-meta-torrent-file]]
         [nightweb.torrents :only [start-torrent-manager
                                   add-hash
                                   add-torrent
                                   remove-torrent
                                   parse-meta-link]]))
+
+(defn user-exists?
+  [user-hash-bytes]
+  (-> (base32-encode user-hash-bytes)
+      (get-user-dir)
+      (file-exists?)))
+
+(defn user-has-content?
+  [user-hash-bytes]
+  (-> (base32-encode user-hash-bytes)
+      (get-meta-torrent-file)
+      (file-exists?)))
 
 (defn add-user-hash
   [their-hash-bytes]

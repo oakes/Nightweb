@@ -32,4 +32,9 @@
 
   <string name="page">Page</string>
   <string name="author">Author</string>
+
+  <string name="new_user">This looks like a new user. Would you like to favorite them and begin downloading their page?</string>
+  <string name="pending_user">We haven\'t received anything from this user yet. You should check back later.</string>
+  <string name="download_user">Download User</string>
+  <string name="lost_post">Can\'t find this post.</string>
 </resources>
