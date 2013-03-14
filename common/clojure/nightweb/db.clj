@@ -63,7 +63,6 @@
       (create-table
         :user
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:origuserhash "BINARY"]
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]

@@ -2,7 +2,7 @@
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
         [neko.resource :only [get-resource]]
-        [net.nightweb.clandroid.service :only [defservice
+        [net.clandroid.service :only [defservice
                                                start-foreground
                                                start-receiver
                                                stop-receiver]]

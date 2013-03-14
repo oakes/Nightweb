@@ -1,4 +1,4 @@
-(ns net.nightweb.clandroid.service
+(ns net.clandroid.service
   (:use [neko.-utils :only [simple-name
                             unicaseize
                             keyword->camelcase

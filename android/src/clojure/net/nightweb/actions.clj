@@ -2,7 +2,7 @@
   (:use [neko.resource :only [get-resource get-string]]
         [neko.threading :only [on-ui]]
         [neko.find-view :only [find-view]]
-        [net.nightweb.clandroid.activity :only [set-state get-state]]
+        [net.clandroid.activity :only [set-state get-state]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [read-file
                             get-files-in-uri

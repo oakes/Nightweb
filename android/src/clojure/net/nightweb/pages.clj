@@ -1,9 +1,9 @@
 (ns net.nightweb.pages
   (:use [neko.resource :only [get-resource get-string]]
         [neko.activity :only [set-content-view!]]
-        [net.nightweb.clandroid.activity :only [set-state
+        [net.clandroid.activity :only [set-state
                                                 defactivity]]
-        [net.nightweb.clandroid.service :only [start-service
+        [net.clandroid.service :only [start-service
                                                stop-service
                                                start-receiver
                                                stop-receiver
