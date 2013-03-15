@@ -29,6 +29,8 @@
                                 user-exists?
                                 user-has-content?]]))
 
+(def show-welcome-message? true)
+
 (defn shutdown-receiver-func
   [context intent]
   (.finish context))
@@ -61,7 +63,9 @@
                       #(let [content {:type :post}]
                          (set-state this :share content)
                          (get-category-view this content)))
-          (if is-first-boot? (show-welcome-dialog this)))))
+          (when (and is-first-boot? show-welcome-message?)
+            (def show-welcome-message? false)
+            (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
@@ -123,15 +127,14 @@
       this
       service-name
       (fn [binder]
-        (let [url (.getDataString (.getIntent this))
-              params (if url
+        (let [params (if-let [url (.getDataString (.getIntent this))]
                        (url-decode url)
                        (.getSerializableExtra (.getIntent this) "params"))
               view (case (get params :type)
                      :user (if (get params :userhash)
                              (get-user-view this params)
                              (get-category-view this params))
-                     :post (if (get params :posthash)
+                     :post (if (get params :time)
                              (get-post-view this params)
                              (get-category-view this params))
                      (get-grid-view this []))
@@ -142,11 +145,10 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if url
-            (if (not (user-exists? (get params :userhash)))
-              (show-new-user-dialog this params)
-              (if (not (user-has-content? (get params :userhash)))
-                (show-pending-user-dialog this)))))))
+          (if (not (user-exists? (get params :userhash)))
+            (show-new-user-dialog this params)
+            (if (not (user-has-content? (get params :userhash)))
+              (show-pending-user-dialog this))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

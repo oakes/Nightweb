@@ -131,13 +131,10 @@
                        (write-pic-file bitmap))
         create-time (.getTime (java.util.Date.))
         args {"body" text
-              "time" create-time
               "mtime" create-time
-              "pics" (remove-dupes-and-nils image-hashes)}
-        data-barray (b-encode args)
-        hash-str (base32-encode (create-hash data-barray))]
-    (write-file (str (get-post-dir my-hash-str) slash hash-str)
-                data-barray)))
+              "pics" (remove-dupes-and-nils image-hashes)}]
+    (write-file (str (get-post-dir my-hash-str) slash create-time)
+                (b-encode args))))
 
 (defn write-profile-file
   [name-text body-text image-barray]
@@ -149,11 +146,19 @@
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode args))))
 
+(defn write-fav-file
+  [ptr-hash ptr-time]
+  (let [create-time (.getTime (java.util.Date.))
+        args (merge {"ptrhash" ptr-hash}
+                    (if ptr-time {"ptrtime" ptr-time} {}))]
+    (write-file (str (get-post-dir my-hash-str) slash create-time)
+                (b-encode args))))
+
 (defn write-link-file
   [link-hash]
   (let [args {"user_hash" my-hash-bytes
               "link_hash" link-hash
-              "time" (.getTime (java.util.Date.))}
+              "mtime" (.getTime (java.util.Date.))}
         signed-data (b-encode args)
         signature (create-signature signed-data)]
     (write-file (str (get-meta-dir my-hash-str) link-ext)

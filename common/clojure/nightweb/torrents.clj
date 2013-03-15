@@ -236,7 +236,7 @@
         data-map (b-decode-map (b-decode (b-decode-bytes data-val)))
         {user-hash-val "user_hash"
          link-hash-val "link_hash"
-         time-val "time"} data-map
+         time-val "mtime"} data-map
         user-hash-bytes (b-decode-bytes user-hash-val)
         link-hash-bytes (b-decode-bytes link-hash-val)
         time-num (b-decode-long time-val)]

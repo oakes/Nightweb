@@ -179,7 +179,7 @@
             user (assoc (get-user-data content)
                         :background (get-resource :drawable :profile)
                         :subtitle (get-string :author))
-            pics (get-pic-data content :posthash)
+            pics (get-pic-data content :time)
             total-results (vec (concat [user] pics))]
         (if (nil? (get post :body))
           (show-lost-post-dialog context)
@@ -191,7 +191,7 @@
   [context content]
   (let [view (make-ui context [:view-pager {}])]
     (future
-      (let [pics (get-pic-data content :ptrhash)]
+      (let [pics (get-pic-data content :ptrtime)]
         (on-ui
           (.setAdapter
             view
