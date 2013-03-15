@@ -149,7 +149,8 @@
 (defn write-fav-file
   [ptr-hash ptr-time]
   (let [create-time (.getTime (java.util.Date.))
-        args (merge {"ptrhash" ptr-hash}
+        args (merge {"ptrhash" ptr-hash
+                     "mtime" create-time}
                     (if ptr-time {"ptrtime" ptr-time} {}))]
     (write-file (str (get-post-dir my-hash-str) slash create-time)
                 (b-encode args))))

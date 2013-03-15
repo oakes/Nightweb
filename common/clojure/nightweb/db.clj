@@ -103,6 +103,7 @@
         :fav
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:userhash "BINARY"]
+        [:time "BIGINT"]
         [:mtime "BIGINT"]
         [:ptrhash "BINARY"]
         [:ptrtime "BIGINT"]))))
@@ -191,11 +192,14 @@
 
 (defn insert-fav
   [user-hash fav-time args]
-  (let [ptr-hash (b-decode-bytes (get args "ptrhash"))
+  (let [edit-time (b-decode-long (get args "mtime"))
+        ptr-hash (b-decode-bytes (get args "ptrhash"))
         ptr-time (b-decode-long (get args "ptrtime"))]
     (when (and ptr-hash
                fav-time
-               (<= fav-time (.getTime (java.util.Date.))))
+               (<= fav-time (.getTime (java.util.Date.)))
+               edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
@@ -203,7 +207,8 @@
           ["userhash = ? AND ptrhash = ? AND ptrtime = ?"
            user-hash ptr-hash ptr-time]
           {:userhash user-hash
-           :mtime fav-time
+           :time fav-time
+           :mtime edit-time
            :ptrhash ptr-hash
            :ptrtime ptr-time})))))
 
