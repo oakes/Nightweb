@@ -328,8 +328,13 @@
   [context content]
   (let [grid-view (get-grid-view context [])]
     (future
-      (let [results (add-last-tile content (get-category-data content))
-            grid-content (into [] results)]
+      (let [results (for [tile (get-category-data content)]
+                      (case (get tile :type)
+                        :user (assoc tile
+                                     :background
+                                     (get-resource :drawable :profile))
+                        tile))
+            grid-content (add-last-tile content (into [] results))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
 

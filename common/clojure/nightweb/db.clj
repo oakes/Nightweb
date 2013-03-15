@@ -4,6 +4,7 @@
                                   create-table
                                   drop-table
                                   update-or-insert-values
+                                  update-values
                                   with-query-results
                                   delete-rows
                                   do-commands]]
@@ -102,7 +103,7 @@
         :fav
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
         [:userhash "BINARY"]
-        [:time "BIGINT"]
+        [:mtime "BIGINT"]
         [:ptrhash "BINARY"]
         [:ptrtime "BIGINT"]))))
 
@@ -149,8 +150,8 @@
   [user-hash args]
   (let [edit-time (b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash nil args)]
-    (if (and edit-time
-             (<= edit-time (.getTime (java.util.Date.))))
+    (when (and edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
@@ -159,18 +160,21 @@
           {:userhash user-hash 
            :title (b-decode-string (get args "title"))
            :body (b-decode-string (get args "body"))
-           :time (.getTime (java.util.Date.))
            :mtime edit-time
-           :pichash (b-decode-bytes (get pics 0))})))))
+           :pichash (b-decode-bytes (get pics 0))})
+        (update-values
+          :user
+          ["userhash = ? AND time = NULL" user-hash]
+          {:time (.getTime (java.util.Date.))})))))
 
 (defn insert-post
   [user-hash post-time args]
   (let [edit-time (b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash post-time args)]
-    (if (and post-time
-             (<= post-time (.getTime (java.util.Date.)))
-             edit-time
-             (<= edit-time (.getTime (java.util.Date.))))
+    (when (and post-time
+               (<= post-time (.getTime (java.util.Date.)))
+               edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
@@ -189,9 +193,9 @@
   [user-hash fav-time args]
   (let [ptr-hash (b-decode-bytes (get args "ptrhash"))
         ptr-time (b-decode-long (get args "ptrtime"))]
-    (if (and ptr-hash
-             fav-time
-             (<= fav-time (.getTime (java.util.Date.))))
+    (when (and ptr-hash
+               fav-time
+               (<= fav-time (.getTime (java.util.Date.))))
       (with-connection
         spec
         (update-or-insert-values
@@ -199,7 +203,7 @@
           ["userhash = ? AND ptrhash = ? AND ptrtime = ?"
            user-hash ptr-hash ptr-time]
           {:userhash user-hash
-           :time fav-time
+           :mtime fav-time
            :ptrhash ptr-hash
            :ptrtime ptr-time})))))
 
@@ -270,14 +274,14 @@
                                        "LEFT JOIN user "
                                        "ON fav.ptrhash = user.userhash "
                                        "WHERE fav.userhash = ? "
-                                       "ORDER BY fav.time DESC")
+                                       "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
                            :post [(str "SELECT * FROM fav "
                                        "LEFT JOIN post "
                                        "ON fav.ptrhash = post.userhash "
                                        "AND fav.ptrtime = post.time "
                                        "WHERE fav.userhash = ? "
-                                       "ORDER BY fav.time DESC")
+                                       "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
                            nil)
                     :search (case sub-type
