@@ -65,12 +65,14 @@
       (create-table
         :user
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
+        [:realuserhash "BINARY"]
         [:userhash "BINARY"]
         [:title "VARCHAR"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
         [:mtime "BIGINT"]
-        [:pichash "BINARY"])
+        [:pichash "BINARY"]
+        [:status "BIGINT"])
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
     (with-connection
@@ -78,6 +80,7 @@
       (create-table
         :post
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
+        [:realuserhash "BINARY"]
         [:userhash "BINARY"]
         [:body "VARCHAR"]
         [:time "BIGINT"]
@@ -85,7 +88,8 @@
         [:pichash "BINARY"]
         [:count "BIGINT"]
         [:ptrhash "BINARY"]
-        [:ptrtime "BIGINT"])
+        [:ptrtime "BIGINT"]
+        [:status "BIGINT"])
       (create-index "POST" ["ID" "BODY"])))
   (when-not (check-table :pic)
     (with-connection
@@ -93,8 +97,10 @@
       (create-table
         :pic
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:pichash "BINARY"]
+        [:realuserhash "BINARY"]
         [:userhash "BINARY"]
+        [:pichash "BINARY"]
+        [:mtime "BIGINT"]
         [:ptrtime "BIGINT"])))
   (when-not (check-table :fav)
     (with-connection
@@ -102,11 +108,13 @@
       (create-table
         :fav
         [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
+        [:realuserhash "BINARY"]
         [:userhash "BINARY"]
         [:time "BIGINT"]
         [:mtime "BIGINT"]
         [:ptrhash "BINARY"]
-        [:ptrtime "BIGINT"]))))
+        [:ptrtime "BIGINT"]
+        [:status "BIGINT"]))))
 
 (defn drop-tables
   []
@@ -128,102 +136,6 @@
        :subname (str base-dir db-file)})
     ;(drop-tables)
     (create-tables)))
-
-; insertion
-
-(defn insert-pic-list
-  [user-hash ptr-time args]
-  (let [pics (b-decode-list (get args "pics"))]
-    (with-connection
-      spec
-      (doseq [pic pics]
-        (if-let [pic-hash (b-decode-bytes pic)]
-          (update-or-insert-values
-            :pic
-            ["pichash = ? AND userhash = ? AND ptrtime = ?"
-             pic-hash user-hash ptr-time]
-            {:pichash pic-hash
-             :userhash user-hash
-             :ptrtime ptr-time}))))
-    pics))
-
-(defn insert-profile
-  [user-hash args]
-  (let [edit-time (b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash nil args)]
-    (when (and edit-time
-               (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
-        spec
-        (update-or-insert-values
-          :user
-          ["userhash = ?" user-hash]
-          {:userhash user-hash 
-           :title (b-decode-string (get args "title"))
-           :body (b-decode-string (get args "body"))
-           :mtime edit-time
-           :pichash (b-decode-bytes (get pics 0))})
-        (update-values
-          :user
-          ["userhash = ? AND time = NULL" user-hash]
-          {:time (.getTime (java.util.Date.))})))))
-
-(defn insert-post
-  [user-hash post-time args]
-  (let [edit-time (b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash post-time args)]
-    (when (and post-time
-               (<= post-time (.getTime (java.util.Date.)))
-               edit-time
-               (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
-        spec
-        (update-or-insert-values
-          :post
-          ["userhash = ? AND time = ?" user-hash post-time]
-          {:userhash user-hash
-           :body (b-decode-string (get args "body"))
-           :time post-time
-           :mtime edit-time
-           :pichash (b-decode-bytes (get pics 0))
-           :count (count pics)
-           :ptrhash (b-decode-bytes (get args "userptrhash"))
-           :ptrtime (b-decode-bytes (get args "ptrtime"))})))))
-
-(defn insert-fav
-  [user-hash fav-time args]
-  (let [edit-time (b-decode-long (get args "mtime"))
-        ptr-hash (b-decode-bytes (get args "ptrhash"))
-        ptr-time (b-decode-long (get args "ptrtime"))]
-    (when (and ptr-hash
-               fav-time
-               (<= fav-time (.getTime (java.util.Date.)))
-               edit-time
-               (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
-        spec
-        (update-or-insert-values
-          :fav
-          ["userhash = ? AND ptrhash = ? AND ptrtime = ?"
-           user-hash ptr-hash ptr-time]
-          {:userhash user-hash
-           :time fav-time
-           :mtime edit-time
-           :ptrhash ptr-hash
-           :ptrtime ptr-time})))))
-
-(defn insert-meta-data
-  [user-hash data-map]
-  (case (get data-map :dir-name)
-    "post" (insert-post user-hash
-                        (long-decode (get data-map :file-name))
-                        (get data-map :contents))
-    "fav" (insert-fav user-hash
-                      (long-decode (get data-map :file-name))
-                      (get data-map :contents))
-    nil (case (get data-map :file-name)
-          "user.profile" (insert-profile user-hash (get data-map :contents)))
-    nil))
 
 ; retrieval
 
@@ -324,3 +236,107 @@
         [(paginate page "SELECT * FROM pic WHERE userhash = ? AND ptrtime = ?")
          user-hash ptr-time]
         (prepare-results rs :pic)))))
+
+; insertion
+
+(defn insert-pic-list
+  [user-hash ptr-time edit-time args]
+  (let [pics (b-decode-list (get args "pics"))]
+    (with-connection
+      spec
+      (doseq [pic pics]
+        (if-let [pic-hash (b-decode-bytes pic)]
+          (update-or-insert-values
+            :pic
+            ["pichash = ? AND userhash = ? AND ptrtime = ?"
+             pic-hash user-hash ptr-time]
+            {:realuserhash user-hash
+             :userhash user-hash
+             :pichash pic-hash
+             :mtime edit-time
+             :ptrtime ptr-time}))))
+    pics))
+
+(defn insert-profile
+  [user-hash args]
+  (let [edit-time (b-decode-long (get args "mtime"))
+        pics (insert-pic-list user-hash nil edit-time args)]
+    (when (and edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
+      (with-connection
+        spec
+        (update-or-insert-values
+          :user
+          ["userhash = ?" user-hash]
+          {:realuserhash user-hash 
+           :userhash user-hash 
+           :title (b-decode-string (get args "title"))
+           :body (b-decode-string (get args "body"))
+           :mtime edit-time
+           :pichash (b-decode-bytes (get pics 0))
+           :status (b-decode-long (get args "status"))})
+        (update-values
+          :user
+          ["userhash = ? AND time = NULL" user-hash]
+          {:time (.getTime (java.util.Date.))})))))
+
+(defn insert-post
+  [user-hash post-time args]
+  (let [edit-time (b-decode-long (get args "mtime"))
+        pics (insert-pic-list user-hash post-time edit-time args)]
+    (when (and post-time
+               (<= post-time (.getTime (java.util.Date.)))
+               edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
+      (with-connection
+        spec
+        (update-or-insert-values
+          :post
+          ["userhash = ? AND time = ?" user-hash post-time]
+          {:realuserhash user-hash 
+           :userhash user-hash
+           :body (b-decode-string (get args "body"))
+           :time post-time
+           :mtime edit-time
+           :pichash (b-decode-bytes (get pics 0))
+           :count (count pics)
+           :ptrhash (b-decode-bytes (get args "userptrhash"))
+           :ptrtime (b-decode-bytes (get args "ptrtime"))
+           :status (b-decode-long (get args "status"))})))))
+
+(defn insert-fav
+  [user-hash fav-time args]
+  (let [edit-time (b-decode-long (get args "mtime"))
+        ptr-hash (b-decode-bytes (get args "ptrhash"))
+        ptr-time (b-decode-long (get args "ptrtime"))]
+    (when (and ptr-hash
+               fav-time
+               (<= fav-time (.getTime (java.util.Date.)))
+               edit-time
+               (<= edit-time (.getTime (java.util.Date.))))
+      (with-connection
+        spec
+        (update-or-insert-values
+          :fav
+          ["userhash = ? AND ptrhash = ? AND ptrtime = ?"
+           user-hash ptr-hash ptr-time]
+          {:realuserhash user-hash 
+           :userhash user-hash
+           :time fav-time
+           :mtime edit-time
+           :ptrhash ptr-hash
+           :ptrtime ptr-time
+           :status (b-decode-long (get args "status"))})))))
+
+(defn insert-meta-data
+  [user-hash data-map]
+  (case (get data-map :dir-name)
+    "post" (insert-post user-hash
+                        (long-decode (get data-map :file-name))
+                        (get data-map :contents))
+    "fav" (insert-fav user-hash
+                      (long-decode (get data-map :file-name))
+                      (get data-map :contents))
+    nil (case (get data-map :file-name)
+          "user.profile" (insert-profile user-hash (get data-map :contents)))
+    nil))

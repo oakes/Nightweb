@@ -132,7 +132,8 @@
         create-time (.getTime (java.util.Date.))
         args {"body" text
               "mtime" create-time
-              "pics" (remove-dupes-and-nils image-hashes)}]
+              "pics" (remove-dupes-and-nils image-hashes)
+              "status" 1}]
     (write-file (str (get-post-dir my-hash-str) slash create-time)
                 (b-encode args))))
 
@@ -142,7 +143,8 @@
         args {"title" name-text
               "body" body-text
               "mtime" (.getTime (java.util.Date.))
-              "pics" (if image-hash [image-hash] [])}]
+              "pics" (if image-hash [image-hash] [])
+              "status" 1}]
     (write-file (str (get-meta-dir my-hash-str) slash profile)
                 (b-encode args))))
 
@@ -150,7 +152,8 @@
   [ptr-hash ptr-time]
   (let [create-time (.getTime (java.util.Date.))
         args (merge {"ptrhash" ptr-hash
-                     "mtime" create-time}
+                     "mtime" create-time
+                     "status" 1}
                     (if ptr-time {"ptrtime" ptr-time} {}))]
     (write-file (str (get-post-dir my-hash-str) slash create-time)
                 (b-encode args))))
