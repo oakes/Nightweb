@@ -32,6 +32,8 @@
                                   remove-torrent
                                   parse-meta-link]]))
 
+(def is-first-boot? false)
+
 (defn user-exists?
   [user-hash-bytes]
   (-> (base32-encode user-hash-bytes)
@@ -87,7 +89,8 @@
     (load-user-keys priv-key-bytes)
     (when (nil? priv-key-bytes)
       (write-key-file priv-key-path priv-key)
-      (write-key-file pub-key-path pub-key))
+      (write-key-file pub-key-path pub-key)
+      (def is-first-boot? true))
     (add-torrent pub-key-path true)))
 
 (defn create-meta-torrent

@@ -19,12 +19,14 @@
         [net.nightweb.actions :only [show-page
                                      show-new-user-dialog
                                      show-pending-user-dialog
+                                     show-welcome-dialog
                                      receive-result
                                      do-menu-action]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
-        [nightweb.router :only [user-exists?
+        [nightweb.router :only [is-first-boot?
+                                user-exists?
                                 user-has-content?]]))
 
 (defn shutdown-receiver-func
@@ -58,7 +60,8 @@
                       (get-string :posts)
                       #(let [content {:type :post}]
                          (set-state this :share content)
-                         (get-category-view this content))))))
+                         (get-category-view this content)))
+          (if is-first-boot? (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

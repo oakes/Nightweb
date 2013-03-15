@@ -166,6 +166,12 @@
                 (fn [context dialog-view button-view]
                   (.finish context))}))
 
+(defn show-welcome-dialog
+  [context]
+  (show-dialog context
+               (get-string :welcome_title)
+               (get-string :welcome_message)))
+
 (defn show-spinner
   [context message func]
   (on-ui

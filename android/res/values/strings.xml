@@ -25,16 +25,18 @@
   <string name="save">Save</string>
   <string name="send">Send</string>
   <string name="ok">OK</string>
+  <string name="download_user">Download User</string>
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>
-  <string name="connecting">Nightweb is still loading, so try again later.</string>
 
   <string name="page">Page</string>
   <string name="author">Author</string>
 
+  <string name="connecting">Nightweb is still loading, so try again later.</string>
   <string name="new_user">This looks like a new user. Would you like to favorite them and begin downloading their page?</string>
   <string name="pending_user">We haven\'t received anything from this user yet. You should check back later.</string>
-  <string name="download_user">Download User</string>
   <string name="lost_post">Can\'t find this post.</string>
+  <string name="welcome_title">Welcome to Nightweb</string>
+  <string name="welcome_message">Your device is now connecting to the network. It may take a little while, so please be patient.</string>
 </resources>
