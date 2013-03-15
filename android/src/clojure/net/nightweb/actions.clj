@@ -11,9 +11,17 @@
                             write-pic-file
                             write-post-file
                             write-profile-file]]
-        [nightweb.formats :only [base32-encode
+        [nightweb.db :only [insert-post
+                            insert-profile]]
+        [nightweb.formats :only [b-decode
+                                 b-decode-map
+                                 base32-encode
                                  url-encode
-                                 remove-dupes-and-nils]]))
+                                 post-encode
+                                 profile-encode
+                                 remove-dupes-and-nils]]
+        [nightweb.torrents :only [is-connecting?]]
+        [nightweb.constants :only [my-hash-bytes]]))
 
 (defn uri-to-bitmap
   [context uri-str]
@@ -201,15 +209,23 @@
         attachments (get-state context :attachments)]
     (show-spinner context
                   (get-string :sending)
-                  (fn []
-                    (write-post-file text
-                                     (for [path attachments]
-                                       (bitmap-to-byte-array
-                                         (if (.startsWith path "content://")
-                                           (uri-to-bitmap context path)
-                                           (byte-array-to-bitmap
-                                             (read-file path))))))
-                    (create-meta-torrent))))
+                  #(let [create-time (.getTime (java.util.Date.))
+                         pic-hashes (for [path attachments]
+                                      (-> (if (.startsWith path "content://")
+                                            (uri-to-bitmap context path)
+                                            (byte-array-to-bitmap
+                                              (read-file path)))
+                                          (bitmap-to-byte-array)
+                                          (write-pic-file)))
+                         post (post-encode create-time text pic-hashes)]
+                     (insert-post my-hash-bytes
+                                  create-time
+                                  (b-decode-map (b-decode post)))
+                     (future
+                       (if (is-connecting?)
+                         (create-meta-torrent))
+                       (write-post-file create-time post)
+                       (create-meta-torrent)))))
   true)
 
 (defn do-attach-to-new-post
@@ -235,9 +251,15 @@
         image-barray (bitmap-to-byte-array image-bitmap)]
     (show-spinner context
                   (get-string :saving)
-                  (fn []
-                    (write-profile-file name-text body-text image-barray)
-                    (create-meta-torrent))))
+                  #(let [img-hash (write-pic-file image-barray)
+                         profile (profile-encode name-text body-text img-hash)]
+                     (insert-profile my-hash-bytes
+                                     (b-decode-map (b-decode profile)))
+                     (future
+                       (if (is-connecting?)
+                         (create-meta-torrent))
+                       (write-profile-file profile)
+                       (create-meta-torrent)))))
   true)
 
 (defn do-cancel

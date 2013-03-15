@@ -1,15 +1,16 @@
 (ns nightweb.io
   (:use [clojure.java.io :only [file
                                 input-stream
-                                output-stream
-                                copy]]
-        [nightweb.crypto :only [create-hash
-                                create-signature]]
+                                output-stream]]
+        [nightweb.crypto :only [create-hash]]
         [nightweb.formats :only [b-encode
                                  b-decode
                                  b-decode-map
                                  base32-encode
                                  base32-decode
+                                 key-encode
+                                 fav-encode
+                                 link-encode
                                  remove-dupes-and-nils]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
@@ -75,8 +76,7 @@
 
 (defn write-key-file
   [file-path key-obj]
-  (write-file file-path (b-encode {"sign_key" (.getData key-obj)
-                                   "sign_algo" "DSA-SHA1"})))
+  (write-file file-path (key-encode key-obj)))
 
 (defn read-key-file
   [file-path]
@@ -126,48 +126,22 @@
       image-hash)))
 
 (defn write-post-file
-  [text image-barrays]
-  (let [image-hashes (for [bitmap image-barrays]
-                       (write-pic-file bitmap))
-        create-time (.getTime (java.util.Date.))
-        args {"body" text
-              "mtime" create-time
-              "pics" (remove-dupes-and-nils image-hashes)
-              "status" 1}]
-    (write-file (str (get-post-dir my-hash-str) slash create-time)
-                (b-encode args))))
+  [create-time encoded-args]
+  (write-file (str (get-post-dir my-hash-str) slash create-time) encoded-args))
 
 (defn write-profile-file
-  [name-text body-text image-barray]
-  (let [image-hash (write-pic-file image-barray)
-        args {"title" name-text
-              "body" body-text
-              "mtime" (.getTime (java.util.Date.))
-              "pics" (if image-hash [image-hash] [])
-              "status" 1}]
-    (write-file (str (get-meta-dir my-hash-str) slash profile)
-                (b-encode args))))
+  [encoded-args]
+  (write-file (str (get-meta-dir my-hash-str) slash profile) encoded-args))
 
 (defn write-fav-file
-  [ptr-hash ptr-time]
-  (let [create-time (.getTime (java.util.Date.))
-        args (merge {"ptrhash" ptr-hash
-                     "mtime" create-time
-                     "status" 1}
-                    (if ptr-time {"ptrtime" ptr-time} {}))]
-    (write-file (str (get-post-dir my-hash-str) slash create-time)
-                (b-encode args))))
+  [create-time ptr-hash ptr-time]
+  (write-file (str (get-post-dir my-hash-str) slash create-time)
+              (fav-encode ptr-hash ptr-time)))
 
 (defn write-link-file
   [link-hash]
-  (let [args {"user_hash" my-hash-bytes
-              "link_hash" link-hash
-              "mtime" (.getTime (java.util.Date.))}
-        signed-data (b-encode args)
-        signature (create-signature signed-data)]
-    (write-file (str (get-meta-dir my-hash-str) link-ext)
-                (b-encode {"data" signed-data
-                           "sig" signature}))))
+  (write-file (str (get-meta-dir my-hash-str) link-ext)
+              (link-encode link-hash)))
 
 (defn read-link-file
   [user-hash-str]

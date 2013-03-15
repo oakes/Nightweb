@@ -6,8 +6,7 @@
                                      show-categories
                                      do-send-new-post
                                      do-attach-to-new-post
-                                     do-cancel]]
-        [nightweb.torrents :only [is-connecting?]]))
+                                     do-cancel]]))
 
 (defn create-main-menu
   [context menu show-share-button?]
@@ -39,17 +38,15 @@
       new-post-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
-          (if (is-connecting?)
-            (show-dialog context nil (get-string :connecting))
-            (show-dialog context
-                         nil
-                         (get-new-post-view context [])
-                         {:positive-name (get-string :send)
-                          :positive-func do-send-new-post
-                          :neutral-name (get-string :attach_pics)
-                          :neutral-func do-attach-to-new-post
-                          :negative-name (get-string :cancel)
-                          :negative-func do-cancel}))
+          (show-dialog context
+                       nil
+                       (get-new-post-view context [])
+                       {:positive-name (get-string :send)
+                        :positive-func do-send-new-post
+                        :neutral-name (get-string :attach_pics)
+                        :neutral-func do-attach-to-new-post
+                        :negative-name (get-string :cancel)
+                        :negative-func do-cancel})
           true))))
   ; create share button
   (if show-share-button?

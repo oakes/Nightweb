@@ -19,7 +19,6 @@
                             get-pic-data
                             get-single-post-data
                             get-category-data]]
-        [nightweb.torrents :only [is-connecting?]]
         [nightweb.constants :only [is-me?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -291,21 +290,17 @@
                           :type :custom-func
                           :func
                           (fn [context item]
-                            (if (is-connecting?)
-                              (show-dialog context
-                                           nil
-                                           (get-string :connecting))
-                              (show-dialog
-                                context
-                                nil
-                                (get-profile-view context user)
-                                (if (is-me? (get user :userhash))
-                                  {:positive-name (get-string :save)
-                                   :positive-func do-save-profile
-                                   :negative-name (get-string :cancel)
-                                   :negative-func do-cancel}
-                                  {:positive-name (get-string :ok)
-                                   :positive-func do-cancel}))))}
+                            (show-dialog
+                              context
+                              nil
+                              (get-profile-view context user)
+                              (if (is-me? (get user :userhash))
+                                {:positive-name (get-string :save)
+                                 :positive-func do-save-profile
+                                 :negative-name (get-string :cancel)
+                                 :negative-func do-cancel}
+                                {:positive-name (get-string :ok)
+                                 :positive-func do-cancel})))}
                          {:title (get-string :favorites)
                           :add-emphasis? true
                           :userhash (get user :userhash)

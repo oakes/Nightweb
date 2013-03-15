@@ -1,4 +1,12 @@
-(ns nightweb.formats)
+(ns nightweb.formats
+  (:use [nightweb.crypto :only [create-signature]]
+        [nightweb.constants :only [my-hash-bytes]]))
+
+(defn remove-dupes-and-nils
+  [the-list]
+  (->> the-list
+       (distinct)
+       (remove nil?)))
 
 (defn b-encode
   [data-value]
@@ -90,8 +98,42 @@
      :userhash (if userhash-val (base32-decode userhash-val))
      :time (if time-val (long-decode time-val))}))
 
-(defn remove-dupes-and-nils
-  [the-list]
-  (->> the-list
-       (distinct)
-       (remove nil?)))
+(defn key-encode
+  [key-obj]
+  (b-encode {"sign_key" (.getData key-obj)
+             "sign_algo" "DSA-SHA1"}))
+
+(defn post-encode
+  [create-time text image-hashes]
+  (let [args {"body" text
+              "mtime" create-time
+              "pics" (remove-dupes-and-nils image-hashes)
+              "status" 1}]
+    (b-encode args)))
+
+(defn profile-encode
+  [name-text body-text image-hash]
+  (let [args {"title" name-text
+              "body" body-text
+              "mtime" (.getTime (java.util.Date.))
+              "pics" (if image-hash [image-hash] [])
+              "status" 1}]
+    (b-encode args)))
+
+(defn fav-encode
+  [create-time ptr-hash ptr-time]
+  (let [args (merge {"ptrhash" ptr-hash
+                     "mtime" create-time
+                     "status" 1}
+                    (if ptr-time {"ptrtime" ptr-time} {}))]
+    (b-encode args)))
+
+(defn link-encode
+  [link-hash]
+  (let [args {"user_hash" my-hash-bytes
+              "link_hash" link-hash
+              "mtime" (.getTime (java.util.Date.))}
+        signed-data (b-encode args)
+        signature (create-signature signed-data)]
+    (b-encode {"data" signed-data
+               "sig" signature})))
