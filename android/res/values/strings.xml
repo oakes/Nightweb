@@ -37,5 +37,5 @@
   <string name="pending_user">We haven\'t received anything from this user yet. You should check back later.</string>
   <string name="lost_post">Can\'t find this post.</string>
   <string name="welcome_title">Welcome to Nightweb</string>
-  <string name="welcome_message">Your device is now connecting to the network. It may take a little while, so please be patient.</string>
+  <string name="welcome_message">Nightweb is finding peers. It may take a little while, so please be patient.</string>
 </resources>

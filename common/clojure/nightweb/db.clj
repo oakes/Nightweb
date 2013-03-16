@@ -57,64 +57,43 @@
     (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
             table-name (clojure.string/join "," columns))))
 
+(defn create-generic-table
+  [table-name]
+  (create-table
+    table-name
+    [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
+    [:realuserhash "BINARY"]
+    [:userhash "BINARY"]
+    [:title "VARCHAR"]
+    [:body "VARCHAR"]
+    [:time "BIGINT"]
+    [:mtime "BIGINT"]
+    [:count "BIGINT"]
+    [:pichash "BINARY"]
+    [:ptrhash "BINARY"]
+    [:ptrtime "BIGINT"]
+    [:status "BIGINT"]))
+
 (defn create-tables
   []
   (when-not (check-table :user)
     (with-connection
       spec
-      (create-table
-        :user
-        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:realuserhash "BINARY"]
-        [:userhash "BINARY"]
-        [:title "VARCHAR"]
-        [:body "VARCHAR"]
-        [:time "BIGINT"]
-        [:mtime "BIGINT"]
-        [:pichash "BINARY"]
-        [:status "BIGINT"])
+      (create-generic-table :user)
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
     (with-connection
       spec
-      (create-table
-        :post
-        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:realuserhash "BINARY"]
-        [:userhash "BINARY"]
-        [:body "VARCHAR"]
-        [:time "BIGINT"]
-        [:mtime "BIGINT"]
-        [:pichash "BINARY"]
-        [:count "BIGINT"]
-        [:ptrhash "BINARY"]
-        [:ptrtime "BIGINT"]
-        [:status "BIGINT"])
-      (create-index "POST" ["ID" "BODY"])))
+      (create-generic-table :post)
+      (create-index "POST" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :pic)
     (with-connection
       spec
-      (create-table
-        :pic
-        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:realuserhash "BINARY"]
-        [:userhash "BINARY"]
-        [:pichash "BINARY"]
-        [:mtime "BIGINT"]
-        [:ptrtime "BIGINT"])))
+      (create-generic-table :pic)))
   (when-not (check-table :fav)
     (with-connection
       spec
-      (create-table
-        :fav
-        [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
-        [:realuserhash "BINARY"]
-        [:userhash "BINARY"]
-        [:time "BIGINT"]
-        [:mtime "BIGINT"]
-        [:ptrhash "BINARY"]
-        [:ptrtime "BIGINT"]
-        [:status "BIGINT"]))))
+      (create-generic-table :fav))))
 
 (defn drop-tables
   []
