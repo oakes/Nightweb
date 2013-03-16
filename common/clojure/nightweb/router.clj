@@ -30,6 +30,7 @@
                                   add-hash
                                   add-torrent
                                   remove-torrent
+                                  send-meta-link
                                   parse-meta-link]]))
 
 (def is-first-boot? false)
@@ -97,7 +98,8 @@
   []
   (let [path (get-meta-dir my-hash-str)]
     (remove-torrent (str path torrent-ext))
-    (write-link-file (add-torrent path false true))))
+    (write-link-file (add-torrent path false true))
+    (send-meta-link)))
 
 (defn start-router
   [dir]
