@@ -12,6 +12,7 @@
                                  fav-encode
                                  link-encode
                                  remove-dupes-and-nils]]
+        [nightweb.db :only [get-pic-data]]
         [nightweb.constants :only [base-dir
                                    my-hash-bytes
                                    my-hash-str
@@ -160,5 +161,16 @@
      :dir-name (nth rev-leaves 1 nil)
      :contents (b-decode-map (b-decode (read-file full-path)))}))
 
-(defn delete-meta-files
+(defn delete-pic-orphans
+  [user-hash]
+  (doseq [pic (file-seq (file (get-pic-dir (base32-encode user-hash))))]
+    (if (and (.isFile pic)
+             (-> {:userhash user-hash
+                  :pichash (base32-decode (.getName pic))}
+                 (get-pic-data)
+                 (count)
+                 (= 0)))
+      (.delete pic))))
+
+(defn delete-meta-orphans
   [user-hash-bytes file-list])

@@ -225,17 +225,27 @@
           (prepare-results rs (or sub-type data-type)))))))
 
 (defn get-pic-data
-  [params ptr-key]
-  (let [user-hash (get params :userhash)
-        ptr-time (get params ptr-key)
-        page (get params :page)]
-    (with-connection
-      spec
-      (with-query-results
-        rs
-        [(paginate page "SELECT * FROM pic WHERE userhash = ? AND ptrtime = ?")
-         user-hash ptr-time]
-        (prepare-results rs :pic)))))
+  ([params]
+   (let [user-hash (get params :userhash)
+         pic-hash (get params :pichash)]
+     (with-connection
+       spec
+       (with-query-results
+         rs
+         ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
+          user-hash pic-hash]
+         (prepare-results rs :pic)))))
+  ([params ptr-time]
+   (let [user-hash (get params :userhash)
+         page (get params :page)]
+     (with-connection
+       spec
+       (with-query-results
+         rs
+         [(paginate page
+                    "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?")
+          user-hash ptr-time]
+         (prepare-results rs :pic))))))
 
 ; insertion
 
@@ -244,11 +254,15 @@
   (let [pics (b-decode-list (get args "pics"))]
     (with-connection
       spec
+      (delete-rows
+        :pic
+        ["userhash = ? AND ptrtime IS ? AND mtime < ?"
+         user-hash ptr-time edit-time])
       (doseq [pic pics]
         (if-let [pic-hash (b-decode-bytes pic)]
           (update-or-insert-values
             :pic
-            ["pichash = ? AND userhash = ? AND ptrtime = ?"
+            ["pichash = ? AND userhash = ? AND ptrtime IS ?"
              pic-hash user-hash ptr-time]
             {:realuserhash user-hash
              :userhash user-hash
@@ -318,7 +332,7 @@
         spec
         (update-or-insert-values
           :fav
-          ["userhash = ? AND ptrhash = ? AND ptrtime = ?"
+          ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
            user-hash ptr-hash ptr-time]
           {:realuserhash user-hash 
            :userhash user-hash

@@ -9,7 +9,7 @@
                             read-key-file
                             read-link-file
                             read-meta-file
-                            delete-meta-files]]
+                            delete-meta-orphans]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -152,7 +152,7 @@
           (doseq [path-leaves paths]
             (insert-meta-data user-hash-bytes
                               (read-meta-file parent-dir path-leaves)))
-          (delete-meta-files user-hash-bytes paths))))
+          (delete-meta-orphans user-hash-bytes paths))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
