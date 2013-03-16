@@ -1,4 +1,4 @@
-(defproject nightweb-server/Nightweb "0.1.0-SNAPSHOT"
+(defproject nightweb-server/Nightweb "0.0.1-SNAPSHOT"
   :description "FIXME: write description"
   :url "http://example.com/FIXME"
   :license {:name "Public Domain"
