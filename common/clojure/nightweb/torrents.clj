@@ -9,7 +9,7 @@
                             read-key-file
                             read-link-file
                             read-meta-file
-                            delete-meta-orphans]]
+                            delete-orphaned-files]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -23,7 +23,8 @@
                                    get-user-dir
                                    get-user-pub-file
                                    get-meta-dir
-                                   get-meta-link-file]]))
+                                   get-meta-link-file
+                                   my-hash-bytes]]))
 
 (def manager nil)
 
@@ -152,7 +153,8 @@
           (doseq [path-leaves paths]
             (insert-meta-data user-hash-bytes
                               (read-meta-file parent-dir path-leaves)))
-          (delete-meta-orphans user-hash-bytes paths))))
+          (if-not (java.util.Arrays/equals user-hash-bytes my-hash-bytes)
+            (delete-orphaned-files user-hash-bytes paths)))))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))

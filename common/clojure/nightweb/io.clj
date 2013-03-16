@@ -161,7 +161,7 @@
      :dir-name (nth rev-leaves 1 nil)
      :contents (b-decode-map (b-decode (read-file full-path)))}))
 
-(defn delete-pic-orphans
+(defn delete-orphaned-pics
   [user-hash]
   (doseq [pic (file-seq (file (get-pic-dir (base32-encode user-hash))))]
     (if (and (.isFile pic)
@@ -172,5 +172,16 @@
                  (= 0)))
       (.delete pic))))
 
-(defn delete-meta-orphans
-  [user-hash-bytes file-list])
+(defn delete-orphaned-files
+  [user-hash file-list]
+  (let [meta-dir (get-meta-dir (base32-encode user-hash))]
+    (doseq [meta-file (file-seq (file meta-dir))]
+      (if (and (.isFile meta-file)
+               (->> file-list
+                    (filter #(= (.getCanonicalPath meta-file)
+                                (.getCanonicalPath
+                                  (file meta-dir
+                                        (clojure.string/join slash %)))))
+                    (count)
+                    (= 0)))
+        (.delete meta-file)))))

@@ -11,7 +11,7 @@
                             write-pic-file
                             write-post-file
                             write-profile-file
-                            delete-pic-orphans]]
+                            delete-orphaned-pics]]
         [nightweb.db :only [insert-post
                             insert-profile]]
         [nightweb.formats :only [b-decode
@@ -225,7 +225,7 @@
                      (future
                        (if (is-connecting?)
                          (create-meta-torrent))
-                       (delete-pic-orphans my-hash-bytes)
+                       (delete-orphaned-pics my-hash-bytes)
                        (write-post-file create-time post)
                        (create-meta-torrent)))))
   true)
@@ -260,7 +260,7 @@
                      (future
                        (if (is-connecting?)
                          (create-meta-torrent))
-                       (delete-pic-orphans my-hash-bytes)
+                       (delete-orphaned-pics my-hash-bytes)
                        (write-profile-file profile)
                        (create-meta-torrent)))))
   true)
