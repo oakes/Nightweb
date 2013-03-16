@@ -98,7 +98,6 @@
     (iterate-peers torrent
                    (fn [peer]
                      (let [node-info (get-node-info-for-peer peer)]
-                       (println "Sending meta link" node-info args)
                        (send-custom-query node-info "announce_meta" args))))))
 
 (defn send-meta-link-periodically
@@ -292,11 +291,10 @@
           (replace-meta-link user-hash-str my-link-map link-map)
           my-link)
         my-link)
-      (println "Received identical link" my-time their-time))))
+      (comment "Received identical link"))))
 
 (defn receive-meta-link
   [args]
-  (println "Received meta link" args)
   (if-let [link (parse-meta-link args)]
     (compare-meta-link link)
     (println "Meta link can't be parsed")))
@@ -330,7 +328,7 @@
           (write-pub-node-key-file pub-node)))
       (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701")
       (println "DHT initialized")))
-  (send-meta-link-periodically 60))
+  (send-meta-link-periodically 120))
 
 (defn start-torrent-manager
   []

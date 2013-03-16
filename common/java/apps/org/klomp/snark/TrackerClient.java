@@ -378,6 +378,10 @@ public class TrackerClient implements Runnable {
                 dht.announce(snark.getInfoHash());
 
             int maxSeenPeers = 0;
+            int p = getPeersFromDHT();
+            if (p > maxSeenPeers)
+                maxSeenPeers = p;
+            /*
             if (!trackers.isEmpty())
                 maxSeenPeers = getPeersFromTrackers(trackers);
             int p = getPeersFromPEX();
@@ -392,6 +396,7 @@ public class TrackerClient implements Runnable {
                 if (p > maxSeenPeers)
                     maxSeenPeers = p;
             }
+            */
 
             // we could try and total the unique peers but that's too hard for now
             snark.setTrackerSeenPeers(maxSeenPeers);
