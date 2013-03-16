@@ -275,10 +275,15 @@
   (if (= (.getItemId item) (get-resource :id :android/home))
     (show-page context "net.nightweb.MainPage" {})))
 
+(defn do-toggle-fav
+  [context content]
+  (println "Toggle fav"))
+
 (defn do-tile-action
   [context item]
   (if-let [func (case (get item :type)
                   :fav show-categories
+                  :toggle-fav do-toggle-fav
                   :search show-categories
                   :pic show-gallery
                   :custom-func (get item :func)

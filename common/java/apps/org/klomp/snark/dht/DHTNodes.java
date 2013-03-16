@@ -99,8 +99,13 @@ class DHTNodes {
     }
 
     public NodeInfo remove(NID nid) {
-        _kad.remove(nid);
-        return _nodeMap.remove(nid);
+        NodeInfo ninfo = _nodeMap.get(nid);
+        if (ninfo != null && !ninfo.getPermanent()) {
+            _kad.remove(nid);
+            return _nodeMap.remove(nid);
+        }
+
+        return null;
     }
 
     public Collection<NodeInfo> values() {
@@ -158,7 +163,7 @@ class DHTNodes {
             int peerCount = 0;
             for (Iterator<NodeInfo> iter = DHTNodes.this.values().iterator(); iter.hasNext(); ) {
                  NodeInfo peer = iter.next();
-                 if (peer.lastSeen() < now - _expireTime) {
+                 if (peer.lastSeen() < now - _expireTime && !peer.getPermanent()) {
                      iter.remove();
                      _kad.remove(peer.getNID());
                  } else {

@@ -125,7 +125,11 @@
       spec
       (with-query-results
         rs
-        [(str "SELECT * FROM user WHERE userhash = ?") user-hash]
+        [(str "SELECT user.*, fav.status AS favstatus FROM user "
+              "LEFT JOIN fav ON user.userhash = fav.ptrhash "
+              "WHERE user.userhash = ? "
+              "AND (fav.userhash IS NULL OR fav.userhash = ?)")
+         user-hash my-hash-bytes]
         (if-let [user (first (prepare-results rs :user))]
           (dissoc user :time)
           {:userhash user-hash :type :user})))))

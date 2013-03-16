@@ -85,7 +85,7 @@ public class TrackerClient implements Runnable {
   private final static int MAX_CONSEC_FAILS = 5;    // slow down after this
   private final static int LONG_SLEEP = 30*60*1000; // sleep a while after lots of fails
   private final static long MIN_TRACKER_ANNOUNCE_INTERVAL = 15*60*1000;
-  private final static long MIN_DHT_ANNOUNCE_INTERVAL = 10*60*1000;
+  private final static long MIN_DHT_ANNOUNCE_INTERVAL = 60*1000;
 
   private final I2PSnarkUtil _util;
   private final MetaInfo meta;
@@ -402,7 +402,8 @@ public class TrackerClient implements Runnable {
             try {
                 // Sleep some minutes...
                 // Sleep the minimum interval for all the trackers, but 60s minimum
-                int delay;
+                int delay = 60000;
+		/*
                 Random r = _util.getContext().random();
                 int random = r.nextInt(120*1000);
                 if (completed && runStarted)
@@ -414,6 +415,7 @@ public class TrackerClient implements Runnable {
                 else
                   // sleep a while, when we wake up we will contact only the trackers whose intervals have passed
                   delay = SLEEP*60*1000 + random;
+		*/
 
                 if (delay > 20*1000) {
                   // put ourselves on SimpleTimer2

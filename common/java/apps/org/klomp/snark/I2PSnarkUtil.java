@@ -277,11 +277,7 @@ public class I2PSnarkUtil {
             _connecting = false;
         }
         if (_shouldUseDHT && _manager != null && _dht == null) {
-            if (_myNodeInfo != null) {
-                _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
-            } else {
-                _dht = new KRPC(_context, _manager.getSession());
-            }
+            _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
             if (_dhtInitCallback != null) {
                 _dhtInitCallback.run();
             }
@@ -620,7 +616,10 @@ public class I2PSnarkUtil {
     public synchronized void setUseDHT(boolean yes) {
         _shouldUseDHT = yes;
         if (yes && _manager != null && _dht == null) {
-            _dht = new KRPC(_context, _manager.getSession());
+            _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
+            if (_dhtInitCallback != null) {
+                _dhtInitCallback.run();
+            }
         } else if (!yes && _dht != null) {
             _dht.stop();
             _dht = null;

@@ -51,7 +51,8 @@
 (defn add-node
   [node-info-str]
   (if-let [dht (.getDHT (.util manager))]
-    (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))
+    (let [ninfo (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))]
+      (.setPermanent ninfo true))
     (println "Failed to add bootstrap node")))
 
 (defn is-connecting?

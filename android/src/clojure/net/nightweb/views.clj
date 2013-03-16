@@ -19,6 +19,7 @@
                             get-pic-data
                             get-single-post-data
                             get-category-data]]
+        [nightweb.formats :only [remove-dupes-and-nils]]
         [nightweb.constants :only [is-me?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -282,40 +283,47 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (get-user-data content)
-            first-tiles [{:title (get-string :profile)
-                          :add-emphasis? true
-                          :background (get-resource :drawable :profile)
-                          :userhash (get user :userhash)
-                          :pichash (get user :pichash)
-                          :type :custom-func
-                          :func
-                          (fn [context item]
-                            (show-dialog
-                              context
-                              nil
-                              (get-profile-view context user)
-                              (if (is-me? (get user :userhash))
-                                {:positive-name (get-string :save)
-                                 :positive-func do-save-profile
-                                 :negative-name (get-string :cancel)
-                                 :negative-func do-cancel}
-                                {:positive-name (get-string :ok)
-                                 :positive-func do-cancel})))}
-                         {:title (get-string :favorites)
-                          :add-emphasis? true
-                          :userhash (get user :userhash)
-                          :background (get-resource :drawable :favs)
-                          :type :fav}]
-            add-to-fav [{:title (get-string :add_to_favorites)
-                         :add-emphasis? true
-                         :userhash (get user :userhash)
-                         :type :add-to-fav}]
+            first-tiles (if (nil? (get content :page))
+                          [{:title (get-string :profile)
+                            :add-emphasis? true
+                            :background (get-resource :drawable :profile)
+                            :userhash (get user :userhash)
+                            :pichash (get user :pichash)
+                            :type :custom-func
+                            :func
+                            (fn [context item]
+                              (show-dialog
+                                context
+                                nil
+                                (get-profile-view context user)
+                                (if (is-me? (get user :userhash))
+                                  {:positive-name (get-string :save)
+                                   :positive-func do-save-profile
+                                   :negative-name (get-string :cancel)
+                                   :negative-func do-cancel}
+                                  {:positive-name (get-string :ok)
+                                   :positive-func do-cancel})))}
+                           {:title (get-string :favorites)
+                            :add-emphasis? true
+                            :userhash (get user :userhash)
+                            :background (get-resource :drawable :favs)
+                            :type :fav}
+                           (if-not (is-me? (get user :userhash))
+                             {:title (if (= 1 (get user :favstatus))
+                                       (get-string :remove_from_favorites)
+                                       (get-string :add_to_favorites))
+                              :add-emphasis? true
+                              :userhash (get user :userhash)
+                              :background (if (= 1 (get user :favstatus))
+                                            (get-resource :drawable :remove_fav)
+                                            (get-resource :drawable :add_fav))
+                              :type :toggle-fav
+                              :status (get user :favstatus)})])
             posts (add-last-tile content (get-post-data content))
-            grid-content (into [] (concat (if (nil? (get content :page))
-                                            first-tiles)
-                                          (if-not (is-me? (get user :userhash))
-                                            add-to-fav)
-                                          posts))]
+            grid-content (-> first-tiles
+                             (concat posts)
+                             (remove-dupes-and-nils)
+                             (vec))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))
     grid-view))
 
