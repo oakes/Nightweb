@@ -19,7 +19,8 @@
                             get-pic-data
                             get-single-post-data
                             get-category-data]]
-        [nightweb.formats :only [remove-dupes-and-nils]]
+        [nightweb.formats :only [remove-dupes-and-nils
+                                 base32-encode]]
         [nightweb.constants :only [is-me?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -74,45 +75,59 @@
         (getCount [] (count content))
         (getView [position convert-view parent]
           (let [white android.graphics.Color/WHITE
-                black android.graphics.Color/BLACK
-                tile-view (make-ui context
-                                   [:frame-layout {}
-                                    [:image-view {}]
-                                    [:linear-layout {:orientation 1}
-                                     [:text-view {:text-color white
-                                                  :layout-height 0
-                                                  :layout-width :fill
-                                                  :layout-weight 1}]
-                                     [:text-view {:text-color white}]]])
+                not-initialized (nil? convert-view)
+                tile-view (if not-initialized
+                            (make-ui context
+                                     [:frame-layout {}
+                                      [:image-view {}]
+                                      [:linear-layout {:orientation 1}
+                                       [:text-view {:text-color white
+                                                    :layout-height 0
+                                                    :layout-width :fill
+                                                    :layout-weight 1}]
+                                       [:text-view {:text-color white}]]])
+                            convert-view)
                 item (get content position)
                 image-view (.getChildAt tile-view 0)
                 linear-layout (.getChildAt tile-view 1)
                 text-top (.getChildAt linear-layout 0)
-                text-bottom (.getChildAt linear-layout 1)
-                pad (make-dip context 5)
-                radius (make-dip context 10)]
+                text-bottom (.getChildAt linear-layout 1)]
+            (when not-initialized
+              (.setScaleType image-view
+                             android.widget.ImageView$ScaleType/CENTER_CROP)
+              (set-text-size text-top default-text-size)
+              (set-text-size text-bottom default-text-size)
+              (.setLayoutParams tile-view layout-params)
+              (let [pad (make-dip context 5)
+                    radius (make-dip context 10)
+                    black android.graphics.Color/BLACK]
+                (.setPadding linear-layout pad pad pad pad)
+                (.setShadowLayer text-top radius 0 0 black)
+                (.setShadowLayer text-bottom radius 0 0 black)))
             (when (get item :add-emphasis?)
               (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
               (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
+            (when-not (get item :add-emphasis?)
+              (.setTypeface text-top android.graphics.Typeface/DEFAULT)
+              (.setGravity text-top android.view.Gravity/LEFT))
             (if-let [background (get item :background)]
-              (.setBackgroundResource image-view background))
-            (.setScaleType image-view
-                           android.widget.ImageView$ScaleType/CENTER_CROP)
-            (if-let [pic-hash (get item :pichash)]
-              (future
-                (let [barray (read-pic-file (get item :userhash) pic-hash)
-                      bitmap (byte-array-to-bitmap barray)]
-                  (on-ui (.setImageBitmap image-view bitmap)))))
-            (set-text-size text-top default-text-size)
-            (set-text-size text-bottom default-text-size)
-            (.setPadding linear-layout pad pad pad pad)
+              (.setBackgroundResource image-view background)
+              (.setBackground image-view nil))
+            (let [pic-hash-str (base32-encode (get item :pichash))]
+              (.setTag image-view pic-hash-str)
+              (.setImageBitmap image-view nil)
+              (if pic-hash-str
+                (future
+                  (let [image-bytes (read-pic-file (get item :userhash)
+                                                   (get item :pichash))
+                        image-bitmap (byte-array-to-bitmap image-bytes)]
+                    (on-ui
+                      (if (= pic-hash-str (.getTag image-view))
+                        (.setImageBitmap image-view image-bitmap)))))))
             (if-let [title (get item :title)]
               (.setText text-top title)
               (.setText text-top (get item :body)))
             (.setText text-bottom (get item :subtitle))
-            (.setShadowLayer text-top radius 0 0 black)
-            (.setShadowLayer text-bottom radius 0 0 black)
-            (.setLayoutParams tile-view layout-params)
             tile-view))))
     (.setOnItemClickListener
       view

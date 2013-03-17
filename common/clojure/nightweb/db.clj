@@ -125,7 +125,7 @@
       spec
       (with-query-results
         rs
-        [(str "SELECT user.*, fav.status AS favstatus, fav.time as favtime "
+        [(str "SELECT user.*, fav.status AS favstatus, fav.time AS favtime "
               "FROM user LEFT JOIN fav ON user.userhash = fav.ptrhash "
               "WHERE user.userhash = ? "
               "AND (fav.userhash IS NULL OR fav.userhash = ?)")
@@ -171,19 +171,21 @@
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :fav (case sub-type
                            :user [(str "SELECT user.*, "
-                                       "fav.ptrhash as favptrhash "
+                                       "fav.ptrhash AS favptrhash "
                                        "FROM fav LEFT JOIN user "
                                        "ON fav.ptrhash = user.userhash "
                                        "WHERE fav.userhash = ? "
+                                       "AND fav.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
                            :post [(str "SELECT user.*, "
-                                       "fav.ptrhash as favptrhash, "
-                                       "fav.ptrtime as favptrtime "
+                                       "fav.ptrhash AS favptrhash, "
+                                       "fav.ptrtime AS favptrtime "
                                        " FROM fav LEFT JOIN post "
                                        "ON fav.ptrhash = post.userhash "
                                        "AND fav.ptrtime = post.time "
                                        "WHERE fav.userhash = ? "
+                                       "AND fav.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
                            nil)
