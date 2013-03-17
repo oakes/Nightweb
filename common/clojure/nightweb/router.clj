@@ -4,17 +4,19 @@
                                 load-user-keys]]
         [nightweb.io :only [file-exists?
                             read-file
+                            delete-file
                             make-dir
                             iterate-dir
                             write-key-file
                             read-key-file
-                            write-link-file]]
+                            write-link-file
+                            read-user-list-file
+                            write-user-list-file]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-decode
                                  b-decode-map]]
         [nightweb.constants :only [set-base-dir
-                                   my-hash-bytes
                                    set-my-hash-bytes
                                    my-hash-str
                                    set-my-hash-str
@@ -27,6 +29,7 @@
                                    get-meta-dir
                                    get-meta-torrent-file]]
         [nightweb.torrents :only [start-torrent-manager
+                                  get-info-hash
                                   add-hash
                                   add-torrent
                                   remove-torrent
@@ -58,6 +61,7 @@
 
 (defn add-user-and-meta-torrents
   []
+  ; iterate over everything in the user dir
   (iterate-dir (get-user-dir)
                (fn [their-hash-str]
                  (let [user-dir (get-user-dir their-hash-str)
@@ -72,10 +76,10 @@
                                       (b-decode-map)
                                       (parse-meta-link)))]
                    ; add user torrent
-                   (if (not= their-hash-str my-hash-str)
-                     (if (file-exists? pub-torrent-path)
-                       (add-torrent pub-path true)
-                       (add-hash user-dir their-hash-str true)))
+                   (if (or (= my-hash-str their-hash-str)
+                           (file-exists? pub-torrent-path))
+                     (add-torrent pub-path true)
+                     (add-hash user-dir their-hash-str true))
                    ; add meta torrent
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false)
@@ -84,15 +88,27 @@
 
 (defn create-user-torrent
   []
-  (let [priv-key-path (get-user-priv-file)
-        pub-key-path (get-user-pub-file)
+  ; create keys if necessary
+  (when (nil? (get (read-user-list-file) 0))
+    (def is-first-boot? true)
+    (load-user-keys nil)
+    ; temporarily write pub key to the root dir
+    (write-key-file (get-user-pub-file nil) pub-key)
+    (let [info-hash (get-info-hash (get-user-pub-file nil))
+          info-hash-str (base32-encode info-hash)]
+      ; delete pub key from root, save keys in user dir, and save user list
+      (delete-file (get-user-pub-file nil))
+      (write-key-file (get-user-priv-file info-hash-str) priv-key)
+      (write-key-file (get-user-pub-file info-hash-str) pub-key)
+      (write-user-list-file [info-hash])))
+  ; load keys based on the first hash stored in the user list
+  (let [user-hash (get (read-user-list-file) 0)
+        user-hash-str (base32-encode user-hash)
+        priv-key-path (get-user-priv-file user-hash-str)
+        pub-key-path (get-user-pub-file user-hash-str)
         priv-key-bytes (read-key-file priv-key-path)]
     (load-user-keys priv-key-bytes)
-    (when (nil? priv-key-bytes)
-      (write-key-file priv-key-path priv-key)
-      (write-key-file pub-key-path pub-key)
-      (def is-first-boot? true))
-    (add-torrent pub-key-path true)))
+    user-hash))
 
 (defn create-meta-torrent
   []
@@ -104,15 +120,19 @@
 (defn start-router
   [dir]
   (set-base-dir dir)
+  ; set I2P properties and launch
   (java.lang.System/setProperty "i2p.dir.base" dir)
   (java.lang.System/setProperty "i2p.dir.config" dir)
   (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
   (net.i2p.router.RouterLaunch/main nil)
+  ; start I2PSnark
   (start-torrent-manager)
   (java.lang.Thread/sleep 3000)
-  (set-my-hash-bytes (create-user-torrent))
-  (set-my-hash-str (base32-encode my-hash-bytes))
-  (add-user-and-meta-torrents))
+  ; create or load our keys and start all user/meta torrents
+  (when-let [user-hash (create-user-torrent)]
+    (set-my-hash-bytes user-hash)
+    (set-my-hash-str (base32-encode user-hash))
+    (add-user-and-meta-torrents)))
 
 (defn stop-router
   []

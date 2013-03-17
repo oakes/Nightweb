@@ -29,6 +29,7 @@
 (def priv-key "private.key")
 (def pub-key "public.key")
 (def profile "user.profile")
+(def user-list "user.list")
 
 (def torrent-ext ".torrent")
 (def link-ext ".link")
@@ -40,17 +41,23 @@
 (def db-file (str nw-dir slash "main"))
 (def user-dir (str nw-dir slash "user"))
 
+(defn get-user-list-file
+  []
+  (str base-dir slash user-list))
+
 (defn get-user-dir
   ([] (str base-dir user-dir))
   ([user-hash] (str base-dir user-dir slash user-hash)))
 
 (defn get-user-priv-file
-  ([] (str base-dir priv-key-file))
-  ([user-hash] (str (get-user-dir user-hash) slash priv-key)))
+  [user-hash]
+  (str (get-user-dir user-hash) slash priv-key))
 
 (defn get-user-pub-file
-  ([] (str base-dir pub-key-file))
-  ([user-hash] (str (get-user-dir user-hash) slash pub-key)))
+  [user-hash]
+  (if user-hash
+    (str (get-user-dir user-hash) slash pub-key)
+    (str base-dir pub-key-file)))
 
 (defn get-meta-dir
   [user-hash]

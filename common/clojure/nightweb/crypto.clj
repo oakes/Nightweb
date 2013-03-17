@@ -1,7 +1,4 @@
-(ns nightweb.crypto
-  (:use [nightweb.constants :only [base-dir
-                                   priv-key-file
-                                   pub-key-file]]))
+(ns nightweb.crypto)
 
 (def priv-key nil)
 (def pub-key nil)

@@ -142,6 +142,12 @@
     (.close storage)
     storage))
 
+(defn get-info-hash
+  [path]
+  (let [storage (get-storage path)
+        meta-info (.getMetaInfo storage)]
+    (.getInfoHash meta-info)))
+
 (defn get-complete-listener
   [path is-persistent?]
   (reify org.klomp.snark.CompleteListener

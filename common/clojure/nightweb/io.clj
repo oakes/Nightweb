@@ -6,6 +6,7 @@
         [nightweb.formats :only [b-encode
                                  b-decode
                                  b-decode-map
+                                 b-decode-byte-list
                                  base32-encode
                                  base32-decode
                                  key-encode
@@ -21,6 +22,7 @@
                                    profile
                                    priv-node-key-file
                                    pub-node-key-file
+                                   get-user-list-file
                                    get-user-dir
                                    get-meta-dir
                                    get-pic-dir
@@ -142,6 +144,17 @@
   [link-hash]
   (write-file (str (get-meta-dir my-hash-str) link-ext)
               (link-encode link-hash)))
+
+(defn read-user-list-file
+  []
+  (-> (get-user-list-file)
+      (read-file)
+      (b-decode)
+      (b-decode-byte-list)))
+
+(defn write-user-list-file
+  [user-list]
+  (write-file (get-user-list-file) (b-encode user-list)))
 
 (defn read-link-file
   [user-hash-str]
