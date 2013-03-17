@@ -15,12 +15,6 @@
 
 (def service-name "net.nightweb.MainService")
 (def shutdown-receiver-name "ACTION_CLOSE_APP")
-(def download-receiver-name "ACTION_START_TORRENT")
-
-(defn download-receiver-func
-  [context intent]
-  (if-let [params (.getSerializableExtra intent "params")]
-    (add-user-hash (get params :userhash))))
 
 (defservice
   net.nightweb.MainService
@@ -36,12 +30,10 @@
     (start-receiver this
                     shutdown-receiver-name
                     (fn [context intent] (.stopSelf service)))
-    (start-receiver this download-receiver-name download-receiver-func)
     (let [dir (.getAbsolutePath (.getFilesDir this))]
       (init-db dir)
       (start-router dir)))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)
-    (stop-receiver this download-receiver-name)
     (stop-router)))

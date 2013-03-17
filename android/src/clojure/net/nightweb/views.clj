@@ -18,6 +18,7 @@
                             get-post-data
                             get-pic-data
                             get-single-post-data
+                            get-single-fav-data
                             get-category-data]]
         [nightweb.formats :only [remove-dupes-and-nils
                                  base32-encode]]
@@ -262,8 +263,9 @@
     (.setPadding linear-layout 10 10 10 10)
     (set-text-size text-name default-text-size)
     (set-text-size text-body default-text-size)
-    (.setHint text-name (get-string :name))
-    (.setHint text-body (get-string :about_me))
+    (when (is-me? (get content :userhash))
+      (.setHint text-name (get-string :name))
+      (.setHint text-body (get-string :about_me)))
     (.setText text-name (get content :title))
     (.setText text-body (get content :body))
     (.setLayoutParams image-view layout-params)
@@ -291,6 +293,8 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (get-user-data content)
+            fav (if-not (is-me? (get user :userhash))
+                  (get-single-fav-data content))
             first-tiles (if (nil? (get content :page))
                           [{:title (get-string :profile)
                             :add-emphasis? true
@@ -317,18 +321,23 @@
                             :background (get-resource :drawable :favs)
                             :type :fav}
                            (if-not (is-me? (get user :userhash))
-                             {:title (if (= 1 (get user :favstatus))
+                             {:title (if (= 1 (get fav :status))
                                        (get-string :remove_from_favorites)
                                        (get-string :add_to_favorites))
                               :add-emphasis? true
-                              :ptrhash (get user :userhash)
-                              :background (if (= 1 (get user :favstatus))
+                              :background (if (= 1 (get fav :status))
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
                               :type :toggle-fav
-                              :status (get user :favstatus)
-                              :time (get user :favtime)})])
-            posts (add-last-tile content (get-post-data content))
+                              :userhash (get fav :userhash)
+                              :favstatus (get fav :status)
+                              :favtime (get fav :time)})])
+            posts (->> (for [tile (get-post-data content)]
+                         (assoc tile
+                                :background
+                                (get-resource :drawable :post)))
+                       (into [])
+                       (add-last-tile content))
             grid-content (-> first-tiles
                              (concat posts)
                              (remove-dupes-and-nils)
@@ -345,6 +354,9 @@
                         :user (assoc tile
                                      :background
                                      (get-resource :drawable :profile))
+                        :post (assoc tile
+                                     :background
+                                     (get-resource :drawable :post))
                         tile))
             grid-content (add-last-tile content (into [] results))]
         (on-ui (set-grid-view-tiles context grid-content grid-view))))

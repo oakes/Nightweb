@@ -4,7 +4,6 @@
         [neko.find-view :only [find-view]]
         [net.clandroid.activity :only [set-state get-state]]
         [net.clandroid.service :only [send-broadcast]]
-        [net.nightweb.main :only [download-receiver-name]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [read-file
                             get-files-in-uri
@@ -157,7 +156,6 @@
                {:positive-name (get-string :download_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (send-broadcast context params download-receiver-name)
                   (show-page context "net.nightweb.MainPage" params))
                 :negative-name (get-string :cancel)
                 :negative-func
@@ -281,14 +279,14 @@
 (defn do-toggle-fav
   [context content]
   (show-spinner context
-                (if (= 1 (get content :status))
+                (if (= 1 (get content :favstatus))
                   (get-string :removing)
                   (get-string :adding))
-                #(let [fav-time (or (get content :time)
+                #(let [fav-time (or (get content :favtime)
                                     (.getTime (java.util.Date.)))
-                       ptr-hash (get content :ptrhash)
-                       ptr-time (get content :ptrtime)
-                       new-status (if (= 1 (get content :status)) 0 1)
+                       ptr-hash (get content :userhash)
+                       ptr-time (get content :time)
+                       new-status (if (= 1 (get content :favstatus)) 0 1)
                        fav (fav-encode ptr-hash ptr-time new-status)]
                    (insert-fav my-hash-bytes
                                fav-time

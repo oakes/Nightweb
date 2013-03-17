@@ -14,10 +14,10 @@
    id="svg5947"
    version="1.1"
    inkscape:version="0.48.3.1 r9886"
-   inkscape:export-filename="/home/zulu/add_fav.png"
+   inkscape:export-filename="/media/truecrypt1/Develop/clojure/nightweb/graphics/post.png"
    inkscape:export-xdpi="576"
    inkscape:export-ydpi="576"
-   sodipodi:docname="add_fav.svg">
+   sodipodi:docname="post.svg">
   <defs
      id="defs5949" />
   <sodipodi:namedview
@@ -28,7 +28,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.979899"
-     inkscape:cx="131.87305"
+     inkscape:cx="19.02147"
      inkscape:cy="34.800255"
      inkscape:document-units="px"
      inkscape:current-layer="User"
@@ -36,8 +36,8 @@
      inkscape:snap-global="false"
      inkscape:window-width="753"
      inkscape:window-height="383"
-     inkscape:window-x="771"
-     inkscape:window-y="369"
+     inkscape:window-x="779"
+     inkscape:window-y="193"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata5952">
@@ -47,7 +47,7 @@
         <dc:format>image/svg+xml</dc:format>
         <dc:type
            rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
-        <dc:title />
+        <dc:title></dc:title>
       </cc:Work>
     </rdf:RDF>
   </metadata>
@@ -60,15 +60,14 @@
        transform="translate(-172.78441,627.1682)"
        id="User">
       <g
-         transform="translate(-296.99359,-114.792)"
-         id="Add"
+         transform="translate(-477.68773,6.9816898)"
+         id="Edit"
          style="fill:#ffffff;fill-opacity:1;opacity:0.5">
         <path
-           style="fill:#ffffff;fill-rule:evenodd;fill-opacity:1"
+           style="fill:#ffffff;fill-opacity:1"
            inkscape:connector-curvature="0"
-           clip-rule="evenodd"
-           d="m 509.778,477.486 c -12.426,0 -22.5,10.072 -22.5,22.5 0,12.426 10.074,22.5 22.5,22.5 12.428,0 22.5,-10.074 22.5,-22.5 0,-12.427 -10.072,-22.5 -22.5,-22.5 z m 11.5,25 c 0,0.549 -0.451,1 -1,1 h -6 c -0.551,0 -1.001,0.449 -1.001,1 v 6 c 0,0.549 -0.45,1 -1,1 h -5 c -0.55,0 -1,-0.451 -1,-1 v -6 c 0,-0.551 -0.45,-1 -1,-1 h -6 c -0.55,0 -1,-0.451 -1,-1 v -5 c 0,-0.551 0.45,-1 1,-1 h 6 c 0.55,0 1,-0.451 1,-1 v -6 c 0,-0.551 0.45,-1 1,-1 h 5 c 0.55,0 1,0.449 1,1 v 6 c 0,0.549 0.45,1 1.001,1 h 6 c 0.549,0 1,0.449 1,1 v 5 z"
-           id="path701" />
+           d="m 711.824,370.929 -14.471,-14.47 c -0.994,-0.995 -2.623,-0.995 -3.617,0 l -20.199,20.198 c -0.332,0.332 -0.678,0.98 -0.77,1.439 l -4.377,21.957 c -0.092,0.459 0.205,0.746 0.662,0.635 l 21.141,-5.137 c 0.457,-0.111 1.102,-0.475 1.432,-0.805 l 20.199,-20.199 c 0.996,-0.995 0.996,-2.622 0,-3.618 z m -23.615,22.974 -10.988,2.633 c -0.455,0.109 -1.1,-0.072 -1.432,-0.404 l -3.186,-3.186 c -0.332,-0.332 -0.529,-0.98 -0.439,-1.441 l 2.24,-11.434 c 0.09,-0.461 0.436,-0.566 0.766,-0.234 l 13.266,13.266 c 0.332,0.33 0.23,0.691 -0.227,0.8 z"
+           id="path543" />
       </g>
     </g>
   </g>

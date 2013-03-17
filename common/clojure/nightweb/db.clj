@@ -125,11 +125,7 @@
       spec
       (with-query-results
         rs
-        [(str "SELECT user.*, fav.status AS favstatus, fav.time AS favtime "
-              "FROM user LEFT JOIN fav ON user.userhash = fav.ptrhash "
-              "WHERE user.userhash = ? "
-              "AND (fav.userhash IS NULL OR fav.userhash = ?)")
-         user-hash my-hash-bytes]
+        ["SELECT * FROM user WHERE userhash = ?" user-hash]
         (if-let [user (first (prepare-results rs :user))]
           (dissoc user :time)
           {:userhash user-hash :type :user})))))
@@ -162,6 +158,19 @@
          user-hash]
         (prepare-results rs :post)))))
 
+(defn get-single-fav-data
+  [params]
+  (let [ptr-hash (get params :userhash)
+        ptr-time (get params :time)]
+    (with-connection
+      spec
+      (with-query-results
+        rs
+        [(str "SELECT * FROM fav "
+              "WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?")
+         my-hash-bytes ptr-hash ptr-time]
+        (first (prepare-results rs :fav))))))
+
 (defn get-category-data
   [params]
   (let [data-type (get params :type)
@@ -170,18 +179,22 @@
                     :user ["SELECT * FROM user ORDER BY time DESC"]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :fav (case sub-type
-                           :user [(str "SELECT user.*, "
-                                       "fav.ptrhash AS favptrhash "
+                           :user [(str "SELECT "
+                                       "fav.ptrhash AS userhash, "
+                                       "fav.status AS favstatus, "
+                                       "user.* "
                                        "FROM fav LEFT JOIN user "
                                        "ON fav.ptrhash = user.userhash "
                                        "WHERE fav.userhash = ? "
                                        "AND fav.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
-                           :post [(str "SELECT user.*, "
-                                       "fav.ptrhash AS favptrhash, "
-                                       "fav.ptrtime AS favptrtime "
-                                       " FROM fav LEFT JOIN post "
+                           :post [(str "SELECT "
+                                       "fav.ptrhash AS userhash, "
+                                       "fav.status AS favstatus, "
+                                       "fav.ptrtime AS favtime, "
+                                       "user.* "
+                                       "FROM fav LEFT JOIN post "
                                        "ON fav.ptrhash = post.userhash "
                                        "AND fav.ptrtime = post.time "
                                        "WHERE fav.userhash = ? "

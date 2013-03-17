@@ -21,19 +21,25 @@
                                      show-pending-user-dialog
                                      show-welcome-dialog
                                      receive-result
+                                     do-toggle-fav
                                      do-menu-action]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
         [nightweb.router :only [is-first-boot?
                                 user-exists?
-                                user-has-content?]]))
+                                user-has-content?
+                                add-user-hash]]))
 
 (def show-welcome-message? true)
 
 (defn shutdown-receiver-func
   [context intent]
   (.finish context))
+
+(defn get-params
+  [context]
+  (into {} (.getSerializableExtra (.getIntent context) "params")))
 
 (defactivity
   net.nightweb.MainPage
@@ -43,7 +49,8 @@
       this
       service-name
       (fn [binder]
-        (let [action-bar (.getActionBar this)]
+        (let [params (get-params this)
+              action-bar (.getActionBar this)]
           (.setNavigationMode action-bar 
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
@@ -65,7 +72,11 @@
                          (get-category-view this content)))
           (when (and is-first-boot? show-welcome-message?)
             (def show-welcome-message? false)
-            (show-welcome-dialog this)))))
+            (show-welcome-dialog this))
+          (when (and (get params :userhash)
+                     (not (user-exists? (get params :userhash))))
+            (add-user-hash (get params :userhash))
+            (do-toggle-fav this params)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
@@ -82,7 +93,7 @@
   :on-create
   (fn [this bundle]
     (start-receiver this shutdown-receiver-name shutdown-receiver-func)
-    (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
+    (let [params (get-params this)
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
@@ -109,7 +120,7 @@
   :on-create
   (fn [this bundle]
     (start-receiver this shutdown-receiver-name shutdown-receiver-func)
-    (let [params (into {} (.getSerializableExtra (.getIntent this) "params"))
+    (let [params (get-params this)
           action-bar (.getActionBar this)
           view (get-gallery-view this params)]
       (.hide action-bar)
@@ -129,7 +140,7 @@
       (fn [binder]
         (let [params (if-let [url (.getDataString (.getIntent this))]
                        (url-decode url)
-                       (.getSerializableExtra (.getIntent this) "params"))
+                       (get-params this))
               view (case (get params :type)
                      :user (if (get params :userhash)
                              (get-user-view this params)
@@ -145,9 +156,9 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if (not (user-exists? (get params :userhash)))
+          (if-not (user-exists? (get params :userhash))
             (show-new-user-dialog this params)
-            (if (not (user-has-content? (get params :userhash)))
+            (if-not (user-has-content? (get params :userhash))
               (show-pending-user-dialog this))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
