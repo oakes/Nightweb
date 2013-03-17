@@ -11,15 +11,18 @@
                             write-pic-file
                             write-post-file
                             write-profile-file
+                            write-fav-file
                             delete-orphaned-pics]]
         [nightweb.db :only [insert-post
-                            insert-profile]]
+                            insert-profile
+                            insert-fav]]
         [nightweb.formats :only [b-decode
                                  b-decode-map
                                  base32-encode
                                  url-encode
                                  post-encode
                                  profile-encode
+                                 fav-encode
                                  remove-dupes-and-nils]]
         [nightweb.torrents :only [is-connecting?]]
         [nightweb.constants :only [my-hash-bytes]]))
@@ -277,7 +280,24 @@
 
 (defn do-toggle-fav
   [context content]
-  (println "Toggle fav"))
+  (show-spinner context
+                (if (= 1 (get content :status))
+                  (get-string :removing)
+                  (get-string :adding))
+                #(let [fav-time (or (get content :time)
+                                    (.getTime (java.util.Date.)))
+                       ptr-hash (get content :ptrhash)
+                       ptr-time (get content :ptrtime)
+                       new-status (if (= 1 (get content :status)) 0 1)
+                       fav (fav-encode ptr-hash ptr-time new-status)]
+                   (insert-fav my-hash-bytes
+                               fav-time
+                               (b-decode-map (b-decode fav)))
+                   (future
+                     (if (is-connecting?)
+                       (create-meta-torrent))
+                     (write-fav-file fav-time fav)
+                     (create-meta-torrent)))))
 
 (defn do-tile-action
   [context item]

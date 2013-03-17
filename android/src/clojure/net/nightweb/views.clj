@@ -313,12 +313,13 @@
                                        (get-string :remove_from_favorites)
                                        (get-string :add_to_favorites))
                               :add-emphasis? true
-                              :userhash (get user :userhash)
+                              :ptrhash (get user :userhash)
                               :background (if (= 1 (get user :favstatus))
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
                               :type :toggle-fav
-                              :status (get user :favstatus)})])
+                              :status (get user :favstatus)
+                              :time (get user :favtime)})])
             posts (add-last-tile content (get-post-data content))
             grid-content (-> first-tiles
                              (concat posts)

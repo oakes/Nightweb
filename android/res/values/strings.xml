@@ -29,6 +29,8 @@
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>
+  <string name="adding">Adding...</string>
+  <string name="removing">Removing...</string>
 
   <string name="page">Page</string>
   <string name="author">Author</string>

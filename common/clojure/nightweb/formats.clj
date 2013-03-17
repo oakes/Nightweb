@@ -121,10 +121,10 @@
     (b-encode args)))
 
 (defn fav-encode
-  [create-time ptr-hash ptr-time]
+  [ptr-hash ptr-time status]
   (let [args (merge {"ptrhash" ptr-hash
-                     "mtime" create-time
-                     "status" 1}
+                     "mtime" (.getTime (java.util.Date.))
+                     "status" status}
                     (if ptr-time {"ptrtime" ptr-time} {}))]
     (b-encode args)))
 

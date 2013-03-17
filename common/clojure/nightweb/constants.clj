@@ -24,6 +24,7 @@
 (def meta-dir (str slash "meta"))
 (def post-dir (str slash "post"))
 (def pic-dir (str slash "pic"))
+(def fav-dir (str slash "fav"))
 
 (def priv-key "private.key")
 (def pub-key "public.key")
@@ -70,3 +71,7 @@
 (defn get-pic-dir
   [user-hash]
   (str (get-meta-dir user-hash) pic-dir))
+
+(defn get-fav-dir
+  [user-hash]
+  (str (get-meta-dir user-hash) fav-dir))

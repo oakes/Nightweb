@@ -9,7 +9,6 @@
                                  base32-encode
                                  base32-decode
                                  key-encode
-                                 fav-encode
                                  link-encode
                                  remove-dupes-and-nils]]
         [nightweb.db :only [get-pic-data]]
@@ -25,7 +24,8 @@
                                    get-user-dir
                                    get-meta-dir
                                    get-pic-dir
-                                   get-post-dir]]))
+                                   get-post-dir
+                                   get-fav-dir]]))
 
 ; basic file operations
 
@@ -135,9 +135,8 @@
   (write-file (str (get-meta-dir my-hash-str) slash profile) encoded-args))
 
 (defn write-fav-file
-  [create-time ptr-hash ptr-time]
-  (write-file (str (get-post-dir my-hash-str) slash create-time)
-              (fav-encode ptr-hash ptr-time)))
+  [create-time encoded-args]
+  (write-file (str (get-fav-dir my-hash-str) slash create-time) encoded-args))
 
 (defn write-link-file
   [link-hash]
