@@ -58,17 +58,24 @@
 
 (defn set-grid-view-tiles
   [context content view]
-  (.setAdapter
-    view
-    (proxy [android.widget.BaseAdapter] []
-      (getItem [position] nil)
-      (getItemId [position] 0)
-      (getCount [] (count content))
-      (getView [position convert-view parent]
-        (let [not-initialized true ;(= convert-view nil)
-              white android.graphics.Color/WHITE
-              tile-view (if not-initialized
-                          (make-ui context
+  (let [num-columns (.getNumColumns view)
+        width (.getWidth view)
+        tile-view-width (if (and (> width 0) (> num-columns 0))
+                          (int (/ width num-columns))
+                          (make-dip context default-tile-width))
+        layout-params (android.widget.AbsListView$LayoutParams.
+                                                  tile-view-width
+                                                  tile-view-width)]
+    (.setAdapter
+      view
+      (proxy [android.widget.BaseAdapter] []
+        (getItem [position] (get content position))
+        (getItemId [position] 0)
+        (getCount [] (count content))
+        (getView [position convert-view parent]
+          (let [white android.graphics.Color/WHITE
+                black android.graphics.Color/BLACK
+                tile-view (make-ui context
                                    [:frame-layout {}
                                     [:image-view {}]
                                     [:linear-layout {:orientation 1}
@@ -77,56 +84,42 @@
                                                   :layout-width :fill
                                                   :layout-weight 1}]
                                      [:text-view {:text-color white}]]])
-                          convert-view)
-              num-columns (.getNumColumns view)
-              width (.getWidth view)
-              tile-view-width (if (and (> width 0) (> num-columns 0))
-                                (int (/ width num-columns))
-                                (make-dip context default-tile-width))
-              layout-params (android.widget.AbsListView$LayoutParams.
-                                                        tile-view-width
-                                                        tile-view-width)]
-          (if not-initialized
-            (let [black android.graphics.Color/BLACK
-                  item (get content position)
-                  image-view (.getChildAt tile-view 0)
-                  linear-layout (.getChildAt tile-view 1)
-                  text-top (.getChildAt linear-layout 0)
-                  text-bottom (.getChildAt linear-layout 1)
-                  pad (make-dip context 5)
-                  radius (make-dip context 10)]
-              (when (get item :add-emphasis?)
-                (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
-                (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
-              (if-let [background (get item :background)]
-                (.setBackgroundResource image-view background))
-              (.setScaleType image-view
-                             android.widget.ImageView$ScaleType/CENTER_CROP)
-              (.setImageBitmap image-view
-                               (byte-array-to-bitmap
-                                 (read-pic-file (get item :userhash)
-                                                (get item :pichash))))
-              (set-text-size text-top default-text-size)
-              (set-text-size text-bottom default-text-size)
-              (.setPadding linear-layout pad pad pad pad)
-              (.setMaxLines text-top
-                            (int (- (/ (- tile-view-width pad pad)
-                                       (make-dip context default-text-size))
-                                    1)))
-              (if-let [title (get item :title)]
-                (.setText text-top title)
-                (.setText text-top (get item :body)))
-              (.setText text-bottom (get item :subtitle))
-              (.setShadowLayer text-top radius 0 0 black)
-              (.setShadowLayer text-bottom radius 0 0 black)))
-          (.setLayoutParams tile-view layout-params)
-          tile-view))))
-  (.setOnItemClickListener
-    view
-    (proxy [android.widget.AdapterView$OnItemClickListener] []
-      (onItemClick [parent v position id]
-        (do-tile-action context (get content position)))))
-  (.notifyDataSetChanged (.getAdapter view)))
+                item (get content position)
+                image-view (.getChildAt tile-view 0)
+                linear-layout (.getChildAt tile-view 1)
+                text-top (.getChildAt linear-layout 0)
+                text-bottom (.getChildAt linear-layout 1)
+                pad (make-dip context 5)
+                radius (make-dip context 10)]
+            (when (get item :add-emphasis?)
+              (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
+              (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
+            (if-let [background (get item :background)]
+              (.setBackgroundResource image-view background))
+            (.setScaleType image-view
+                           android.widget.ImageView$ScaleType/CENTER_CROP)
+            (if-let [pic-hash (get item :pichash)]
+              (future
+                (let [barray (read-pic-file (get item :userhash) pic-hash)
+                      bitmap (byte-array-to-bitmap barray)]
+                  (on-ui (.setImageBitmap image-view bitmap)))))
+            (set-text-size text-top default-text-size)
+            (set-text-size text-bottom default-text-size)
+            (.setPadding linear-layout pad pad pad pad)
+            (if-let [title (get item :title)]
+              (.setText text-top title)
+              (.setText text-top (get item :body)))
+            (.setText text-bottom (get item :subtitle))
+            (.setShadowLayer text-top radius 0 0 black)
+            (.setShadowLayer text-bottom radius 0 0 black)
+            (.setLayoutParams tile-view layout-params)
+            tile-view))))
+    (.setOnItemClickListener
+      view
+      (proxy [android.widget.AdapterView$OnItemClickListener] []
+        (onItemClick [parent v position id]
+          (do-tile-action context (get content position)))))
+    (.notifyDataSetChanged (.getAdapter view))))
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false))

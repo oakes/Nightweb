@@ -59,13 +59,15 @@
 
 (defn base32-encode
   [data-barray]
-  (if data-barray
-    (net.i2p.data.Base32/encode data-barray)))
+  (try
+    (net.i2p.data.Base32/encode data-barray)
+    (catch java.lang.Exception e nil)))
 
 (defn base32-decode
   [data-str]
-  (if data-str
-    (net.i2p.data.Base32/decode data-str)))
+  (try
+    (net.i2p.data.Base32/decode data-str)
+    (catch java.lang.Exception e nil)))
 
 (defn long-decode
   [data-str]
