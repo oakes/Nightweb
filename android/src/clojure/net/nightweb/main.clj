@@ -6,8 +6,7 @@
                                       start-foreground
                                       start-receiver
                                       stop-receiver]]
-        [nightweb.router :only [add-user-hash
-                                start-router
+        [nightweb.router :only [start-router
                                 stop-router]]
         [nightweb.db :only [init-db]]))
 

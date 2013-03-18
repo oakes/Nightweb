@@ -46,7 +46,7 @@
   [path]
   (when (file-exists? path)
     (let [length (.length (file path))]
-      (if (< length 1000000)
+      (if (< length 500000)
         (let [data-barray (byte-array length)]
           (with-open [bis (input-stream path)]
             (.read bis data-barray))
@@ -110,14 +110,6 @@
   (let [path (str base-dir pub-node-key-file)]
     (if (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
-
-(defn read-pic-file
-  [user-hash-bytes image-hash-bytes]
-  (if (and user-hash-bytes image-hash-bytes)
-    (let [path (str (get-pic-dir (base32-encode user-hash-bytes))
-                    slash
-                    (base32-encode image-hash-bytes))]
-      (read-file path))))
 
 (defn write-pic-file
   [data-barray]

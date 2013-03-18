@@ -4,6 +4,12 @@
         [neko.find-view :only [find-view]]
         [net.clandroid.activity :only [set-state get-state]]
         [net.clandroid.service :only [send-broadcast]]
+        [net.nightweb.utils :only [full-size
+                                   thumb-size
+                                   get-resample-ratio
+                                   uri-to-bitmap
+                                   path-to-bitmap
+                                   bitmap-to-byte-array]]
         [nightweb.router :only [create-meta-torrent]]
         [nightweb.io :only [read-file
                             get-files-in-uri
@@ -25,29 +31,6 @@
                                  remove-dupes-and-nils]]
         [nightweb.torrents :only [is-connecting?]]
         [nightweb.constants :only [my-hash-bytes]]))
-
-(defn uri-to-bitmap
-  [context uri-str]
-  (try
-    (let [cr (.getContentResolver context)
-          uri (android.net.Uri/parse uri-str)]
-      (android.provider.MediaStore$Images$Media/getBitmap cr uri))
-    (catch java.lang.Exception e nil)))
-
-(defn byte-array-to-bitmap
-  [ba]
-  (if ba
-    (try
-      (android.graphics.BitmapFactory/decodeByteArray ba 0 (alength ba))
-      (catch java.lang.Exception e nil))))
-
-(defn bitmap-to-byte-array
-  [image-bitmap]
-  (if image-bitmap
-    (let [out (java.io.ByteArrayOutputStream.)
-          image-format android.graphics.Bitmap$CompressFormat/WEBP]
-      (.compress image-bitmap image-format 90 out)
-      (.toByteArray out))))
 
 (defn share-url
   [context]
@@ -79,7 +62,7 @@
         attachments (get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
                           (for [path (get-files-in-uri uri-str)]
-                            (if (byte-array-to-bitmap (read-file path)) path))
+                            (if (path-to-bitmap path thumb-size) path))
                           (if (.startsWith uri-str "content://")
                             [uri-str]))
         total-attachments (remove-dupes-and-nils
@@ -215,8 +198,7 @@
                          pic-hashes (for [path attachments]
                                       (-> (if (.startsWith path "content://")
                                             (uri-to-bitmap context path)
-                                            (byte-array-to-bitmap
-                                              (read-file path)))
+                                            (path-to-bitmap path full-size))
                                           (bitmap-to-byte-array)
                                           (write-pic-file)))
                          post (post-encode create-time text pic-hashes)]

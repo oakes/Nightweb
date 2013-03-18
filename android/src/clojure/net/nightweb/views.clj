@@ -3,16 +3,17 @@
         [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
-        [net.nightweb.actions :only [uri-to-bitmap
-                                     byte-array-to-bitmap
-                                     request-files
+        [net.nightweb.utils :only [full-size
+                                   thumb-size
+                                   uri-to-bitmap
+                                   path-to-bitmap]]
+        [net.nightweb.actions :only [request-files
                                      clear-attachments
                                      show-dialog
                                      show-lost-post-dialog
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
-        [nightweb.io :only [read-pic-file]]
         [nightweb.db :only [limit
                             get-user-data
                             get-post-data
@@ -22,7 +23,9 @@
                             get-category-data]]
         [nightweb.formats :only [remove-dupes-and-nils
                                  base32-encode]]
-        [nightweb.constants :only [is-me?]]))
+        [nightweb.constants :only [is-me?
+                                   slash
+                                   get-pic-dir]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
 (set-classname! :frame-layout android.widget.FrameLayout)
@@ -43,6 +46,13 @@
       (.density)
       (* number)
       (int)))
+
+(defn get-pic-path
+  [user-hash-bytes image-hash-bytes]
+  (if (and user-hash-bytes image-hash-bytes)
+    (str (get-pic-dir (base32-encode user-hash-bytes))
+         slash
+         (base32-encode image-hash-bytes))))
 
 (defn add-last-tile
   [content results]
@@ -119,9 +129,9 @@
               (.setImageBitmap image-view nil)
               (if pic-hash-str
                 (future
-                  (let [image-bytes (read-pic-file (get item :userhash)
-                                                   (get item :pichash))
-                        image-bitmap (byte-array-to-bitmap image-bytes)]
+                  (let [image-bitmap (-> (get-pic-path (get item :userhash)
+                                                       (get item :pichash))
+                                         (path-to-bitmap thumb-size))]
                     (on-ui
                       (if (= pic-hash-str (.getTag image-view))
                         (.setImageBitmap image-view image-bitmap)))))))
@@ -210,9 +220,9 @@
               (getCount [] (count pics))
               (instantiateItem [container pos]
                 (let [image-view (net.nightweb.TouchImageView. context)
-                      bitmap (byte-array-to-bitmap
-                               (read-pic-file (get-in pics [pos :userhash])
-                                              (get-in pics [pos :pichash])))]
+                      bitmap (-> (get-pic-path (get-in pics [pos :userhash])
+                                               (get-in pics [pos :pichash]))
+                                 (path-to-bitmap full-size))]
                   (.setImageBitmap image-view bitmap)
                   (.addView container image-view)
                   image-view))
@@ -272,9 +282,10 @@
     (.setTag image-view "profile-image")
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setBackgroundResource image-view (get-resource :drawable :profile))
-    (.setImageBitmap image-view (byte-array-to-bitmap
-                                  (read-pic-file (get content :userhash)
-                                                 (get content :pichash))))
+    (let [bitmap (-> (get-pic-path (get content :userhash)
+                                   (get content :pichash))
+                     (path-to-bitmap thumb-size))]
+      (.setImageBitmap image-view bitmap))
     (if (is-me? (get content :userhash))
       (.setOnClickListener
         image-view

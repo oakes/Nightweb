@@ -7,9 +7,7 @@
                             write-priv-node-key-file
                             write-pub-node-key-file
                             read-key-file
-                            read-link-file
-                            read-meta-file
-                            delete-orphaned-files]]
+                            read-link-file]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -17,14 +15,12 @@
                                  b-decode-map
                                  b-decode-bytes
                                  b-decode-long]]
-        [nightweb.db :only [insert-meta-data]]
         [nightweb.crypto :only [verify-signature]]
         [nightweb.constants :only [torrent-ext
                                    get-user-dir
                                    get-user-pub-file
                                    get-meta-dir
-                                   get-meta-link-file
-                                   my-hash-bytes]]))
+                                   get-meta-link-file]]))
 
 (def manager nil)
 
@@ -149,21 +145,12 @@
     (.getInfoHash meta-info)))
 
 (defn get-complete-listener
-  [path is-persistent?]
+  [path complete-callback]
   (reify org.klomp.snark.CompleteListener
     (torrentComplete [this snark]
       (println "torrentComplete")
       (.torrentComplete manager snark)
-      (if is-persistent?
-        (send-meta-link snark)
-        (let [parent-dir (.getParentFile (file (.getName snark)))
-              user-hash-bytes (base32-decode (.getName parent-dir))
-              paths (.getFiles (.getMetaInfo snark))]
-          (doseq [path-leaves paths]
-            (insert-meta-data user-hash-bytes
-                              (read-meta-file parent-dir path-leaves)))
-          (if-not (java.util.Arrays/equals user-hash-bytes my-hash-bytes)
-            (delete-orphaned-files user-hash-bytes paths)))))
+      (complete-callback snark))
     (updateStatus [this snark]
       (println "updateStatus")
       (.updateStatus manager snark))
@@ -189,7 +176,7 @@
       nil)))
 
 (defn add-hash
-  [path info-hash-str is-persistent?]
+  [path info-hash-str is-persistent? complete-callback]
   (future
     (try
       (.addMagnet manager
@@ -198,7 +185,7 @@
                   nil
                   false
                   true
-                  (get-complete-listener path is-persistent?)
+                  (get-complete-listener path complete-callback)
                   path)
       (if-let [torrent (get-torrent-by-path info-hash-str)]
         (.setPersistent torrent is-persistent?))
@@ -207,8 +194,9 @@
         (println "Error adding hash:" (.getMessage iae))))))
 
 (defn add-torrent
-  ([path is-persistent?] (add-torrent path is-persistent? false))
-  ([path is-persistent? should-block?]
+  ([path is-persistent? complete-callback]
+   (add-torrent path is-persistent? complete-callback false))
+  ([path is-persistent? complete-callback should-block?]
    (try
      (let [base-file (file path)
            root-path (.getParent base-file)
@@ -217,7 +205,7 @@
            storage (get-storage path)
            meta-info (.getMetaInfo storage)
            bit-field (.getBitField storage)
-           listener (get-complete-listener root-path is-persistent?)
+           listener (get-complete-listener root-path complete-callback)
            thread (future
                     (.addTorrent manager
                                  meta-info
