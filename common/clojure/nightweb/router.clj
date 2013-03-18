@@ -18,7 +18,8 @@
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-decode
-                                 b-decode-map]]
+                                 b-decode-map
+                                 b-decode-bytes]]
         [nightweb.db :only [insert-meta-data
                             get-single-fav-data]]
         [nightweb.constants :only [is-me?
@@ -81,14 +82,14 @@
     ; iterate over the files in this torrent
     (doseq [path-leaves paths]
       (let [meta-file (read-meta-file parent-dir path-leaves)
-            meta-content (get meta-file :contents)]
+            meta-contents (get meta-file :contents)]
         ; insert it into the db
-        (insert-meta-data user-hash-bytes meta-content)
+        (insert-meta-data user-hash-bytes meta-file)
         ; if this is a fav user, start following their fav users
         (if (and is-fav-user?
                  (= "fav" (get meta-file :dir-name))
-                 (nil? (get meta-content :ptrtime)))
-          (add-user-hash (get meta-content :ptrhash)))))
+                 (nil? (get meta-contents "ptrtime")))
+          (add-user-hash (b-decode-bytes (get meta-contents "ptrhash"))))))
     ; remove any files that the torrent no longer contains
     (if-not (is-me? user-hash-bytes)
       (delete-orphaned-files user-hash-bytes paths))))
