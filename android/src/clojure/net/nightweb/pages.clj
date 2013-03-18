@@ -21,12 +21,10 @@
                                      show-pending-user-dialog
                                      show-welcome-dialog
                                      receive-result
-                                     do-toggle-fav
                                      do-menu-action]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
-        [nightweb.torrents :only [add-user-hash]]
         [nightweb.router :only [is-first-boot?
                                 user-exists?
                                 user-has-content?]]))
@@ -49,8 +47,7 @@
       this
       service-name
       (fn [binder]
-        (let [params (get-params this)
-              action-bar (.getActionBar this)]
+        (let [action-bar (.getActionBar this)]
           (.setNavigationMode action-bar 
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
@@ -72,11 +69,7 @@
                          (get-category-view this content)))
           (when (and is-first-boot? show-welcome-message?)
             (def show-welcome-message? false)
-            (show-welcome-dialog this))
-          (when (and (get params :userhash)
-                     (not (user-exists? (get params :userhash))))
-            (add-user-hash (get params :userhash))
-            (do-toggle-fav this params)))))
+            (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

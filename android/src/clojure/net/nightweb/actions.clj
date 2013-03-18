@@ -30,7 +30,8 @@
                                  fav-encode
                                  remove-dupes-and-nils]]
         [nightweb.torrents :only [is-connecting?
-                                  get-torrent-by-path]]
+                                  get-torrent-by-path
+                                  add-user-hash]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url
@@ -131,20 +132,6 @@
                                           (get buttons :negative-func)))))))
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog)))))
-
-(defn show-new-user-dialog
-  [context params]
-  (show-dialog context
-               (get-string :new_user)
-               nil
-               {:positive-name (get-string :download_user)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (show-page context "net.nightweb.MainPage" params))
-                :negative-name (get-string :cancel)
-                :negative-func
-                (fn [context dialog-view button-view]
-                  (.finish context))}))
 
 (defn show-pending-user-dialog
   [context]
@@ -298,3 +285,19 @@
                   :custom-func (get item :func)
                   show-basic)]
     (func context item)))
+
+(defn show-new-user-dialog
+  [context params]
+  (show-dialog context
+               (get-string :new_user)
+               nil
+               {:positive-name (get-string :download_user)
+                :positive-func
+                (fn [context dialog-view button-view]
+                  (show-page context "net.nightweb.MainPage" params)
+                  (add-user-hash (get params :userhash))
+                  (do-toggle-fav context params))
+                :negative-name (get-string :cancel)
+                :negative-func
+                (fn [context dialog-view button-view]
+                  (.finish context))}))
