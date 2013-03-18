@@ -6,24 +6,18 @@
         [nightweb.io :only [file-exists?
                             read-file
                             delete-file
-                            make-dir
                             iterate-dir
                             write-key-file
                             read-key-file
                             write-link-file
-                            read-meta-file
                             read-user-list-file
-                            write-user-list-file
-                            delete-orphaned-files]]
+                            write-user-list-file]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-decode
                                  b-decode-map
                                  b-decode-bytes]]
-        [nightweb.db :only [insert-meta-data
-                            get-single-fav-data]]
-        [nightweb.constants :only [is-me?
-                                   set-base-dir
+        [nightweb.constants :only [set-base-dir
                                    set-my-hash-bytes
                                    my-hash-str
                                    set-my-hash-str
@@ -40,6 +34,7 @@
                                   add-hash
                                   add-torrent
                                   remove-torrent
+                                  on-recv-meta
                                   send-meta-link
                                   parse-meta-link]]))
 
@@ -58,41 +53,6 @@
   (-> (base32-encode user-hash-bytes)
       (get-meta-torrent-file)
       (file-exists?)))
-
-(defn add-user-hash
-  "Begins following the supplied user hash if we aren't already."
-  [their-hash-bytes]
-  (if their-hash-bytes
-    (let [their-hash-str (base32-encode their-hash-bytes)
-          path (get-user-dir their-hash-str)]
-      (when-not (file-exists? path)
-        (make-dir path)
-        (add-hash path their-hash-str true send-meta-link)))))
-
-(defn on-recv-meta
-  "Performs various actions on a meta torrent that has finished downloading."
-  [torrent]
-  (let [parent-dir (.getParentFile (file (.getName torrent)))
-        user-hash-bytes (base32-decode (.getName parent-dir))
-        paths (.getFiles (.getMetaInfo torrent))
-        is-fav-user? (-> {:userhash user-hash-bytes}
-                         (get-single-fav-data)
-                         (get :status)
-                         (= 1))]
-    ; iterate over the files in this torrent
-    (doseq [path-leaves paths]
-      (let [meta-file (read-meta-file parent-dir path-leaves)
-            meta-contents (get meta-file :contents)]
-        ; insert it into the db
-        (insert-meta-data user-hash-bytes meta-file)
-        ; if this is a fav user, start following their fav users
-        (if (and is-fav-user?
-                 (= "fav" (get meta-file :dir-name))
-                 (nil? (get meta-contents "ptrtime")))
-          (add-user-hash (b-decode-bytes (get meta-contents "ptrhash"))))))
-    ; remove any files that the torrent no longer contains
-    (if-not (is-me? user-hash-bytes)
-      (delete-orphaned-files user-hash-bytes paths))))
 
 (defn add-user-and-meta-torrents
   "Starts every user and meta torrent that we have."
@@ -159,18 +119,18 @@
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]
   (set-base-dir dir)
-  ; set I2P properties and launch
-  (java.lang.System/setProperty "i2p.dir.base" dir)
-  (java.lang.System/setProperty "i2p.dir.config" dir)
-  (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
-  (net.i2p.router.RouterLaunch/main nil)
-  ; start I2PSnark
+  ; start i2psnark and create or load our keys
   (start-torrent-manager)
-  (java.lang.Thread/sleep 3000)
-  ; create or load our keys and start all user/meta torrents
   (when-let [user-hash (create-user-torrent)]
     (set-my-hash-bytes user-hash)
-    (set-my-hash-str (base32-encode user-hash))
+    (set-my-hash-str (base32-encode user-hash)))
+  ; start i2p router and initiate all user and meta torrents
+  (future
+    (java.lang.System/setProperty "i2p.dir.base" dir)
+    (java.lang.System/setProperty "i2p.dir.config" dir)
+    (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
+    (net.i2p.router.RouterLaunch/main nil)
+    (java.lang.Thread/sleep 10000)
     (add-user-and-meta-torrents)))
 
 (defn stop-router

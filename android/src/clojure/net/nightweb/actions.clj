@@ -29,7 +29,8 @@
                                  profile-encode
                                  fav-encode
                                  remove-dupes-and-nils]]
-        [nightweb.torrents :only [is-connecting?]]
+        [nightweb.torrents :only [is-connecting?
+                                  get-torrent-by-path]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url
@@ -207,8 +208,11 @@
                                   (b-decode-map (b-decode post)))
                      (future
                        (if (is-connecting?)
-                         (create-meta-torrent))
+                         ; this will block until i2psnark connects
+                         (get-torrent-by-path nil))
+                       ; remove any pics that aren't being shared anymore
                        (delete-orphaned-pics my-hash-bytes)
+                       ; write post to disk and create new meta torrent
                        (write-post-file create-time post)
                        (create-meta-torrent)))))
   true)
@@ -242,8 +246,11 @@
                                      (b-decode-map (b-decode profile)))
                      (future
                        (if (is-connecting?)
-                         (create-meta-torrent))
+                         ; this will block until i2psnark connects
+                         (get-torrent-by-path nil))
+                       ; remove any pics that aren't being shared anymore
                        (delete-orphaned-pics my-hash-bytes)
+                       ; write post to disk and create new meta torrent
                        (write-profile-file profile)
                        (create-meta-torrent)))))
   true)
@@ -275,7 +282,9 @@
                                (b-decode-map (b-decode fav)))
                    (future
                      (if (is-connecting?)
-                       (create-meta-torrent))
+                         ; this will block until i2psnark connects
+                       (get-torrent-by-path nil))
+                     ; write post to disk and create new meta torrent
                      (write-fav-file fav-time fav)
                      (create-meta-torrent)))))
 

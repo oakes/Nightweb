@@ -2,12 +2,17 @@
   (:use [clojure.java.io :only [file input-stream]]
         [nightweb.io :only [file-exists?
                             write-file
+                            make-dir
                             read-priv-node-key-file
                             read-pub-node-key-file
                             write-priv-node-key-file
                             write-pub-node-key-file
                             read-key-file
-                            read-link-file]]
+                            read-link-file
+                            read-meta-file
+                            delete-orphaned-files]]
+        [nightweb.db :only [insert-meta-data
+                            get-single-fav-data]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -16,7 +21,9 @@
                                  b-decode-bytes
                                  b-decode-long]]
         [nightweb.crypto :only [verify-signature]]
-        [nightweb.constants :only [torrent-ext
+        [nightweb.constants :only [is-me?
+                                   my-hash-str
+                                   torrent-ext
                                    get-user-dir
                                    get-user-pub-file
                                    get-meta-dir
@@ -24,7 +31,28 @@
 
 (def manager nil)
 
-; DHT nodes
+; active torrents
+
+(defn get-torrent-paths
+  []
+  (.listTorrentFiles manager))
+
+(defn get-torrent-by-path
+  [path]
+  (.getTorrent manager path))
+
+(defn iterate-torrents
+  [func]
+  (doseq [path (get-torrent-paths)]
+    (if-let [torrent (get-torrent-by-path path)]
+      (func torrent))))
+
+(defn iterate-peers
+  [torrent func]
+  (doseq [peer (.getPeerList torrent)]
+    (func peer)))
+
+; dht nodes
 
 (defn get-node-info-for-peer
   [peer]
@@ -57,30 +85,10 @@
     (.isConnecting util)
     true))
 
-; active torrents
-
-(defn get-torrent-paths
-  []
-  (.listTorrentFiles manager))
-
-(defn get-torrent-by-path
-  [path]
-  (.getTorrent manager path))
-
-(defn iterate-torrents
-  [func]
-  (doseq [path (get-torrent-paths)]
-    (if-let [torrent (get-torrent-by-path path)]
-      (func torrent))))
-
-(defn iterate-peers
-  [torrent func]
-  (doseq [peer (.getPeerList torrent)]
-    (func peer)))
-
 ; sending meta links
 
 (defn send-custom-query
+  "Sends a query over KRPC."
   [node-info method args]
   (let [query (doto (java.util.HashMap.)
                 (.put "q" method)
@@ -88,8 +96,11 @@
     (.sendQuery (.getDHT (.util manager)) node-info query true)))
 
 (defn send-meta-link
+  "Sends the relevant meta link to all peers in a given user torrent."
   ([]
-   (if-let [torrent (str (get-torrent-by-path (get-user-pub-file)) torrent-ext)]
+   (if-let [torrent (-> (get-user-pub-file my-hash-str)
+                        (str torrent-ext)
+                        (get-torrent-by-path))]
      (send-meta-link torrent)))
   ([torrent]
    (let [info-hash-str (base32-encode (.getInfoHash torrent))
@@ -100,6 +111,7 @@
                         (send-custom-query node-info "announce_meta" args)))))))
 
 (defn send-meta-link-periodically
+  "Sends the relevant meta link to all peers in each user torrent."
   [seconds]
   (future
     (while true
@@ -111,6 +123,7 @@
 ; starting and stopping torrents
 
 (defn get-storage
+  "Creates a Storage object with a listener for each storage-related event."
   [path]
   (let [listener (reify org.klomp.snark.StorageListener
                    (storageCreateFile [this storage file-name length]
@@ -138,13 +151,8 @@
     (.close storage)
     storage))
 
-(defn get-info-hash
-  [path]
-  (let [storage (get-storage path)
-        meta-info (.getMetaInfo storage)]
-    (.getInfoHash meta-info)))
-
 (defn get-complete-listener
+  "Creates a listener for each event in a given torrent download."
   [path complete-callback]
   (reify org.klomp.snark.CompleteListener
     (torrentComplete [this snark]
@@ -176,6 +184,7 @@
       nil)))
 
 (defn add-hash
+  "Adds an info hash to download."
   [path info-hash-str is-persistent? complete-callback]
   (future
     (try
@@ -194,6 +203,7 @@
         (println "Error adding hash:" (.getMessage iae))))))
 
 (defn add-torrent
+  "Adds a torrent to download or seed."
   ([path is-persistent? complete-callback]
    (add-torrent path is-persistent? complete-callback false))
   ([path is-persistent? complete-callback should-block?]
@@ -224,12 +234,56 @@
        nil))))
 
 (defn remove-torrent
+  "Stops and deletes a torrent."
   [path]
   (.removeTorrent manager path))
+
+(defn get-info-hash
+  "Gets the info hash for a given path."
+  [path]
+  (let [storage (get-storage path)
+        meta-info (.getMetaInfo storage)]
+    (.getInfoHash meta-info)))
+
+(defn add-user-hash
+  "Begins following the supplied user hash if we aren't already."
+  [their-hash-bytes]
+  (if their-hash-bytes
+    (let [their-hash-str (base32-encode their-hash-bytes)
+          path (get-user-dir their-hash-str)]
+      (when-not (file-exists? path)
+        (make-dir path)
+        (add-hash path their-hash-str true send-meta-link)))))
+
+(defn on-recv-meta
+  "Performs various actions on a meta torrent that has finished downloading."
+  [torrent]
+  (let [parent-dir (.getParentFile (file (.getName torrent)))
+        user-hash-bytes (base32-decode (.getName parent-dir))
+        paths (.getFiles (.getMetaInfo torrent))
+        is-fav-user? (-> {:userhash user-hash-bytes}
+                         (get-single-fav-data)
+                         (get :status)
+                         (= 1))]
+    ; iterate over the files in this torrent
+    (doseq [path-leaves paths]
+      (let [meta-file (read-meta-file parent-dir path-leaves)
+            meta-contents (get meta-file :contents)]
+        ; insert it into the db
+        (insert-meta-data user-hash-bytes meta-file)
+        ; if this is a fav user, start following their fav users
+        (if (and is-fav-user?
+                 (= "fav" (get meta-file :dir-name))
+                 (nil? (get meta-contents "ptrtime")))
+          (add-user-hash (b-decode-bytes (get meta-contents "ptrhash"))))))
+    ; remove any files that the torrent no longer contains
+    (if-not (is-me? user-hash-bytes)
+      (delete-orphaned-files user-hash-bytes paths))))
 
 ; receiving meta links
 
 (defn parse-meta-link
+  "Creates a map of parsed values from a given meta link."
   [link]
   (let [{data-val "data" sig-val "sig"} link
         data-map (b-decode-map (b-decode (b-decode-bytes data-val)))
@@ -248,6 +302,7 @@
        :time time-num})))
 
 (defn validate-meta-link
+  "Makes sure a meta link has the required values and signature."
   [link-map]
   (and link-map
        (get link-map :time)
@@ -259,12 +314,14 @@
                            (get link-map :data)))))
 
 (defn save-meta-link
+  "Saves a meta link to the disk."
   [link-map]
   (let [user-hash-str (get link-map :user-hash-str)
         link-path (get-meta-link-file user-hash-str)]
     (write-file link-path (get link-map :link))))
 
 (defn replace-meta-link
+  "Stops sharing a given meta torrent and begins downloading an updated one."
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (get-user-dir user-hash-str)
         meta-torrent-path (str (get-meta-dir user-hash-str) torrent-ext)]
@@ -272,10 +329,11 @@
     (if-let [old-hash-str (get old-link-map :link-hash-str)]
       (remove-torrent old-hash-str))
     (save-meta-link new-link-map)
-    (add-hash user-dir (get new-link-map :link-hash-str) false)
+    (add-hash user-dir (get new-link-map :link-hash-str) false on-recv-meta)
     (println "Saved meta link")))
 
 (defn compare-meta-link
+  "Checks if a given meta link is newer than the one we already have."
   [link-map]
   (let [user-hash-str (get link-map :user-hash-str)
         my-link (read-link-file user-hash-str)
@@ -291,6 +349,7 @@
       (comment "Received identical link"))))
 
 (defn receive-meta-link
+  "Parses and, if necessary, saves a given meta link."
   [args]
   (if-let [link (parse-meta-link args)]
     (compare-meta-link link)
@@ -299,6 +358,7 @@
 ; initialization
 
 (defn init-dht
+  "Sets the node keys, query handler, and bootstrap node for DHT."
   []
   ; set the node keys from the disk
   (let [priv-node (read-priv-node-key-file)
@@ -328,6 +388,7 @@
   (send-meta-link-periodically 60))
 
 (defn start-torrent-manager
+  "Starts the I2PSnark manager."
   []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
     (def manager (org.klomp.snark.SnarkManager. context))

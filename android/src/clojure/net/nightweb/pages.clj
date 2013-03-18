@@ -26,10 +26,10 @@
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
+        [nightweb.torrents :only [add-user-hash]]
         [nightweb.router :only [is-first-boot?
                                 user-exists?
-                                user-has-content?
-                                add-user-hash]]))
+                                user-has-content?]]))
 
 (def show-welcome-message? true)
 

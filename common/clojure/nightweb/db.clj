@@ -179,21 +179,14 @@
                     :user ["SELECT * FROM user ORDER BY time DESC"]
                     :post ["SELECT * FROM post ORDER BY time DESC"]
                     :fav (case sub-type
-                           :user [(str "SELECT "
-                                       "fav.ptrhash AS userhash, "
-                                       "fav.status AS favstatus, "
-                                       "user.* "
+                           :user [(str "SELECT fav.ptrhash AS userhash, user.* "
                                        "FROM fav LEFT JOIN user "
                                        "ON fav.ptrhash = user.userhash "
                                        "WHERE fav.userhash = ? "
                                        "AND fav.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
-                           :post [(str "SELECT "
-                                       "fav.ptrhash AS userhash, "
-                                       "fav.status AS favstatus, "
-                                       "fav.ptrtime AS favtime, "
-                                       "user.* "
+                           :post [(str "SELECT fav.ptrhash AS userhash, user.* "
                                        "FROM fav LEFT JOIN post "
                                        "ON fav.ptrhash = post.userhash "
                                        "AND fav.ptrtime = post.time "
