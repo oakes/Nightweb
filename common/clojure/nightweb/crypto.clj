@@ -32,7 +32,7 @@
 
 (defn verify-signature
   [pub-key-bytes sig-bytes message-bytes]
-  (if (and pub-key-bytes sig-bytes message-bytes)
+  (when (and pub-key-bytes sig-bytes message-bytes)
     (.verifySignature (net.i2p.crypto.DSAEngine/getInstance)
                       (net.i2p.data.Signature. sig-bytes)
                       message-bytes

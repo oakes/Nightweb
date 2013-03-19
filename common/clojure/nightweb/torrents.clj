@@ -3,6 +3,7 @@
         [nightweb.io :only [file-exists?
                             write-file
                             make-dir
+                            delete-file-recursively
                             read-priv-node-key-file
                             read-pub-node-key-file
                             write-priv-node-key-file
@@ -45,7 +46,7 @@
 (defn iterate-torrents
   [func]
   (doseq [path (get-torrent-paths)]
-    (if-let [torrent (get-torrent-by-path path)]
+    (when-let [torrent (get-torrent-by-path path)]
       (func torrent))))
 
 (defn iterate-peers
@@ -99,9 +100,9 @@
 (defn send-meta-link
   "Sends the relevant meta link to all peers in a given user torrent."
   ([]
-   (if-let [torrent (-> (get-user-pub-file my-hash-str)
-                        (str torrent-ext)
-                        (get-torrent-by-path))]
+   (when-let [torrent (-> (get-user-pub-file my-hash-str)
+                          (str torrent-ext)
+                          (get-torrent-by-path))]
      (send-meta-link torrent)))
   ([torrent]
    (let [info-hash-str (base32-encode (.getInfoHash torrent))
@@ -118,7 +119,7 @@
     (while true
       (java.lang.Thread/sleep (* seconds 1000))
       (iterate-torrents (fn [torrent]
-                          (if (.getPersistent torrent)
+                          (when (.getPersistent torrent)
                             (send-meta-link torrent)))))))
 
 ; starting and stopping torrents
@@ -197,7 +198,7 @@
                   true
                   (get-complete-listener path complete-callback)
                   path)
-      (if-let [torrent (get-torrent-by-path info-hash-str)]
+      (when-let [torrent (get-torrent-by-path info-hash-str)]
         (.setPersistent torrent is-persistent?))
       (println "Hash added to" path)
       (catch IllegalArgumentException iae
@@ -225,10 +226,10 @@
                                  false
                                  listener
                                  root-path)
-                    (if-let [torrent (get-torrent-by-path torrent-path)]
+                    (when-let [torrent (get-torrent-by-path torrent-path)]
                       (.setPersistent torrent is-persistent?))
                     (println "Torrent added to" torrent-path))]
-       (if should-block? (deref thread))
+       (when should-block? (deref thread))
        (.getInfoHash meta-info))
      (catch java.io.IOException ioe
        (println "Error adding torrent:" (.getMessage ioe))
@@ -249,7 +250,7 @@
 (defn add-user-hash
   "Begins following the supplied user hash if we aren't already."
   [their-hash-bytes]
-  (if their-hash-bytes
+  (when their-hash-bytes
     (let [their-hash-str (base32-encode their-hash-bytes)
           path (get-user-dir their-hash-str)]
       (when-not (file-exists? path)
@@ -259,21 +260,24 @@
 (defn remove-user-hash
   "Removes a user completely if nobody we care about is following them."
   [their-hash-bytes]
-  (if (-> {:ptrhash their-hash-bytes}
-          (get-fav-data)
-          (count)
-          (= 0))
-    (println "DELETE USER")))
+  (when (-> {:ptrhash their-hash-bytes}
+            (get-fav-data)
+            (count)
+            (= 0))
+    (let [user-dir (get-user-dir (base32-encode their-hash-bytes))]
+      (println "Deleting..." (file-exists? user-dir))
+      (delete-file-recursively user-dir)
+      (println "User deleted" (file-exists? user-dir)))))
 
 (defn on-recv-fav
   "Add or remove user if necessary based on a fav we received."
   [user-hash ptr-hash status]
   ; if this is from a user we care about
-  (if (or (is-me? user-hash)
-          (-> {:userhash user-hash}
-              (get-single-fav-data)
-              (get :status)
-              (= 1)))
+  (when (or (is-me? user-hash)
+            (-> {:userhash user-hash}
+                (get-single-fav-data)
+                (get :status)
+                (= 1)))
     (case status
       ; if the fav has a status of 0, unfollow them if necessary
       0 (remove-user-hash ptr-hash)
@@ -294,8 +298,8 @@
         ; insert it into the db
         (insert-meta-data user-hash-bytes meta-file)
         ; if this is a fav of a user, act on it if necessary
-        (if (and (= "fav" (get meta-file :dir-name))
-                 (nil? (get meta-contents "ptrtime")))
+        (when (and (= "fav" (get meta-file :dir-name))
+                   (nil? (get meta-contents "ptrtime")))
           (on-recv-fav user-hash-bytes
                        (b-decode-bytes (get meta-contents "ptrhash"))
                        (b-decode-long (get meta-contents "status"))))))
@@ -316,7 +320,7 @@
         user-hash-bytes (b-decode-bytes user-hash-val)
         link-hash-bytes (b-decode-bytes link-hash-val)
         time-num (b-decode-long time-val)]
-    (if (and link data-val user-hash-bytes)
+    (when (and link data-val user-hash-bytes)
       {:link (b-encode link)
        :data (b-decode-bytes data-val)
        :sig (b-decode-bytes sig-val)
@@ -349,7 +353,7 @@
   (let [user-dir (get-user-dir user-hash-str)
         meta-torrent-path (str (get-meta-dir user-hash-str) torrent-ext)]
     (remove-torrent meta-torrent-path)
-    (if-let [old-hash-str (get old-link-map :link-hash-str)]
+    (when-let [old-hash-str (get old-link-map :link-hash-str)]
       (remove-torrent old-hash-str))
     (save-meta-link new-link-map)
     (add-hash user-dir (get new-link-map :link-hash-str) false on-recv-meta)
@@ -386,7 +390,7 @@
   ; set the node keys from the disk
   (let [priv-node (read-priv-node-key-file)
         pub-node (read-pub-node-key-file)]
-    (if (and priv-node pub-node)
+    (when (and priv-node pub-node)
       (.setDHTNode (.util manager) priv-node pub-node)))
   ; set the custom query handler
   (.setDHTCustomQueryHandler

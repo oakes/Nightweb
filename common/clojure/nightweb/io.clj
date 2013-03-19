@@ -37,7 +37,7 @@
 
 (defn write-file
   [path data-barray]
-  (if-let [parent-dir (.getParentFile (file path))]
+  (when-let [parent-dir (.getParentFile (file path))]
     (.mkdirs parent-dir))
   (with-open [bos (output-stream path)]
     (.write bos data-barray 0 (alength data-barray))))
@@ -46,7 +46,7 @@
   [path]
   (when (file-exists? path)
     (let [length (.length (file path))]
-      (if (< length 500000)
+      (when (< length 500000)
         (let [data-barray (byte-array length)]
           (with-open [bis (input-stream path)]
             (.read bis data-barray))
@@ -54,8 +54,15 @@
 
 (defn delete-file
   [path]
-  (when (file-exists? path)
-    (.delete (file path))))
+  (.delete (file path)))
+
+(defn delete-file-recursively
+  [path]
+  (let [f (file path)]
+    (when (.isDirectory f)
+      (doseq [child (.listFiles f)]
+        (delete-file-recursively child)))
+    (delete-file f)))
 
 (defn make-dir
   [path]
@@ -64,14 +71,14 @@
 (defn iterate-dir
   [path func]
   (doseq [f (.listFiles (file path))]
-    (if (.isDirectory f)
+    (when (.isDirectory f)
       (func (.getName f)))))
 
 (defn get-files-in-uri
   [uri-str]
   (let [java-uri (java.net.URI/create uri-str)
         files (for [uri-file (file-seq (file java-uri))]
-                (if (.isFile uri-file)
+                (when (.isFile uri-file)
                   (.getCanonicalPath uri-file)))]
     (remove-dupes-and-nils files)))
 
@@ -83,8 +90,8 @@
 
 (defn read-key-file
   [file-path]
-  (if-let [key-map (b-decode-map (b-decode (read-file file-path)))]
-    (if-let [sign-key-str (.get key-map "sign_key")]
+  (when-let [key-map (b-decode-map (b-decode (read-file file-path)))]
+    (when-let [sign-key-str (.get key-map "sign_key")]
       (.getBytes sign-key-str))))
 
 (defn write-priv-node-key-file
@@ -97,7 +104,7 @@
 (defn read-priv-node-key-file
   []
   (let [path (str base-dir priv-node-key-file)]
-    (if (file-exists? path)
+    (when (file-exists? path)
       (input-stream (file path)))))
 
 (defn write-pub-node-key-file
@@ -108,12 +115,12 @@
 (defn read-pub-node-key-file
   []
   (let [path (str base-dir pub-node-key-file)]
-    (if (file-exists? path)
+    (when (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
 (defn write-pic-file
   [data-barray]
-  (if data-barray
+  (when data-barray
     (let [image-hash (create-hash data-barray)
           file-name (base32-encode image-hash)]
       (write-file (str (get-pic-dir my-hash-str) slash file-name)
@@ -168,24 +175,24 @@
 (defn delete-orphaned-pics
   [user-hash]
   (doseq [pic (file-seq (file (get-pic-dir (base32-encode user-hash))))]
-    (if (and (.isFile pic)
-             (-> {:userhash user-hash
-                  :pichash (base32-decode (.getName pic))}
-                 (get-pic-data)
-                 (count)
-                 (= 0)))
+    (when (and (.isFile pic)
+               (-> {:userhash user-hash
+                    :pichash (base32-decode (.getName pic))}
+                   (get-pic-data)
+                   (count)
+                   (= 0)))
       (.delete pic))))
 
 (defn delete-orphaned-files
   [user-hash file-list]
   (let [meta-dir (get-meta-dir (base32-encode user-hash))]
     (doseq [meta-file (file-seq (file meta-dir))]
-      (if (and (.isFile meta-file)
-               (->> file-list
-                    (filter #(= (.getCanonicalPath meta-file)
-                                (.getCanonicalPath
-                                  (file meta-dir
-                                        (clojure.string/join slash %)))))
-                    (count)
-                    (= 0)))
+      (when (and (.isFile meta-file)
+                 (->> file-list
+                      (filter #(= (.getCanonicalPath meta-file)
+                                  (.getCanonicalPath
+                                    (file meta-dir
+                                          (clojure.string/join slash %)))))
+                      (count)
+                      (= 0)))
         (.delete meta-file)))))

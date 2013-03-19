@@ -66,7 +66,7 @@
                        meta-path (get-meta-dir their-hash-str)
                        meta-torrent-path (str meta-path torrent-ext)
                        meta-link-path (str meta-path link-ext)
-                       link-map (if (file-exists? meta-link-path)
+                       link-map (when (file-exists? meta-link-path)
                                   (-> (read-file meta-link-path)
                                       (b-decode)
                                       (b-decode-map)
@@ -79,7 +79,7 @@
                    ; add meta torrent
                    (if (file-exists? meta-torrent-path)
                      (add-torrent meta-path false on-recv-meta)
-                     (if-let [new-link-str (get link-map :link-hash-str)]
+                     (when-let [new-link-str (get link-map :link-hash-str)]
                        (add-hash user-dir new-link-str false on-recv-meta)))))))
 
 (defn create-user-torrent
@@ -136,7 +136,7 @@
 (defn stop-router
   "Shuts down the I2P router."
   []
-  (if-let [contexts (net.i2p.router.RouterContext/listContexts)]
-    (if-not (.isEmpty contexts)
-      (if-let [context (.get contexts 0)]
+  (when-let [contexts (net.i2p.router.RouterContext/listContexts)]
+    (when-not (.isEmpty contexts)
+      (when-let [context (.get contexts 0)]
         (.shutdown (.router context) net.i2p.router.Router/EXIT_HARD)))))

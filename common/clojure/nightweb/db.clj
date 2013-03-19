@@ -223,7 +223,7 @@
                                           "ORDER BY post.time DESC")
                                      (get params :query)]
                               nil))]
-    (if statement
+    (when statement
       (with-connection
         spec
         (with-query-results
@@ -267,7 +267,7 @@
         ["userhash = ? AND ptrtime IS ? AND mtime < ?"
          user-hash ptr-time edit-time])
       (doseq [pic pics]
-        (if-let [pic-hash (b-decode-bytes pic)]
+        (when-let [pic-hash (b-decode-bytes pic)]
           (update-or-insert-values
             :pic
             ["pichash = ? AND userhash = ? AND ptrtime IS ?"

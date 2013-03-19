@@ -78,13 +78,13 @@
 (defn url-encode
   [content]
   (let [params (concat
-                 (if-let [type-val (get content :type)]
+                 (when-let [type-val (get content :type)]
                    [(str "type=" (name type-val))])
-                 (if-let [userhash-val (get content :userhash)]
+                 (when-let [userhash-val (get content :userhash)]
                    [(str "userhash=" (base32-encode userhash-val))])
-                 (if-let [time-val (get content :time)]
+                 (when-let [time-val (get content :time)]
                    [(str "time=" time-val)]))]
-    (str "http://nightweb.net#" (clojure.string/join "&" params))))
+    (str "http://nightweb.net/#" (clojure.string/join "&" params))))
 
 (defn url-decode
   [url]
@@ -96,9 +96,9 @@
         {type-val "type"
          userhash-val "userhash"
          time-val "time"} url-map]
-    {:type (if type-val (keyword type-val))
-     :userhash (if userhash-val (base32-decode userhash-val))
-     :time (if time-val (long-decode time-val))}))
+    {:type (when type-val (keyword type-val))
+     :userhash (when userhash-val (base32-decode userhash-val))
+     :time (when time-val (long-decode time-val))}))
 
 (defn key-encode
   [key-obj]

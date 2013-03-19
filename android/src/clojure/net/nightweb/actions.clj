@@ -30,9 +30,7 @@
                                  fav-encode
                                  remove-dupes-and-nils]]
         [nightweb.torrents :only [is-connecting?
-                                  get-torrent-by-path
-                                  on-recv-fav
-                                  remove-user-hash]]
+                                  get-torrent-by-path]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url
@@ -55,8 +53,8 @@
 (defn receive-result
   [context request-code result-code intent]
   (let [callback (get-state context :file-request)
-        data-result (if intent (.getData intent))]
-    (if (and callback data-result)
+        data-result (when intent (.getData intent))]
+    (when (and callback data-result)
       (callback data-result))))
 
 (defn receive-attachments
@@ -65,8 +63,8 @@
         attachments (get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
                           (for [path (get-files-in-uri uri-str)]
-                            (if (path-to-bitmap path thumb-size) path))
-                          (if (.startsWith uri-str "content://")
+                            (when (path-to-bitmap path thumb-size) path))
+                          (when (.startsWith uri-str "content://")
                             [uri-str]))
         total-attachments (remove-dupes-and-nils
                             (concat attachments new-attachments))]
@@ -95,11 +93,11 @@
        (.show dialog))))
   ([context message view buttons]
    (let [builder (android.app.AlertDialog$Builder. context)]
-     (if-let [positive-name (get buttons :positive-name)]
+     (when-let [positive-name (get buttons :positive-name)]
        (.setPositiveButton builder positive-name nil))
-     (if-let [neutral-name (get buttons :neutral-name)]
+     (when-let [neutral-name (get buttons :neutral-name)]
        (.setNeutralButton builder neutral-name nil))
-     (if-let [negative-name (get buttons :negative-name)]
+     (when-let [negative-name (get buttons :negative-name)]
        (.setNegativeButton builder negative-name nil))
      (.setMessage builder message)
      (.setView builder view)
@@ -110,23 +108,23 @@
            btn-action (fn [dialog button func]
                         (proxy [android.view.View$OnClickListener] []
                           (onClick [v]
-                            (if (func context view button)
+                            (when (func context view button)
                               (.dismiss dialog)))))]
        (.setOnShowListener
          dialog
          (proxy [android.content.DialogInterface$OnShowListener] []
            (onShow [d]
-             (if-let [positive-btn (.getButton d positive-type)]
+             (when-let [positive-btn (.getButton d positive-type)]
                (.setOnClickListener
                  positive-btn (btn-action d
                                           positive-btn
                                           (get buttons :positive-func))))
-             (if-let [neutral-btn (.getButton d neutral-type)]
+             (when-let [neutral-btn (.getButton d neutral-type)]
                (.setOnClickListener
                  neutral-btn (btn-action d
                                          neutral-btn
                                          (get buttons :neutral-func))))
-             (if-let [negative-btn (.getButton d negative-type)]
+             (when-let [negative-btn (.getButton d negative-type)]
                (.setOnClickListener
                  negative-btn (btn-action d
                                           negative-btn
@@ -195,7 +193,7 @@
                                   create-time
                                   (b-decode-map (b-decode post)))
                      (future
-                       (if (is-connecting?)
+                       (when (is-connecting?)
                          ; this will block until i2psnark connects
                          (get-torrent-by-path nil))
                        ; remove any pics that aren't being shared anymore
@@ -223,7 +221,7 @@
         image-view (.findViewWithTag dialog-view "profile-image")
         name-text (.toString (.getText name-field))
         body-text (.toString (.getText body-field))
-        image-bitmap (if-let [drawable (.getDrawable image-view)]
+        image-bitmap (when-let [drawable (.getDrawable image-view)]
                        (.getBitmap drawable))
         image-barray (bitmap-to-byte-array image-bitmap)]
     (show-spinner context
@@ -233,7 +231,7 @@
                      (insert-profile my-hash-bytes
                                      (b-decode-map (b-decode profile)))
                      (future
-                       (if (is-connecting?)
+                       (when (is-connecting?)
                          ; this will block until i2psnark connects
                          (get-torrent-by-path nil))
                        ; remove any pics that aren't being shared anymore
@@ -250,7 +248,7 @@
 
 (defn do-menu-action
   [context item]
-  (if (= (.getItemId item) (get-resource :id :android/home))
+  (when (= (.getItemId item) (get-resource :id :android/home))
     (show-page context "net.nightweb.MainPage" {})))
 
 (defn do-toggle-fav
@@ -261,16 +259,15 @@
                   (get-string :adding))
                 #(let [fav-time (or (get content :time)
                                     (.getTime (java.util.Date.)))
-                       ptr-hash (get content :ptrhash)
+                       ptr-hash (get content :userhash)
                        ptr-time (get content :ptrtime)
                        new-status (if (= 1 (get content :status)) 0 1)
                        fav (fav-encode ptr-hash ptr-time new-status)]
-                   (remove-user-hash ptr-hash)
                    (insert-fav my-hash-bytes
                                fav-time
                                (b-decode-map (b-decode fav)))
                    (future
-                     (if (is-connecting?)
+                     (when (is-connecting?)
                        ; this will block until i2psnark connects
                        (get-torrent-by-path nil))
                      ; write post to disk and create new meta torrent
@@ -279,13 +276,13 @@
 
 (defn do-tile-action
   [context item]
-  (if-let [func (case (get item :type)
-                  :fav show-categories
-                  :toggle-fav do-toggle-fav
-                  :search show-categories
-                  :pic show-gallery
-                  :custom-func (get item :func)
-                  show-basic)]
+  (when-let [func (case (get item :type)
+                    :fav show-categories
+                    :toggle-fav do-toggle-fav
+                    :search show-categories
+                    :pic show-gallery
+                    :custom-func (get item :func)
+                    show-basic)]
     (func context item)))
 
 (defn show-new-user-dialog

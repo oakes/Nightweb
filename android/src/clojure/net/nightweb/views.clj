@@ -49,7 +49,7 @@
 
 (defn get-pic-path
   [user-hash-bytes image-hash-bytes]
-  (if (and user-hash-bytes image-hash-bytes)
+  (when (and user-hash-bytes image-hash-bytes)
     (str (get-pic-dir (base32-encode user-hash-bytes))
          slash
          (base32-encode image-hash-bytes))))
@@ -127,13 +127,13 @@
             (let [pic-hash-str (base32-encode (get item :pichash))]
               (.setTag image-view pic-hash-str)
               (.setImageBitmap image-view nil)
-              (if pic-hash-str
+              (when pic-hash-str
                 (future
                   (let [image-bitmap (-> (get-pic-path (get item :userhash)
                                                        (get item :pichash))
                                          (path-to-bitmap thumb-size))]
                     (on-ui
-                      (if (= pic-hash-str (.getTag image-view))
+                      (when (= pic-hash-str (.getTag image-view))
                         (.setImageBitmap image-view image-bitmap)))))))
             (if-let [title (get item :title)]
               (.setText text-top title)
@@ -164,7 +164,7 @@
                                                     size mode)]
                       (proxy-super onMeasure width-spec h-spec))
                     (proxy-super onMeasure width-spec height-spec))))]
-     (if (> (count content) 0)
+     (when (> (count content) 0)
        (set-grid-view-tiles context content view))
      view)))
 
@@ -286,7 +286,7 @@
                                    (get content :pichash))
                      (path-to-bitmap thumb-size))]
       (.setImageBitmap image-view bitmap))
-    (if (is-me? (get content :userhash))
+    (when (is-me? (get content :userhash))
       (.setOnClickListener
         image-view
         (proxy [android.view.View$OnClickListener] []
@@ -306,7 +306,7 @@
       (let [user (get-user-data content)
             fav (if-not (is-me? (get user :userhash))
                   (get-single-fav-data {:userhash (get user :userhash)}))
-            first-tiles (if (nil? (get content :page))
+            first-tiles (when (nil? (get content :page))
                           [{:title (get-string :profile)
                             :add-emphasis? true
                             :background (get-resource :drawable :profile)
@@ -331,7 +331,7 @@
                             :userhash (get user :userhash)
                             :background (get-resource :drawable :favs)
                             :type :fav}
-                           (if-not (is-me? (get user :userhash))
+                           (when-not (is-me? (get user :userhash))
                              {:title (if (= 1 (get fav :status))
                                        (get-string :remove_from_favorites)
                                        (get-string :add_to_favorites))
@@ -340,7 +340,7 @@
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
                               :type :toggle-fav
-                              :ptrhash (get fav :ptrhash)
+                              :userhash (get fav :ptrhash)
                               :status (get fav :status)
                               :time (get fav :time)})])
             posts (->> (for [tile (get-post-data content)]

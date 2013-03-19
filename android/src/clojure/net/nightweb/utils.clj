@@ -13,7 +13,7 @@
         width-ratio (/ (. options outWidth) max-length)
         is-valid? (and (> height-ratio 0) (> width-ratio 0))
         is-too-big? (or (> height-ratio 1) (> width-ratio 1))]
-    (if is-valid?
+    (when is-valid?
       (if is-too-big?
         (int (java.lang.Math/ceil (max height-ratio width-ratio)))
         1))))
@@ -29,8 +29,8 @@
   (try
     (let [cr (.getContentResolver context)
           uri (android.net.Uri/parse uri-str)]
-      (if-let [ratio (with-open [is (.openInputStream cr uri)]
-                       (get-resample-ratio is full-size))]
+      (when-let [ratio (with-open [is (.openInputStream cr uri)]
+                         (get-resample-ratio is full-size))]
         (with-open [is (.openInputStream cr uri)]
           (input-stream-to-bitmap is ratio))))
     (catch java.lang.Exception e nil)))
@@ -38,15 +38,15 @@
 (defn path-to-bitmap
   [path max-length]
   (try
-    (if-let [ratio (with-open [is (input-stream path)]
-                     (get-resample-ratio is max-length))]
+    (when-let [ratio (with-open [is (input-stream path)]
+                       (get-resample-ratio is max-length))]
       (with-open [is (input-stream path)]
         (input-stream-to-bitmap is ratio)))
     (catch java.lang.Exception e nil)))
 
 (defn bitmap-to-byte-array
   [image-bitmap]
-  (if image-bitmap
+  (when image-bitmap
     (let [out (java.io.ByteArrayOutputStream.)
           image-format android.graphics.Bitmap$CompressFormat/WEBP]
       (.compress image-bitmap image-format 90 out)
