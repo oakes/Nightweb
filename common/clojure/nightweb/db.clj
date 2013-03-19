@@ -171,6 +171,20 @@
          my-hash-bytes ptr-hash ptr-time]
         (first (prepare-results rs :fav))))))
 
+(defn get-fav-data
+  [params]
+  (let [ptr-hash (get params :ptrhash)]
+    (with-connection
+      spec
+      (with-query-results
+        rs
+        [(str "SELECT * FROM fav WHERE ptrhash = ? "
+              "AND status = 1 "
+              "AND (userhash IN (SELECT ptrhash FROM fav WHERE userhash = ?) "
+              "OR userhash = ?)")
+         ptr-hash my-hash-bytes my-hash-bytes]
+        (prepare-results rs :fav)))))
+
 (defn get-category-data
   [params]
   (let [data-type (get params :type)
@@ -285,7 +299,7 @@
            :status (b-decode-long (get args "status"))})
         (update-values
           :user
-          ["userhash = ? AND time = NULL" user-hash]
+          ["userhash = ? AND time IS NULL" user-hash]
           {:time (.getTime (java.util.Date.))})))))
 
 (defn insert-post

@@ -12,7 +12,8 @@
                             read-meta-file
                             delete-orphaned-files]]
         [nightweb.db :only [insert-meta-data
-                            get-single-fav-data]]
+                            get-single-fav-data
+                            get-fav-data]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -255,27 +256,49 @@
         (make-dir path)
         (add-hash path their-hash-str true send-meta-link)))))
 
+(defn remove-user-hash
+  "Removes a user completely if nobody we care about is following them."
+  [their-hash-bytes]
+  (if (-> {:ptrhash their-hash-bytes}
+          (get-fav-data)
+          (count)
+          (= 0))
+    (println "DELETE USER")))
+
+(defn on-recv-fav
+  "Add or remove user if necessary based on a fav we received."
+  [user-hash ptr-hash status]
+  ; if this is from a user we care about
+  (if (or (is-me? user-hash)
+          (-> {:userhash user-hash}
+              (get-single-fav-data)
+              (get :status)
+              (= 1)))
+    (case status
+      ; if the fav has a status of 0, unfollow them if necessary
+      0 (remove-user-hash ptr-hash)
+      ; if the fav has a status of 1, make sure we are following them
+      1 (add-user-hash ptr-hash)
+      nil)))
+
 (defn on-recv-meta
   "Performs various actions on a meta torrent that has finished downloading."
   [torrent]
   (let [parent-dir (.getParentFile (file (.getName torrent)))
         user-hash-bytes (base32-decode (.getName parent-dir))
-        paths (.getFiles (.getMetaInfo torrent))
-        is-fav-user? (-> {:userhash user-hash-bytes}
-                         (get-single-fav-data)
-                         (get :status)
-                         (= 1))]
+        paths (.getFiles (.getMetaInfo torrent))]
     ; iterate over the files in this torrent
     (doseq [path-leaves paths]
       (let [meta-file (read-meta-file parent-dir path-leaves)
             meta-contents (get meta-file :contents)]
         ; insert it into the db
         (insert-meta-data user-hash-bytes meta-file)
-        ; if this is a fav user, start following their fav users
-        (if (and is-fav-user?
-                 (= "fav" (get meta-file :dir-name))
+        ; if this is a fav of a user, act on it if necessary
+        (if (and (= "fav" (get meta-file :dir-name))
                  (nil? (get meta-contents "ptrtime")))
-          (add-user-hash (b-decode-bytes (get meta-contents "ptrhash"))))))
+          (on-recv-fav user-hash-bytes
+                       (b-decode-bytes (get meta-contents "ptrhash"))
+                       (b-decode-long (get meta-contents "status"))))))
     ; remove any files that the torrent no longer contains
     (if-not (is-me? user-hash-bytes)
       (delete-orphaned-files user-hash-bytes paths))))

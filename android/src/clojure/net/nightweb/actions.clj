@@ -31,7 +31,8 @@
                                  remove-dupes-and-nils]]
         [nightweb.torrents :only [is-connecting?
                                   get-torrent-by-path
-                                  add-user-hash]]
+                                  on-recv-fav
+                                  remove-user-hash]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url
@@ -255,21 +256,22 @@
 (defn do-toggle-fav
   [context content]
   (show-spinner context
-                (if (= 1 (get content :favstatus))
+                (if (= 1 (get content :status))
                   (get-string :removing)
                   (get-string :adding))
-                #(let [fav-time (or (get content :favtime)
+                #(let [fav-time (or (get content :time)
                                     (.getTime (java.util.Date.)))
-                       ptr-hash (get content :userhash)
-                       ptr-time (get content :time)
-                       new-status (if (= 1 (get content :favstatus)) 0 1)
+                       ptr-hash (get content :ptrhash)
+                       ptr-time (get content :ptrtime)
+                       new-status (if (= 1 (get content :status)) 0 1)
                        fav (fav-encode ptr-hash ptr-time new-status)]
+                   (remove-user-hash ptr-hash)
                    (insert-fav my-hash-bytes
                                fav-time
                                (b-decode-map (b-decode fav)))
                    (future
                      (if (is-connecting?)
-                         ; this will block until i2psnark connects
+                       ; this will block until i2psnark connects
                        (get-torrent-by-path nil))
                      ; write post to disk and create new meta torrent
                      (write-fav-file fav-time fav)
@@ -295,7 +297,6 @@
                 :positive-func
                 (fn [context dialog-view button-view]
                   (show-page context "net.nightweb.MainPage" params)
-                  (add-user-hash (get params :userhash))
                   (do-toggle-fav context params))
                 :negative-name (get-string :cancel)
                 :negative-func

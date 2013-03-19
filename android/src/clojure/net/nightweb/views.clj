@@ -305,7 +305,7 @@
     (future
       (let [user (get-user-data content)
             fav (if-not (is-me? (get user :userhash))
-                  (get-single-fav-data content))
+                  (get-single-fav-data {:userhash (get user :userhash)}))
             first-tiles (if (nil? (get content :page))
                           [{:title (get-string :profile)
                             :add-emphasis? true
@@ -340,9 +340,9 @@
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
                               :type :toggle-fav
-                              :userhash (get fav :userhash)
-                              :favstatus (get fav :status)
-                              :favtime (get fav :time)})])
+                              :ptrhash (get fav :ptrhash)
+                              :status (get fav :status)
+                              :time (get fav :time)})])
             posts (->> (for [tile (get-post-data content)]
                          (assoc tile
                                 :background
