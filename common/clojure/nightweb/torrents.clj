@@ -208,34 +208,31 @@
 
 (defn add-torrent
   "Adds a torrent to download or seed."
-  ([path is-persistent? complete-callback]
-   (add-torrent path is-persistent? complete-callback false))
-  ([path is-persistent? complete-callback should-block?]
-   (try
-     (let [base-file (file path)
-           root-path (.getParent base-file)
-           torrent-file (file (str path torrent-ext))
-           torrent-path (.getCanonicalPath torrent-file)
-           storage (get-storage path)
-           meta-info (.getMetaInfo storage)
-           bit-field (.getBitField storage)
-           listener (get-complete-listener root-path complete-callback)
-           thread (future
-                    (.addTorrent manager
-                                 meta-info
-                                 bit-field
-                                 torrent-path
-                                 false
-                                 listener
-                                 root-path)
-                    (when-let [torrent (get-torrent-by-path torrent-path)]
-                      (.setPersistent torrent is-persistent?))
-                    (println "Torrent added to" torrent-path))]
-       (when should-block? (deref thread))
-       (.getInfoHash meta-info))
-     (catch java.io.IOException ioe
-       (println "Error adding torrent:" (.getMessage ioe))
-       nil))))
+  [path is-persistent? complete-callback]
+  (try
+    (let [base-file (file path)
+          root-path (.getParent base-file)
+          torrent-file (file (str path torrent-ext))
+          torrent-path (.getCanonicalPath torrent-file)
+          storage (get-storage path)
+          meta-info (.getMetaInfo storage)
+          bit-field (.getBitField storage)
+          listener (get-complete-listener root-path complete-callback)]
+      (future
+        (.addTorrent manager
+                     meta-info
+                     bit-field
+                     torrent-path
+                     false
+                     listener
+                     root-path)
+        (when-let [torrent (get-torrent-by-path torrent-path)]
+          (.setPersistent torrent is-persistent?))
+        (println "Torrent added to" torrent-path))
+      (.getInfoHash meta-info))
+    (catch java.io.IOException ioe
+      (println "Error adding torrent:" (.getMessage ioe))
+      nil)))
 
 (defn remove-torrent
   "Stops and deletes a torrent."

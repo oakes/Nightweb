@@ -29,8 +29,7 @@
                                  profile-encode
                                  fav-encode
                                  remove-dupes-and-nils]]
-        [nightweb.torrents :only [is-connecting?
-                                  get-torrent-by-path]]
+        [nightweb.torrents :only [add-user-hash]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url
@@ -192,15 +191,9 @@
                      (insert-post my-hash-bytes
                                   create-time
                                   (b-decode-map (b-decode post)))
-                     (future
-                       (when (is-connecting?)
-                         ; this will block until i2psnark connects
-                         (get-torrent-by-path nil))
-                       ; remove any pics that aren't being shared anymore
-                       (delete-orphaned-pics my-hash-bytes)
-                       ; write post to disk and create new meta torrent
-                       (write-post-file create-time post)
-                       (create-meta-torrent)))))
+                     (delete-orphaned-pics my-hash-bytes)
+                     (write-post-file create-time post)
+                     (create-meta-torrent))))
   true)
 
 (defn do-attach-to-new-post
@@ -230,15 +223,9 @@
                          profile (profile-encode name-text body-text img-hash)]
                      (insert-profile my-hash-bytes
                                      (b-decode-map (b-decode profile)))
-                     (future
-                       (when (is-connecting?)
-                         ; this will block until i2psnark connects
-                         (get-torrent-by-path nil))
-                       ; remove any pics that aren't being shared anymore
-                       (delete-orphaned-pics my-hash-bytes)
-                       ; write post to disk and create new meta torrent
-                       (write-profile-file profile)
-                       (create-meta-torrent)))))
+                     (delete-orphaned-pics my-hash-bytes)
+                     (write-profile-file profile)
+                     (create-meta-torrent))))
   true)
 
 (defn do-cancel
@@ -266,13 +253,9 @@
                    (insert-fav my-hash-bytes
                                fav-time
                                (b-decode-map (b-decode fav)))
-                   (future
-                     (when (is-connecting?)
-                       ; this will block until i2psnark connects
-                       (get-torrent-by-path nil))
-                     ; write post to disk and create new meta torrent
-                     (write-fav-file fav-time fav)
-                     (create-meta-torrent)))))
+                   (write-fav-file fav-time fav)
+                   (add-user-hash ptr-hash)
+                   (create-meta-torrent))))
 
 (defn do-tile-action
   [context item]

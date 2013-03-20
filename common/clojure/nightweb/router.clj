@@ -112,7 +112,7 @@
   []
   (let [path (get-meta-dir my-hash-str)]
     (remove-torrent (str path torrent-ext))
-    (write-link-file (add-torrent path false on-recv-meta true))
+    (write-link-file (add-torrent path false on-recv-meta))
     (send-meta-link)))
 
 (defn start-router

@@ -35,9 +35,9 @@
   <string name="page">Page</string>
   <string name="author">Author</string>
 
-  <string name="new_user">This looks like a new user. Would you like to favorite them and begin downloading their page?</string>
-  <string name="pending_user">We haven\'t received anything from this user yet. You should check back later.</string>
+  <string name="new_user">This looks like a new user. Would you like to favorite and begin downloading them?</string>
+  <string name="pending_user">We haven\'t received anything from this user yet. Check back later.</string>
   <string name="lost_post">Can\'t find this post.</string>
   <string name="welcome_title">Welcome to Nightweb</string>
-  <string name="welcome_message">Nightweb is finding peers. It may take a little while, so please be patient. It\'s best to let the app run in the background as long as you can.</string>
+  <string name="welcome_message">Nightweb is finding peers. It works best if you leave it running in the background as long as you can.</string>
 </resources>
