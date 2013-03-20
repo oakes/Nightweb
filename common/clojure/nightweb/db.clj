@@ -1,6 +1,5 @@
 (ns nightweb.db
   (:use [clojure.java.jdbc :only [with-connection
-                                  transaction
                                   create-table
                                   drop-table
                                   update-or-insert-values
@@ -255,7 +254,7 @@
           user-hash ptr-time]
          (prepare-results rs :pic))))))
 
-; insertion
+; insertion / removal
 
 (defn insert-pic-list
   [user-hash ptr-time edit-time args]
@@ -362,3 +361,12 @@
     nil (case (get data-map :file-name)
           "user.profile" (insert-profile user-hash (get data-map :contents)))
     nil))
+
+(defn delete-user
+  [user-hash]
+  (with-connection
+    spec
+    (delete-rows :user ["userhash = ?" user-hash])
+    (delete-rows :post ["userhash = ?" user-hash])
+    (delete-rows :pic ["userhash = ?" user-hash])
+    (delete-rows :fav ["userhash = ?" user-hash])))

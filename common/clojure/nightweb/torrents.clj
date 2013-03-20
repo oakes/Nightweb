@@ -3,6 +3,7 @@
         [nightweb.io :only [file-exists?
                             write-file
                             make-dir
+                            iterate-dir
                             delete-file-recursively
                             read-priv-node-key-file
                             read-pub-node-key-file
@@ -14,7 +15,8 @@
                             delete-orphaned-files]]
         [nightweb.db :only [insert-meta-data
                             get-single-fav-data
-                            get-fav-data]]
+                            get-fav-data
+                            delete-user]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-encode
@@ -260,14 +262,24 @@
 (defn remove-user-hash
   "Removes a user completely if nobody we care about is following them."
   [their-hash-bytes]
-  (when (-> {:ptrhash their-hash-bytes}
-            (get-fav-data)
-            (count)
-            (= 0))
-    (let [user-dir (get-user-dir (base32-encode their-hash-bytes))]
-      (println "Deleting..." (file-exists? user-dir))
+  (when (and their-hash-bytes
+             (not (is-me? their-hash-bytes))
+             (-> {:ptrhash their-hash-bytes}
+                 (get-fav-data)
+                 (count)
+                 (= 0)))
+    (let [their-hash-str (base32-encode their-hash-bytes)
+          user-dir (get-user-dir their-hash-str)]
+      (println "Deleting user" their-hash-str)
+      (iterate-torrents
+        (fn [torrent]
+          (when (>= (.indexOf (.getDataDir torrent) their-hash-str) 0)
+            (remove-torrent (.getName torrent)))))
       (delete-file-recursively user-dir)
-      (println "User deleted" (file-exists? user-dir)))))
+      (delete-user their-hash-bytes)
+      (iterate-dir (get-user-dir)
+                   (fn [user-hash-str]
+                     (remove-user-hash (base32-decode user-hash-str)))))))
 
 (defn on-recv-fav
   "Add or remove user if necessary based on a fav we received."

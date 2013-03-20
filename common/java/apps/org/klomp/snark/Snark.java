@@ -665,6 +665,10 @@ public class Snark
         return storage;
     }
 
+    public String getDataDir() {
+        return rootDataDir;
+    }
+
     /**
      *  @since 0.8.4
      */
