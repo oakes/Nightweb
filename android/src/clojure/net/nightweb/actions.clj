@@ -29,7 +29,7 @@
                                  profile-encode
                                  fav-encode
                                  remove-dupes-and-nils]]
-        [nightweb.torrents :only [add-user-hash]]
+        [nightweb.torrents-dht :only [add-user-hash]]
         [nightweb.constants :only [my-hash-bytes]]))
 
 (defn share-url

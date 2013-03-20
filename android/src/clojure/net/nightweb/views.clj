@@ -340,7 +340,7 @@
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
                               :type :toggle-fav
-                              :userhash (get fav :ptrhash)
+                              :userhash (get user :userhash)
                               :status (get fav :status)
                               :time (get fav :time)})])
             posts (->> (for [tile (get-post-data content)]

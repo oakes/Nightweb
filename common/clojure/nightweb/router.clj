@@ -33,10 +33,10 @@
                                   get-info-hash
                                   add-hash
                                   add-torrent
-                                  remove-torrent
-                                  on-recv-meta
-                                  send-meta-link
-                                  parse-meta-link]]))
+                                  remove-torrent]]
+        [nightweb.torrents-dht :only [on-recv-meta
+                                      send-meta-link
+                                      parse-meta-link]]))
 
 (def is-first-boot? false)
 
