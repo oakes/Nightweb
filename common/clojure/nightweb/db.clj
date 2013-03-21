@@ -165,8 +165,7 @@
       spec
       (with-query-results
         rs
-        [(str "SELECT * FROM fav "
-              "WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?")
+        ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
          my-hash-bytes ptr-hash ptr-time]
         (first (prepare-results rs :fav))))))
 
@@ -177,10 +176,10 @@
       spec
       (with-query-results
         rs
-        [(str "SELECT * FROM fav WHERE ptrhash = ? "
-              "AND status = 1 "
-              "AND (userhash IN (SELECT ptrhash FROM fav WHERE userhash = ?) "
-              "OR userhash = ?)")
+        ["SELECT * FROM fav WHERE ptrhash = ? 
+         AND status = 1 
+         AND (userhash IN (SELECT ptrhash FROM fav WHERE userhash = ?) 
+         OR userhash = ?)"
          ptr-hash my-hash-bytes my-hash-bytes]
         (prepare-results rs :fav)))))
 
@@ -190,39 +189,39 @@
         sub-type (get params :subtype)
         statement (case data-type
                     :user ["SELECT * FROM user ORDER BY time DESC"]
-                    :post [(str "SELECT * FROM post "
-                                "WHERE status = 1 ORDER BY time DESC")]
+                    :post ["SELECT * FROM post 
+                           WHERE status = 1 ORDER BY time DESC"]
                     :fav (case sub-type
-                           :user [(str "SELECT fav.ptrhash AS userhash, user.* "
-                                       "FROM fav LEFT JOIN user "
-                                       "ON fav.ptrhash = user.userhash "
-                                       "WHERE fav.userhash = ? "
-                                       "AND fav.status = 1 "
-                                       "ORDER BY fav.mtime DESC")
+                           :user ["SELECT fav.ptrhash AS userhash, user.* 
+                                  FROM fav LEFT JOIN user 
+                                  ON fav.ptrhash = user.userhash 
+                                  WHERE fav.userhash = ? 
+                                  AND fav.status = 1 
+                                  ORDER BY fav.mtime DESC"
                                   (get params :userhash)]
-                           :post [(str "SELECT fav.ptrhash AS userhash, post.* "
-                                       "FROM fav LEFT JOIN post "
-                                       "ON fav.ptrhash = post.userhash "
-                                       "AND fav.ptrtime = post.time "
-                                       "WHERE fav.userhash = ? "
-                                       "AND fav.status = 1 "
-                                       "AND post.status = 1 "
-                                       "ORDER BY fav.mtime DESC")
+                           :post ["SELECT fav.ptrhash AS userhash, post.* 
+                                  FROM fav LEFT JOIN post 
+                                  ON fav.ptrhash = post.userhash 
+                                  AND fav.ptrtime = post.time 
+                                  WHERE fav.userhash = ? 
+                                  AND fav.status = 1 
+                                  AND post.status = 1 
+                                  ORDER BY fav.mtime DESC"
                                   (get params :userhash)]
                            nil)
                     :search (case sub-type
-                              :user [(str "SELECT user.* FROM "
-                                          "FT_SEARCH_DATA(?, 0, 0) ft, user "
-                                          "WHERE ft.TABLE = 'USER' "
-                                          "AND user.id = ft.KEYS[0] "
-                                          "ORDER BY user.time DESC")
+                              :user ["SELECT user.* FROM 
+                                     FT_SEARCH_DATA(?, 0, 0) ft, user 
+                                     WHERE ft.TABLE = 'USER' 
+                                     AND user.id = ft.KEYS[0] 
+                                     ORDER BY user.time DESC"
                                      (get params :query)]
-                              :post [(str "SELECT post.* FROM "
-                                          "FT_SEARCH_DATA(?, 0, 0) ft, post "
-                                          "WHERE ft.TABLE='POST' "
-                                          "AND post.id = ft.KEYS[0] "
-                                          "AND post.status = 1 "
-                                          "ORDER BY post.time DESC")
+                              :post ["SELECT post.* FROM 
+                                     FT_SEARCH_DATA(?, 0, 0) ft, post 
+                                     WHERE ft.TABLE='POST' 
+                                     AND post.id = ft.KEYS[0] 
+                                     AND post.status = 1 
+                                     ORDER BY post.time DESC"
                                      (get params :query)]
                               nil))]
     (when statement

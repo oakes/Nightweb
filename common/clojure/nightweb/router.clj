@@ -11,12 +11,14 @@
                             read-key-file
                             write-link-file
                             read-user-list-file
-                            write-user-list-file]]
+                            write-user-list-file
+                            write-fav-file]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-decode
                                  b-decode-map
-                                 b-decode-bytes]]
+                                 b-decode-bytes
+                                 fav-encode]]
         [nightweb.constants :only [is-me?
                                    set-base-dir
                                    set-my-hash-bytes
@@ -35,7 +37,8 @@
                                   add-hash
                                   add-torrent
                                   remove-torrent]]
-        [nightweb.torrents-dht :only [on-recv-meta
+        [nightweb.torrents-dht :only [add-user-hash
+                                      on-recv-meta
                                       send-meta-link
                                       parse-meta-link
                                       init-dht]]))
@@ -123,20 +126,28 @@
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]
   (set-base-dir dir)
-  ; start i2psnark and create or load our keys
+  ; start i2psnark
   (start-torrent-manager)
   (init-dht)
+  ; create or load keys
   (when-let [user-hash (create-user-torrent)]
     (set-my-hash-bytes user-hash)
     (set-my-hash-str (base32-encode user-hash)))
-  ; start i2p router and initiate all user and meta torrents
   (future
+    ; start i2p router
     (java.lang.System/setProperty "i2p.dir.base" dir)
     (java.lang.System/setProperty "i2p.dir.config" dir)
     (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
     (net.i2p.router.RouterLaunch/main nil)
     (java.lang.Thread/sleep 10000)
-    (add-user-and-meta-torrents)))
+    ; add all user and meta torrents
+    (add-user-and-meta-torrents)
+    ; add default fav user
+    (when is-first-boot?
+      (let [user-hash-bytes (base32-decode "zc3bf63ca7p756p5lffnypyzbo53qtzb")]
+        (write-fav-file (.getTime (java.util.Date.))
+                        (fav-encode user-hash-bytes nil 1))
+        (create-meta-torrent)))))
 
 (defn stop-router
   "Shuts down the I2P router."
