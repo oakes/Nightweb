@@ -94,17 +94,6 @@
       spec
       (create-generic-table :fav))))
 
-(defn drop-tables
-  []
-  (try
-    (with-connection
-      spec
-      (drop-table :user)
-      (drop-table :post)
-      (drop-table :pic)
-      (drop-table :fav))
-    (catch java.lang.Exception e (println "Tables don't exist"))))
-
 (defn init-db
   [base-dir]
   (when (nil? spec)
@@ -112,7 +101,6 @@
       {:classname "org.h2.Driver"
        :subprotocol "h2"
        :subname (str base-dir db-file)})
-    ;(drop-tables)
     (create-tables)))
 
 ; retrieval

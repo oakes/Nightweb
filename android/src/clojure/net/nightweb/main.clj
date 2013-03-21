@@ -7,8 +7,7 @@
                                       start-receiver
                                       stop-receiver]]
         [nightweb.router :only [start-router
-                                stop-router]]
-        [nightweb.db :only [init-db]]))
+                                stop-router]]))
 
 (defapplication net.nightweb.Application)
 
@@ -29,9 +28,7 @@
     (start-receiver this
                     shutdown-receiver-name
                     (fn [context intent] (.stopSelf service)))
-    (let [dir (.getAbsolutePath (.getFilesDir this))]
-      (init-db dir)
-      (start-router dir)))
+    (start-router (.getAbsolutePath (.getFilesDir this))))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)

@@ -32,6 +32,7 @@
                                    get-user-pub-file
                                    get-meta-dir
                                    get-meta-torrent-file]]
+        [nightweb.db :only [init-db]]
         [nightweb.torrents :only [start-torrent-manager
                                   get-info-hash
                                   add-hash
@@ -125,7 +126,9 @@
 (defn start-router
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]
+  ; set main dir and initialize the database
   (set-base-dir dir)
+  (init-db dir)
   ; start i2psnark
   (start-torrent-manager)
   (init-dht)
