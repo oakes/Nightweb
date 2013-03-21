@@ -200,8 +200,11 @@
                         :background (get-resource :drawable :profile)
                         :subtitle (get-string :author))
             pics (get-pic-data content (get content :time))
+            fav (when-not (is-me? (get content :userhash))
+                  (get-single-fav-data content))
             action (if (is-me? (get content :userhash))
                      {:title (get-string :edit)
+                      :add-emphasis? true
                       :background (get-resource :drawable :edit_post)
                       :type :custom-func
                       :func
@@ -227,7 +230,19 @@
                                                         button-view
                                                         (get content :time)))
                                       :negative-name (get-string :cancel)
-                                      :negative-func do-cancel}))})
+                                      :negative-func do-cancel}))}
+                     {:title (if (= 1 (get fav :status))
+                               (get-string :remove_from_favorites)
+                               (get-string :add_to_favorites))
+                      :add-emphasis? true
+                      :background (if (= 1 (get fav :status))
+                                    (get-resource :drawable :remove_fav)
+                                    (get-resource :drawable :add_fav))
+                      :type :toggle-fav
+                      :userhash (get content :userhash)
+                      :ptrtime (get content :time)
+                      :status (get fav :status)
+                      :time (get fav :time)})
             total-results (vec (concat [user action] pics))]
         (if (nil? (get post :body))
           (show-lost-post-dialog context)
@@ -333,7 +348,7 @@
   (let [grid-view (get-grid-view context [])]
     (future
       (let [user (get-user-data content)
-            fav (if-not (is-me? (get user :userhash))
+            fav (when-not (is-me? (get user :userhash))
                   (get-single-fav-data {:userhash (get user :userhash)}))
             first-tiles (when (nil? (get content :page))
                           [{:title (get-string :profile)

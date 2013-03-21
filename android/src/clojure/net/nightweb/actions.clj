@@ -156,10 +156,10 @@
   (on-ui
     (let [spinner (android.app.ProgressDialog/show context nil message true)]
       (future
-        (func)
-        (on-ui
-          (.dismiss spinner)
-          (.recreate context))))))
+        (let [should-refresh? (func)]
+          (on-ui
+            (.dismiss spinner)
+            (when should-refresh? (.recreate context))))))))
 
 (defn show-categories
   [context content]
@@ -204,7 +204,9 @@
                       (delete-orphaned-pics my-hash-bytes)
                       (write-post-file create-time post)
                       (future (create-meta-torrent))
-                      (when-not is-new? (show-home context {})))))
+                      (if-not is-new?
+                        (show-home context {})
+                        true))))
    true))
 
 (defn do-attach-to-post
@@ -260,7 +262,8 @@
                                      (b-decode-map (b-decode profile)))
                      (delete-orphaned-pics my-hash-bytes)
                      (write-profile-file profile)
-                     (future (create-meta-torrent)))))
+                     (future (create-meta-torrent))
+                     true)))
   true)
 
 (defn do-menu-action
@@ -269,24 +272,27 @@
     (show-page context "net.nightweb.MainPage" {})))
 
 (defn do-toggle-fav
-  [context content go-home?]
-  (show-spinner context
-                (if (= 1 (get content :status))
-                  (get-string :removing)
-                  (get-string :adding))
-                #(let [fav-time (or (get content :time)
-                                    (.getTime (java.util.Date.)))
-                       ptr-hash (get content :userhash)
-                       ptr-time (get content :ptrtime)
-                       new-status (if (= 1 (get content :status)) 0 1)
-                       fav (fav-encode ptr-hash ptr-time new-status)]
-                   (insert-fav my-hash-bytes
-                               fav-time
-                               (b-decode-map (b-decode fav)))
-                   (write-fav-file fav-time fav)
-                   (add-user-hash ptr-hash)
-                   (future (create-meta-torrent))
-                   (when go-home? (show-home context {})))))
+  ([context content] (do-toggle-fav context content false))
+  ([context content go-home?]
+   (show-spinner context
+                 (if (= 1 (get content :status))
+                   (get-string :removing)
+                   (get-string :adding))
+                 #(let [fav-time (or (get content :time)
+                                     (.getTime (java.util.Date.)))
+                        ptr-hash (get content :userhash)
+                        ptr-time (get content :ptrtime)
+                        new-status (if (= 1 (get content :status)) 0 1)
+                        fav (fav-encode ptr-hash ptr-time new-status)]
+                    (insert-fav my-hash-bytes
+                                fav-time
+                                (b-decode-map (b-decode fav)))
+                    (write-fav-file fav-time fav)
+                    (add-user-hash ptr-hash)
+                    (future (create-meta-torrent))
+                    (if go-home?
+                      (show-home context {})
+                      true)))))
 
 (defn do-toggle-user-fav
   [context content]
@@ -307,6 +313,7 @@
   (when-let [func (case (get item :type)
                     :fav show-categories
                     :toggle-user-fav do-toggle-user-fav
+                    :toggle-fav do-toggle-fav
                     :search show-categories
                     :pic show-gallery
                     :custom-func (get item :func)

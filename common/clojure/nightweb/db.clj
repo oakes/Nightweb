@@ -200,12 +200,13 @@
                                        "AND fav.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
-                           :post [(str "SELECT fav.ptrhash AS userhash, user.* "
+                           :post [(str "SELECT fav.ptrhash AS userhash, post.* "
                                        "FROM fav LEFT JOIN post "
                                        "ON fav.ptrhash = post.userhash "
                                        "AND fav.ptrtime = post.time "
                                        "WHERE fav.userhash = ? "
                                        "AND fav.status = 1 "
+                                       "AND post.status = 1 "
                                        "ORDER BY fav.mtime DESC")
                                   (get params :userhash)]
                            nil)
