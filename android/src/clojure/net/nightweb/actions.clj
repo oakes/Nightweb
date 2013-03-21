@@ -173,30 +173,41 @@
   [context content]
   (show-page context "net.nightweb.BasicPage" content))
 
-(defn do-send-new-post
-  [context dialog-view button-view]
-  (let [text-view (.findViewWithTag dialog-view "post-body")
-        text (.toString (.getText text-view))
-        attachments (get-state context :attachments)]
-    (show-spinner context
-                  (get-string :sending)
-                  #(let [create-time (.getTime (java.util.Date.))
-                         pic-hashes (for [path attachments]
-                                      (-> (if (.startsWith path "content://")
-                                            (uri-to-bitmap context path)
-                                            (path-to-bitmap path full-size))
-                                          (bitmap-to-byte-array)
-                                          (write-pic-file)))
-                         post (post-encode create-time text pic-hashes)]
-                     (insert-post my-hash-bytes
-                                  create-time
-                                  (b-decode-map (b-decode post)))
-                     (delete-orphaned-pics my-hash-bytes)
-                     (write-post-file create-time post)
-                     (create-meta-torrent))))
-  true)
+(defn show-home
+  [context content]
+  (show-page context "net.nightweb.MainPage" content))
 
-(defn do-attach-to-new-post
+(defn do-send-post
+  ([context dialog-view button-view]
+   (do-send-post context dialog-view button-view nil nil 1))
+  ([context dialog-view button-view create-time pic-hashes status]
+   (let [text-view (.findViewWithTag dialog-view "post-body")
+         text (.toString (.getText text-view))
+         attachments (get-state context :attachments)]
+     (show-spinner context
+                   (get-string :sending)
+                   #(let [is-new? (nil? create-time)
+                          create-time (or create-time
+                                          (.getTime (java.util.Date.)))
+                          pic-hashes
+                          (or pic-hashes
+                              (for [path attachments]
+                                (-> (if (.startsWith path "content://")
+                                      (uri-to-bitmap context path)
+                                      (path-to-bitmap path full-size))
+                                    (bitmap-to-byte-array)
+                                    (write-pic-file))))
+                          post (post-encode create-time text pic-hashes status)]
+                      (insert-post my-hash-bytes
+                                   create-time
+                                   (b-decode-map (b-decode post)))
+                      (delete-orphaned-pics my-hash-bytes)
+                      (write-post-file create-time post)
+                      (future (create-meta-torrent))
+                      (when-not is-new? (show-home context {})))))
+   true))
+
+(defn do-attach-to-post
   [context dialog-view button-view]
   (request-files context
                  "image/*"
@@ -205,6 +216,30 @@
                          text (str (get-string :attach_pics)
                                    " (" total-count ")")]
                      (on-ui (.setText button-view text)))))
+  false)
+
+(defn do-cancel
+  [context dialog-view button-view]
+  true)
+
+(defn do-delete-post
+  [context dialog-view button-view create-time]
+    (show-dialog context
+                 (get-string :confirm_delete)
+                 nil
+                 {:positive-name (get-string :delete)
+                  :positive-func
+                  (fn [c d b]
+                    (let [text-view (.findViewWithTag dialog-view "post-body")]
+                      (.setText text-view "")
+                      (do-send-post context
+                                    dialog-view
+                                    button-view
+                                    create-time
+                                    nil
+                                    0)))
+                  :negative-name (get-string :cancel)
+                  :negative-func do-cancel})
   false)
 
 (defn do-save-profile
@@ -225,11 +260,7 @@
                                      (b-decode-map (b-decode profile)))
                      (delete-orphaned-pics my-hash-bytes)
                      (write-profile-file profile)
-                     (create-meta-torrent))))
-  true)
-
-(defn do-cancel
-  [context dialog-view button-view]
+                     (future (create-meta-torrent)))))
   true)
 
 (defn do-menu-action
@@ -255,9 +286,7 @@
                    (write-fav-file fav-time fav)
                    (add-user-hash ptr-hash)
                    (future (create-meta-torrent))
-                   (when go-home?
-                     (show-page context "net.nightweb.MainPage" content))
-                   false)))
+                   (when go-home? (show-home context {})))))
 
 (defn do-toggle-user-fav
   [context content]

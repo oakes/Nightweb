@@ -11,6 +11,8 @@
                                      clear-attachments
                                      show-dialog
                                      show-lost-post-dialog
+                                     do-send-post
+                                     do-delete-post
                                      do-tile-action
                                      do-save-profile
                                      do-cancel]]
@@ -175,6 +177,7 @@
                                             :tag "post-body"}]])
         text-view (.getChildAt view 0)]
     (set-text-size text-view default-text-size)
+    (.setText text-view (get content :body))
     (clear-attachments context)
     view))
 
@@ -192,14 +195,40 @@
     (.addView linear-layout grid-view)
     (set-text-size text-view default-text-size)
     (future
-      (let [post (if (get content :body)
-                   content
-                   (get-single-post-data content))
+      (let [post (get-single-post-data content)
             user (assoc (get-user-data content)
                         :background (get-resource :drawable :profile)
                         :subtitle (get-string :author))
             pics (get-pic-data content (get content :time))
-            total-results (vec (concat [user] pics))]
+            action (if (is-me? (get content :userhash))
+                     {:title (get-string :edit)
+                      :background (get-resource :drawable :edit_post)
+                      :type :custom-func
+                      :func
+                      (fn [context item]
+                        (show-dialog context
+                                     nil
+                                     (get-new-post-view context post)
+                                     {:positive-name (get-string :send)
+                                      :positive-func
+                                      (fn [context dialog-view button-view]
+                                        (do-send-post context
+                                                      dialog-view
+                                                      button-view
+                                                      (get content :time)
+                                                      (for [pic pics]
+                                                        (get pic :pichash))
+                                                      1))
+                                      :neutral-name (get-string :delete)
+                                      :neutral-func
+                                      (fn [context dialog-view button-view]
+                                        (do-delete-post context
+                                                        dialog-view
+                                                        button-view
+                                                        (get content :time)))
+                                      :negative-name (get-string :cancel)
+                                      :negative-func do-cancel}))})
+            total-results (vec (concat [user action] pics))]
         (if (nil? (get post :body))
           (show-lost-post-dialog context)
           (on-ui (.setText text-view (get post :body))

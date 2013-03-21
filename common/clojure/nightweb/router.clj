@@ -17,7 +17,8 @@
                                  b-decode
                                  b-decode-map
                                  b-decode-bytes]]
-        [nightweb.constants :only [set-base-dir
+        [nightweb.constants :only [is-me?
+                                   set-base-dir
                                    set-my-hash-bytes
                                    my-hash-str
                                    set-my-hash-str
@@ -46,14 +47,16 @@
   [user-hash-bytes]
   (-> (base32-encode user-hash-bytes)
       (get-user-dir)
-      (file-exists?)))
+      (file-exists?)
+      (or (is-me? user-hash-bytes))))
 
 (defn user-has-content?
   "Checks if we've received anything from this user."
   [user-hash-bytes]
   (-> (base32-encode user-hash-bytes)
       (get-meta-torrent-file)
-      (file-exists?)))
+      (file-exists?)
+      (or (is-me? user-hash-bytes))))
 
 (defn add-user-and-meta-torrents
   "Starts every user and meta torrent that we have."

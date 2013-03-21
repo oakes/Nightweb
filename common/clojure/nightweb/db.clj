@@ -137,7 +137,7 @@
       spec
       (with-query-results
         rs
-        ["SELECT * FROM post WHERE userhash = ? AND time = ?"
+        ["SELECT * FROM post WHERE userhash = ? AND time = ? AND status = 1"
          user-hash create-time]
         (if-let [post (first (prepare-results rs :post))]
           post
@@ -153,7 +153,7 @@
         rs
         [(paginate page
                    "SELECT * FROM post "
-                   "WHERE userhash = ? ORDER BY time DESC")
+                   "WHERE userhash = ? AND status = 1 ORDER BY time DESC")
          user-hash]
         (prepare-results rs :post)))))
 
@@ -190,7 +190,8 @@
         sub-type (get params :subtype)
         statement (case data-type
                     :user ["SELECT * FROM user ORDER BY time DESC"]
-                    :post ["SELECT * FROM post ORDER BY time DESC"]
+                    :post [(str "SELECT * FROM post "
+                                "WHERE status = 1 ORDER BY time DESC")]
                     :fav (case sub-type
                            :user [(str "SELECT fav.ptrhash AS userhash, user.* "
                                        "FROM fav LEFT JOIN user "
@@ -211,14 +212,15 @@
                     :search (case sub-type
                               :user [(str "SELECT user.* FROM "
                                           "FT_SEARCH_DATA(?, 0, 0) ft, user "
-                                          "WHERE ft.TABLE='USER' "
-                                          "AND user.ID=ft.KEYS[0] "
+                                          "WHERE ft.TABLE = 'USER' "
+                                          "AND user.id = ft.KEYS[0] "
                                           "ORDER BY user.time DESC")
                                      (get params :query)]
                               :post [(str "SELECT post.* FROM "
                                           "FT_SEARCH_DATA(?, 0, 0) ft, post "
                                           "WHERE ft.TABLE='POST' "
-                                          "AND post.ID=ft.KEYS[0] "
+                                          "AND post.id = ft.KEYS[0] "
+                                          "AND post.status = 1 "
                                           "ORDER BY post.time DESC")
                                      (get params :query)]
                               nil))]

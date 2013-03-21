@@ -41,8 +41,8 @@
 
 (defactivity
   net.nightweb.MainPage
-  :on-create
-  (fn [this bundle]
+  :on-start
+  (fn [this]
     (start-service
       this
       service-name
@@ -52,6 +52,7 @@
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
           (.setDisplayShowHomeEnabled action-bar false)
+          (.removeAllTabs action-bar)
           (create-tab action-bar
                       (get-string :me)
                       #(let [content {:type :user :userhash my-hash-bytes}]
@@ -71,7 +72,7 @@
             (def show-welcome-message? false)
             (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
-  :on-destroy
+  :on-stop
   (fn [this]
     (stop-receiver this shutdown-receiver-name)
     (stop-service this))
@@ -151,7 +152,7 @@
           (set-content-view! basic-page view)
           (if-not (user-exists? (get params :userhash))
             (show-new-user-dialog this params)
-            (if-not (user-has-content? (get params :userhash))
+            (when-not (user-has-content? (get params :userhash))
               (show-pending-user-dialog this))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy

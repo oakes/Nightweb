@@ -4,8 +4,8 @@
         [net.nightweb.actions :only [share-url
                                      show-dialog
                                      show-categories
-                                     do-send-new-post
-                                     do-attach-to-new-post
+                                     do-send-post
+                                     do-attach-to-post
                                      do-cancel]]))
 
 (defn create-main-menu
@@ -42,9 +42,9 @@
                        nil
                        (get-new-post-view context [])
                        {:positive-name (get-string :send)
-                        :positive-func do-send-new-post
+                        :positive-func do-send-post
                         :neutral-name (get-string :attach_pics)
-                        :neutral-func do-attach-to-new-post
+                        :neutral-func do-attach-to-post
                         :negative-name (get-string :cancel)
                         :negative-func do-cancel})
           true))))

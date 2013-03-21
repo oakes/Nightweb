@@ -15,6 +15,7 @@
   <string name="favorites">Favorites</string>
   <string name="add_to_favorites">Add to Favorites</string>
   <string name="remove_from_favorites">Remove from Favorites</string>
+  <string name="edit">Edit</string>
 
   <string name="name">Name</string>
   <string name="about_me">About me</string>
@@ -22,6 +23,7 @@
   <string name="cancel">Cancel</string>
   <string name="attach">Attach...</string>
   <string name="attach_pics">Attach Pics...</string>
+  <string name="delete">Delete</string>
   <string name="save">Save</string>
   <string name="send">Send</string>
   <string name="ok">OK</string>
@@ -42,4 +44,5 @@
   <string name="welcome_title">Welcome to Nightweb</string>
   <string name="welcome_message">Nightweb is finding peers. It works best if you leave it running in the background as long as you can.</string>
   <string name="confirm_unfav">Are you sure you want to unfavorite this user? You may not be able to see them anymore.</string>
+  <string name="confirm_delete">Are you sure you want to delete this?</string>
 </resources>
