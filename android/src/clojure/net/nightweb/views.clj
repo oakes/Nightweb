@@ -339,7 +339,7 @@
                               :background (if (= 1 (get fav :status))
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
-                              :type :toggle-fav
+                              :type :toggle-user-fav
                               :userhash (get user :userhash)
                               :status (get fav :status)
                               :time (get fav :time)})])

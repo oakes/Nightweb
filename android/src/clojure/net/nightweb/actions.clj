@@ -230,7 +230,6 @@
 
 (defn do-cancel
   [context dialog-view button-view]
-  (println "cancel")
   true)
 
 (defn do-menu-action
@@ -239,7 +238,7 @@
     (show-page context "net.nightweb.MainPage" {})))
 
 (defn do-toggle-fav
-  [context content]
+  [context content go-home?]
   (show-spinner context
                 (if (= 1 (get content :status))
                   (get-string :removing)
@@ -255,13 +254,30 @@
                                (b-decode-map (b-decode fav)))
                    (write-fav-file fav-time fav)
                    (add-user-hash ptr-hash)
-                   (create-meta-torrent))))
+                   (future (create-meta-torrent))
+                   (when go-home?
+                     (show-page context "net.nightweb.MainPage" content))
+                   false)))
+
+(defn do-toggle-user-fav
+  [context content]
+  (if (= 1 (get content :status))
+    (show-dialog context
+                 (get-string :confirm_unfav)
+                 nil
+                 {:positive-name (get-string :unfav_user)
+                  :positive-func
+                  (fn [context dialog-view button-view]
+                    (do-toggle-fav context content true))
+                  :negative-name (get-string :cancel)
+                  :negative-func do-cancel})
+    (do-toggle-fav context content false)))
 
 (defn do-tile-action
   [context item]
   (when-let [func (case (get item :type)
                     :fav show-categories
-                    :toggle-fav do-toggle-fav
+                    :toggle-user-fav do-toggle-user-fav
                     :search show-categories
                     :pic show-gallery
                     :custom-func (get item :func)
@@ -269,15 +285,14 @@
     (func context item)))
 
 (defn show-new-user-dialog
-  [context params]
+  [context content]
   (show-dialog context
                (get-string :new_user)
                nil
                {:positive-name (get-string :download_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (show-page context "net.nightweb.MainPage" params)
-                  (do-toggle-fav context params))
+                  (do-toggle-fav context content true))
                 :negative-name (get-string :cancel)
                 :negative-func
                 (fn [context dialog-view button-view]

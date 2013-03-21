@@ -36,7 +36,8 @@
                                   remove-torrent]]
         [nightweb.torrents-dht :only [on-recv-meta
                                       send-meta-link
-                                      parse-meta-link]]))
+                                      parse-meta-link
+                                      init-dht]]))
 
 (def is-first-boot? false)
 
@@ -121,6 +122,7 @@
   (set-base-dir dir)
   ; start i2psnark and create or load our keys
   (start-torrent-manager)
+  (init-dht)
   (when-let [user-hash (create-user-torrent)]
     (set-my-hash-bytes user-hash)
     (set-my-hash-str (base32-encode user-hash)))
