@@ -4,11 +4,11 @@ Nightweb is an Android app for anonymous, peer-to-peer social networking. It is 
 
 ## Contents
 
-- ```android``` The Android project with platform-specific code, including the UI
-- ```common``` All cross-platform code, including the I2P project and the Nightweb backend
-- ```graphics``` SVG files for all the image resources
-- ```server``` The command line version that you can run on a server to help the network
+- `android` The Android project with platform-specific code, including the UI
+- `common` All cross-platform code, including the I2P project and the Nightweb backend
+- `graphics` SVG files for all the image resources
+- `server` The command line version that you can run on a server to help the network
 
-# Licensing
+## Licensing
 
-All source files that originate from this project are dedicated to the public domain. That particularly includes the files in ```android/src/clojure/net/nightweb``` and ```common/clojure/nightweb```, the UI code and backend code respectively. All third-party code in this project remains under their original licenses. I would love pull requests, and will assume that any Clojure contributions are also dedicated to the public domain.
+All source files that originate from this project are dedicated to the public domain. That particularly includes the files in `android/src/clojure/net/nightweb` and `common/clojure/nightweb`, the UI code and backend code respectively. All third-party code in this project remains under their original licenses. I would love pull requests, and will assume that any Clojure contributions are also dedicated to the public domain.
