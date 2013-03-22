@@ -254,11 +254,11 @@
         name-text (.toString (.getText name-field))
         body-text (.toString (.getText body-field))
         image-bitmap (when-let [drawable (.getDrawable image-view)]
-                       (.getBitmap drawable))
-        image-barray (bitmap-to-byte-array image-bitmap)]
+                       (.getBitmap drawable))]
     (show-spinner context
                   (get-string :saving)
-                  #(let [img-hash (write-pic-file image-barray)
+                  #(let [image-barray (bitmap-to-byte-array image-bitmap)
+                         img-hash (write-pic-file image-barray)
                          profile (profile-encode name-text body-text img-hash)]
                      (insert-profile my-hash-bytes
                                      (b-decode-map (b-decode profile)))
