@@ -41,8 +41,8 @@
 
 (defactivity
   net.nightweb.MainPage
-  :on-start
-  (fn [this]
+  :on-create
+  (fn [this bundle]
     (start-service
       this
       service-name
@@ -52,7 +52,6 @@
                               android.app.ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
           (.setDisplayShowHomeEnabled action-bar false)
-          (.removeAllTabs action-bar)
           (create-tab action-bar
                       (get-string :me)
                       #(let [content {:type :user :userhash my-hash-bytes}]
@@ -72,7 +71,7 @@
             (def show-welcome-message? false)
             (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
-  :on-stop
+  :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)
     (stop-service this))
@@ -106,7 +105,9 @@
     (create-main-menu this menu false))
   :on-options-item-selected
   (fn [this item]
-    (do-menu-action this item)))
+    (do-menu-action this item))
+  :on-activity-result
+  receive-result)
 
 (defactivity
   net.nightweb.GalleryPage
@@ -121,7 +122,9 @@
       (set-content-view! gallery-page view)))
   :on-destroy
   (fn [this]
-    (stop-receiver this shutdown-receiver-name)))
+    (stop-receiver this shutdown-receiver-name))
+  :on-activity-result
+  receive-result)
 
 (defactivity
   net.nightweb.BasicPage
@@ -164,4 +167,6 @@
     (create-main-menu this menu true))
   :on-options-item-selected
   (fn [this item]
-    (do-menu-action this item)))
+    (do-menu-action this item))
+  :on-activity-result
+  receive-result)

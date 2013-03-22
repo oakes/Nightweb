@@ -51,10 +51,12 @@
 
 (defn receive-result
   [context request-code result-code intent]
-  (let [callback (get-state context :file-request)
-        data-result (when intent (.getData intent))]
-    (when (and callback data-result)
-      (callback data-result))))
+  (case request-code
+    1 (let [callback (get-state context :file-request)
+            data-result (when intent (.getData intent))]
+        (when (and callback data-result)
+          (callback data-result)))
+    nil))
 
 (defn receive-attachments
   [context uri]
@@ -269,7 +271,7 @@
 (defn do-menu-action
   [context item]
   (when (= (.getItemId item) (get-resource :id :android/home))
-    (show-page context "net.nightweb.MainPage" {})))
+    (show-home context {})))
 
 (defn do-toggle-fav
   ([context content] (do-toggle-fav context content false))
