@@ -140,7 +140,9 @@
             (if-let [title (get item :title)]
               (.setText text-top title)
               (.setText text-top (get item :body)))
-            (.setText text-bottom (get item :subtitle))
+            (if-let [subtitle (get item :subtitle)]
+              (.setText text-bottom subtitle)
+              (.setVisibility text-bottom android.view.View/GONE))
             tile-view))))
     (.setOnItemClickListener
       view
