@@ -44,6 +44,7 @@
                                       parse-meta-link
                                       init-dht]]))
 
+(def enable-router? true) ; set to false to prevent I2P from booting
 (def is-first-boot? false)
 
 (defn user-exists?
@@ -138,11 +139,12 @@
     (set-my-hash-str (base32-encode user-hash)))
   (future
     ; start i2p router
-    (java.lang.System/setProperty "i2p.dir.base" dir)
-    (java.lang.System/setProperty "i2p.dir.config" dir)
-    (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
-    (net.i2p.router.RouterLaunch/main nil)
-    (java.lang.Thread/sleep 10000)
+    (when enable-router?
+      (java.lang.System/setProperty "i2p.dir.base" dir)
+      (java.lang.System/setProperty "i2p.dir.config" dir)
+      (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
+      (net.i2p.router.RouterLaunch/main nil)
+      (java.lang.Thread/sleep 10000))
     ; add all user and meta torrents
     (add-user-and-meta-torrents)
     ; add default fav user

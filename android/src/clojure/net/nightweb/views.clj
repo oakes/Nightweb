@@ -265,7 +265,7 @@
                 (.removeView container object))
               (getCount [] (count pics))
               (instantiateItem [container pos]
-                (let [image-view (net.nightweb.TouchImageView. context)
+                (let [image-view (android.widget.ImageView. context)
                       bitmap (-> (get-pic-path (get-in pics [pos :userhash])
                                                (get-in pics [pos :pichash]))
                                  (path-to-bitmap full-size))]
