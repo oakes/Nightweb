@@ -1,5 +1,6 @@
 (ns net.nightweb.views
-  (:use [neko.ui :only [make-ui]]
+  (:use [markdown.core :only [md-to-html-string]]
+        [neko.ui :only [make-ui]]
         [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
@@ -188,14 +189,18 @@
   (let [view (make-ui context [:scroll-view {}
                                [:linear-layout {:orientation 1}
                                 [:text-view {:layout-width :fill
-                                             :text-is-selectable true}]]])
+                                             :text-is-selectable true}]
+                                [:text-view {:layout-width :fill}]]])
         linear-layout (.getChildAt view 0)
         text-view (.getChildAt linear-layout 0)
+        date-view (.getChildAt linear-layout 1)
         grid-view (get-grid-view context [] true)
         pad (make-dip context 10)]
     (.setPadding text-view pad pad pad pad)
-    (.addView linear-layout grid-view)
+    (.setPadding date-view pad pad pad pad)
     (set-text-size text-view default-text-size)
+    (set-text-size date-view default-text-size)
+    (.addView linear-layout grid-view)
     (future
       (let [post (get-single-post-data content)
             user (assoc (get-user-data content)
@@ -248,16 +253,16 @@
             total-results (vec (concat [user action] pics))]
         (if (nil? (get post :body))
           (show-lost-post-dialog context)
-          (on-ui (.setText text-view
-                           (str
-                             (get post :body)
-                             "\n\n"
-                              (->> (get post :time)
-                                   (java.util.Date.)
-                                   (.format
-                                     (java.text.DateFormat/getDateTimeInstance
-                                       java.text.DateFormat/MEDIUM
-                                       java.text.DateFormat/SHORT)))))
+          (on-ui (let [html-text (md-to-html-string (get post :body))
+                       markdown-text (android.text.Html/fromHtml html-text)
+                       date-format (java.text.DateFormat/getDateTimeInstance
+                                     java.text.DateFormat/MEDIUM
+                                     java.text.DateFormat/SHORT)
+                       spannable android.widget.TextView$BufferType/SPANNABLE]
+                   (.setText text-view markdown-text spannable)
+                   (.setText date-view (->> (get post :time)
+                                            (java.util.Date.)
+                                            (.format date-format))))
                  (set-grid-view-tiles context total-results grid-view)))))
     view))
 
