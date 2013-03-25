@@ -248,7 +248,16 @@
             total-results (vec (concat [user action] pics))]
         (if (nil? (get post :body))
           (show-lost-post-dialog context)
-          (on-ui (.setText text-view (get post :body))
+          (on-ui (.setText text-view
+                           (str
+                             (get post :body)
+                             "\n\n"
+                              (->> (get post :time)
+                                   (java.util.Date.)
+                                   (.format
+                                     (java.text.DateFormat/getDateTimeInstance
+                                       java.text.DateFormat/MEDIUM
+                                       java.text.DateFormat/SHORT)))))
                  (set-grid-view-tiles context total-results grid-view)))))
     view))
 
