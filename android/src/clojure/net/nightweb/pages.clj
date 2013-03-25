@@ -71,6 +71,9 @@
             (def show-welcome-message? false)
             (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
+  :on-new-intent
+  (fn [this intent]
+    (.recreate this))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)

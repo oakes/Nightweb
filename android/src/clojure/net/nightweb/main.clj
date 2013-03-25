@@ -1,7 +1,7 @@
 (ns net.nightweb.main
   (:use [neko.application :only [defapplication]]
         [neko.notify :only [notification]]
-        [neko.resource :only [get-resource]]
+        [neko.resource :only [get-resource get-string]]
         [net.clandroid.service :only [defservice
                                       start-foreground
                                       start-receiver
@@ -22,8 +22,8 @@
     (start-foreground
       this 1 (notification
                :icon (get-resource :drawable :ic_launcher)
-               :content-title "Nightweb is running"
-               :content-text "Touch to shut down"
+               :content-title (get-string :shutdown_nightweb)
+               :content-text (get-string :nightweb_is_running)
                :action [:broadcast shutdown-receiver-name]))
     (start-receiver this
                     shutdown-receiver-name

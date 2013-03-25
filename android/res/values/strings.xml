@@ -2,6 +2,9 @@
 <resources>
   <string name="app_name">Nightweb</string>
 
+  <string name="shutdown_nightweb">Shutdown Nightweb</string>
+  <string name="nightweb_is_running">Nightweb is running in the background</string>
+
   <string name="new_post">New Post</string>
   <string name="search">Search</string>
   <string name="share">Share</string>
@@ -29,6 +32,7 @@
   <string name="ok">OK</string>
   <string name="download_user">Download User</string>
   <string name="unfav_user">Unfavorite User</string>
+  <string name="clear">Clear</string>
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>

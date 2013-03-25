@@ -1,7 +1,7 @@
 (ns net.nightweb.utils
   (:use [clojure.java.io :only [input-stream]]))
 
-(def full-size 1000)
+(def full-size 1024)
 (def thumb-size 256)
 
 (defn get-resample-ratio
@@ -15,7 +15,7 @@
         is-too-big? (or (> height-ratio 1) (> width-ratio 1))]
     (when is-valid?
       (if is-too-big?
-        (int (java.lang.Math/ceil (max height-ratio width-ratio)))
+        (int (max height-ratio width-ratio))
         1))))
 
 (defn input-stream-to-bitmap

@@ -38,6 +38,7 @@
                   on-create-options-menu
                   on-options-item-selected
                   on-activity-result
+                  on-new-intent
                   def]
            :as options}]
   (let [options (or options {}) ;; Handle no-options case
@@ -61,7 +62,8 @@
                           ~'onDestroy ~'superOnDestroy
                           ~'onCreateOptionsMenu ~'superOnCreateOptionsMenu
                           ~'onOptionsItemSelected ~'superOnOptionsItemSelected
-                          ~'onActivityResult ~'superOnActivityResult})
+                          ~'onActivityResult ~'superOnActivityResult
+                          ~'onNewIntent ~'superOnNewIntent})
        (defn ~(symbol (str prefix "init"))
          [] [[] (atom {})])
        ~(when on-create
@@ -95,6 +97,13 @@
              (.superOnActivityResult ~'this ~'requestCode ~'resultCode ~'intent)
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-activity-result ~'this ~'requestCode ~'resultCode ~'intent)))
+       ~(when on-new-intent
+          `(defn ~(symbol (str prefix "onNewIntent"))
+             [~(vary-meta 'this assoc :tag name),
+              ^android.content.Intent ~'intent]
+             (.superOnNewIntent ~'this ~'intent)
+             (def ~(vary-meta def assoc :tag name) ~'this)
+             (~on-new-intent ~'this ~'intent)))
        ~@(map #(let [func (options %)
                      event-name (keyword->camelcase %)]
                  (when func

@@ -32,6 +32,7 @@
 
 (set-classname! :scroll-view android.widget.ScrollView)
 (set-classname! :frame-layout android.widget.FrameLayout)
+(set-classname! :relative-layout android.widget.RelativeLayout)
 (set-classname! :image-view android.widget.ImageView)
 (set-classname! :view-pager android.support.v4.view.ViewPager)
 
@@ -39,10 +40,12 @@
 (def default-tile-width 160)
 
 (defn set-text-size
+  "Sets the given view's text size in density-independent pixels."
   [view size]
   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn make-dip
+  "Converts the given number into density-independent pixels."
   [context number]
   (-> (.getResources context)
       (.getDisplayMetrics)
@@ -51,6 +54,7 @@
       (int)))
 
 (defn get-pic-path
+  "Gets the full path for the given user and image hash combination."
   [user-hash-bytes image-hash-bytes]
   (when (and user-hash-bytes image-hash-bytes)
     (str (get-pic-dir (base32-encode user-hash-bytes))
@@ -58,6 +62,7 @@
          (base32-encode image-hash-bytes))))
 
 (defn add-last-tile
+  "Adds a tile to take you to the next page if necessary."
   [content results]
   (if (> (count results) limit)
     (let [next-page (-> (get content :page)
@@ -72,6 +77,7 @@
     results))
 
 (defn set-grid-view-tiles
+  "Sets the content in the given grid view."
   [context content view]
   (let [num-columns (.getNumColumns view)
         width (.getWidth view)
@@ -309,36 +315,50 @@
         view (if (is-me? (get content :userhash))
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
-                                  [:edit-text {:lines 1
+                                  [:edit-text {:single-line true
                                                :layout-width :fill
                                                :tag "profile-title"}]
                                   [:edit-text {:layout-width :fill
-                                               :tag "profile-body"}]]])
+                                               :tag "profile-body"}]
+                                  [:relative-layout {}]]])
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
-                                  [:text-view {:lines 1
+                                  [:text-view {:single-line true
                                                :layout-width :fill
                                                :text-is-selectable true
                                                :typeface bold}]
                                   [:text-view {:layout-width :fill
-                                               :text-is-selectable true}]]]))
+                                               :text-is-selectable true}]
+                                  [:relative-layout {}]]]))
         linear-layout (.getChildAt view 0)
         text-name (.getChildAt linear-layout 0)
         text-body (.getChildAt linear-layout 1)
+        relative-layout (.getChildAt linear-layout 2)
         image-view (proxy [android.widget.ImageButton] [context]
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
-        fill android.widget.LinearLayout$LayoutParams/FILL_PARENT
-        layout-params (android.widget.LinearLayout$LayoutParams. fill 0)]
+        clear-btn (android.widget.Button. context)]
+    ; set padding and text size
     (.setPadding linear-layout 10 10 10 10)
     (set-text-size text-name default-text-size)
     (set-text-size text-body default-text-size)
+    ; set text content
     (when (is-me? (get content :userhash))
       (.setHint text-name (get-string :name))
       (.setHint text-body (get-string :about_me)))
     (.setText text-name (get content :title))
     (.setText text-body (get content :body))
-    (.setLayoutParams image-view layout-params)
+    (.setText clear-btn (get-string :clear))
+    ; set layout params for image view and clear button
+    (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
+          params (android.widget.RelativeLayout$LayoutParams. fill 0)]
+      (.setLayoutParams image-view params))
+    (let [wrap android.widget.RelativeLayout$LayoutParams/WRAP_CONTENT
+          params (android.widget.RelativeLayout$LayoutParams. wrap wrap)]
+      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_TOP)
+      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_RIGHT)
+      (.setLayoutParams clear-btn params))
+    ; set image view and clear button parameters
     (.setTag image-view "profile-image")
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setBackgroundResource image-view (get-resource :drawable :profile))
@@ -346,6 +366,7 @@
                                    (get content :pichash))
                      (path-to-bitmap thumb-size))]
       (.setImageBitmap image-view bitmap))
+    (.addView relative-layout image-view)
     (when (is-me? (get content :userhash))
       (.setOnClickListener
         image-view
@@ -355,8 +376,13 @@
                            "image/*"
                            (fn [uri]
                              (let [pic (uri-to-bitmap context (.toString uri))]
-                               (.setImageBitmap image-view pic))))))))
-    (.addView linear-layout image-view)
+                               (.setImageBitmap image-view pic)))))))
+      (.setOnClickListener clear-btn
+                           (proxy [android.view.View$OnClickListener] []
+                             (onClick [v]
+                               (.setImageBitmap image-view nil))))
+      (.addView relative-layout clear-btn))
+    ; return the parent view
     view))
 
 (defn get-user-view
