@@ -22,7 +22,7 @@
     (start-foreground
       this 1 (notification
                :icon (get-resource :drawable :ic_launcher)
-               :content-title (get-string :shutdown_nightweb)
+               :content-title (get-string :shut_down_nightweb)
                :content-text (get-string :nightweb_is_running)
                :action [:broadcast shutdown-receiver-name]))
     (start-receiver this

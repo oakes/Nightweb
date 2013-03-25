@@ -2,7 +2,7 @@
 <resources>
   <string name="app_name">Nightweb</string>
 
-  <string name="shutdown_nightweb">Shutdown Nightweb</string>
+  <string name="shut_down_nightweb">Shut Down Nightweb</string>
   <string name="nightweb_is_running">Nightweb is running in the background</string>
 
   <string name="new_post">New Post</string>
