@@ -7,7 +7,8 @@
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    uri-to-bitmap
-                                   path-to-bitmap]]
+                                   path-to-bitmap
+                                   make-dip]]
         [net.nightweb.actions :only [request-files
                                      clear-attachments
                                      show-dialog
@@ -16,6 +17,7 @@
                                      do-delete-post
                                      do-tile-action
                                      do-save-profile
+                                     do-export
                                      do-cancel]]
         [nightweb.db :only [limit
                             get-user-data
@@ -43,15 +45,6 @@
   "Sets the given view's text size in density-independent pixels."
   [view size]
   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
-
-(defn make-dip
-  "Converts the given number into density-independent pixels."
-  [context number]
-  (-> (.getResources context)
-      (.getDisplayMetrics)
-      (.density)
-      (* number)
-      (int)))
 
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."
@@ -408,6 +401,8 @@
                                 (if (is-me? (get user :userhash))
                                   {:positive-name (get-string :save)
                                    :positive-func do-save-profile
+                                   :neutral-name (get-string :export)
+                                   :neutral-func do-export
                                    :negative-name (get-string :cancel)
                                    :negative-func do-cancel}
                                   {:positive-name (get-string :ok)

@@ -29,6 +29,7 @@
 (def priv-key "private.key")
 (def pub-key "public.key")
 (def profile "user.profile")
+(def user-zip-file "nightweb_user.zip")
 
 (def torrent-ext ".torrent")
 (def link-ext ".link")

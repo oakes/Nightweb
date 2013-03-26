@@ -2,6 +2,8 @@
   (:use [neko.resource :only [get-resource get-string]]
         [neko.threading :only [on-ui]]
         [neko.find-view :only [find-view]]
+        [neko.notify :only [toast]]
+        [neko.ui :only [make-ui]]
         [net.clandroid.activity :only [set-state get-state]]
         [net.clandroid.service :only [send-broadcast]]
         [net.nightweb.utils :only [full-size
@@ -30,7 +32,12 @@
                                  fav-encode
                                  remove-dupes-and-nils]]
         [nightweb.torrents-dht :only [add-user-hash]]
-        [nightweb.constants :only [my-hash-bytes]]))
+        [nightweb.zip :only [zip-dir unzip-dir]]
+        [nightweb.constants :only [slash
+                                   my-hash-bytes
+                                   my-hash-str
+                                   get-user-dir
+                                   user-zip-file]]))
 
 (defn share-url
   [context]
@@ -39,6 +46,15 @@
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
+
+(defn send-file
+  [context file-type path]
+  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
+        uri (android.net.Uri/fromFile (java.io.File. path))]
+    (.putExtra intent android.content.Intent/EXTRA_STREAM uri)
+    (.setType intent file-type)
+    (->> (android.content.Intent/createChooser intent (get-string :save))
+         (.startActivity context))))
 
 (defn request-files
   [context file-type callback]
@@ -266,6 +282,39 @@
                      (write-profile-file profile)
                      (future (create-meta-torrent))
                      true)))
+  true)
+
+(defn do-zip-and-send
+  [context password]
+  (let [path (get-user-dir my-hash-str)
+        ext-dir (android.os.Environment/getExternalStorageDirectory)
+        dest-path (str (.getAbsolutePath ext-dir) slash user-zip-file)]
+    (show-spinner context
+                  (get-string :saving)
+                  (fn []
+                    (if (zip-dir path dest-path password)
+                      (send-file context "application/zip" dest-path)
+                      (toast (get-string :zip_error)))))))
+
+(defn do-export
+  [context dialog-view button-view]
+  (show-dialog context
+               nil
+               (make-ui context [:linear-layout {:orientation 1}
+                                 [:text-view {:layout-width :fill
+                                              :text-size 20
+                                              :text (get-string :export_desc)}]
+                                 [:edit-text {:single-line true
+                                              :layout-width :fill
+                                              :hint (get-string :password)
+                                              :tag "password"}]])
+               {:positive-name (get-string :save)
+                :positive-func (fn [c d b]
+                                 (let [pass-view (.findViewWithTag d "password")
+                                       pass (.toString (.getText pass-view))]
+                                   (do-zip-and-send context pass)))
+                :negative-name (get-string :cancel)
+                :negative-func do-cancel})
   true)
 
 (defn do-menu-action

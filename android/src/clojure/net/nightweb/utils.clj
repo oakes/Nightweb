@@ -51,3 +51,12 @@
           image-format android.graphics.Bitmap$CompressFormat/WEBP]
       (.compress image-bitmap image-format 90 out)
       (.toByteArray out))))
+
+(defn make-dip
+  "Converts the given number into density-independent pixels."
+  [context number]
+  (-> (.getResources context)
+      (.getDisplayMetrics)
+      (.density)
+      (* number)
+      (int)))

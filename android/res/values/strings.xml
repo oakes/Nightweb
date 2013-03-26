@@ -33,6 +33,9 @@
   <string name="download_user">Download User</string>
   <string name="unfav_user">Unfavorite User</string>
   <string name="clear">Clear</string>
+  <string name="export">Export...</string>
+  <string name="zip_error">Error zipping file</string>
+  <string name="password">Password</string>
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>
@@ -49,4 +52,5 @@
   <string name="welcome_message">Nightweb is finding peers. It works best if you leave it running in the background as long as you can.</string>
   <string name="confirm_unfav">Are you sure you want to unfavorite this user? You may not be able to see them anymore.</string>
   <string name="confirm_delete">Are you sure you want to delete this?</string>
+  <string name="export_desc">This will save a password-protected file with all of your user\'s data. You can open it on another device with Nightweb installed.</string>
 </resources>
