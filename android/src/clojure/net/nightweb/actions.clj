@@ -1,5 +1,6 @@
 (ns net.nightweb.actions
-  (:use [neko.resource :only [get-resource get-string]]
+  (:use [clojure.java.io :only [file]]
+        [neko.resource :only [get-resource get-string]]
         [neko.threading :only [on-ui]]
         [neko.find-view :only [find-view]]
         [neko.notify :only [toast]]
@@ -49,7 +50,7 @@
 (defn send-file
   [context file-type path]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        uri (android.net.Uri/fromFile (java.io.File. path))]
+        uri (android.net.Uri/fromFile (file path))]
     (.putExtra intent android.content.Intent/EXTRA_STREAM uri)
     (.setType intent file-type)
     (->> (android.content.Intent/createChooser intent (get-string :save))
@@ -199,10 +200,20 @@
         ext-dir (android.os.Environment/getExternalStorageDirectory)
         dest-path (str (.getAbsolutePath ext-dir) slash user-zip-file)]
     (show-spinner context
-                  (get-string :saving)
+                  (get-string :zipping)
                   #(if (zip-dir path dest-path password)
                      (send-file context "application/zip" dest-path)
-                     (toast (get-string :zip_error))))))
+                     (on-ui (toast (get-string :zip_error)))))))
+
+(defn unzip-and-save
+  [context password uri-str]
+  (let [path (.getRawPath (java.net.URI. uri-str))
+        dest-path (get-user-dir)]
+    (show-spinner context
+                  (get-string :unzipping)
+                  #(if (unzip-dir path dest-path password)
+                     (println "SUCCESS")
+                     (on-ui (toast (get-string :unzip_error)))))))
 
 (defn menu-action
   [context item]

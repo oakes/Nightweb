@@ -33,8 +33,12 @@
   <string name="download_user">Download User</string>
   <string name="unfav_user">Unfavorite User</string>
   <string name="clear">Clear</string>
+
   <string name="export">Export...</string>
+  <string name="zipping">Zipping...</string>
+  <string name="unzipping">Unzipping...</string>
   <string name="zip_error">Error zipping file</string>
+  <string name="unzip_error">Error unzipping file -- wrong password?</string>
   <string name="password">Password</string>
   <string name="import_user">Import User</string>
 

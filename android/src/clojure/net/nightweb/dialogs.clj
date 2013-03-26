@@ -7,6 +7,7 @@
                                      attach-to-post
                                      cancel
                                      zip-and-send
+                                     unzip-and-save
                                      save-profile]]
         [net.nightweb.utils :only [make-dip
                                    default-text-size
@@ -150,7 +151,8 @@
                  view
                  {:positive-name (get-string :import_user)
                   :positive-func
-                  (fn [context dialog-view button-view]
+                  (fn [c d b]
+                    (unzip-and-save context (.toString (.getText view)) uri-str)
                     true)
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
