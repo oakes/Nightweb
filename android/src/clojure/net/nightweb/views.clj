@@ -8,17 +8,22 @@
                                    thumb-size
                                    uri-to-bitmap
                                    path-to-bitmap
-                                   make-dip]]
+                                   make-dip
+                                   default-text-size
+                                   set-text-size]]
         [net.nightweb.actions :only [request-files
                                      clear-attachments
-                                     show-dialog
-                                     show-lost-post-dialog
-                                     do-send-post
-                                     do-delete-post
-                                     do-tile-action
-                                     do-save-profile
-                                     do-export
-                                     do-cancel]]
+                                     send-post
+                                     tile-action
+                                     save-profile
+                                     cancel
+                                     toggle-fav]]
+        [net.nightweb.dialogs :only [show-lost-post-dialog
+                                     show-delete-post-dialog
+                                     show-export-dialog
+                                     show-remove-user-dialog
+                                     show-edit-post-dialog
+                                     show-profile-dialog]]
         [nightweb.db :only [limit
                             get-user-data
                             get-post-data
@@ -38,13 +43,7 @@
 (set-classname! :image-view android.widget.ImageView)
 (set-classname! :view-pager android.support.v4.view.ViewPager)
 
-(def default-text-size 20)
 (def default-tile-width 160)
-
-(defn set-text-size
-  "Sets the given view's text size in density-independent pixels."
-  [view size]
-  (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."
@@ -148,7 +147,7 @@
       view
       (proxy [android.widget.AdapterView$OnItemClickListener] []
         (onItemClick [parent v position id]
-          (do-tile-action context (get content position)))))
+          (tile-action context (get content position)))))
     (.notifyDataSetChanged (.getAdapter view))))
 
 (defn get-grid-view
@@ -171,17 +170,6 @@
      (when (> (count content) 0)
        (set-grid-view-tiles context content view))
      view)))
-
-(defn get-new-post-view
-  [context content]
-  (let [view (make-ui context [:linear-layout {:orientation 1}
-                               [:edit-text {:min-lines 10
-                                            :tag "post-body"}]])
-        text-view (.getChildAt view 0)]
-    (set-text-size text-view default-text-size)
-    (.setText text-view (get content :body))
-    (clear-attachments context)
-    view))
 
 (defn get-post-view
   [context content]
@@ -213,30 +201,8 @@
                       :add-emphasis? true
                       :background (get-resource :drawable :edit_post)
                       :type :custom-func
-                      :func
-                      (fn [context item]
-                        (show-dialog context
-                                     nil
-                                     (get-new-post-view context post)
-                                     {:positive-name (get-string :send)
-                                      :positive-func
-                                      (fn [context dialog-view button-view]
-                                        (do-send-post context
-                                                      dialog-view
-                                                      button-view
-                                                      (get content :time)
-                                                      (for [pic pics]
-                                                        (get pic :pichash))
-                                                      1))
-                                      :neutral-name (get-string :delete)
-                                      :neutral-func
-                                      (fn [context dialog-view button-view]
-                                        (do-delete-post context
-                                                        dialog-view
-                                                        button-view
-                                                        (get content :time)))
-                                      :negative-name (get-string :cancel)
-                                      :negative-func do-cancel}))}
+                      :func (fn [context item]
+                              (show-edit-post-dialog context post pics))}
                      {:title (if (= 1 (get fav :status))
                                (get-string :remove_from_favorites)
                                (get-string :add_to_favorites))
@@ -295,11 +261,6 @@
                                             (get content :pichash))))
                                 (first)
                                 (.indexOf pics))))))
-    view))
-
-(defn get-search-view
-  [context content]
-  (let [view (make-ui context [:linear-layout {}])]
     view))
 
 (defn get-profile-view
@@ -392,21 +353,9 @@
                             :userhash (get user :userhash)
                             :pichash (get user :pichash)
                             :type :custom-func
-                            :func
-                            (fn [context item]
-                              (show-dialog
-                                context
-                                nil
-                                (get-profile-view context user)
-                                (if (is-me? (get user :userhash))
-                                  {:positive-name (get-string :save)
-                                   :positive-func do-save-profile
-                                   :neutral-name (get-string :export)
-                                   :neutral-func do-export
-                                   :negative-name (get-string :cancel)
-                                   :negative-func do-cancel}
-                                  {:positive-name (get-string :ok)
-                                   :positive-func do-cancel})))}
+                            :func (fn [context item]
+                                    (->> (get-profile-view context user)
+                                         (show-profile-dialog context user)))}
                            {:title (get-string :favorites)
                             :add-emphasis? true
                             :userhash (get user :userhash)
@@ -420,7 +369,12 @@
                               :background (if (= 1 (get fav :status))
                                             (get-resource :drawable :remove_fav)
                                             (get-resource :drawable :add_fav))
-                              :type :toggle-user-fav
+                              :type :custom-func
+                              :func
+                              (fn [context item]
+                                (if (= 1 (get fav :status))
+                                  (show-remove-user-dialog context item)
+                                  (toggle-fav context item false)))
                               :userhash (get user :userhash)
                               :status (get fav :status)
                               :time (get fav :time)})])

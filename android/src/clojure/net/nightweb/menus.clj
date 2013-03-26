@@ -1,12 +1,8 @@
 (ns net.nightweb.menus
   (:use [neko.resource :only [get-string get-resource]]
-        [net.nightweb.views :only [get-new-post-view]]
         [net.nightweb.actions :only [share-url
-                                     show-dialog
-                                     show-categories
-                                     do-send-post
-                                     do-attach-to-post
-                                     do-cancel]]))
+                                     show-categories]]
+        [net.nightweb.dialogs :only [show-new-post-dialog]]))
 
 (defn create-main-menu
   [context menu show-share-button?]
@@ -38,15 +34,7 @@
       new-post-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
-          (show-dialog context
-                       nil
-                       (get-new-post-view context [])
-                       {:positive-name (get-string :send)
-                        :positive-func do-send-post
-                        :neutral-name (get-string :attach_pics)
-                        :neutral-func do-attach-to-post
-                        :negative-name (get-string :cancel)
-                        :negative-func do-cancel})
+          (show-new-post-dialog context {})
           true))))
   ; create share button
   (when show-share-button?

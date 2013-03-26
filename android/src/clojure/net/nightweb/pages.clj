@@ -17,11 +17,11 @@
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [show-page
-                                     show-new-user-dialog
-                                     show-pending-user-dialog
-                                     show-welcome-dialog
                                      receive-result
-                                     do-menu-action]]
+                                     menu-action]]
+        [net.nightweb.dialogs :only [show-new-user-dialog
+                                     show-pending-user-dialog
+                                     show-welcome-dialog]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
@@ -108,7 +108,7 @@
     (create-main-menu this menu false))
   :on-options-item-selected
   (fn [this item]
-    (do-menu-action this item))
+    (menu-action this item))
   :on-activity-result
   receive-result)
 
@@ -170,6 +170,6 @@
     (create-main-menu this menu true))
   :on-options-item-selected
   (fn [this item]
-    (do-menu-action this item))
+    (menu-action this item))
   :on-activity-result
   receive-result)

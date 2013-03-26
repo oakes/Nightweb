@@ -3,7 +3,6 @@
         [neko.threading :only [on-ui]]
         [neko.find-view :only [find-view]]
         [neko.notify :only [toast]]
-        [neko.ui :only [make-ui]]
         [net.clandroid.activity :only [set-state get-state]]
         [net.clandroid.service :only [send-broadcast]]
         [net.nightweb.utils :only [full-size
@@ -99,76 +98,6 @@
     (.putExtra intent "params" params)
     (.startActivity context intent)))
 
-(defn show-dialog
-  ([context title message]
-   (let [builder (android.app.AlertDialog$Builder. context)]
-     (.setPositiveButton builder (get-string :ok) nil)
-     (let [dialog (.create builder)]
-       (.setTitle dialog title)
-       (.setMessage dialog message)
-       (.setCanceledOnTouchOutside dialog false)
-       (.show dialog))))
-  ([context message view buttons]
-   (let [builder (android.app.AlertDialog$Builder. context)]
-     (when-let [positive-name (get buttons :positive-name)]
-       (.setPositiveButton builder positive-name nil))
-     (when-let [neutral-name (get buttons :neutral-name)]
-       (.setNeutralButton builder neutral-name nil))
-     (when-let [negative-name (get buttons :negative-name)]
-       (.setNegativeButton builder negative-name nil))
-     (.setMessage builder message)
-     (.setView builder view)
-     (let [dialog (.create builder)
-           positive-type android.app.AlertDialog/BUTTON_POSITIVE
-           neutral-type android.app.AlertDialog/BUTTON_NEUTRAL
-           negative-type android.app.AlertDialog/BUTTON_NEGATIVE
-           btn-action (fn [dialog button func]
-                        (proxy [android.view.View$OnClickListener] []
-                          (onClick [v]
-                            (when (func context view button)
-                              (.dismiss dialog)))))]
-       (.setOnShowListener
-         dialog
-         (proxy [android.content.DialogInterface$OnShowListener] []
-           (onShow [d]
-             (when-let [positive-btn (.getButton d positive-type)]
-               (.setOnClickListener
-                 positive-btn (btn-action d
-                                          positive-btn
-                                          (get buttons :positive-func))))
-             (when-let [neutral-btn (.getButton d neutral-type)]
-               (.setOnClickListener
-                 neutral-btn (btn-action d
-                                         neutral-btn
-                                         (get buttons :neutral-func))))
-             (when-let [negative-btn (.getButton d negative-type)]
-               (.setOnClickListener
-                 negative-btn (btn-action d
-                                          negative-btn
-                                          (get buttons :negative-func)))))))
-       (.setCanceledOnTouchOutside dialog false)
-       (.show dialog)))))
-
-(defn show-pending-user-dialog
-  [context]
-  (show-dialog context nil (get-string :pending_user)))
-
-(defn show-lost-post-dialog
-  [context]
-  (show-dialog context
-               (get-string :lost_post)
-               nil
-               {:positive-name (get-string :ok)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (.finish context))}))
-
-(defn show-welcome-dialog
-  [context]
-  (show-dialog context
-               (get-string :welcome_title)
-               (get-string :welcome_message)))
-
 (defn show-spinner
   [context message func]
   (on-ui
@@ -195,9 +124,9 @@
   [context content]
   (show-page context "net.nightweb.MainPage" content))
 
-(defn do-send-post
+(defn send-post
   ([context dialog-view button-view]
-   (do-send-post context dialog-view button-view nil nil 1))
+   (send-post context dialog-view button-view nil nil 1))
   ([context dialog-view button-view create-time pic-hashes status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
@@ -227,7 +156,7 @@
                         true))))
    true))
 
-(defn do-attach-to-post
+(defn attach-to-post
   [context dialog-view button-view]
   (request-files context
                  "image/*"
@@ -238,31 +167,11 @@
                      (on-ui (.setText button-view text)))))
   false)
 
-(defn do-cancel
+(defn cancel
   [context dialog-view button-view]
   true)
 
-(defn do-delete-post
-  [context dialog-view button-view create-time]
-    (show-dialog context
-                 (get-string :confirm_delete)
-                 nil
-                 {:positive-name (get-string :delete)
-                  :positive-func
-                  (fn [c d b]
-                    (let [text-view (.findViewWithTag dialog-view "post-body")]
-                      (.setText text-view "")
-                      (do-send-post context
-                                    dialog-view
-                                    button-view
-                                    create-time
-                                    nil
-                                    0)))
-                  :negative-name (get-string :cancel)
-                  :negative-func do-cancel})
-  false)
-
-(defn do-save-profile
+(defn save-profile
   [context dialog-view button-view]
   (let [name-field (.findViewWithTag dialog-view "profile-title")
         body-field (.findViewWithTag dialog-view "profile-body")
@@ -284,7 +193,7 @@
                      true)))
   true)
 
-(defn do-zip-and-send
+(defn zip-and-send
   [context password]
   (let [path (get-user-dir my-hash-str)
         ext-dir (android.os.Environment/getExternalStorageDirectory)
@@ -296,34 +205,13 @@
                       (send-file context "application/zip" dest-path)
                       (toast (get-string :zip_error)))))))
 
-(defn do-export
-  [context dialog-view button-view]
-  (show-dialog context
-               nil
-               (make-ui context [:linear-layout {:orientation 1}
-                                 [:text-view {:layout-width :fill
-                                              :text-size 20
-                                              :text (get-string :export_desc)}]
-                                 [:edit-text {:single-line true
-                                              :layout-width :fill
-                                              :hint (get-string :password)
-                                              :tag "password"}]])
-               {:positive-name (get-string :save)
-                :positive-func (fn [c d b]
-                                 (let [pass-view (.findViewWithTag d "password")
-                                       pass (.toString (.getText pass-view))]
-                                   (do-zip-and-send context pass)))
-                :negative-name (get-string :cancel)
-                :negative-func do-cancel})
-  true)
-
-(defn do-menu-action
+(defn menu-action
   [context item]
   (when (= (.getItemId item) (get-resource :id :android/home))
     (show-home context {})))
 
-(defn do-toggle-fav
-  ([context content] (do-toggle-fav context content false))
+(defn toggle-fav
+  ([context content] (toggle-fav context content false))
   ([context content go-home?]
    (show-spinner context
                  (if (= 1 (get content :status))
@@ -345,42 +233,13 @@
                       (show-home context {})
                       true)))))
 
-(defn do-toggle-user-fav
-  [context content]
-  (if (= 1 (get content :status))
-    (show-dialog context
-                 (get-string :confirm_unfav)
-                 nil
-                 {:positive-name (get-string :unfav_user)
-                  :positive-func
-                  (fn [context dialog-view button-view]
-                    (do-toggle-fav context content true))
-                  :negative-name (get-string :cancel)
-                  :negative-func do-cancel})
-    (do-toggle-fav context content false)))
-
-(defn do-tile-action
+(defn tile-action
   [context item]
   (when-let [func (case (get item :type)
                     :fav show-categories
-                    :toggle-user-fav do-toggle-user-fav
-                    :toggle-fav do-toggle-fav
+                    :toggle-fav toggle-fav
                     :search show-categories
                     :pic show-gallery
                     :custom-func (get item :func)
                     show-basic)]
     (func context item)))
-
-(defn show-new-user-dialog
-  [context content]
-  (show-dialog context
-               (get-string :new_user)
-               nil
-               {:positive-name (get-string :download_user)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (do-toggle-fav context content true))
-                :negative-name (get-string :cancel)
-                :negative-func
-                (fn [context dialog-view button-view]
-                  (.finish context))}))

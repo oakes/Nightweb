@@ -60,3 +60,10 @@
       (.density)
       (* number)
       (int)))
+
+(def default-text-size 20)
+
+(defn set-text-size
+  "Sets the given view's text size in density-independent pixels."
+  [view size]
+  (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
