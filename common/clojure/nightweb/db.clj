@@ -185,6 +185,7 @@
                                   ON fav.ptrhash = user.userhash 
                                   WHERE fav.userhash = ? 
                                   AND fav.status = 1 
+                                  AND fav.ptrtime IS NULL 
                                   ORDER BY fav.mtime DESC"
                                   (get params :userhash)]
                            :post ["SELECT fav.ptrhash AS userhash, post.* 
