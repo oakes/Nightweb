@@ -1,5 +1,7 @@
 (ns nightweb.zip)
 
+(def def-pass "hunter2")
+
 (defn zip-dir 
   [path dest-path password]
   (try
@@ -14,7 +16,7 @@
       (.setEncryptFiles params true)
       (.setEncryptionMethod params enc-method)
       (.setAesKeyStrength params enc-strength)
-      (.setPassword params (if (zero? (count password)) " " password))
+      (.setPassword params (if (zero? (count password)) def-pass password))
       (.addFolder zip-file path params)
       true)
     (catch java.lang.Exception e false)))
@@ -23,7 +25,7 @@
   [path dest-path password]
   (try
     (let [zip-file (net.lingala.zip4j.core.ZipFile. path)]
-      (.setPassword zip-file (if (zero? (count password)) " " password))
+      (.setPassword zip-file (if (zero? (count password)) def-pass password))
       (.extractAll zip-file dest-path)
       true)
     (catch java.lang.Exception e false)))
