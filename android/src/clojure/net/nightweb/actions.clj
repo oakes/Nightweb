@@ -200,10 +200,9 @@
         dest-path (str (.getAbsolutePath ext-dir) slash user-zip-file)]
     (show-spinner context
                   (get-string :saving)
-                  (fn []
-                    (if (zip-dir path dest-path password)
-                      (send-file context "application/zip" dest-path)
-                      (toast (get-string :zip_error)))))))
+                  #(if (zip-dir path dest-path password)
+                     (send-file context "application/zip" dest-path)
+                     (toast (get-string :zip_error))))))
 
 (defn menu-action
   [context item]

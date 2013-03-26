@@ -20,7 +20,6 @@
                                      toggle-fav]]
         [net.nightweb.dialogs :only [show-lost-post-dialog
                                      show-delete-post-dialog
-                                     show-export-dialog
                                      show-remove-user-dialog
                                      show-edit-post-dialog
                                      show-profile-dialog]]

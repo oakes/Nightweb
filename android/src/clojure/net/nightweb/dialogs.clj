@@ -119,29 +119,41 @@
 
 (defn show-export-dialog
   [context dialog-view button-view]
-  (let [view (make-ui context [:linear-layout {:orientation 1}
-                               [:text-view {:layout-width :fill
-                                            :text (get-string :export_desc)}]
-                               [:edit-text {:single-line true
-                                            :layout-width :fill
-                                            :hint (get-string :password)
-                                            :tag "password"}]])
-        text-view (.getChildAt view 0)
-        pad (make-dip context 5)]
-    (.setPadding view pad pad pad pad)
-    (set-text-size text-view default-text-size)
+  (let [view (make-ui context [:edit-text {:single-line true
+                                           :layout-width :fill
+                                           :hint (get-string :password)}])
+        input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
+                           android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
+    (.setInputType view input-type)
     (show-dialog context
-                 nil
+                 (get-string :export_desc)
                  view
                  {:positive-name (get-string :save)
                   :positive-func
                   (fn [c d b]
-                    (let [pass-view (.findViewWithTag d "password")
-                          pass (.toString (.getText pass-view))]
-                      (zip-and-send context pass)))
+                    (zip-and-send context (.toString (.getText view)))
+                    true)
                   :negative-name (get-string :cancel)
                   :negative-func cancel}))
   false)
+
+(defn show-import-dialog
+  [context uri-str]
+  (let [view (make-ui context [:edit-text {:single-line true
+                                           :layout-width :fill
+                                           :hint (get-string :password)}])
+        input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
+                           android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
+    (.setInputType view input-type)
+    (show-dialog context
+                 (get-string :confirm_import)
+                 view
+                 {:positive-name (get-string :import_user)
+                  :positive-func
+                  (fn [context dialog-view button-view]
+                    true)
+                  :negative-name (get-string :cancel)
+                  :negative-func cancel})))
 
 (defn show-remove-user-dialog
   [context content]

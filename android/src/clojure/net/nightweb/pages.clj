@@ -21,7 +21,8 @@
                                      menu-action]]
         [net.nightweb.dialogs :only [show-new-user-dialog
                                      show-pending-user-dialog
-                                     show-welcome-dialog]]
+                                     show-welcome-dialog
+                                     show-import-dialog]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [my-hash-bytes]]
@@ -69,10 +70,14 @@
                          (get-category-view this content)))
           (when (and is-first-boot? show-welcome-message?)
             (def show-welcome-message? false)
-            (show-welcome-dialog this)))))
+            (show-welcome-dialog this))
+          (when-let [uri-str (.getDataString (.getIntent this))]
+            (show-import-dialog this uri-str)
+            (.setData (.getIntent this) nil)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-new-intent
   (fn [this intent]
+    (.setIntent this intent)
     (.recreate this))
   :on-destroy
   (fn [this]
