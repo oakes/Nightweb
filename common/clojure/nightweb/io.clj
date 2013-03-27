@@ -74,6 +74,12 @@
     (when (.isDirectory f)
       (func (.getName f)))))
 
+(defn list-dir
+  [path]
+  (for [f (.listFiles (file path))]
+    (when (.isDirectory f)
+      (.getName f))))
+
 (defn get-files-in-uri
   [uri-str]
   (let [java-uri (java.net.URI/create uri-str)

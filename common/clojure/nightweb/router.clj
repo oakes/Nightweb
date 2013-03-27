@@ -124,6 +124,10 @@
     (write-link-file (add-torrent path false on-recv-meta))
     (send-meta-link)))
 
+(defn create-new-user
+  [user-hash-str-list]
+  (println user-hash-str-list))
+
 (defn start-router
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]

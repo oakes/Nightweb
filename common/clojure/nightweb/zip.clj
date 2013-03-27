@@ -29,3 +29,11 @@
       (.extractAll zip-file dest-path)
       true)
     (catch java.lang.Exception e false)))
+
+(defn get-zip-headers
+  [path]
+  (try
+    (let [zip-file (net.lingala.zip4j.core.ZipFile. path)]
+      (for [header (.getFileHeaders zip-file)]
+        (.getFileName header)))
+    (catch java.lang.Exception e nil)))

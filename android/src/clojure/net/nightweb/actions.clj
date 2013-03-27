@@ -12,8 +12,10 @@
                                    uri-to-bitmap
                                    path-to-bitmap
                                    bitmap-to-byte-array]]
-        [nightweb.router :only [create-meta-torrent]]
+        [nightweb.router :only [create-meta-torrent
+                                create-new-user]]
         [nightweb.io :only [read-file
+                            list-dir
                             get-files-in-uri
                             write-pic-file
                             write-post-file
@@ -32,7 +34,7 @@
                                  fav-encode
                                  remove-dupes-and-nils]]
         [nightweb.torrents-dht :only [add-user-hash]]
-        [nightweb.zip :only [zip-dir unzip-dir]]
+        [nightweb.zip :only [zip-dir unzip-dir get-zip-headers]]
         [nightweb.constants :only [slash
                                    my-hash-bytes
                                    my-hash-str
@@ -212,7 +214,11 @@
     (show-spinner context
                   (get-string :unzipping)
                   #(if (unzip-dir path dest-path password)
-                     (println "SUCCESS")
+                     (let [headers (set (get-zip-headers path))
+                           new-dirs (filter (fn [d]
+                                              (contains? headers (str d slash)))
+                                            (list-dir dest-path))]
+                       (create-new-user new-dirs))
                      (on-ui (toast (get-string :unzip_error)))))))
 
 (defn menu-action
