@@ -170,13 +170,15 @@
         (.put "data" (b-encode {"user_hash" (base32-decode user-hash-str)}))))))
 
 (defn read-meta-file
-  [user-dir path-leaves]
-  (let [end-path (str slash (clojure.string/join slash path-leaves))
-        full-path (str (.getAbsolutePath user-dir) meta-dir end-path)
-        rev-leaves (reverse path-leaves)]
-    {:file-name (nth rev-leaves 0 nil)
-     :dir-name (nth rev-leaves 1 nil)
-     :contents (b-decode-map (b-decode (read-file full-path)))}))
+  ([user-dir path-leaves]
+   (read-meta-file (->> (clojure.string/join slash path-leaves)
+                        (str slash)
+                        (str (.getAbsolutePath user-dir) meta-dir))))
+  ([path]
+   (let [path-parts (reverse (clojure.string/split path (re-pattern slash)))]
+     {:file-name (nth path-parts 0 nil)
+      :dir-name (nth path-parts 1 nil)
+      :contents (b-decode-map (b-decode (read-file path)))})))
 
 (defn delete-orphaned-pics
   [user-hash]

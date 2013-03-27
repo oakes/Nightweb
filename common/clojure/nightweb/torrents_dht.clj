@@ -157,24 +157,29 @@
       1 (add-user-hash ptr-hash)
       nil)))
 
+(defn on-recv-meta-file
+  "Ingests a given file from a meta torrent"
+  [user-hash-bytes meta-file]
+  ; insert it into the db
+  (insert-meta-data user-hash-bytes meta-file)
+  ; if this is a fav of a user, act on it if necessary
+  (let [meta-contents (get meta-file :contents)]
+    (when (and (= "fav" (get meta-file :dir-name))
+               (nil? (get meta-contents "ptrtime")))
+      (on-recv-fav user-hash-bytes
+                   (b-decode-bytes (get meta-contents "ptrhash"))
+                   (b-decode-long (get meta-contents "status"))))))
+
 (defn on-recv-meta
-  "Performs various actions on a meta torrent that has finished downloading."
+  "Ingests all files in a meta torrent."
   [torrent]
   (let [parent-dir (.getParentFile (file (.getName torrent)))
         user-hash-bytes (base32-decode (.getName parent-dir))
         paths (.getFiles (.getMetaInfo torrent))]
     ; iterate over the files in this torrent
     (doseq [path-leaves paths]
-      (let [meta-file (read-meta-file parent-dir path-leaves)
-            meta-contents (get meta-file :contents)]
-        ; insert it into the db
-        (insert-meta-data user-hash-bytes meta-file)
-        ; if this is a fav of a user, act on it if necessary
-        (when (and (= "fav" (get meta-file :dir-name))
-                   (nil? (get meta-contents "ptrtime")))
-          (on-recv-fav user-hash-bytes
-                       (b-decode-bytes (get meta-contents "ptrhash"))
-                       (b-decode-long (get meta-contents "status"))))))
+      (on-recv-meta-file user-hash-bytes
+                         (read-meta-file parent-dir path-leaves)))
     ; remove any files that the torrent no longer contains
     (if-not (is-me? user-hash-bytes)
       (delete-orphaned-files user-hash-bytes paths))))

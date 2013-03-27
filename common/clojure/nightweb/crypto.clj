@@ -27,8 +27,14 @@
     (.digest algo data-barray)))
 
 (defn create-signature
-  [message]
-  (.getData (.sign (net.i2p.crypto.DSAEngine/getInstance) message priv-key)))
+  ([message-bytes]
+   (-> (net.i2p.crypto.DSAEngine/getInstance)
+       (.sign message-bytes priv-key)
+       (.getData)))
+  ([priv-key-bytes message-bytes]
+   (-> (net.i2p.crypto.DSAEngine/getInstance)
+       (.sign message-bytes (net.i2p.data.SigningPrivateKey. priv-key-bytes))
+       (.getData))))
 
 (defn verify-signature
   [pub-key-bytes sig-bytes message-bytes]

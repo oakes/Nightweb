@@ -39,6 +39,7 @@
   <string name="unzipping">Unzipping...</string>
   <string name="zip_error">Error zipping file</string>
   <string name="unzip_error">Error unzipping file -- wrong password?</string>
+  <string name="import_error">Error importing user -- invalid zip file?</string>
   <string name="password">Password</string>
   <string name="import_user">Import User</string>
 

@@ -12,7 +12,8 @@
                             write-link-file
                             read-user-list-file
                             write-user-list-file
-                            write-fav-file]]
+                            write-fav-file
+                            read-meta-file]]
         [nightweb.formats :only [base32-encode
                                  base32-decode
                                  b-decode
@@ -21,8 +22,9 @@
                                  fav-encode]]
         [nightweb.constants :only [is-me?
                                    set-base-dir
-                                   set-my-hash-bytes
+                                   my-hash-bytes
                                    my-hash-str
+                                   set-my-hash-bytes
                                    set-my-hash-str
                                    slash
                                    torrent-ext
@@ -34,11 +36,14 @@
                                    get-meta-torrent-file]]
         [nightweb.db :only [init-db]]
         [nightweb.torrents :only [start-torrent-manager
+                                  get-torrent-by-path
                                   get-info-hash
                                   add-hash
                                   add-torrent
                                   remove-torrent]]
         [nightweb.torrents-dht :only [add-user-hash
+                                      remove-user-hash
+                                      on-recv-meta-file
                                       on-recv-meta
                                       send-meta-link
                                       parse-meta-link
@@ -64,49 +69,52 @@
       (or (is-me? user-hash-bytes))))
 
 (defn add-user-and-meta-torrents
-  "Starts every user and meta torrent that we have."
-  []
-  ; iterate over everything in the user dir
-  (iterate-dir (get-user-dir)
-               (fn [their-hash-str]
-                 (let [user-dir (get-user-dir their-hash-str)
-                       pub-path (get-user-pub-file their-hash-str)
-                       pub-torrent-path (str pub-path torrent-ext)
-                       meta-path (get-meta-dir their-hash-str)
-                       meta-torrent-path (str meta-path torrent-ext)
-                       meta-link-path (str meta-path link-ext)
-                       link-map (when (file-exists? meta-link-path)
-                                  (-> (read-file meta-link-path)
-                                      (b-decode)
-                                      (b-decode-map)
-                                      (parse-meta-link)))]
-                   ; add user torrent
-                   (if (or (= my-hash-str their-hash-str)
-                           (file-exists? pub-torrent-path))
-                     (add-torrent pub-path true send-meta-link)
-                     (add-hash user-dir their-hash-str true send-meta-link))
-                   ; add meta torrent
-                   (if (file-exists? meta-torrent-path)
-                     (add-torrent meta-path false on-recv-meta)
-                     (when-let [new-link-str (get link-map :link-hash-str)]
-                       (add-hash user-dir new-link-str false on-recv-meta)))))))
+  "Starts the user and meta torrent for this user."
+  [their-hash-str]
+  (let [user-dir (get-user-dir their-hash-str)
+        pub-path (get-user-pub-file their-hash-str)
+        pub-torrent-path (str pub-path torrent-ext)
+        meta-path (get-meta-dir their-hash-str)
+        meta-torrent-path (str meta-path torrent-ext)
+        meta-link-path (str meta-path link-ext)
+        link-map (when (file-exists? meta-link-path)
+                   (-> (read-file meta-link-path)
+                       (b-decode)
+                       (b-decode-map)
+                       (parse-meta-link)))]
+    ; add user torrent
+    (if (or (= my-hash-str their-hash-str)
+            (file-exists? pub-torrent-path))
+      (add-torrent pub-path true send-meta-link)
+      (add-hash user-dir their-hash-str true send-meta-link))
+    ; add meta torrent
+    (if (file-exists? meta-torrent-path)
+      (add-torrent meta-path false on-recv-meta)
+      (when-let [new-link-str (get link-map :link-hash-str)]
+        (add-hash user-dir new-link-str false on-recv-meta)))))
 
-(defn create-user-torrent
-  "Creates our user keys and loads them into memory."
+(defn create-new-user
+  "Creates a new user."
+  []
+  (load-user-keys nil)
+  ; temporarily write pub key to the root dir
+  (write-key-file (get-user-pub-file nil) pub-key)
+  (let [info-hash (get-info-hash (get-user-pub-file nil))
+        info-hash-str (base32-encode info-hash)]
+    ; delete pub key from root, save keys in user dir, and save user list
+    (delete-file (get-user-pub-file nil))
+    (write-key-file (get-user-priv-file info-hash-str) priv-key)
+    (write-key-file (get-user-pub-file info-hash-str) pub-key)
+    (write-user-list-file [info-hash])
+    info-hash))
+
+(defn create-or-load-user
+  "Loads user into memory (creating new user if necessary)."
   []
   ; create keys if necessary
   (when (nil? (get (read-user-list-file) 0))
     (def is-first-boot? true)
-    (load-user-keys nil)
-    ; temporarily write pub key to the root dir
-    (write-key-file (get-user-pub-file nil) pub-key)
-    (let [info-hash (get-info-hash (get-user-pub-file nil))
-          info-hash-str (base32-encode info-hash)]
-      ; delete pub key from root, save keys in user dir, and save user list
-      (delete-file (get-user-pub-file nil))
-      (write-key-file (get-user-priv-file info-hash-str) priv-key)
-      (write-key-file (get-user-pub-file info-hash-str) pub-key)
-      (write-user-list-file [info-hash])))
+    (create-new-user))
   ; load keys based on the first hash stored in the user list
   (let [user-hash (get (read-user-list-file) 0)
         user-hash-str (base32-encode user-hash)
@@ -114,7 +122,28 @@
         pub-key-path (get-user-pub-file user-hash-str)
         priv-key-bytes (read-key-file priv-key-path)]
     (load-user-keys priv-key-bytes)
-    user-hash))
+    (set-my-hash-bytes user-hash)
+    (set-my-hash-str user-hash-str)))
+
+(defn create-imported-user
+  "Replaces current user with imported user."
+  [user-hash-str-list]
+  (let [imported-user-str (first user-hash-str-list)
+        imported-user (base32-decode imported-user-str)
+        old-user-hash my-hash-bytes]
+    (if (and imported-user-str imported-user)
+      (do
+        (write-user-list-file [imported-user])
+        (create-or-load-user)
+        (doseq [f (file-seq (file (get-meta-dir imported-user-str)))]
+          (when (.isFile f)
+            (on-recv-meta-file imported-user
+                               (read-meta-file (.getAbsolutePath f)))))
+        (when (not= imported-user-str (base32-encode old-user-hash))
+          (add-user-and-meta-torrents imported-user-str)
+          (remove-user-hash old-user-hash))
+        true)
+      false)))
 
 (defn create-meta-torrent
   "Creates a new meta torrent."
@@ -123,10 +152,6 @@
     (remove-torrent (str path torrent-ext))
     (write-link-file (add-torrent path false on-recv-meta))
     (send-meta-link)))
-
-(defn create-new-user
-  [user-hash-str-list]
-  (println user-hash-str-list))
 
 (defn start-router
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
@@ -138,9 +163,7 @@
   (start-torrent-manager)
   (init-dht)
   ; create or load keys
-  (when-let [user-hash (create-user-torrent)]
-    (set-my-hash-bytes user-hash)
-    (set-my-hash-str (base32-encode user-hash)))
+  (create-or-load-user)
   (future
     ; start i2p router
     (when enable-router?
@@ -150,7 +173,7 @@
       (net.i2p.router.RouterLaunch/main nil)
       (java.lang.Thread/sleep 10000))
     ; add all user and meta torrents
-    (add-user-and-meta-torrents)
+    (iterate-dir (get-user-dir) add-user-and-meta-torrents)
     ; add default fav user
     (when is-first-boot?
       (let [user-hash-bytes (base32-decode "zc3bf63ca7p756p5lffnypyzbo53qtzb")]

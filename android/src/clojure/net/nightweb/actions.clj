@@ -13,7 +13,7 @@
                                    path-to-bitmap
                                    bitmap-to-byte-array]]
         [nightweb.router :only [create-meta-torrent
-                                create-new-user]]
+                                create-imported-user]]
         [nightweb.io :only [read-file
                             list-dir
                             get-files-in-uri
@@ -218,7 +218,9 @@
                            new-dirs (filter (fn [d]
                                               (contains? headers (str d slash)))
                                             (list-dir dest-path))]
-                       (create-new-user new-dirs))
+                       (if (create-imported-user new-dirs)
+                         true
+                         (on-ui (toast (get-string :import_error)))))
                      (on-ui (toast (get-string :unzip_error)))))))
 
 (defn menu-action

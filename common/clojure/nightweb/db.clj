@@ -166,7 +166,8 @@
         rs
         ["SELECT * FROM fav WHERE ptrhash = ? 
          AND status = 1 
-         AND (userhash IN (SELECT ptrhash FROM fav WHERE userhash = ?) 
+         AND (userhash IN 
+         (SELECT ptrhash FROM fav WHERE userhash = ? AND status = 1) 
          OR userhash = ?)"
          ptr-hash my-hash-bytes my-hash-bytes]
         (prepare-results rs :fav)))))
@@ -349,8 +350,8 @@
     "fav" (insert-fav user-hash
                       (long-decode (get data-map :file-name))
                       (get data-map :contents))
-    nil (case (get data-map :file-name)
-          "user.profile" (insert-profile user-hash (get data-map :contents)))
+    "meta" (case (get data-map :file-name)
+             "user.profile" (insert-profile user-hash (get data-map :contents)))
     nil))
 
 (defn delete-user
