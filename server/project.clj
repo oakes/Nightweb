@@ -1,6 +1,4 @@
-(defproject nightweb-server/Nightweb "0.0.1-SNAPSHOT"
-  :description "FIXME: write description"
-  :url "http://example.com/FIXME"
+(defproject nightweb-server/Nightweb "0.0.3-SNAPSHOT"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :dependencies [[org.clojure/clojure "1.5.0"]
