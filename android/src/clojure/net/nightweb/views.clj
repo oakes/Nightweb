@@ -11,7 +11,8 @@
                                    make-dip
                                    default-text-size
                                    set-text-size]]
-        [net.nightweb.actions :only [request-files
+        [net.nightweb.actions :only [show-spinner
+                                     request-files
                                      clear-attachments
                                      send-post
                                      tile-action
@@ -187,79 +188,87 @@
     (set-text-size text-view default-text-size)
     (set-text-size date-view default-text-size)
     (.addView linear-layout grid-view)
-    (future
-      (let [post (get-single-post-data content)
-            user (assoc (get-user-data content)
-                        :background (get-resource :drawable :profile)
-                        :subtitle (get-string :author))
-            pics (get-pic-data content (get content :time))
-            fav (when-not (is-me? (get content :userhash))
-                  (get-single-fav-data content))
-            action (if (is-me? (get content :userhash))
-                     {:title (get-string :edit)
-                      :add-emphasis? true
-                      :background (get-resource :drawable :edit_post)
-                      :type :custom-func
-                      :func (fn [context item]
-                              (show-edit-post-dialog context post pics))}
-                     {:title (if (= 1 (get fav :status))
-                               (get-string :remove_from_favorites)
-                               (get-string :add_to_favorites))
-                      :add-emphasis? true
-                      :background (if (= 1 (get fav :status))
-                                    (get-resource :drawable :remove_fav)
-                                    (get-resource :drawable :add_fav))
-                      :type :toggle-fav
-                      :userhash (get content :userhash)
-                      :ptrtime (get content :time)
-                      :status (get fav :status)
-                      :time (get fav :time)})
-            total-results (vec (concat [user action] pics))]
-        (if (nil? (get post :body))
-          (show-lost-post-dialog context)
-          (on-ui (let [html-text (md-to-html-string (get post :body))
-                       markdown-text (android.text.Html/fromHtml html-text)
-                       date-format (java.text.DateFormat/getDateTimeInstance
-                                     java.text.DateFormat/MEDIUM
-                                     java.text.DateFormat/SHORT)
-                       spannable android.widget.TextView$BufferType/SPANNABLE]
-                   (.setText text-view markdown-text spannable)
-                   (.setText date-view (->> (get post :time)
-                                            (java.util.Date.)
-                                            (.format date-format))))
-                 (set-grid-view-tiles context total-results grid-view)))))
+    (show-spinner
+      context
+      (get-string :loading)
+      (fn []
+        (let [post (get-single-post-data content)
+              user (assoc (get-user-data content)
+                          :background (get-resource :drawable :profile)
+                          :subtitle (get-string :author))
+              pics (get-pic-data content (get content :time))
+              fav (when-not (is-me? (get content :userhash))
+                    (get-single-fav-data content))
+              action (if (is-me? (get content :userhash))
+                       {:title (get-string :edit)
+                        :add-emphasis? true
+                        :background (get-resource :drawable :edit_post)
+                        :type :custom-func
+                        :func (fn [context item]
+                                (show-edit-post-dialog context post pics))}
+                       {:title (if (= 1 (get fav :status))
+                                 (get-string :remove_from_favorites)
+                                 (get-string :add_to_favorites))
+                        :add-emphasis? true
+                        :background (if (= 1 (get fav :status))
+                                      (get-resource :drawable :remove_fav)
+                                      (get-resource :drawable :add_fav))
+                        :type :toggle-fav
+                        :userhash (get content :userhash)
+                        :ptrtime (get content :time)
+                        :status (get fav :status)
+                        :time (get fav :time)})
+              total-results (vec (concat [user action] pics))]
+          (if (nil? (get post :body))
+            (show-lost-post-dialog context)
+            (on-ui (let [html-text (md-to-html-string (get post :body))
+                         markdown-text (android.text.Html/fromHtml html-text)
+                         date-format (java.text.DateFormat/getDateTimeInstance
+                                       java.text.DateFormat/MEDIUM
+                                       java.text.DateFormat/SHORT)
+                         spannable android.widget.TextView$BufferType/SPANNABLE]
+                     (.setText text-view markdown-text spannable)
+                     (.setText date-view (->> (get post :time)
+                                              (java.util.Date.)
+                                              (.format date-format))))
+                   (set-grid-view-tiles context total-results grid-view))))
+        false))
     view))
 
 (defn get-gallery-view
   [context content]
   (let [view (make-ui context [:view-pager {}])]
-    (future
-      (let [pics (get-pic-data content (get content :ptrtime))]
-        (on-ui
-          (.setAdapter
-            view
-            (proxy [android.support.v4.view.PagerAdapter] []
-              (destroyItem [container position object]
-                (.removeView container object))
-              (getCount [] (count pics))
-              (instantiateItem [container pos]
-                (let [image-view (android.widget.ImageView. context)
-                      bitmap (-> (get-pic-path (get-in pics [pos :userhash])
-                                               (get-in pics [pos :pichash]))
-                                 (path-to-bitmap full-size))]
-                  (.setImageBitmap image-view bitmap)
-                  (.addView container image-view)
-                  image-view))
-              (isViewFromObject [view object] (= view object))
-              (setPrimaryItem [container position object])))
-          (.setCurrentItem view
-                           (->> pics
-                                (filter (fn [pic]
-                                          (java.util.Arrays/equals
-                                            (get pic :pichash)
-                                            (get content :pichash))))
-                                (first)
-                                (.indexOf pics))))))
+    (show-spinner
+      context
+      (get-string :loading)
+      (fn []
+        (let [pics (get-pic-data content (get content :ptrtime))]
+          (on-ui
+            (.setAdapter
+              view
+              (proxy [android.support.v4.view.PagerAdapter] []
+                (destroyItem [container position object]
+                  (.removeView container object))
+                (getCount [] (count pics))
+                (instantiateItem [container pos]
+                  (let [image-view (android.widget.ImageView. context)
+                        bitmap (-> (get-pic-path (get-in pics [pos :userhash])
+                                                 (get-in pics [pos :pichash]))
+                                   (path-to-bitmap full-size))]
+                    (.setImageBitmap image-view bitmap)
+                    (.addView container image-view)
+                    image-view))
+                (isViewFromObject [view object] (= view object))
+                (setPrimaryItem [container position object])))
+            (.setCurrentItem view
+                             (->> pics
+                                  (filter (fn [pic]
+                                            (java.util.Arrays/equals
+                                              (get pic :pichash)
+                                              (get content :pichash))))
+                                  (first)
+                                  (.indexOf pics)))))
+        false))
     view))
 
 (defn get-profile-view
@@ -341,70 +350,79 @@
 (defn get-user-view
   [context content]
   (let [grid-view (get-grid-view context [])]
-    (future
-      (let [user (get-user-data content)
-            fav (when-not (is-me? (get user :userhash))
-                  (get-single-fav-data {:userhash (get user :userhash)}))
-            first-tiles (when (nil? (get content :page))
-                          [{:title (get-string :profile)
-                            :add-emphasis? true
-                            :background (get-resource :drawable :profile)
-                            :userhash (get user :userhash)
-                            :pichash (get user :pichash)
-                            :type :custom-func
-                            :func (fn [context item]
-                                    (->> (get-profile-view context user)
-                                         (show-profile-dialog context user)))}
-                           {:title (get-string :favorites)
-                            :add-emphasis? true
-                            :userhash (get user :userhash)
-                            :background (get-resource :drawable :favs)
-                            :type :fav}
-                           (when-not (is-me? (get user :userhash))
-                             {:title (if (= 1 (get fav :status))
-                                       (get-string :remove_from_favorites)
-                                       (get-string :add_to_favorites))
+    (show-spinner
+      context
+      (get-string :loading)
+      (fn []
+        (let [user (get-user-data content)
+              fav (when-not (is-me? (get user :userhash))
+                    (get-single-fav-data {:userhash (get user :userhash)}))
+              first-tiles (when (nil? (get content :page))
+                            [{:title (get-string :profile)
                               :add-emphasis? true
-                              :background (if (= 1 (get fav :status))
-                                            (get-resource :drawable :remove_fav)
-                                            (get-resource :drawable :add_fav))
-                              :type :custom-func
-                              :func
-                              (fn [context item]
-                                (if (= 1 (get fav :status))
-                                  (show-remove-user-dialog context item)
-                                  (toggle-fav context item false)))
+                              :background (get-resource :drawable :profile)
                               :userhash (get user :userhash)
-                              :status (get fav :status)
-                              :time (get fav :time)})])
-            posts (->> (for [tile (get-post-data content)]
-                         (assoc tile
+                              :pichash (get user :pichash)
+                              :type :custom-func
+                              :func (fn [context item]
+                                      (->> (get-profile-view context user)
+                                           (show-profile-dialog context user)))}
+                             {:title (get-string :favorites)
+                              :add-emphasis? true
+                              :userhash (get user :userhash)
+                              :background (get-resource :drawable :favs)
+                              :type :fav}
+                             (when-not (is-me? (get user :userhash))
+                               {:title (if (= 1 (get fav :status))
+                                         (get-string :remove_from_favorites)
+                                         (get-string :add_to_favorites))
+                                :add-emphasis? true
                                 :background
-                                (get-resource :drawable :post)))
-                       (into [])
-                       (add-last-tile content))
-            grid-content (-> first-tiles
-                             (concat posts)
-                             (remove-dupes-and-nils)
-                             (vec))]
-        (on-ui (set-grid-view-tiles context grid-content grid-view))))
+                                (if (= 1 (get fav :status))
+                                  (get-resource :drawable :remove_fav)
+                                  (get-resource :drawable :add_fav))
+                                :type :custom-func
+                                :func
+                                (fn [context item]
+                                  (if (= 1 (get fav :status))
+                                    (show-remove-user-dialog context item)
+                                    (toggle-fav context item false)))
+                                :userhash (get user :userhash)
+                                :status (get fav :status)
+                                :time (get fav :time)})])
+              posts (->> (for [tile (get-post-data content)]
+                           (assoc tile
+                                  :background
+                                  (get-resource :drawable :post)))
+                         (into [])
+                         (add-last-tile content))
+              grid-content (-> first-tiles
+                               (concat posts)
+                               (remove-dupes-and-nils)
+                               (vec))]
+          (on-ui (set-grid-view-tiles context grid-content grid-view)))
+        false))
     grid-view))
 
 (defn get-category-view
   [context content]
   (let [grid-view (get-grid-view context [])]
-    (future
-      (let [results (for [tile (get-category-data content)]
-                      (case (get tile :type)
-                        :user (assoc tile
-                                     :background
-                                     (get-resource :drawable :profile))
-                        :post (assoc tile
-                                     :background
-                                     (get-resource :drawable :post))
-                        tile))
-            grid-content (add-last-tile content (into [] results))]
-        (on-ui (set-grid-view-tiles context grid-content grid-view))))
+    (show-spinner
+      context
+      (get-string :loading)
+      (fn []
+        (let [results (for [tile (get-category-data content)]
+                        (case (get tile :type)
+                          :user (assoc tile
+                                       :background
+                                       (get-resource :drawable :profile))
+                          :post (assoc tile
+                                       :background
+                                       (get-resource :drawable :post))
+                          tile))
+              grid-content (add-last-tile content (into [] results))]
+          (on-ui (set-grid-view-tiles context grid-content grid-view)))
+        false))
     grid-view))
 
 (defn create-tab

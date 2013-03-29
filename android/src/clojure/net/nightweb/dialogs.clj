@@ -14,6 +14,14 @@
                                    set-text-size]]
         [nightweb.constants :only [is-me?]]))
 
+(defn freeze-orientation
+  [context]
+  (.setRequestedOrientation context android.content.pm.ActivityInfo/SCREEN_ORIENTATION_NOSENSOR))
+
+(defn unfreeze-orientation
+  [context]
+  (.setRequestedOrientation context android.content.pm.ActivityInfo/SCREEN_ORIENTATION_SENSOR))
+
 (defn show-dialog
   ([context title message]
    (let [builder (android.app.AlertDialog$Builder. context)]
@@ -25,6 +33,7 @@
        (.show dialog))))
   ([context message view buttons]
    (let [builder (android.app.AlertDialog$Builder. context)]
+     (freeze-orientation context)
      (when-let [positive-name (get buttons :positive-name)]
        (.setPositiveButton builder positive-name nil))
      (when-let [neutral-name (get buttons :neutral-name)]
@@ -40,6 +49,7 @@
            btn-action (fn [dialog button func]
                         (proxy [android.view.View$OnClickListener] []
                           (onClick [v]
+                            (unfreeze-orientation context)
                             (when (func context view button)
                               (.dismiss dialog)))))]
        (.setOnShowListener
@@ -61,6 +71,11 @@
                  negative-btn (btn-action d
                                           negative-btn
                                           (get buttons :negative-func)))))))
+       (.setOnCancelListener
+         dialog
+         (proxy [android.content.DialogInterface$OnCancelListener] []
+           (onCancel [d]
+             (unfreeze-orientation context))))
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog)))))
 
@@ -136,7 +151,7 @@
                     true)
                   :negative-name (get-string :cancel)
                   :negative-func cancel}))
-  false)
+  true)
 
 (defn show-import-dialog
   [context uri-str]
