@@ -16,12 +16,47 @@
         [nightweb.db :only [max-length-large]]
         [nightweb.constants :only [is-me?]]))
 
-(defn set-orientation-frozen
-  [context should-freeze?]
-  (let [pref (if should-freeze?
-               android.content.pm.ActivityInfo/SCREEN_ORIENTATION_NOSENSOR
-               android.content.pm.ActivityInfo/SCREEN_ORIENTATION_SENSOR)]
-    (.setRequestedOrientation context pref)))
+(defn create-dialog
+  [context message view buttons]
+  (let [builder (android.app.AlertDialog$Builder. context)]
+    (when-let [positive-name (get buttons :positive-name)]
+      (.setPositiveButton builder positive-name nil))
+    (when-let [neutral-name (get buttons :neutral-name)]
+      (.setNeutralButton builder neutral-name nil))
+    (when-let [negative-name (get buttons :negative-name)]
+      (.setNegativeButton builder negative-name nil))
+    (.setMessage builder message)
+    (.setView builder view)
+    (let [dialog (.create builder)
+          positive-type android.app.AlertDialog/BUTTON_POSITIVE
+          neutral-type android.app.AlertDialog/BUTTON_NEUTRAL
+          negative-type android.app.AlertDialog/BUTTON_NEGATIVE
+          btn-action (fn [dialog button func]
+                       (proxy [android.view.View$OnClickListener] []
+                         (onClick [v]
+                           (when (func context view button)
+                             (.dismiss dialog)))))]
+      (.setOnShowListener
+        dialog
+        (proxy [android.content.DialogInterface$OnShowListener] []
+          (onShow [d]
+            (when-let [positive-btn (.getButton d positive-type)]
+              (.setOnClickListener
+                positive-btn (btn-action d
+                                         positive-btn
+                                         (get buttons :positive-func))))
+            (when-let [neutral-btn (.getButton d neutral-type)]
+              (.setOnClickListener
+                neutral-btn (btn-action d
+                                        neutral-btn
+                                        (get buttons :neutral-func))))
+            (when-let [negative-btn (.getButton d negative-type)]
+              (.setOnClickListener
+                negative-btn (btn-action d
+                                         negative-btn
+                                         (get buttons :negative-func)))))))
+      (.setCanceledOnTouchOutside dialog false)
+      dialog)))
 
 (defn show-dialog
   ([context title message]
@@ -33,52 +68,22 @@
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog))))
   ([context message view buttons]
-   (let [builder (android.app.AlertDialog$Builder. context)]
-     (set-orientation-frozen context true)
-     (when-let [positive-name (get buttons :positive-name)]
-       (.setPositiveButton builder positive-name nil))
-     (when-let [neutral-name (get buttons :neutral-name)]
-       (.setNeutralButton builder neutral-name nil))
-     (when-let [negative-name (get buttons :negative-name)]
-       (.setNegativeButton builder negative-name nil))
-     (.setMessage builder message)
-     (.setView builder view)
-     (let [dialog (.create builder)
-           positive-type android.app.AlertDialog/BUTTON_POSITIVE
-           neutral-type android.app.AlertDialog/BUTTON_NEUTRAL
-           negative-type android.app.AlertDialog/BUTTON_NEGATIVE
-           btn-action (fn [dialog button func]
-                        (proxy [android.view.View$OnClickListener] []
-                          (onClick [v]
-                            (set-orientation-frozen context false)
-                            (when (func context view button)
-                              (.dismiss dialog)))))]
-       (.setOnShowListener
-         dialog
-         (proxy [android.content.DialogInterface$OnShowListener] []
-           (onShow [d]
-             (when-let [positive-btn (.getButton d positive-type)]
-               (.setOnClickListener
-                 positive-btn (btn-action d
-                                          positive-btn
-                                          (get buttons :positive-func))))
-             (when-let [neutral-btn (.getButton d neutral-type)]
-               (.setOnClickListener
-                 neutral-btn (btn-action d
-                                         neutral-btn
-                                         (get buttons :neutral-func))))
-             (when-let [negative-btn (.getButton d negative-type)]
-               (.setOnClickListener
-                 negative-btn (btn-action d
-                                          negative-btn
-                                          (get buttons :negative-func)))))))
-       (.setOnCancelListener
-         dialog
-         (proxy [android.content.DialogInterface$OnCancelListener] []
-           (onCancel [d]
-             (set-orientation-frozen context false))))
-       (.setCanceledOnTouchOutside dialog false)
-       (.show dialog)))))
+   (let [dialog-fragment (proxy [android.app.DialogFragment] []
+                           (onCreate [bundle]
+                             (proxy-super onCreate bundle)
+                             (.setRetainInstance this true))
+                           (onDetach []
+                             (proxy-super onDetach)
+                             (.removeView (.getParent view) view))
+                           (onDestroyView []
+                             (when (and (.getDialog this)
+                                        (.getRetainInstance this))
+                               (.setDismissMessage (.getDialog this) nil))
+                             (proxy-super onDestroyView))
+                           (onCreateDialog [bundle]
+                             (proxy-super onCreateDialog bundle)
+                             (create-dialog context message view buttons)))]
+     (.show dialog-fragment (.getFragmentManager context) "dialog"))))
 
 (defn show-pending-user-dialog
   [context]
