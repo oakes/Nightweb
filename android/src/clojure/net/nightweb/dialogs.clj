@@ -11,16 +11,17 @@
                                      save-profile]]
         [net.nightweb.utils :only [make-dip
                                    default-text-size
-                                   set-text-size]]
+                                   set-text-size
+                                   set-text-max-length]]
+        [nightweb.db :only [max-length-large]]
         [nightweb.constants :only [is-me?]]))
 
-(defn freeze-orientation
-  [context]
-  (.setRequestedOrientation context android.content.pm.ActivityInfo/SCREEN_ORIENTATION_NOSENSOR))
-
-(defn unfreeze-orientation
-  [context]
-  (.setRequestedOrientation context android.content.pm.ActivityInfo/SCREEN_ORIENTATION_SENSOR))
+(defn set-orientation-frozen
+  [context should-freeze?]
+  (let [pref (if should-freeze?
+               android.content.pm.ActivityInfo/SCREEN_ORIENTATION_NOSENSOR
+               android.content.pm.ActivityInfo/SCREEN_ORIENTATION_SENSOR)]
+    (.setRequestedOrientation context pref)))
 
 (defn show-dialog
   ([context title message]
@@ -33,7 +34,7 @@
        (.show dialog))))
   ([context message view buttons]
    (let [builder (android.app.AlertDialog$Builder. context)]
-     (freeze-orientation context)
+     (set-orientation-frozen context true)
      (when-let [positive-name (get buttons :positive-name)]
        (.setPositiveButton builder positive-name nil))
      (when-let [neutral-name (get buttons :neutral-name)]
@@ -49,7 +50,7 @@
            btn-action (fn [dialog button func]
                         (proxy [android.view.View$OnClickListener] []
                           (onClick [v]
-                            (unfreeze-orientation context)
+                            (set-orientation-frozen context false)
                             (when (func context view button)
                               (.dismiss dialog)))))]
        (.setOnShowListener
@@ -75,7 +76,7 @@
          dialog
          (proxy [android.content.DialogInterface$OnCancelListener] []
            (onCancel [d]
-             (unfreeze-orientation context))))
+             (set-orientation-frozen context false))))
        (.setCanceledOnTouchOutside dialog false)
        (.show dialog)))))
 
@@ -191,6 +192,7 @@
                                             :tag "post-body"}]])
         text-view (.getChildAt view 0)]
     (set-text-size text-view default-text-size)
+    (set-text-max-length text-view max-length-large)
     (.setText text-view (get content :body))
     (clear-attachments context)
     view))

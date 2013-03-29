@@ -67,3 +67,9 @@
   "Sets the given view's text size in density-independent pixels."
   [view size]
   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
+
+(defn set-text-max-length
+  [view max-length]
+  (->> [(android.text.InputFilter$LengthFilter. max-length)]
+       (into-array android.text.InputFilter)
+       (.setFilters view)))

@@ -21,11 +21,14 @@
 (def spec nil)
 (def limit 25)
 
-(defmacro paginate
-  [page & body]
-  `(format (str ~@body " LIMIT %d OFFSET %d")
-           (+ ~limit 1)
-           (* ~limit (if ~page (- ~page 1) 0))))
+(def max-length-small 20)
+(def max-length-large 10000)
+
+(defn paginate
+  [page statement]
+  (format (str statement " LIMIT %d OFFSET %d")
+          (+ limit 1)
+          (* limit (if page (- page 1) 0))))
 
 (defn prepare-results
   [rs table]
@@ -140,8 +143,8 @@
       (with-query-results
         rs
         [(paginate page
-                   "SELECT * FROM post "
-                   "WHERE userhash = ? AND status = 1 ORDER BY time DESC")
+                   "SELECT * FROM post 
+                   WHERE userhash = ? AND status = 1 ORDER BY time DESC")
          user-hash]
         (prepare-results rs :post)))))
 

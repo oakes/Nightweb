@@ -10,7 +10,8 @@
                                    path-to-bitmap
                                    make-dip
                                    default-text-size
-                                   set-text-size]]
+                                   set-text-size
+                                   set-text-max-length]]
         [net.nightweb.actions :only [show-spinner
                                      request-files
                                      clear-attachments
@@ -25,6 +26,8 @@
                                      show-edit-post-dialog
                                      show-profile-dialog]]
         [nightweb.db :only [limit
+                            max-length-small
+                            max-length-large
                             get-user-data
                             get-post-data
                             get-pic-data
@@ -304,6 +307,8 @@
     (.setPadding linear-layout 10 10 10 10)
     (set-text-size text-name default-text-size)
     (set-text-size text-body default-text-size)
+    (set-text-max-length text-name max-length-small)
+    (set-text-max-length text-body max-length-large)
     ; set text content
     (when (is-me? (get content :userhash))
       (.setHint text-name (get-string :name))
