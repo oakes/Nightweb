@@ -108,7 +108,7 @@
 
 ; retrieval
 
-(defn get-user-data
+(defn get-single-user-data
   [params]
   (let [user-hash (get params :userhash)]
     (with-connection
@@ -316,8 +316,8 @@
            :mtime edit-time
            :pichash (b-decode-bytes (get pics 0))
            :count (count pics)
-           :ptrhash (b-decode-bytes (get args "userptrhash"))
-           :ptrtime (b-decode-bytes (get args "ptrtime"))
+           :ptrhash (b-decode-bytes (get args "ptrhash"))
+           :ptrtime (b-decode-long (get args "ptrtime"))
            :status (b-decode-long (get args "status"))})))))
 
 (defn insert-fav

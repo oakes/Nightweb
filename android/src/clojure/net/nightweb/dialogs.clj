@@ -1,21 +1,31 @@
 (ns net.nightweb.dialogs
   (:use [neko.resource :only [get-string get-resource]]
+        [neko.threading :only [on-ui]]
         [neko.ui :only [make-ui]]
         [neko.ui.mapping :only [set-classname!]]
+        [net.clandroid.activity :only [get-state]]
         [net.nightweb.actions :only [clear-attachments
                                      send-post
+                                     request-files
                                      toggle-fav
                                      attach-to-post
                                      cancel
                                      zip-and-send
                                      unzip-and-save
                                      save-profile]]
-        [net.nightweb.utils :only [make-dip
+        [net.nightweb.utils :only [full-size
+                                   thumb-size
+                                   uri-to-bitmap
+                                   path-to-bitmap
+                                   get-pic-path
+                                   make-dip
                                    default-text-size
                                    large-text-size
                                    set-text-size
                                    set-text-max-length]]
-        [nightweb.db :only [max-length-large]]
+        [nightweb.db :only [max-length-small
+                            max-length-large
+                            get-single-user-data]]
         [nightweb.constants :only [is-me?]]))
 
 (set-classname! :scroll-view android.widget.ScrollView)
@@ -82,7 +92,8 @@
                              (.setRetainInstance this true))
                            (onDetach []
                              (proxy-super onDetach)
-                             (.removeView (.getParent view) view))
+                             (when view
+                               (.removeView (.getParent view) view)))
                            (onDestroyView []
                              (when (and (.getDialog this)
                                         (.getRetainInstance this))
@@ -164,7 +175,7 @@
                nil
                (get-welcome-view context)
                {:positive-name (get-string :ok)
-                :positive-func (fn [c d b] true)}))
+                :positive-func cancel}))
 
 (defn show-new-user-dialog
   [context content]
@@ -253,27 +264,66 @@
 
 (defn get-new-post-view
   [context content]
-  (let [view (make-ui context [:linear-layout {:orientation 1}
+  (let [page-content (get-state context :share)
+        pointers (when (empty? content)
+                   {:ptrhash (when (and (get page-content :userhash)
+                                        (or (= :post (get page-content :type))
+                                            (-> (get page-content :userhash)
+                                                (is-me?)
+                                                (not))))
+                               (get page-content :userhash))
+                    :ptrtime (when (= :post (get page-content :type))
+                               (get page-content :time))})
+        view (make-ui context [:linear-layout {:orientation 1}
+                               [:linear-layout {:orientation 0
+                                                :tag "user-info"}
+                                [:image-view {:background-resource
+                                              (get-resource :drawable :profile)
+                                              :tag "user-img"}]
+                                [:text-view {:single-line true
+                                             :tag "user-name"}]]
                                [:edit-text {:min-lines 10
                                             :tag "post-body"}]])
-        text-view (.getChildAt view 0)]
-    (set-text-size text-view default-text-size)
-    (set-text-max-length text-view max-length-large)
-    (.setText text-view (get content :body))
+        user-info (.findViewWithTag view "user-info")
+        user-img (.findViewWithTag view "user-img")
+        user-name (.findViewWithTag view "user-name")
+        post-body (.findViewWithTag view "post-body")
+        pad (make-dip context 10)
+        s 80]
+    (.setTag view pointers)
+    (set-text-size user-name default-text-size)
+    (.setMinHeight user-name s)
+    (.setGravity user-name android.view.Gravity/CENTER_VERTICAL)
+    (.setPadding user-name pad 0 0 0)
+    (.setLayoutParams user-img (android.widget.LinearLayout$LayoutParams. s s))
+    (.setScaleType user-img android.widget.ImageView$ScaleType/CENTER_CROP)
+    (if (get pointers :ptrhash)
+      (future (let [user (get-single-user-data page-content)
+                    path (get-pic-path (get user :userhash) (get user :pichash))
+                    bitmap (path-to-bitmap path thumb-size)]
+                (on-ui (.setText user-name (get user :title))
+                       (.setImageBitmap user-img bitmap))))
+      (.setVisibility user-info android.view.View/GONE))
+    (set-text-size post-body default-text-size)
+    (set-text-max-length post-body max-length-large)
+    (.setText post-body (get content :body))
     (clear-attachments context)
     view))
 
 (defn show-new-post-dialog
   [context content]
-  (show-dialog context
-               nil
-               (get-new-post-view context content)
-               {:positive-name (get-string :send)
-                :positive-func send-post
-                :neutral-name (get-string :attach_pics)
-                :neutral-func attach-to-post
-                :negative-name (get-string :cancel)
-                :negative-func cancel}))
+  (let [view (get-new-post-view context content)]
+    (show-dialog context
+                 nil
+                 view
+                 {:positive-name (if (get (.getTag view) :ptrtime)
+                                   (get-string :send_reply)
+                                   (get-string :send))
+                  :positive-func send-post
+                  :neutral-name (get-string :attach_pics)
+                  :neutral-func attach-to-post
+                  :negative-name (get-string :cancel)
+                  :negative-func cancel})))
 
 (defn show-edit-post-dialog
   [context content pics]
@@ -301,11 +351,90 @@
                 :negative-name (get-string :cancel)
                 :negative-func cancel}))
 
+(defn get-profile-view
+  [context content]
+  (let [bold android.graphics.Typeface/DEFAULT_BOLD
+        view (if (is-me? (get content :userhash))
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:edit-text {:single-line true
+                                               :layout-width :fill
+                                               :tag "profile-title"}]
+                                  [:edit-text {:layout-width :fill
+                                               :tag "profile-body"}]
+                                  [:relative-layout {}]]])
+               (make-ui context [:scroll-view {}
+                                 [:linear-layout {:orientation 1}
+                                  [:text-view {:single-line true
+                                               :layout-width :fill
+                                               :text-is-selectable true
+                                               :typeface bold}]
+                                  [:text-view {:layout-width :fill
+                                               :text-is-selectable true}]
+                                  [:relative-layout {}]]]))
+        linear-layout (.getChildAt view 0)
+        text-name (.getChildAt linear-layout 0)
+        text-body (.getChildAt linear-layout 1)
+        relative-layout (.getChildAt linear-layout 2)
+        image-view (proxy [android.widget.ImageButton] [context]
+                     (onMeasure [width height]
+                       (proxy-super onMeasure width width)))
+        clear-btn (android.widget.Button. context)
+        pad (make-dip context 10)]
+    ; set padding and text size
+    (.setPadding linear-layout pad pad pad pad)
+    (set-text-size text-name default-text-size)
+    (set-text-size text-body default-text-size)
+    (set-text-max-length text-name max-length-small)
+    (set-text-max-length text-body max-length-large)
+    ; set text content
+    (when (is-me? (get content :userhash))
+      (.setHint text-name (get-string :name))
+      (.setHint text-body (get-string :about_me)))
+    (.setText text-name (get content :title))
+    (.setText text-body (get content :body))
+    (.setText clear-btn (get-string :clear))
+    ; set layout params for image view and clear button
+    (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
+          params (android.widget.RelativeLayout$LayoutParams. fill 0)]
+      (.setLayoutParams image-view params))
+    (let [wrap android.widget.RelativeLayout$LayoutParams/WRAP_CONTENT
+          params (android.widget.RelativeLayout$LayoutParams. wrap wrap)]
+      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_TOP)
+      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_RIGHT)
+      (.setLayoutParams clear-btn params))
+    ; set image view and clear button parameters
+    (.setTag image-view "profile-image")
+    (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
+    (.setBackgroundResource image-view (get-resource :drawable :profile))
+    (let [bitmap (-> (get-pic-path (get content :userhash)
+                                   (get content :pichash))
+                     (path-to-bitmap full-size))]
+      (.setImageBitmap image-view bitmap))
+    (.addView relative-layout image-view)
+    (when (is-me? (get content :userhash))
+      (.setOnClickListener
+        image-view
+        (proxy [android.view.View$OnClickListener] []
+          (onClick [v]
+            (request-files context
+                           "image/*"
+                           (fn [uri]
+                             (let [pic (uri-to-bitmap context (.toString uri))]
+                               (.setImageBitmap image-view pic)))))))
+      (.setOnClickListener clear-btn
+                           (proxy [android.view.View$OnClickListener] []
+                             (onClick [v]
+                               (.setImageBitmap image-view nil))))
+      (.addView relative-layout clear-btn))
+    ; return the parent view
+    view))
+
 (defn show-profile-dialog
-  [context content view]
+  [context content]
   (show-dialog context
                nil
-               view
+               (get-profile-view context content)
                (if (is-me? (get content :userhash))
                  {:positive-name (get-string :save)
                   :positive-func save-profile

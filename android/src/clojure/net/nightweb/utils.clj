@@ -1,5 +1,8 @@
 (ns net.nightweb.utils
-  (:use [clojure.java.io :only [input-stream]]))
+  (:use [clojure.java.io :only [input-stream]]
+        [nightweb.formats :only [base32-encode]]
+        [nightweb.constants :only [slash
+                                   get-pic-dir]]))
 
 (def full-size 1024)
 (def thumb-size 256)
@@ -51,6 +54,14 @@
           image-format android.graphics.Bitmap$CompressFormat/WEBP]
       (.compress image-bitmap image-format 90 out)
       (.toByteArray out))))
+
+(defn get-pic-path
+  "Gets the full path for the given user and image hash combination."
+  [user-hash-bytes image-hash-bytes]
+  (when (and user-hash-bytes image-hash-bytes)
+    (str (get-pic-dir (base32-encode user-hash-bytes))
+         slash
+         (base32-encode image-hash-bytes))))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."

@@ -133,13 +133,13 @@
   ([context dialog-view button-view create-time pic-hashes status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
-         attachments (get-state context :attachments)]
+         attachments (get-state context :attachments)
+         is-new? (nil? create-time)
+         create-time (or create-time (.getTime (java.util.Date.)))
+         pointers (.getTag dialog-view)]
      (show-spinner context
                    (get-string :sending)
-                   #(let [is-new? (nil? create-time)
-                          create-time (or create-time
-                                          (.getTime (java.util.Date.)))
-                          pic-hashes
+                   #(let [pic-hashes
                           (or pic-hashes
                               (for [path attachments]
                                 (-> (if (.startsWith path "content://")
@@ -147,7 +147,12 @@
                                       (path-to-bitmap path full-size))
                                     (bitmap-to-byte-array)
                                     (write-pic-file))))
-                          post (post-encode create-time text pic-hashes status)]
+                          post (post-encode :create-time create-time
+                                            :text text
+                                            :pic-hashes pic-hashes
+                                            :status status
+                                            :ptrhash (get pointers :ptrhash)
+                                            :ptrtime (get pointers :ptrtime))]
                       (insert-post my-hash-bytes
                                    create-time
                                    (b-decode-map (b-decode post)))

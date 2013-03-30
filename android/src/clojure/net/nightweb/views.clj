@@ -5,14 +5,13 @@
         [neko.resource :only [get-string get-resource]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
-                                   uri-to-bitmap
                                    path-to-bitmap
+                                   get-pic-path
                                    make-dip
                                    default-text-size
                                    set-text-size
                                    set-text-max-length]]
         [net.nightweb.actions :only [show-spinner
-                                     request-files
                                      clear-attachments
                                      send-post
                                      tile-action
@@ -25,9 +24,7 @@
                                      show-edit-post-dialog
                                      show-profile-dialog]]
         [nightweb.db :only [limit
-                            max-length-small
-                            max-length-large
-                            get-user-data
+                            get-single-user-data
                             get-post-data
                             get-pic-data
                             get-single-post-data
@@ -35,19 +32,9 @@
                             get-category-data]]
         [nightweb.formats :only [remove-dupes-and-nils
                                  base32-encode]]
-        [nightweb.constants :only [is-me?
-                                   slash
-                                   get-pic-dir]]))
+        [nightweb.constants :only [is-me?]]))
 
 (def default-tile-width 160)
-
-(defn get-pic-path
-  "Gets the full path for the given user and image hash combination."
-  [user-hash-bytes image-hash-bytes]
-  (when (and user-hash-bytes image-hash-bytes)
-    (str (get-pic-dir (base32-encode user-hash-bytes))
-         slash
-         (base32-encode image-hash-bytes))))
 
 (defn add-last-tile
   "Adds a tile to take you to the next page if necessary."
@@ -188,33 +175,66 @@
       context
       (get-string :loading)
       (fn []
-        (let [post (get-single-post-data content)
-              user (assoc (get-user-data content)
-                          :background (get-resource :drawable :profile)
-                          :subtitle (get-string :author))
+        (let [; read values from database
+              post (get-single-post-data content)
+              user (get-single-user-data content)
+              user-pointer (when (and (get post :ptrhash)
+                                      (nil? (get post :ptrtime)))
+                             (get-single-user-data
+                               {:userhash (get post :ptrhash)}))
+              post-pointer (when (get post :ptrtime) 
+                             (get-single-post-data
+                               {:userhash (get post :ptrhash)
+                                :time (get post :ptrtime)}))
               pics (get-pic-data content (get content :time))
               fav (when-not (is-me? (get content :userhash))
                     (get-single-fav-data content))
-              action (if (is-me? (get content :userhash))
-                       {:title (get-string :edit)
-                        :add-emphasis? true
-                        :background (get-resource :drawable :edit_post)
-                        :type :custom-func
-                        :func (fn [context item]
-                                (show-edit-post-dialog context post pics))}
-                       {:title (if (= 1 (get fav :status))
-                                 (get-string :remove_from_favorites)
-                                 (get-string :add_to_favorites))
-                        :add-emphasis? true
-                        :background (if (= 1 (get fav :status))
-                                      (get-resource :drawable :remove_fav)
-                                      (get-resource :drawable :add_fav))
-                        :type :toggle-fav
-                        :userhash (get content :userhash)
-                        :ptrtime (get content :time)
-                        :status (get fav :status)
-                        :time (get fav :time)})
-              total-results (vec (concat [user action] pics))]
+              ; create tiles based on the values
+              user-tile (assoc user
+                               :background (get-resource :drawable :profile)
+                               :add-emphasis? true
+                               :title (get-string :author)
+                               :subtitle (get user :title))
+              user-pointer-tile (when user-pointer
+                                  (assoc user-pointer
+                                         :background
+                                         (get-resource :drawable :profile)
+                                         :add-emphasis? true
+                                         :title (get-string :mentioned)
+                                         :subtitle (get user-pointer :title)))
+              post-pointer-tile (when post-pointer
+                                  (assoc post-pointer
+                                         :background
+                                         (get-resource :drawable :post)
+                                         :add-emphasis? true
+                                         :title (get-string :in_reply_to)))
+              action-tile (if (is-me? (get content :userhash))
+                            {:title (get-string :edit)
+                             :add-emphasis? true
+                             :background (get-resource :drawable :edit_post)
+                             :type :custom-func
+                             :func (fn [context item]
+                                     (show-edit-post-dialog context post pics))}
+                            {:title (if (= 1 (get fav :status))
+                                      (get-string :remove_from_favorites)
+                                      (get-string :add_to_favorites))
+                             :add-emphasis? true
+                             :background (if (= 1 (get fav :status))
+                                           (get-resource :drawable :remove_fav)
+                                           (get-resource :drawable :add_fav))
+                             :type :toggle-fav
+                             :userhash (get content :userhash)
+                             :ptrtime (get content :time)
+                             :status (get fav :status)
+                             :time (get fav :time)})
+              ; combine the tiles together
+              total-results (-> [user-tile
+                                 user-pointer-tile
+                                 post-pointer-tile
+                                 action-tile]
+                                (concat pics)
+                                (remove-dupes-and-nils)
+                                (vec))]
           (if (nil? (get post :body))
             (show-lost-post-dialog context)
             (on-ui (let [html-text (md-to-html-string (get post :body))
@@ -267,84 +287,6 @@
         false))
     view))
 
-(defn get-profile-view
-  [context content]
-  (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (is-me? (get content :userhash))
-               (make-ui context [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:edit-text {:single-line true
-                                               :layout-width :fill
-                                               :tag "profile-title"}]
-                                  [:edit-text {:layout-width :fill
-                                               :tag "profile-body"}]
-                                  [:relative-layout {}]]])
-               (make-ui context [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:text-view {:single-line true
-                                               :layout-width :fill
-                                               :text-is-selectable true
-                                               :typeface bold}]
-                                  [:text-view {:layout-width :fill
-                                               :text-is-selectable true}]
-                                  [:relative-layout {}]]]))
-        linear-layout (.getChildAt view 0)
-        text-name (.getChildAt linear-layout 0)
-        text-body (.getChildAt linear-layout 1)
-        relative-layout (.getChildAt linear-layout 2)
-        image-view (proxy [android.widget.ImageButton] [context]
-                     (onMeasure [width height]
-                       (proxy-super onMeasure width width)))
-        clear-btn (android.widget.Button. context)]
-    ; set padding and text size
-    (.setPadding linear-layout 10 10 10 10)
-    (set-text-size text-name default-text-size)
-    (set-text-size text-body default-text-size)
-    (set-text-max-length text-name max-length-small)
-    (set-text-max-length text-body max-length-large)
-    ; set text content
-    (when (is-me? (get content :userhash))
-      (.setHint text-name (get-string :name))
-      (.setHint text-body (get-string :about_me)))
-    (.setText text-name (get content :title))
-    (.setText text-body (get content :body))
-    (.setText clear-btn (get-string :clear))
-    ; set layout params for image view and clear button
-    (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
-          params (android.widget.RelativeLayout$LayoutParams. fill 0)]
-      (.setLayoutParams image-view params))
-    (let [wrap android.widget.RelativeLayout$LayoutParams/WRAP_CONTENT
-          params (android.widget.RelativeLayout$LayoutParams. wrap wrap)]
-      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_TOP)
-      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_RIGHT)
-      (.setLayoutParams clear-btn params))
-    ; set image view and clear button parameters
-    (.setTag image-view "profile-image")
-    (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (.setBackgroundResource image-view (get-resource :drawable :profile))
-    (let [bitmap (-> (get-pic-path (get content :userhash)
-                                   (get content :pichash))
-                     (path-to-bitmap thumb-size))]
-      (.setImageBitmap image-view bitmap))
-    (.addView relative-layout image-view)
-    (when (is-me? (get content :userhash))
-      (.setOnClickListener
-        image-view
-        (proxy [android.view.View$OnClickListener] []
-          (onClick [v]
-            (request-files context
-                           "image/*"
-                           (fn [uri]
-                             (let [pic (uri-to-bitmap context (.toString uri))]
-                               (.setImageBitmap image-view pic)))))))
-      (.setOnClickListener clear-btn
-                           (proxy [android.view.View$OnClickListener] []
-                             (onClick [v]
-                               (.setImageBitmap image-view nil))))
-      (.addView relative-layout clear-btn))
-    ; return the parent view
-    view))
-
 (defn get-user-view
   [context content]
   (let [grid-view (get-grid-view context [])]
@@ -352,7 +294,7 @@
       context
       (get-string :loading)
       (fn []
-        (let [user (get-user-data content)
+        (let [user (get-single-user-data content)
               fav (when-not (is-me? (get user :userhash))
                     (get-single-fav-data {:userhash (get user :userhash)}))
               first-tiles (when (nil? (get content :page))
@@ -363,8 +305,7 @@
                               :pichash (get user :pichash)
                               :type :custom-func
                               :func (fn [context item]
-                                      (->> (get-profile-view context user)
-                                           (show-profile-dialog context user)))}
+                                      (show-profile-dialog context user))}
                              {:title (get-string :favorites)
                               :add-emphasis? true
                               :userhash (get user :userhash)

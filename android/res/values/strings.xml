@@ -29,6 +29,7 @@
   <string name="delete">Delete</string>
   <string name="save">Save</string>
   <string name="send">Send</string>
+  <string name="send_reply">Send Reply</string>
   <string name="ok">OK</string>
   <string name="download_user">Download User</string>
   <string name="unfav_user">Unfavorite User</string>
@@ -51,6 +52,8 @@
 
   <string name="page">Page</string>
   <string name="author">Author</string>
+  <string name="mentioned">Mentioned</string>
+  <string name="in_reply_to">In Reply To...</string>
 
   <string name="welcome_title">Welcome to Nightweb</string>
   <string name="welcome_subtitle">Wait a few minutes and content should appear in the other tabs. In the meantime...</string>
