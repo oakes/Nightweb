@@ -14,8 +14,8 @@
    id="svg5947"
    version="1.1"
    inkscape:version="0.48.3.1 r9886"
-   inkscape:export-xdpi="90"
-   inkscape:export-ydpi="90">
+   inkscape:export-xdpi="576"
+   inkscape:export-ydpi="576">
   <defs
      id="defs5949" />
   <sodipodi:namedview
@@ -26,7 +26,7 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="1.979899"
-     inkscape:cx="19.02147"
+     inkscape:cx="-69.871953"
      inkscape:cy="34.800255"
      inkscape:document-units="px"
      inkscape:current-layer="User"
@@ -34,8 +34,8 @@
      inkscape:snap-global="false"
      inkscape:window-width="753"
      inkscape:window-height="383"
-     inkscape:window-x="266"
-     inkscape:window-y="405"
+     inkscape:window-x="267"
+     inkscape:window-y="406"
      inkscape:window-maximized="0" />
   <metadata
      id="metadata5952">
@@ -58,7 +58,7 @@
        transform="translate(-172.78441,627.1682)"
        id="User">
       <path
-         style="fill:#ffffff;fill-opacity:1;opacity:0.5"
+         style="fill:#ffffff;fill-opacity:1;opacity:0.3"
          inkscape:connector-curvature="0"
          d="m 219.21841,390.388 c -0.471,0 -0.487,-0.268 -0.487,-0.936 0,-0.822 0.108,-1.271 0.108,-1.271 1.406,0 3.533,-2.352 4.219,-4.516 0.385,-1.219 2.562,-1.441 2.562,-4.67 0,-2.83 -1.252,-2.047 -1.252,-2.258 0,-0.211 0,-3.078 0,-4.762 0,-3.123 -2.788,-9.281 -11.584,-9.281 -8.796,0 -11.584,6.158 -11.584,9.281 0,1.684 0,4.551 0,4.762 0,0.211 -1.252,-0.572 -1.252,2.258 0,3.229 2.177,3.451 2.562,4.67 0.686,2.164 2.813,4.516 4.219,4.516 0,0 0.108,0.449 0.108,1.271 0,0.668 -0.017,0.936 -0.487,0.936 -7.645,0 -13.182,8.08 -13.182,10.66 0,3.299 0,6.646 0,6.646 h 19.616 19.616 c 0,0 0,-3.348 0,-6.646 -0.001,-2.58 -5.538,-10.66 -13.182,-10.66 z"
          id="path5525"

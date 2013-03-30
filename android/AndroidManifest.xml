@@ -12,7 +12,8 @@
 		android:icon="@drawable/ic_launcher"
 		android:label="@string/app_name"
 		android:name=".Application"
-		android:hardwareAccelerated="true">
+		android:hardwareAccelerated="true"
+		android:theme="@style/Theme.Nightweb">
 		<activity
 			android:name=".MainPage"
 			android:launchMode="singleTask"

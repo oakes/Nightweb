@@ -49,7 +49,7 @@
                                       parse-meta-link
                                       init-dht]]))
 
-(def enable-router? true) ; if false, I2P won't boot (useful for testing)
+(def enable-router? false) ; if false, I2P won't boot (useful for testing)
 (def is-first-boot? false)
 
 (defn user-exists?
