@@ -1,7 +1,6 @@
 (ns net.nightweb.views
   (:use [markdown.core :only [md-to-html-string]]
         [neko.ui :only [make-ui]]
-        [neko.ui.mapping :only [set-classname!]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
         [net.nightweb.utils :only [full-size
@@ -39,12 +38,6 @@
         [nightweb.constants :only [is-me?
                                    slash
                                    get-pic-dir]]))
-
-(set-classname! :scroll-view android.widget.ScrollView)
-(set-classname! :frame-layout android.widget.FrameLayout)
-(set-classname! :relative-layout android.widget.RelativeLayout)
-(set-classname! :image-view android.widget.ImageView)
-(set-classname! :view-pager android.support.v4.view.ViewPager)
 
 (def default-tile-width 160)
 

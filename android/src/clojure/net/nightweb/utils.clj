@@ -62,6 +62,7 @@
       (int)))
 
 (def default-text-size 20)
+(def large-text-size 30)
 
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."

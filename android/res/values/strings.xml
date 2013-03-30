@@ -52,11 +52,15 @@
   <string name="page">Page</string>
   <string name="author">Author</string>
 
+  <string name="welcome_title">Welcome to Nightweb</string>
+  <string name="welcome_subtitle">Wait a few minutes and content should appear in the other tabs. In the meantime...</string>
+  <string name="welcome_profile">Fill in your profile</string>
+  <string name="welcome_post">Write some posts</string>
+  <string name="welcome_share">Share your link so others can add you</string>
+
   <string name="new_user">This looks like a new user. Would you like to favorite and begin downloading them?</string>
   <string name="pending_user">We haven\'t received anything from this user yet. Check back later.</string>
   <string name="lost_post">Can\'t find this post.</string>
-  <string name="welcome_title">Welcome to Nightweb</string>
-  <string name="welcome_message">Nightweb is finding peers. It works best if you leave it running in the background as long as you can.</string>
   <string name="confirm_unfav">Are you sure you want to unfavorite this user? You may not be able to see them anymore.</string>
   <string name="confirm_delete">Are you sure you want to delete this?</string>
   <string name="export_desc">This will save a password-protected file with all of your user\'s data. You can open it on another device with Nightweb installed.</string>

@@ -1,6 +1,7 @@
 (ns net.nightweb.dialogs
-  (:use [neko.resource :only [get-string]]
+  (:use [neko.resource :only [get-string get-resource]]
         [neko.ui :only [make-ui]]
+        [neko.ui.mapping :only [set-classname!]]
         [net.nightweb.actions :only [clear-attachments
                                      send-post
                                      toggle-fav
@@ -11,10 +12,17 @@
                                      save-profile]]
         [net.nightweb.utils :only [make-dip
                                    default-text-size
+                                   large-text-size
                                    set-text-size
                                    set-text-max-length]]
         [nightweb.db :only [max-length-large]]
         [nightweb.constants :only [is-me?]]))
+
+(set-classname! :scroll-view android.widget.ScrollView)
+(set-classname! :frame-layout android.widget.FrameLayout)
+(set-classname! :relative-layout android.widget.RelativeLayout)
+(set-classname! :image-view android.widget.ImageView)
+(set-classname! :view-pager android.support.v4.view.ViewPager)
 
 (defn create-dialog
   [context message view buttons]
@@ -99,11 +107,64 @@
                 (fn [context dialog-view button-view]
                   (.finish context))}))
 
+(defn get-welcome-view
+  [context]
+  (let [view (make-ui context
+                      [:linear-layout {:orientation 1}
+                       [:text-view {:text (get-string :welcome_title)
+                                    :tag "title-text"
+                                    :layout-width :fill}]
+                       [:text-view {:text (get-string :welcome_subtitle)
+                                    :tag "subtitle-text"}]
+                       [:linear-layout {:orientation 0}
+                        [:image-view {:image-resource
+                                      (get-resource :drawable :profile)
+                                      :tag "profile-image"}]
+                        [:text-view {:text (get-string :welcome_profile)
+                                     :tag "profile-text"}]]
+                       [:linear-layout {:orientation 0}
+                        [:image-view {:image-resource
+                                      (get-resource :drawable
+                                                    :android/ic_menu_add)
+                                      :tag "post-image"}]
+                        [:text-view {:text (get-string :welcome_post)
+                                     :tag "post-text"}]]
+                       [:linear-layout {:orientation 0}
+                        [:image-view {:image-resource
+                                      (get-resource :drawable
+                                                    :android/ic_menu_share)
+                                      :tag "share-image"}]
+                        [:text-view {:text (get-string :welcome_share)
+                                     :tag "share-text"}]]])
+        title-text (.findViewWithTag view "title-text")
+        subtitle-text (.findViewWithTag view "subtitle-text")
+        profile-text (.findViewWithTag view "profile-text")
+        post-text (.findViewWithTag view "post-text")
+        share-text (.findViewWithTag view "share-text")
+        profile-image (.findViewWithTag view "profile-image")
+        post-image (.findViewWithTag view "post-image")
+        share-image (.findViewWithTag view "share-image")
+        pad (make-dip context 10)
+        s 80]
+    (set-text-size title-text large-text-size)
+    (set-text-size subtitle-text default-text-size)
+    (.setGravity title-text android.view.Gravity/CENTER_HORIZONTAL)
+    (doseq [txt [profile-text post-text share-text]]
+      (set-text-size txt default-text-size)
+      (.setMinHeight txt s)
+      (.setGravity txt android.view.Gravity/CENTER_VERTICAL))
+    (doseq [img [profile-image post-image share-image]]
+      (.setLayoutParams img (android.widget.LinearLayout$LayoutParams. s s)))
+    (.setPadding view pad pad pad pad)
+    view))
+
 (defn show-welcome-dialog
   [context]
   (show-dialog context
-               (get-string :welcome_title)
-               (get-string :welcome_message)))
+               nil
+               (get-welcome-view context)
+               {:positive-name (get-string :ok)
+                :positive-func (fn [c d b] true)}))
 
 (defn show-new-user-dialog
   [context content]
