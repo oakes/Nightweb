@@ -265,7 +265,7 @@
 (defn get-new-post-view
   [context content]
   (let [page-content (get-state context :share)
-        pointers (when (empty? content)
+        pointers (if (empty? content)
                    {:ptrhash (when (and (get page-content :userhash)
                                         (or (= :post (get page-content :type))
                                             (-> (get page-content :userhash)
@@ -273,7 +273,9 @@
                                                 (not))))
                                (get page-content :userhash))
                     :ptrtime (when (= :post (get page-content :type))
-                               (get page-content :time))})
+                               (get page-content :time))}
+                   {:ptrhash (get content :ptrhash)
+                    :ptrtime (get content :ptrtime)})
         view (make-ui context [:linear-layout {:orientation 1}
                                [:linear-layout {:orientation 0
                                                 :tag "user-info"}
@@ -297,8 +299,8 @@
     (.setPadding user-name pad 0 0 0)
     (.setLayoutParams user-img (android.widget.LinearLayout$LayoutParams. s s))
     (.setScaleType user-img android.widget.ImageView$ScaleType/CENTER_CROP)
-    (if (get pointers :ptrhash)
-      (future (let [user (get-single-user-data page-content)
+    (if-let [ptr-hash (get pointers :ptrhash)]
+      (future (let [user (get-single-user-data {:userhash ptr-hash})
                     path (get-pic-path (get user :userhash) (get user :pichash))
                     bitmap (path-to-bitmap path thumb-size)]
                 (on-ui (.setText user-name (get user :title))
@@ -330,7 +332,7 @@
   (show-dialog context
                nil
                (get-new-post-view context content)
-               {:positive-name (get-string :send)
+               {:positive-name (get-string :save)
                 :positive-func
                 (fn [context dialog-view button-view]
                   (send-post context
