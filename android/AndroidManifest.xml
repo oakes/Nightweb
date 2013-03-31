@@ -40,7 +40,7 @@
 				<action android:name="android.intent.action.VIEW"/>
 				<category android:name="android.intent.category.DEFAULT"/>
 				<category android:name="android.intent.category.BROWSABLE"/>
-				<data android:scheme="http" android:host="nightweb.net"/>
+				<data android:scheme="http" android:host="nightweb.net" android:path="/" />
 			</intent-filter>
 		</activity>
 		<service android:name=".MainService"/>
