@@ -106,10 +106,10 @@
              "sign_algo" "DSA-SHA1"}))
 
 (defn post-encode
-  [& {:keys [create-time text image-hashes status ptrhash ptrtime]}]
+  [& {:keys [create-time text pic-hashes status ptrhash ptrtime]}]
   (let [args (merge {"body" text
                      "mtime" create-time
-                     "pics" (remove-dupes-and-nils image-hashes)
+                     "pics" (remove-dupes-and-nils pic-hashes)
                      "status" status}
                     (if ptrhash {"ptrhash" ptrhash} {})
                     (if ptrtime {"ptrtime" ptrtime} {}))]
