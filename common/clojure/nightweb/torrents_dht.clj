@@ -275,7 +275,8 @@
     (reify org.klomp.snark.dht.CustomQueryHandler
       (receiveQuery [this method args]
         (case method
-          "announce_meta" (receive-meta-link args)))
+          "announce_meta" (receive-meta-link args)
+          nil))
       (receiveResponse [this args]
         (receive-meta-link args))))
   ; set the init callback

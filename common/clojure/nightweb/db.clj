@@ -354,7 +354,8 @@
                       (long-decode (get data-map :file-name))
                       (get data-map :contents))
     "meta" (case (get data-map :file-name)
-             "user.profile" (insert-profile user-hash (get data-map :contents)))
+             "user.profile" (insert-profile user-hash (get data-map :contents))
+             nil)
     nil))
 
 (defn delete-user

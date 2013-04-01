@@ -289,7 +289,9 @@
 
 (defn get-user-view
   [context content]
-  (let [grid-view (get-grid-view context [])]
+  (let [view (make-ui context [:scroll-view {}])
+        grid-view (get-grid-view context [] true)]
+    (.addView view grid-view)
     (show-spinner
       context
       (get-string :loading)
@@ -341,11 +343,13 @@
                                (vec))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    grid-view))
+    view))
 
 (defn get-category-view
   [context content]
-  (let [grid-view (get-grid-view context [])]
+  (let [view (make-ui context [:scroll-view {}])
+        grid-view (get-grid-view context [] true)]
+    (.addView view grid-view)
     (show-spinner
       context
       (get-string :loading)
@@ -362,7 +366,7 @@
               grid-content (add-last-tile content (into [] results))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    grid-view))
+    view))
 
 (defn create-tab
   [action-bar title create-view]
