@@ -70,15 +70,19 @@
                          (get-category-view this content)))
           (when (and is-first-boot? show-welcome-message?)
             (def show-welcome-message? false)
-            (show-welcome-dialog this))
-          (when-let [uri-str (.getDataString (.getIntent this))]
-            (show-import-dialog this uri-str)
-            (.setData (.getIntent this) nil)))))
+            (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-new-intent
   (fn [this intent]
     (.setIntent this intent)
-    (.recreate this))
+    (when-let [action-bar (.getActionBar this)]
+      (when-let [tab (.getSelectedTab action-bar)]
+        (.select tab))))
+  :on-resume
+  (fn [this]
+    (when-let [uri-str (.getDataString (.getIntent this))]
+      (show-import-dialog this uri-str)
+      (.setData (.getIntent this) nil)))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)

@@ -376,12 +376,12 @@
                      (create-view)))
         listener (proxy [android.app.ActionBar$TabListener] []
                    (onTabSelected [tab ft]
-                                  (.add ft
-                                        (get-resource :id :android/content)
-                                        fragment))
+                     (.add ft (get-resource :id :android/content) fragment))
                    (onTabUnselected [tab ft]
-                                    (.remove ft fragment))
-                   (onTabReselected [tab ft]))]
+                     (.remove ft fragment))
+                   (onTabReselected [tab ft]
+                     (.detach ft fragment)
+                     (.attach ft fragment)))]
     (.setText tab title)
     (.setTabListener tab listener)
     (.addTab action-bar tab)))
