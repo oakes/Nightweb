@@ -162,7 +162,7 @@
 
 (defn start-router
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
-  [dir]
+  [dir hide?]
   ; set main dir and initialize the database
   (set-base-dir dir)
   (init-db dir)
@@ -179,7 +179,7 @@
       (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
       (net.i2p.router.RouterLaunch/main nil)
       (when-let [router (get-router)]
-        (.saveConfig router "router.hiddenMode" "true"))
+        (.saveConfig router "router.hiddenMode" (if hide? "true" "false")))
       (java.lang.Thread/sleep 10000))
     ; add all user and meta torrents
     (iterate-dir (get-user-dir) add-user-and-meta-torrents)

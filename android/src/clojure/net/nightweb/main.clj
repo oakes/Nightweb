@@ -28,7 +28,7 @@
     (start-receiver this
                     shutdown-receiver-name
                     (fn [context intent] (.stopSelf service)))
-    (start-router (.getAbsolutePath (.getFilesDir this))))
+    (start-router (.getAbsolutePath (.getFilesDir this)) true))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)
