@@ -56,7 +56,7 @@
   <string name="in_reply_to">In Reply To...</string>
 
   <string name="welcome_title">Welcome to Nightweb</string>
-  <string name="welcome_subtitle">Wait a few minutes and content should appear in the other tabs. In the meantime...</string>
+  <string name="welcome_subtitle">Wait a while and content should appear in the other tabs. In the meantime...</string>
   <string name="welcome_profile">Fill in your profile</string>
   <string name="welcome_post">Write some posts</string>
   <string name="welcome_share">Share your link so others can add you</string>

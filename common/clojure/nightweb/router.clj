@@ -153,6 +153,13 @@
     (write-link-file (add-torrent path false on-recv-meta))
     (send-meta-link)))
 
+(defn get-router
+  []
+  (when-let [contexts (net.i2p.router.RouterContext/listContexts)]
+    (when-not (.isEmpty contexts)
+      (when-let [context (.get contexts 0)]
+        (.router context)))))
+
 (defn start-router
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]
@@ -171,6 +178,8 @@
       (java.lang.System/setProperty "i2p.dir.config" dir)
       (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
       (net.i2p.router.RouterLaunch/main nil)
+      (when-let [router (get-router)]
+        (.saveConfig router "router.hiddenMode" "true"))
       (java.lang.Thread/sleep 10000))
     ; add all user and meta torrents
     (iterate-dir (get-user-dir) add-user-and-meta-torrents)
@@ -184,7 +193,5 @@
 (defn stop-router
   "Shuts down the I2P router."
   []
-  (when-let [contexts (net.i2p.router.RouterContext/listContexts)]
-    (when-not (.isEmpty contexts)
-      (when-let [context (.get contexts 0)]
-        (.shutdown (.router context) net.i2p.router.Router/EXIT_HARD)))))
+  (when-let [router (get-router)]
+    (.shutdown router net.i2p.router.Router/EXIT_HARD)))
