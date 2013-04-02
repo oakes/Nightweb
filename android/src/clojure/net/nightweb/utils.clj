@@ -8,6 +8,7 @@
 (def thumb-size 256)
 
 (defn get-resample-ratio
+  "Provides a ratio to resize an image at if it exceeds max-length."
   [is max-length]
   (let [options (android.graphics.BitmapFactory$Options.)
         _ (set! (. options inJustDecodeBounds) true)
@@ -22,12 +23,14 @@
         1))))
 
 (defn input-stream-to-bitmap
+  "Reads from an input stream into a bitmap."
   [is ratio]
   (let [options (android.graphics.BitmapFactory$Options.)]
     (set! (. options inSampleSize) ratio)
     (android.graphics.BitmapFactory/decodeStream is nil options)))
 
 (defn uri-to-bitmap
+  "Reads from a URI into a bitmap, resizing if necessary."
   [context uri-str]
   (try
     (let [cr (.getContentResolver context)
@@ -39,6 +42,7 @@
     (catch java.lang.Exception e nil)))
 
 (defn path-to-bitmap
+  "Reads from a file path into a bitmap, resizing if necessary."
   [path max-length]
   (try
     (when-let [ratio (with-open [is (input-stream path)]
@@ -48,6 +52,7 @@
     (catch java.lang.Exception e nil)))
 
 (defn bitmap-to-byte-array
+  "Compresses a bitmap into a specific image format as a byte array."
   [image-bitmap]
   (when image-bitmap
     (let [out (java.io.ByteArrayOutputStream.)
@@ -81,6 +86,7 @@
   (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn set-text-max-length
+  "Limits the text length for the given TextView."
   [view max-length]
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
        (into-array android.text.InputFilter)

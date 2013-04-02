@@ -42,6 +42,7 @@
                                    user-zip-file]]))
 
 (defn share-url
+  "Displays an app chooser to share a link to the displayed content."
   [context]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
         url (url-encode (get-state context :share))]
@@ -50,6 +51,7 @@
     (.startActivity context intent)))
 
 (defn send-file
+  "Displays an app chooser to send a file."
   [context file-type path]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
         uri (android.net.Uri/fromFile (file path))]
@@ -59,6 +61,7 @@
          (.startActivity context))))
 
 (defn request-files
+  "Displays an app chooser to select files of the specified file type."
   [context file-type callback]
   (set-state context :file-request callback)
   (let [intent (android.content.Intent.
@@ -68,6 +71,7 @@
     (.startActivityForResult context intent 1)))
 
 (defn receive-result
+  "Runs after one or more files are selected by the user."
   [context request-code result-code intent]
   (case request-code
     1 (let [callback (get-state context :file-request)
@@ -77,6 +81,7 @@
     nil))
 
 (defn receive-attachments
+  "Stores a list of selected attachments."
   [context uri]
   (let [uri-str (.toString uri)
         attachments (get-state context :attachments)
@@ -91,10 +96,12 @@
     total-attachments))
 
 (defn clear-attachments
+  "Clears the list of selected attachments."
   [context]
   (set-state context :attachments nil))
 
 (defn show-page
+  "Shows a new activity of the specified type."
   [context class-name params]
   (let [class-symbol (java.lang.Class/forName class-name)
         intent (android.content.Intent. context class-symbol)]
@@ -102,6 +109,7 @@
     (.startActivity context intent)))
 
 (defn show-spinner
+  "Displays a spinner while the specified function runs in a thread."
   [context message func]
   (on-ui
     (let [spinner (android.app.ProgressDialog/show context nil message true)]
@@ -128,6 +136,7 @@
   (show-page context "net.nightweb.MainPage" content))
 
 (defn send-post
+  "Saves a post to the disk and creates a new meta torrent to share it."
   ([context dialog-view button-view]
    (send-post context dialog-view button-view nil nil 1))
   ([context dialog-view button-view create-time pic-hashes status]
@@ -165,6 +174,7 @@
    true))
 
 (defn attach-to-post
+  "Initiates the action to select images to attach to a post."
   [context dialog-view button-view]
   (request-files context
                  "image/*"
@@ -176,10 +186,12 @@
   false)
 
 (defn cancel
+  "Used by dialogs to perform no action other than closing themselves."
   [context dialog-view button-view]
   true)
 
 (defn save-profile
+  "Saves the profile to the disk and creates a new meta torrent to share it."
   [context dialog-view button-view]
   (let [name-field (.findViewWithTag dialog-view "profile-title")
         body-field (.findViewWithTag dialog-view "profile-body")
@@ -202,6 +214,7 @@
   true)
 
 (defn zip-and-send
+  "Creates an encrypted zip file with our content and sends it somewhere."
   [context password]
   (let [path (get-user-dir my-hash-str)
         ext-dir (android.os.Environment/getExternalStorageDirectory)
@@ -213,6 +226,7 @@
                      (on-ui (toast (get-string :zip_error)))))))
 
 (defn unzip-and-save
+  "Unzips an encrypted zip file and replaces the current user with it."
   [context password uri-str]
   (let [path (.getRawPath (java.net.URI. uri-str))
         dest-path (get-user-dir)]
@@ -229,11 +243,13 @@
                      (on-ui (toast (get-string :unzip_error)))))))
 
 (defn menu-action
+  "Provides an action for menu items in the action bar."
   [context item]
   (when (= (.getItemId item) (get-resource :id :android/home))
     (show-home context {})))
 
 (defn toggle-fav
+  "Toggles our favorite status for the specified content."
   ([context content] (toggle-fav context content false))
   ([context content go-home?]
    (show-spinner context
@@ -257,6 +273,7 @@
                       true)))))
 
 (defn tile-action
+  "Provides a central place to associate types with the appropriate actions."
   [context item]
   (when-let [func (case (get item :type)
                     :fav show-categories

@@ -154,6 +154,7 @@
     (send-meta-link)))
 
 (defn get-router
+  "Returns the router object if it exists."
   []
   (when-let [contexts (net.i2p.router.RouterContext/listContexts)]
     (when-not (.isEmpty contexts)
