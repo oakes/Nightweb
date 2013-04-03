@@ -181,21 +181,27 @@
         sub-type (get params :subtype)
         statement (case data-type
                     :user ["SELECT * FROM user ORDER BY time DESC"]
-                    :post ["SELECT * FROM post 
-                           WHERE status = 1 ORDER BY time DESC"]
+                    :post ["SELECT post.*, user.title AS subtitle FROM post 
+                           LEFT JOIN user ON post.userhash = user.userhash 
+                           WHERE post.status = 1 ORDER BY post.time DESC"]
                     :fav (case sub-type
                            :user ["SELECT fav.ptrhash AS userhash, user.* 
-                                  FROM fav LEFT JOIN user 
+                                  FROM fav 
+                                  LEFT JOIN user 
                                   ON fav.ptrhash = user.userhash 
                                   WHERE fav.userhash = ? 
                                   AND fav.status = 1 
                                   AND fav.ptrtime IS NULL 
                                   ORDER BY fav.mtime DESC"
                                   (get params :userhash)]
-                           :post ["SELECT fav.ptrhash AS userhash, post.* 
-                                  FROM fav LEFT JOIN post 
+                           :post ["SELECT fav.ptrhash AS userhash, post.*, 
+                                  user.title AS subtitle 
+                                  FROM fav 
+                                  LEFT JOIN post 
                                   ON fav.ptrhash = post.userhash 
                                   AND fav.ptrtime = post.time 
+                                  LEFT JOIN user 
+                                  ON post.userhash = user.userhash 
                                   WHERE fav.userhash = ? 
                                   AND fav.status = 1 
                                   AND post.status = 1 
@@ -203,14 +209,16 @@
                                   (get params :userhash)]
                            nil)
                     :search (case sub-type
-                              :user ["SELECT user.* FROM 
-                                     FT_SEARCH_DATA(?, 0, 0) ft, user 
+                              :user ["SELECT user.* 
+                                     FROM FT_SEARCH_DATA(?, 0, 0) ft, user 
                                      WHERE ft.TABLE = 'USER' 
                                      AND user.id = ft.KEYS[0] 
                                      ORDER BY user.time DESC"
                                      (get params :query)]
-                              :post ["SELECT post.* FROM 
-                                     FT_SEARCH_DATA(?, 0, 0) ft, post 
+                              :post ["SELECT post.*, user.title AS subtitle 
+                                     FROM FT_SEARCH_DATA(?, 0, 0) ft, post 
+                                     LEFT JOIN user 
+                                     ON post.userhash = user.userhash 
                                      WHERE ft.TABLE='POST' 
                                      AND post.id = ft.KEYS[0] 
                                      AND post.status = 1 

@@ -28,7 +28,7 @@
 
 (defn stop-service
   [context]
-  (if-let [service (get @(.state context) :service)]
+  (when-let [service (get @(.state context) :service)]
     (unbind-service context service)))
 
 (defn start-receiver
@@ -41,10 +41,20 @@
                        (android.content.IntentFilter. receiver-name))
     (swap! (.state context) assoc receiver-name receiver)))
 
+(defn start-local-receiver
+  [context receiver-name func]
+  (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
+      (start-receiver receiver-name func)))
+
 (defn stop-receiver
   [context receiver-name]
-  (if-let [receiver (get @(.state context) receiver-name)]
+  (when-let [receiver (get @(.state context) receiver-name)]
     (.unregisterReceiver context receiver)))
+
+(defn stop-local-receiver
+  [context receiver-name]
+  (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
+      (stop-receiver receiver-name)))
 
 (defn send-broadcast
   [context params action-name]
@@ -52,6 +62,11 @@
     (.putExtra intent "params" params)
     (.setAction intent action-name)
     (.sendBroadcast context intent)))
+
+(defn send-local-broadcast
+  [context params action-name]
+  (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
+      (send-broadcast params action-name)))
 
 (defn start-foreground
   [service id notification]

@@ -105,9 +105,9 @@
             (when-not (get item :add-emphasis?)
               (.setTypeface text-top android.graphics.Typeface/DEFAULT)
               (.setGravity text-top android.view.Gravity/LEFT))
-            (if-let [background (get item :background)]
-              (.setBackgroundResource image-view background)
-              (.setBackground image-view nil))
+            (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
+            (when-let [background (get item :background)]
+              (.setBackgroundResource image-view background))
             (let [pic-hash-str (base32-encode (get item :pichash))]
               (.setTag image-view pic-hash-str)
               (.setImageBitmap image-view nil)
@@ -370,18 +370,20 @@
 
 (defn create-tab
   [action-bar title create-view]
-  (let [tab (.newTab action-bar)
-        fragment (proxy [android.app.Fragment] []
-                   (onCreateView [layout-inflater viewgroup bundle]
-                     (create-view)))
-        listener (proxy [android.app.ActionBar$TabListener] []
-                   (onTabSelected [tab ft]
-                     (.add ft (get-resource :id :android/content) fragment))
-                   (onTabUnselected [tab ft]
-                     (.remove ft fragment))
-                   (onTabReselected [tab ft]
-                     (.detach ft fragment)
-                     (.attach ft fragment)))]
-    (.setText tab title)
-    (.setTabListener tab listener)
-    (.addTab action-bar tab)))
+  (try
+    (let [tab (.newTab action-bar)
+          fragment (proxy [android.app.Fragment] []
+                     (onCreateView [layout-inflater viewgroup bundle]
+                       (create-view)))
+          listener (proxy [android.app.ActionBar$TabListener] []
+                     (onTabSelected [tab ft]
+                       (.add ft (get-resource :id :android/content) fragment))
+                     (onTabUnselected [tab ft]
+                       (.remove ft fragment))
+                     (onTabReselected [tab ft]
+                       (.detach ft fragment)
+                       (.attach ft fragment)))]
+      (.setText tab title)
+      (.setTabListener tab listener)
+      (.addTab action-bar tab))
+    (catch java.lang.Exception e nil)))

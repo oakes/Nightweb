@@ -53,7 +53,9 @@
                        (proxy [android.view.View$OnClickListener] []
                          (onClick [v]
                            (when (func context view button)
-                             (.dismiss dialog)))))]
+                             (try
+                               (.dismiss dialog)
+                               (catch java.lang.Exception e nil))))))]
       (.setOnShowListener
         dialog
         (proxy [android.content.DialogInterface$OnShowListener] []

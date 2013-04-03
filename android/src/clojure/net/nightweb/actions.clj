@@ -5,7 +5,6 @@
         [neko.find-view :only [find-view]]
         [neko.notify :only [toast]]
         [net.clandroid.activity :only [set-state get-state]]
-        [net.clandroid.service :only [send-broadcast]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    get-resample-ratio
@@ -116,7 +115,9 @@
       (future
         (let [should-refresh? (func)]
           (on-ui
-            (.dismiss spinner)
+            (try
+              (.dismiss spinner)
+              (catch java.lang.Exception e nil))
             (when should-refresh? (.recreate context))))))))
 
 (defn show-categories
