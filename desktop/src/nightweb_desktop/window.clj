@@ -1,8 +1,7 @@
 (ns nightweb-desktop.window
   (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox Priority)
-           (javafx.scene.control TabPane Tab)
-           javafx.collections.ListChangeListener)
+           (javafx.scene.control TabPane Tab))
   (:use [nightweb-desktop.browser :only [create-tab]]))
 
 (defn add-tab
@@ -26,7 +25,7 @@
       (.add (.getTabs tab-bar) plus-tab)
       (jfx/defhandler :onSelectionChanged plus-tab (add-tab tab-bar))
       (.addListener (.getTabs tab-bar)
-                    (reify ListChangeListener
+                    (reify javafx.collections.ListChangeListener
                       (onChanged [this change]
                         (let [tabs (butlast (.getTabs tab-bar))]
                           (doseq [tab tabs]
@@ -36,4 +35,8 @@
       (.setWidth jfx/primary-stage 1024)
       (.setHeight jfx/primary-stage 768)
       (jfx/add window [tab-bar])
-      (jfx/show window))))
+      (jfx/show window)
+      (.setOnCloseRequest jfx/primary-stage
+                          (reify javafx.event.EventHandler
+                            (handle [this event]
+                              (java.lang.System/exit 0)))))))
