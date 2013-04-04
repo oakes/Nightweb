@@ -245,15 +245,15 @@
          ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
           user-hash pic-hash]
          (prepare-results rs :pic)))))
-  ([params ptr-time]
+  ([params ptr-time paginate?]
    (let [user-hash (get params :userhash)
          page (get params :page)]
      (with-connection
        spec
        (with-query-results
          rs
-         [(paginate page
-                    "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?")
+         [(let [sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"]
+            (if paginate? (paginate page sql) sql))
           user-hash ptr-time]
          (prepare-results rs :pic))))))
 

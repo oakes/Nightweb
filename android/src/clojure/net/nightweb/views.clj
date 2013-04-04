@@ -47,6 +47,7 @@
           (pop)
           (conj (assoc content
                        :title (str (get-string :page) " " next-page)
+                       :background (get-resource :drawable :next)
                        :add-emphasis? true
                        :page next-page))))
     results))
@@ -186,7 +187,7 @@
                              (get-single-post-data
                                {:userhash (get post :ptrhash)
                                 :time (get post :ptrtime)}))
-              pics (get-pic-data content (get content :time))
+              pics (get-pic-data content (get content :time) true)
               fav (when-not (is-me? (get content :userhash))
                     (get-single-fav-data content))
               ; create tiles based on the values
@@ -258,7 +259,7 @@
       context
       (get-string :loading)
       (fn []
-        (let [pics (get-pic-data content (get content :ptrtime))]
+        (let [pics (get-pic-data content (get content :ptrtime) false)]
           (on-ui
             (.setAdapter
               view
