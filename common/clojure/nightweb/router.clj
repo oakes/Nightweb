@@ -55,18 +55,19 @@
 (defn user-exists?
   "Checks if we are following this user."
   [user-hash-bytes]
-  (-> (base32-encode user-hash-bytes)
-      (get-user-dir)
-      (file-exists?)
-      (or (is-me? user-hash-bytes))))
+  (let [user-hash-str (base32-encode user-hash-bytes)]
+    (or (file-exists? (get-user-dir user-hash-str))
+        (is-me? user-hash-bytes))))
 
 (defn user-has-content?
   "Checks if we've received anything from this user."
   [user-hash-bytes]
-  (-> (base32-encode user-hash-bytes)
-      (get-meta-torrent-file)
-      (file-exists?)
-      (or (is-me? user-hash-bytes))))
+  (let [user-hash-str (base32-encode user-hash-bytes)
+        meta-torrent-file (get-meta-torrent-file user-hash-str)
+        meta-dir (get-meta-dir user-hash-str)]
+    (or (file-exists? meta-torrent-file)
+        (file-exists? meta-dir)
+        (is-me? user-hash-bytes))))
 
 (defn add-user-and-meta-torrents
   "Starts the user and meta torrent for this user."

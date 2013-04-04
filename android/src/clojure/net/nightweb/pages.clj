@@ -165,10 +165,11 @@
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
           (set-content-view! basic-page view)
-          (if-not (user-exists? (get params :userhash))
-            (show-new-user-dialog this params)
-            (when-not (user-has-content? (get params :userhash))
-              (show-pending-user-dialog this))))))
+          (when (get params :userhash)
+            (if-not (user-exists? (get params :userhash))
+              (show-new-user-dialog this params)
+              (when-not (user-has-content? (get params :userhash))
+                (show-pending-user-dialog this)))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
