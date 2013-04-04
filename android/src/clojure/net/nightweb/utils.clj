@@ -1,5 +1,5 @@
 (ns net.nightweb.utils
-  (:use [clojure.java.io :only [input-stream]]
+  (:use [clojure.java.io :only [input-stream file copy]]
         [nightweb.formats :only [base32-encode]]
         [nightweb.constants :only [slash
                                    get-pic-dir]]))
@@ -59,6 +59,16 @@
           image-format android.graphics.Bitmap$CompressFormat/WEBP]
       (.compress image-bitmap image-format 90 out)
       (.toByteArray out))))
+
+(defn copy-uri-to-path
+  [context uri-str path]
+  "Copies the contents of a URI to a path."
+  (try
+    (let [cr (.getContentResolver context)
+          uri (android.net.Uri/parse uri-str)]
+      (with-open [is (.openInputStream cr uri)]
+        (copy is (file path))))
+    (catch java.lang.Exception e nil)))
 
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."

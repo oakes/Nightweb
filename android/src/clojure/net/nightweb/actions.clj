@@ -10,7 +10,8 @@
                                    get-resample-ratio
                                    uri-to-bitmap
                                    path-to-bitmap
-                                   bitmap-to-byte-array]]
+                                   bitmap-to-byte-array
+                                   copy-uri-to-path]]
         [nightweb.router :only [create-meta-torrent
                                 create-imported-user]]
         [nightweb.io :only [read-file
@@ -218,8 +219,8 @@
   "Creates an encrypted zip file with our content and sends it somewhere."
   [context password]
   (let [path (get-user-dir my-hash-str)
-        ext-dir (android.os.Environment/getExternalStorageDirectory)
-        dest-path (str (.getAbsolutePath ext-dir) slash user-zip-file)]
+        dir (android.os.Environment/getExternalStorageDirectory)
+        dest-path (str (.getAbsolutePath dir) slash user-zip-file)]
     (show-spinner context
                   (get-string :zipping)
                   #(if (zip-dir path dest-path password)
@@ -229,7 +230,13 @@
 (defn unzip-and-save
   "Unzips an encrypted zip file and replaces the current user with it."
   [context password uri-str]
-  (let [path (.getRawPath (java.net.URI. uri-str))
+  (let [
+        path (if (.startsWith uri-str "content://")
+               (let [dir (android.os.Environment/getExternalStorageDirectory)
+                     temp-path (str (.getAbsolutePath dir) slash user-zip-file)]
+                 (copy-uri-to-path context uri-str temp-path)
+                 temp-path)
+               (.getRawPath (java.net.URI. uri-str)))
         dest-path (get-user-dir)]
     (show-spinner context
                   (get-string :unzipping)
