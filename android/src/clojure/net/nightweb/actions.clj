@@ -218,33 +218,37 @@
 (defn zip-and-send
   "Creates an encrypted zip file with our content and sends it somewhere."
   [context password]
-  (let [path (get-user-dir my-hash-str)
-        dir (android.os.Environment/getExternalStorageDirectory)
-        dest-path (str (.getAbsolutePath dir) slash user-zip-file)]
-    (show-spinner context
-                  (get-string :zipping)
-                  #(if (zip-dir path dest-path password)
+  (show-spinner context
+                (get-string :zipping)
+                #(let [path (get-user-dir my-hash-str)
+                       dir (android.os.Environment/getExternalStorageDirectory)
+                       dest-path (-> (.getAbsolutePath dir)
+                                     (str slash user-zip-file))]
+                   ; if zip succeeds, show app chooser, otherwise show error
+                   (if (zip-dir path dest-path password)
                      (send-file context "application/zip" dest-path)
                      (on-ui (toast (get-string :zip_error)))))))
 
 (defn unzip-and-save
   "Unzips an encrypted zip file and replaces the current user with it."
   [context password uri-str]
-  (let [
-        path (if (.startsWith uri-str "content://")
-               (let [dir (android.os.Environment/getExternalStorageDirectory)
-                     temp-path (str (.getAbsolutePath dir) slash user-zip-file)]
-                 (copy-uri-to-path context uri-str temp-path)
-                 temp-path)
-               (.getRawPath (java.net.URI. uri-str)))
-        dest-path (get-user-dir)]
-    (show-spinner context
-                  (get-string :unzipping)
-                  #(if (unzip-dir path dest-path password)
-                     (let [headers (set (get-zip-headers path))
-                           new-dirs (filter (fn [d]
-                                              (contains? headers (str d slash)))
-                                            (list-dir dest-path))]
+  (show-spinner context
+                (get-string :unzipping)
+                #(let [dir (android.os.Environment/getExternalStorageDirectory)
+                       temp-path (-> (.getAbsolutePath dir)
+                                     (str slash user-zip-file))
+                       ; if it's a content URI, copy to root of SD card
+                       path (if (.startsWith uri-str "content://")
+                              (do (copy-uri-to-path context uri-str temp-path)
+                                  temp-path)
+                              (.getRawPath (java.net.URI. uri-str)))
+                       dest-path (get-user-dir)]
+                   ; if unzip succeeds, import user, otherwise show error
+                   (if (unzip-dir path dest-path password)
+                     (let [paths (set (get-zip-headers path))
+                           new-dirs (-> (fn [d] (contains? paths (str d slash)))
+                                        (filter (list-dir dest-path)))]
+                       ; if import succeeds, close dialog, otherwise show error
                        (if (create-imported-user new-dirs)
                          true
                          (on-ui (toast (get-string :import_error)))))

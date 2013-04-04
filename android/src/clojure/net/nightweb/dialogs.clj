@@ -86,7 +86,9 @@
        (.setTitle dialog title)
        (.setMessage dialog message)
        (.setCanceledOnTouchOutside dialog false)
-       (.show dialog))))
+       (try
+         (.show dialog)
+         (catch java.lang.Exception e nil)))))
   ([context message view buttons]
    (let [dialog-fragment (proxy [android.app.DialogFragment] []
                            (onCreate [bundle]
@@ -104,7 +106,9 @@
                            (onCreateDialog [bundle]
                              (proxy-super onCreateDialog bundle)
                              (create-dialog context message view buttons)))]
-     (.show dialog-fragment (.getFragmentManager context) "dialog"))))
+     (try
+       (.show dialog-fragment (.getFragmentManager context) "dialog")
+       (catch java.lang.Exception e nil)))))
 
 (defn show-pending-user-dialog
   [context]
