@@ -11,7 +11,11 @@
                                    uri-to-bitmap
                                    path-to-bitmap
                                    bitmap-to-byte-array
-                                   copy-uri-to-path]]
+                                   copy-uri-to-path
+                                   show-categories
+                                   show-gallery
+                                   show-basic
+                                   show-home]]
         [nightweb.router :only [create-meta-torrent
                                 create-imported-user]]
         [nightweb.io :only [read-file
@@ -71,7 +75,7 @@
     (.startActivityForResult context intent 1)))
 
 (defn receive-result
-  "Runs after one or more files are selected by the user."
+  "Runs after a request returns with a result."
   [context request-code result-code intent]
   (case request-code
     1 (let [callback (get-state context :file-request)
@@ -100,14 +104,6 @@
   [context]
   (set-state context :attachments nil))
 
-(defn show-page
-  "Shows a new activity of the specified type."
-  [context class-name params]
-  (let [class-symbol (java.lang.Class/forName class-name)
-        intent (android.content.Intent. context class-symbol)]
-    (.putExtra intent "params" params)
-    (.startActivity context intent)))
-
 (defn show-spinner
   "Displays a spinner while the specified function runs in a thread."
   [context message func]
@@ -118,24 +114,8 @@
           (on-ui
             (try
               (.dismiss spinner)
-              (catch java.lang.Exception e nil))
-            (when should-refresh? (.recreate context))))))))
-
-(defn show-categories
-  [context content]
-  (show-page context "net.nightweb.CategoryPage" content))
-
-(defn show-gallery
-  [context content]
-  (show-page context "net.nightweb.GalleryPage" content))
-
-(defn show-basic
-  [context content]
-  (show-page context "net.nightweb.BasicPage" content))
-
-(defn show-home
-  [context content]
-  (show-page context "net.nightweb.MainPage" content))
+              (when should-refresh? (.recreate context))
+              (catch java.lang.Exception e nil))))))))
 
 (defn send-post
   "Saves a post to the disk and creates a new meta torrent to share it."

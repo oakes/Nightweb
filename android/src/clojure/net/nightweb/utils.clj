@@ -1,7 +1,8 @@
 (ns net.nightweb.utils
   (:use [markdown.core :only [md-to-html-string]]
         [clojure.java.io :only [input-stream file copy]]
-        [nightweb.formats :only [base32-encode]]
+        [nightweb.formats :only [base32-encode
+                                 url-decode]]
         [nightweb.constants :only [slash
                                    get-pic-dir]]))
 
@@ -88,6 +89,34 @@
       (* number)
       (int)))
 
+(defn show-page
+  "Shows a new activity of the specified type."
+  [context class-name params]
+  (let [class-symbol (java.lang.Class/forName class-name)
+        intent (android.content.Intent. context class-symbol)]
+    (.putExtra intent "params" params)
+    (.startActivity context intent)))
+
+(defn show-categories
+  "Shows the Category page."
+  [context content]
+  (show-page context "net.nightweb.CategoryPage" content))
+
+(defn show-gallery
+  "Shows the Gallery page."
+  [context content]
+  (show-page context "net.nightweb.GalleryPage" content))
+
+(defn show-basic
+  "Shows the Basic page."
+  [context content]
+  (show-page context "net.nightweb.BasicPage" content))
+
+(defn show-home
+  "Shows the Main page."
+  [context content]
+  (show-page context "net.nightweb.MainPage" content))
+
 (def default-text-size 20)
 (def large-text-size 30)
 
@@ -103,21 +132,47 @@
        (into-array android.text.InputFilter)
        (.setFilters view)))
 
+; subclass LinkMovementMethod because it doesn't support text selection
+(do
+  (gen-class
+    :name "net.nightweb.utils.MovementMethod"
+    :extends android.text.method.LinkMovementMethod
+    :prefix "movement-method-"
+    :exposes-methods {canSelectArbitrarily superCanSelectArbitrarily
+                      initialize superInitialize
+                      onTakeFocus superOnTakeFocus
+                      getInstance superGetInstance})
+  (defn movement-method-canSelectArbitrarily
+    [this]
+    true)
+  (defn movement-method-initialize
+    [this widget text]
+    (android.text.Selection/setSelection text 0))
+  (defn movement-method-onTakeFocus
+    [this view text dir]
+    (if (->> (bit-or android.view.View/FOCUS_FORWARD
+                     android.view.View/FOCUS_DOWN)
+             (bit-and dir)
+             (not= 0))
+      (when (nil? (.getLayout view))
+        (android.text.Selection/setSelection text (.length text)))
+      (android.text.Selection/setSelection text (.length text)))))
+
 (defn set-text-content
   "Sets the content of a TextView and formats it if necessary."
-  [view content]
+  [context view content]
   (let [html-text (md-to-html-string content)
         markdown-text (android.text.Html/fromHtml html-text)
-        spannable android.widget.TextView$BufferType/SPANNABLE
-        new-span (proxy [android.text.style.ClickableSpan] []
-                   (onClick [widget]
-                     (println "CLICK")))]
+        spannable android.widget.TextView$BufferType/SPANNABLE]
     (.setText view markdown-text spannable)
-    ;(.setMovementMethod view
-    ;                    (android.text.method.LinkMovementMethod/getInstance))
+    (.setMovementMethod view (net.nightweb.utils.MovementMethod.))
     (doseq [old-span (.getUrls view)]
       (let [text (.getText view)
             start (.getSpanStart text old-span)
-            end (.getSpanEnd text old-span)]
+            end (.getSpanEnd text old-span)
+            new-span (proxy [android.text.style.ClickableSpan] []
+                       (onClick [widget]
+                         (when-let [params (url-decode (.getURL old-span))]
+                           (show-basic context params))))]
         (.removeSpan text old-span)
         (.setSpan text new-span start end 0)))))

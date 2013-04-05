@@ -16,8 +16,7 @@
                                    get-gallery-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [show-page
-                                     receive-result
+        [net.nightweb.actions :only [receive-result
                                      menu-action]]
         [net.nightweb.dialogs :only [show-new-user-dialog
                                      show-pending-user-dialog

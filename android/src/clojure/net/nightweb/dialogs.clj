@@ -114,16 +114,6 @@
   [context]
   (show-dialog context nil (get-string :pending_user)))
 
-(defn show-lost-post-dialog
-  [context]
-  (show-dialog context
-               (get-string :lost_post)
-               nil
-               {:positive-name (get-string :ok)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (.finish context))}))
-
 (defn get-welcome-view
   [context]
   (let [view (make-ui context

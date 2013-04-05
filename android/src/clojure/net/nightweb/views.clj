@@ -2,6 +2,7 @@
   (:use [neko.ui :only [make-ui]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
+        [neko.notify :only [toast]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    path-to-bitmap
@@ -18,8 +19,7 @@
                                      save-profile
                                      cancel
                                      toggle-fav]]
-        [net.nightweb.dialogs :only [show-lost-post-dialog
-                                     show-delete-post-dialog
+        [net.nightweb.dialogs :only [show-delete-post-dialog
                                      show-remove-user-dialog
                                      show-edit-post-dialog
                                      show-profile-dialog]]
@@ -237,8 +237,8 @@
                                 (remove-dupes-and-nils)
                                 (vec))]
           (if (nil? (get post :body))
-            (show-lost-post-dialog context)
-            (on-ui (set-text-content text-view (get post :body))
+            (on-ui (toast (get-string :lost_post)))
+            (on-ui (set-text-content context text-view (get post :body))
                    (let [date-format (java.text.DateFormat/getDateTimeInstance
                                        java.text.DateFormat/MEDIUM
                                        java.text.DateFormat/SHORT)]
