@@ -1,6 +1,5 @@
 (ns net.nightweb.views
-  (:use [markdown.core :only [md-to-html-string]]
-        [neko.ui :only [make-ui]]
+  (:use [neko.ui :only [make-ui]]
         [neko.threading :only [on-ui]]
         [neko.resource :only [get-string get-resource]]
         [net.nightweb.utils :only [full-size
@@ -10,7 +9,8 @@
                                    make-dip
                                    default-text-size
                                    set-text-size
-                                   set-text-max-length]]
+                                   set-text-max-length
+                                   set-text-content]]
         [net.nightweb.actions :only [show-spinner
                                      clear-attachments
                                      send-post
@@ -238,13 +238,10 @@
                                 (vec))]
           (if (nil? (get post :body))
             (show-lost-post-dialog context)
-            (on-ui (let [html-text (md-to-html-string (get post :body))
-                         markdown-text (android.text.Html/fromHtml html-text)
-                         date-format (java.text.DateFormat/getDateTimeInstance
+            (on-ui (set-text-content text-view (get post :body))
+                   (let [date-format (java.text.DateFormat/getDateTimeInstance
                                        java.text.DateFormat/MEDIUM
-                                       java.text.DateFormat/SHORT)
-                         spannable android.widget.TextView$BufferType/SPANNABLE]
-                     (.setText text-view markdown-text spannable)
+                                       java.text.DateFormat/SHORT)]
                      (.setText date-view (->> (get post :time)
                                               (java.util.Date.)
                                               (.format date-format))))

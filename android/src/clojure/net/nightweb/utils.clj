@@ -1,5 +1,6 @@
 (ns net.nightweb.utils
-  (:use [clojure.java.io :only [input-stream file copy]]
+  (:use [markdown.core :only [md-to-html-string]]
+        [clojure.java.io :only [input-stream file copy]]
         [nightweb.formats :only [base32-encode]]
         [nightweb.constants :only [slash
                                    get-pic-dir]]))
@@ -101,3 +102,22 @@
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
        (into-array android.text.InputFilter)
        (.setFilters view)))
+
+(defn set-text-content
+  "Sets the content of a TextView and formats it if necessary."
+  [view content]
+  (let [html-text (md-to-html-string content)
+        markdown-text (android.text.Html/fromHtml html-text)
+        spannable android.widget.TextView$BufferType/SPANNABLE
+        new-span (proxy [android.text.style.ClickableSpan] []
+                   (onClick [widget]
+                     (println "CLICK")))]
+    (.setText view markdown-text spannable)
+    ;(.setMovementMethod view
+    ;                    (android.text.method.LinkMovementMethod/getInstance))
+    (doseq [old-span (.getUrls view)]
+      (let [text (.getText view)
+            start (.getSpanStart text old-span)
+            end (.getSpanEnd text old-span)]
+        (.removeSpan text old-span)
+        (.setSpan text new-span start end 0)))))
