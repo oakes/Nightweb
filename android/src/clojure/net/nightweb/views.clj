@@ -98,6 +98,7 @@
                 text-count (.getChildAt bottom-layout 1)]
             (when not-initialized
               (.setScaleType img android.widget.ImageView$ScaleType/CENTER_CROP)
+              (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom default-text-size)
               (set-text-size text-count default-text-size)
@@ -114,7 +115,6 @@
             (when-not (get item :add-emphasis?)
               (.setTypeface text-top android.graphics.Typeface/DEFAULT)
               (.setGravity text-top android.view.Gravity/LEFT))
-            (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
             (when-let [background (get item :background)]
               (.setBackgroundResource img background))
             (if (nil? (get item :tag))
@@ -126,10 +126,12 @@
             (.setText text-top (or (get item :title)
                                    (get item :body)
                                    (get item :tag)))
-            (when-let [subtitle (get item :subtitle)]
-              (.setText text-bottom subtitle))
-            (when (and (get item :count) (> (get item :count) 0))
-              (.setText text-count (str (get item :count))))
+            (if-let [subtitle (get item :subtitle)]
+              (.setText text-bottom subtitle)
+              (.setText text-bottom nil))
+            (if (and (get item :count) (> (get item :count) 0))
+              (.setText text-count (str (get item :count)))
+              (.setText text-count nil))
             tile-view))))
     (.setOnItemClickListener
       view
