@@ -1,6 +1,7 @@
 (ns net.nightweb.utils
   (:use [markdown.core :only [md-to-html-string]]
         [clojure.java.io :only [input-stream file copy]]
+        [neko.threading :only [on-ui]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
         [nightweb.constants :only [slash
@@ -79,6 +80,18 @@
     (str (get-pic-dir (base32-encode user-hash-bytes))
          slash
          (base32-encode image-hash-bytes))))
+
+(defn load-pic
+  [image-view user-hash pic-hash]
+  (let [pic-hash-str (base32-encode pic-hash)]
+    (.setTag image-view pic-hash-str)
+    (.setImageBitmap image-view nil)
+    (when pic-hash-str
+      (future
+        (let [bitmap (-> (get-pic-path user-hash pic-hash)
+                         (path-to-bitmap thumb-size))]
+          (on-ui (when (= pic-hash-str (.getTag image-view))
+                   (.setImageBitmap image-view bitmap))))))))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."

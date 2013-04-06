@@ -22,7 +22,9 @@
                                    default-text-size
                                    large-text-size
                                    set-text-size
-                                   set-text-max-length]]
+                                   set-text-max-length
+                                   set-text-content]]
+        [nightweb.formats :only [tags-encode]]
         [nightweb.db :only [max-length-small
                             max-length-large
                             get-single-user-data]]
@@ -390,7 +392,11 @@
       (.setHint text-name (get-string :name))
       (.setHint text-body (get-string :about_me)))
     (.setText text-name (get content :title))
-    (.setText text-body (get content :body))
+    (if (is-me? (get content :userhash))
+      (.setText text-body (get content :body))
+      (->> (get content :body)
+           (tags-encode :user)
+           (set-text-content context text-body)))
     (.setText clear-btn (get-string :clear))
     ; set layout params for image view and clear button
     (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
@@ -405,10 +411,11 @@
     (.setTag image-view "profile-image")
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setBackgroundResource image-view (get-resource :drawable :profile))
-    (let [bitmap (-> (get-pic-path (get content :userhash)
-                                   (get content :pichash))
-                     (path-to-bitmap full-size))]
-      (.setImageBitmap image-view bitmap))
+    (future
+      (let [bitmap (-> (get-pic-path (get content :userhash)
+                                     (get content :pichash))
+                       (path-to-bitmap full-size))]
+        (on-ui (.setImageBitmap image-view bitmap))))
     (.addView relative-layout image-view)
     (when (is-me? (get content :userhash))
       (.setOnClickListener

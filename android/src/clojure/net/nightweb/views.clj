@@ -8,6 +8,7 @@
                                    path-to-bitmap
                                    get-pic-path
                                    make-dip
+                                   load-pic
                                    default-text-size
                                    set-text-size
                                    set-text-max-length
@@ -29,9 +30,11 @@
                             get-pic-data
                             get-single-post-data
                             get-single-fav-data
-                            get-category-data]]
+                            get-category-data
+                            get-single-tag-data]]
         [nightweb.formats :only [remove-dupes-and-nils
-                                 base32-encode]]
+                                 base32-encode
+                                 tags-encode]]
         [nightweb.constants :only [is-me?]]))
 
 (def default-tile-width 160)
@@ -81,25 +84,30 @@
                                                     :layout-height 0
                                                     :layout-width :fill
                                                     :layout-weight 1}]
-                                       [:text-view {:text-color white}]]])
+                                       [:linear-layout {:orientation 0}
+                                        [:text-view {:text-color white
+                                                     :layout-weight 1}]
+                                        [:text-view {:text-color white}]]]])
                             convert-view)
                 item (get content position)
-                image-view (.getChildAt tile-view 0)
+                img (.getChildAt tile-view 0)
                 linear-layout (.getChildAt tile-view 1)
                 text-top (.getChildAt linear-layout 0)
-                text-bottom (.getChildAt linear-layout 1)]
+                bottom-layout (.getChildAt linear-layout 1)
+                text-bottom (.getChildAt bottom-layout 0)
+                text-count (.getChildAt bottom-layout 1)]
             (when not-initialized
-              (.setScaleType image-view
-                             android.widget.ImageView$ScaleType/CENTER_CROP)
+              (.setScaleType img android.widget.ImageView$ScaleType/CENTER_CROP)
               (set-text-size text-top default-text-size)
               (set-text-size text-bottom default-text-size)
+              (set-text-size text-count default-text-size)
               (.setLayoutParams tile-view layout-params)
-              (let [pad (make-dip context 5)
+              (let [pad (make-dip context 4)
                     radius (make-dip context 10)
                     black android.graphics.Color/BLACK]
-                (.setPadding linear-layout pad pad pad pad)
-                (.setShadowLayer text-top radius 0 0 black)
-                (.setShadowLayer text-bottom radius 0 0 black)))
+                (doseq [text-view [text-top text-bottom text-count]]
+                  (.setPadding text-view pad pad pad pad)
+                  (.setShadowLayer text-view radius 0 0 black))))
             (when (get item :add-emphasis?)
               (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
               (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
@@ -108,31 +116,26 @@
               (.setGravity text-top android.view.Gravity/LEFT))
             (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
             (when-let [background (get item :background)]
-              (.setBackgroundResource image-view background))
-            (let [pic-hash-str (base32-encode (get item :pichash))]
-              (.setTag image-view pic-hash-str)
-              (.setImageBitmap image-view nil)
-              (when pic-hash-str
-                (future
-                  (let [image-bitmap (-> (get-pic-path (get item :userhash)
-                                                       (get item :pichash))
-                                         (path-to-bitmap thumb-size))]
-                    (on-ui
-                      (when (= pic-hash-str (.getTag image-view))
-                        (.setImageBitmap image-view image-bitmap)))))))
-            (if-let [title (get item :title)]
-              (.setText text-top title)
-              (.setText text-top (get item :body)))
-            (if-let [subtitle (get item :subtitle)]
-              (.setText text-bottom subtitle)
-              (.setVisibility text-bottom android.view.View/GONE))
+              (.setBackgroundResource img background))
+            (if (nil? (get item :tag))
+              (load-pic img (get item :userhash) (get item :pichash))
+              (future
+                (let [tag (get-single-tag-data item)]
+                  (on-ui
+                    (load-pic img (get tag :userhash) (get tag :pichash))))))
+            (.setText text-top (or (get item :title)
+                                   (get item :body)
+                                   (get item :tag)))
+            (when-let [subtitle (get item :subtitle)]
+              (.setText text-bottom subtitle))
+            (when (and (get item :count) (> (get item :count) 0))
+              (.setText text-count (str (get item :count))))
             tile-view))))
     (.setOnItemClickListener
       view
       (proxy [android.widget.AdapterView$OnItemClickListener] []
         (onItemClick [parent v position id]
-          (tile-action context (get content position)))))
-    (.notifyDataSetChanged (.getAdapter view))))
+          (tile-action context (get content position)))))))
 
 (defn get-grid-view
   ([context content] (get-grid-view context content false))
@@ -235,10 +238,11 @@
                                  action-tile]
                                 (concat pics)
                                 (remove-dupes-and-nils)
-                                (vec))]
+                                (vec))
+              body-text (tags-encode :post (get post :body))]
           (if (nil? (get post :body))
             (on-ui (toast (get-string :lost_post)))
-            (on-ui (set-text-content context text-view (get post :body))
+            (on-ui (set-text-content context text-view body-text)
                    (let [date-format (java.text.DateFormat/getDateTimeInstance
                                        java.text.DateFormat/MEDIUM
                                        java.text.DateFormat/SHORT)]
@@ -287,9 +291,7 @@
 
 (defn get-user-view
   [context content]
-  (let [view (make-ui context [:scroll-view {}])
-        grid-view (get-grid-view context [] true)]
-    (.addView view grid-view)
+  (let [grid-view (get-grid-view context [])]
     (show-spinner
       context
       (get-string :loading)
@@ -341,30 +343,41 @@
                                (vec))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    view))
+    grid-view))
 
 (defn get-category-view
   [context content]
-  (let [view (make-ui context [:scroll-view {}])
-        grid-view (get-grid-view context [] true)]
-    (.addView view grid-view)
+  (let [grid-view (get-grid-view context [])]
     (show-spinner
       context
       (get-string :loading)
       (fn []
-        (let [results (for [tile (get-category-data content)]
-                        (case (get tile :type)
-                          :user (assoc tile
-                                       :background
-                                       (get-resource :drawable :profile))
-                          :post (assoc tile
-                                       :background
-                                       (get-resource :drawable :post))
-                          tile))
-              grid-content (add-last-tile content (into [] results))]
+        (let [first-tiles [(when (and (nil? (get content :subtype))
+                                      (nil? (get content :tag))
+                                      (nil? (get content :page)))
+                             {:type :tag
+                              :subtype (get content :type)
+                              :title (get-string :tags)
+                              :add-emphasis? true
+                              :background (get-resource :drawable :tags)})]
+              results (->> (for [tile (get-category-data content)]
+                             (case (get tile :type)
+                               :user (assoc tile
+                                            :background
+                                            (get-resource :drawable :profile))
+                               :post (assoc tile
+                                            :background
+                                            (get-resource :drawable :post))
+                               tile))
+                           (into [])
+                           (add-last-tile content))
+              grid-content (-> first-tiles
+                               (concat results)
+                               (remove-dupes-and-nils)
+                               (vec))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    view))
+    grid-view))
 
 (defn create-tab
   [action-bar title create-view]
