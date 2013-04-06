@@ -462,4 +462,5 @@
     (delete-rows :user ["userhash = ?" user-hash])
     (delete-rows :post ["userhash = ?" user-hash])
     (delete-rows :pic ["userhash = ?" user-hash])
-    (delete-rows :fav ["userhash = ?" user-hash])))
+    (delete-rows :fav ["userhash = ?" user-hash])
+    (delete-rows :tag ["userhash = ?" user-hash])))

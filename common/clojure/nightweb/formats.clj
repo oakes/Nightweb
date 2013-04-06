@@ -121,7 +121,7 @@
 (defn get-tag
   [text-str]
   (when (and text-str (.startsWith text-str "#"))
-    (let [tag (-> (clojure.string/replace text-str #"\p{P}" "")
+    (let [tag (-> (clojure.string/replace text-str #"[\p{P}\t\r\n]" "")
                   (clojure.string/trim))]
       (when (and (>= (count tag) min-tag-length)
                  (not (is-numeric? tag)))
@@ -132,7 +132,7 @@
   (when text-str
     (->> (for [word (clojure.string/split text-str #" ")]
            (if-let [tag (get-tag word)]
-             (str "[" word "](" (url-encode {:type type-name :tag tag}) ")")
+             (str "#[" tag "](" (url-encode {:type type-name :tag tag}) ")")
              word))
          (clojure.string/join " "))))
 
@@ -150,9 +150,9 @@
              "sign_algo" "DSA-SHA1"}))
 
 (defn post-encode
-  [& {:keys [create-time text pic-hashes status ptrhash ptrtime]}]
+  [& {:keys [text pic-hashes status ptrhash ptrtime]}]
   (let [args (merge {"body" text
-                     "mtime" create-time
+                     "mtime" (.getTime (java.util.Date.))
                      "pics" (remove-dupes-and-nils pic-hashes)
                      "status" status}
                     (if ptrhash {"ptrhash" ptrhash} {})

@@ -138,8 +138,7 @@
                                       (path-to-bitmap path full-size))
                                     (bitmap-to-byte-array)
                                     (write-pic-file))))
-                          post (post-encode :create-time create-time
-                                            :text text
+                          post (post-encode :text text
                                             :pic-hashes pic-hashes
                                             :status status
                                             :ptrhash (get pointers :ptrhash)
