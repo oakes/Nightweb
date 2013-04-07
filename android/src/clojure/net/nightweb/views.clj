@@ -73,42 +73,44 @@
         (getItemId [position] 0)
         (getCount [] (count content))
         (getView [position convert-view parent]
-          (let [white android.graphics.Color/WHITE
-                not-initialized (nil? convert-view)
-                tile-view (if not-initialized
+          (let [pad (make-dip context 2)
+                radius (make-dip context 10)
+                black android.graphics.Color/BLACK
+                white android.graphics.Color/WHITE
+                end android.text.TextUtils$TruncateAt/END
+                not-initialized? (nil? convert-view)
+                tile-view (if not-initialized?
                             (make-ui context
                                      [:frame-layout {}
                                       [:image-view {}]
                                       [:linear-layout {:orientation 1}
-                                       [:text-view {:text-color white
-                                                    :layout-height 0
-                                                    :layout-width :fill
-                                                    :layout-weight 1}]
+                                       [:text-view {:text-color white}]
+                                       [:text-view {:layout-weight 1}]
                                        [:linear-layout {:orientation 0}
                                         [:text-view {:text-color white
-                                                     :layout-weight 1}]
+                                                     :single-line true
+                                                     :layout-weight 1
+                                                     :ellipsize end}]
                                         [:text-view {:text-color white}]]]])
                             convert-view)
                 item (get content position)
                 img (.getChildAt tile-view 0)
                 linear-layout (.getChildAt tile-view 1)
                 text-top (.getChildAt linear-layout 0)
-                bottom-layout (.getChildAt linear-layout 1)
+                text-spacer (.getChildAt linear-layout 1)
+                bottom-layout (.getChildAt linear-layout 2)
                 text-bottom (.getChildAt bottom-layout 0)
-                text-count (.getChildAt bottom-layout 1)]
-            (when not-initialized
+                text-count (.getChildAt bottom-layout 1)
+                dip-text-size (make-dip context default-text-size)]
+            (when not-initialized?
               (.setScaleType img android.widget.ImageView$ScaleType/CENTER_CROP)
               (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
-              (set-text-size text-top default-text-size)
-              (set-text-size text-bottom default-text-size)
-              (set-text-size text-count default-text-size)
               (.setLayoutParams tile-view layout-params)
-              (let [pad (make-dip context 4)
-                    radius (make-dip context 10)
-                    black android.graphics.Color/BLACK]
-                (doseq [text-view [text-top text-bottom text-count]]
-                  (.setPadding text-view pad pad pad pad)
-                  (.setShadowLayer text-view radius 0 0 black))))
+              (.setPadding text-spacer (- pad) (- pad) (- pad) (- pad))
+              (doseq [text-view [text-top text-bottom text-count]]
+                (set-text-size text-view default-text-size)
+                (.setPadding text-view pad pad pad pad)
+                (.setShadowLayer text-view radius 0 0 black)))
             (when (get item :add-emphasis?)
               (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
               (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
@@ -126,12 +128,23 @@
             (.setText text-top (or (get item :title)
                                    (get item :body)
                                    (get item :tag)))
-            (if-let [subtitle (get item :subtitle)]
-              (.setText text-bottom subtitle)
-              (.setText text-bottom nil))
-            (if (and (get item :count) (> (get item :count) 0))
-              (.setText text-count (str (get item :count)))
+            (.setText text-bottom (get item :subtitle))
+            (if-let [item-count (get item :count)]
+              (.setText text-count (if (> item-count 0) (str item-count) nil))
               (.setText text-count nil))
+            (if (or (> (.length (.getText text-bottom)) 0)
+                    (> (.length (.getText text-count)) 0))
+              (.setVisibility bottom-layout android.view.View/VISIBLE)
+              (.setVisibility bottom-layout android.view.View/GONE))
+            (.setMaxLines text-top
+                          (-> (- tile-view-width pad pad)
+                              (- (if (= (.getVisibility bottom-layout)
+                                        android.view.View/VISIBLE)
+                                   (+ dip-text-size pad pad)
+                                   0))
+                              (/ dip-text-size)
+                              (- 1)
+                              (int)))
             tile-view))))
     (.setOnItemClickListener
       view
