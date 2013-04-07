@@ -8,7 +8,7 @@
                                    path-to-bitmap
                                    get-pic-path
                                    make-dip
-                                   load-pic
+                                   create-tile-image
                                    default-text-size
                                    set-text-size
                                    set-text-max-length
@@ -58,120 +58,114 @@
 (defn set-grid-view-tiles
   "Sets the content in the given grid view."
   [context content view]
-  (let [num-columns (.getNumColumns view)
+  (let [num-columns (.getColumnCount view)
         width (.getWidth view)
         tile-view-width (if (and (> width 0) (> num-columns 0))
                           (int (/ width num-columns))
                           (make-dip context default-tile-width))
         layout-params (android.widget.AbsListView$LayoutParams.
                                                   tile-view-width
-                                                  tile-view-width)]
-    (.setAdapter
-      view
-      (proxy [android.widget.BaseAdapter] []
-        (getItem [position] (get content position))
-        (getItemId [position] 0)
-        (getCount [] (count content))
-        (getView [position convert-view parent]
-          (let [pad (make-dip context 2)
-                radius (make-dip context 10)
-                black android.graphics.Color/BLACK
-                white android.graphics.Color/WHITE
-                end android.text.TextUtils$TruncateAt/END
-                not-initialized? (nil? convert-view)
-                tile-view (if not-initialized?
-                            (make-ui context
-                                     [:frame-layout {}
-                                      [:image-view {}]
-                                      [:linear-layout {:orientation 1}
-                                       [:text-view {:text-color white}]
-                                       [:text-view {:layout-weight 1}]
-                                       [:linear-layout {:orientation 0}
-                                        [:text-view {:text-color white
-                                                     :single-line true
-                                                     :layout-weight 1
-                                                     :ellipsize end}]
-                                        [:text-view {:text-color white}]]]])
-                            convert-view)
-                item (get content position)
-                img (.getChildAt tile-view 0)
-                linear-layout (.getChildAt tile-view 1)
-                text-top (.getChildAt linear-layout 0)
-                text-spacer (.getChildAt linear-layout 1)
-                bottom-layout (.getChildAt linear-layout 2)
-                text-bottom (.getChildAt bottom-layout 0)
-                text-count (.getChildAt bottom-layout 1)
-                dip-text-size (make-dip context default-text-size)]
-            (when not-initialized?
-              (.setScaleType img android.widget.ImageView$ScaleType/CENTER_CROP)
-              (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
-              (.setLayoutParams tile-view layout-params)
-              (.setPadding text-spacer (- pad) (- pad) (- pad) (- pad))
-              (doseq [text-view [text-top text-bottom text-count]]
-                (set-text-size text-view default-text-size)
-                (.setPadding text-view pad pad pad pad)
-                (.setShadowLayer text-view radius 0 0 black)))
-            (when (get item :add-emphasis?)
-              (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
-              (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
-            (when-not (get item :add-emphasis?)
-              (.setTypeface text-top android.graphics.Typeface/DEFAULT)
-              (.setGravity text-top android.view.Gravity/LEFT))
-            (when-let [background (get item :background)]
-              (.setBackgroundResource img background))
-            (if (nil? (get item :tag))
-              (load-pic img (get item :userhash) (get item :pichash))
-              (future
-                (let [tag (get-single-tag-data item)]
-                  (on-ui
-                    (load-pic img (get tag :userhash) (get tag :pichash))))))
-            (.setText text-top (or (get item :title)
-                                   (get item :body)
-                                   (get item :tag)))
-            (.setText text-bottom (get item :subtitle))
-            (if-let [item-count (get item :count)]
-              (.setText text-count (if (> item-count 0) (str item-count) nil))
-              (.setText text-count nil))
-            (if (or (> (.length (.getText text-bottom)) 0)
-                    (> (.length (.getText text-count)) 0))
-              (.setVisibility bottom-layout android.view.View/VISIBLE)
-              (.setVisibility bottom-layout android.view.View/GONE))
-            (.setMaxLines text-top
-                          (-> (- tile-view-width pad pad)
-                              (- (if (= (.getVisibility bottom-layout)
-                                        android.view.View/VISIBLE)
-                                   (+ dip-text-size pad pad)
-                                   0))
-                              (/ dip-text-size)
-                              (- 1)
-                              (int)))
-            tile-view))))
-    (.setOnItemClickListener
-      view
-      (proxy [android.widget.AdapterView$OnItemClickListener] []
-        (onItemClick [parent v position id]
-          (tile-action context (get content position)))))))
+                                                  tile-view-width)
+        pad (make-dip context 2)
+        radius (make-dip context 10)
+        black android.graphics.Color/BLACK
+        white android.graphics.Color/WHITE
+        end android.text.TextUtils$TruncateAt/END]
+    ; create each tile view and add it to the grid layout
+    (doseq [position (range (count content))]
+      (let [tile-view (make-ui context
+                               [:frame-layout {}
+                                [:image-view {}]
+                                [:linear-layout {:orientation 1}
+                                 [:text-view {:text-color white}]
+                                 [:text-view {:layout-weight 1}]
+                                 [:linear-layout {:orientation 0}
+                                  [:text-view {:text-color white
+                                               :single-line true
+                                               :layout-weight 1
+                                               :ellipsize end}]
+                                  [:text-view {:text-color white}]]]])
+            item (get content position)
+            image-view (.getChildAt tile-view 0)
+            linear-layout (.getChildAt tile-view 1)
+            text-top (.getChildAt linear-layout 0)
+            text-spacer (.getChildAt linear-layout 1)
+            bottom-layout (.getChildAt linear-layout 2)
+            text-bottom (.getChildAt bottom-layout 0)
+            text-count (.getChildAt bottom-layout 1)
+            dip-text-size (make-dip context default-text-size)]
+        (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
+        (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
+        (.setLayoutParams tile-view layout-params)
+        (.setPadding text-spacer (- pad) (- pad) (- pad) (- pad))
+        (doseq [text-view [text-top text-bottom text-count]]
+          (set-text-size text-view default-text-size)
+          (.setPadding text-view pad pad pad pad)
+          (.setShadowLayer text-view radius 0 0 black))
+        (if (get item :add-emphasis?)
+          (do
+            (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
+            (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
+          (do
+            (.setTypeface text-top android.graphics.Typeface/DEFAULT)
+            (.setGravity text-top android.view.Gravity/LEFT)))
+        (when-let [background (get item :background)]
+          (.setBackgroundResource image-view background))
+        (.setText text-top (or (get item :title)
+                               (get item :body)
+                               (get item :tag)))
+        (.setText text-bottom (get item :subtitle))
+        (if-let [item-count (get item :count)]
+          (.setText text-count (if (> item-count 0) (str item-count) nil)))
+        (if (and (= (.length (.getText text-bottom)) 0)
+                 (= (.length (.getText text-count)) 0))
+          (.setVisibility bottom-layout android.view.View/GONE))
+        (.setMaxLines text-top
+                      (-> (- tile-view-width pad pad)
+                          (- (if (= (.getVisibility bottom-layout)
+                                    android.view.View/VISIBLE)
+                               (+ dip-text-size pad pad)
+                               0))
+                          (/ dip-text-size)
+                          (- 1)
+                          (int)))
+        (.setOnClickListener
+          tile-view
+          (proxy [android.view.View$OnClickListener] []
+            (onClick [view]
+              (tile-action context item))))
+        (.addView view tile-view)))
+    ; load images in a separate thread
+    (future
+      (let [drawables (-> (for [item content]
+                            (if (nil? (get item :tag))
+                              (create-tile-image context
+                                                 (get item :userhash)
+                                                 (get item :pichash))
+                              (let [tag (get-single-tag-data item)]
+                                (create-tile-image context
+                                                   (get tag :userhash)
+                                                   (get tag :pichash)))))
+                          (doall)
+                          (vec))]
+        (on-ui
+          (doseq [i (range (count content))]
+            (-> (.getChildAt view i)
+                (.getChildAt 0)
+                (.setImageDrawable (get drawables i)))))))))
 
 (defn get-grid-view
-  ([context content] (get-grid-view context content false))
-  ([context content make-height-fit-content?]
-   (let [tile-view-min (make-dip context default-tile-width)
-         view (proxy [android.widget.GridView] [context]
-                (onMeasure [width-spec height-spec]
-                  (let [w (android.view.View$MeasureSpec/getSize width-spec)
-                        num-columns (int (/ w tile-view-min))]
-                    (.setNumColumns this num-columns))
-                  (if make-height-fit-content?
-                    (let [params (.getLayoutParams this)
-                          size (bit-shift-right java.lang.Integer/MAX_VALUE 2)
-                          mode android.view.View$MeasureSpec/AT_MOST
-                          h-spec (android.view.View$MeasureSpec/makeMeasureSpec
-                                                    size mode)]
-                      (proxy-super onMeasure width-spec h-spec))
-                    (proxy-super onMeasure width-spec height-spec))))]
-     (when (> (count content) 0)
-       (set-grid-view-tiles context content view))
-     view)))
+  [context content]
+  (let [tile-view-min (make-dip context default-tile-width)
+        view (proxy [android.widget.GridLayout] [context]
+               (onMeasure [width-spec height-spec]
+                 (let [w (android.view.View$MeasureSpec/getSize width-spec)
+                       num-columns (int (/ w tile-view-min))]
+                   (.setColumnCount this num-columns))
+                 (proxy-super onMeasure width-spec height-spec)))]
+    (when (> (count content) 0)
+      (set-grid-view-tiles context content view))
+    view))
 
 (defn get-post-view
   [context content]
@@ -183,7 +177,7 @@
         linear-layout (.getChildAt view 0)
         text-view (.getChildAt linear-layout 0)
         date-view (.getChildAt linear-layout 1)
-        grid-view (get-grid-view context [] true)
+        grid-view (get-grid-view context [])
         pad (make-dip context 10)]
     (.setPadding text-view pad pad pad pad)
     (.setPadding date-view pad pad pad pad)
@@ -306,7 +300,9 @@
 
 (defn get-user-view
   [context content]
-  (let [grid-view (get-grid-view context [])]
+  (let [view (make-ui context [:scroll-view {}])
+        grid-view (get-grid-view context [])]
+    (.addView view grid-view)
     (show-spinner
       context
       (get-string :loading)
@@ -358,11 +354,13 @@
                                (vec))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    grid-view))
+    view))
 
 (defn get-category-view
   [context content]
-  (let [grid-view (get-grid-view context [])]
+  (let [view (make-ui context [:scroll-view {}])
+        grid-view (get-grid-view context [])]
+    (.addView view grid-view)
     (show-spinner
       context
       (get-string :loading)
@@ -392,7 +390,7 @@
                                (vec))]
           (on-ui (set-grid-view-tiles context grid-content grid-view)))
         false))
-    grid-view))
+    view))
 
 (defn create-tab
   [action-bar title create-view]

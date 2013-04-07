@@ -1,6 +1,7 @@
 (ns net.nightweb.utils
   (:use [markdown.core :only [md-to-html-string]]
         [clojure.java.io :only [input-stream file copy]]
+        [neko.resource :only [get-resource]]
         [neko.threading :only [on-ui]]
         [nightweb.formats :only [base32-encode
                                  url-decode]]
@@ -22,7 +23,7 @@
         is-too-big? (or (> height-ratio 1) (> width-ratio 1))]
     (when is-valid?
       (if is-too-big?
-        (int (max height-ratio width-ratio))
+        (int (java.lang.Math/ceil (max height-ratio width-ratio)))
         1))))
 
 (defn input-stream-to-bitmap
@@ -81,17 +82,24 @@
          slash
          (base32-encode image-hash-bytes))))
 
-(defn load-pic
-  [image-view user-hash pic-hash]
-  (let [pic-hash-str (base32-encode pic-hash)]
-    (.setTag image-view pic-hash-str)
-    (.setImageBitmap image-view nil)
-    (when pic-hash-str
-      (future
-        (let [bitmap (-> (get-pic-path user-hash pic-hash)
-                         (path-to-bitmap thumb-size))]
-          (on-ui (when (= pic-hash-str (.getTag image-view))
-                   (.setImageBitmap image-view bitmap))))))))
+(defn create-tile-image
+  "Creates a Drawable ready to set in a tile."
+  [context user-hash pic-hash]
+  (let [states (android.graphics.drawable.StateListDrawable.)
+        blue (->> (get-resource :color :android/holo_blue_light)
+                  (.getDrawable (.getResources context)))
+        transparent (->> (get-resource :color :android/transparent)
+                         (.getDrawable (.getResources context)))
+        pressed (get-resource :attr :android/state_pressed)
+        selected (get-resource :attr :android/state_selected)]
+    (.addState states (int-array [pressed]) blue)
+    (.addState states (int-array [selected]) transparent)
+    (when pic-hash
+      (let [bitmap (-> (get-pic-path user-hash pic-hash)
+                       (path-to-bitmap thumb-size)
+                       (android.graphics.drawable.BitmapDrawable.))]
+        (.addState states (int-array []) bitmap)))
+    states))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."
