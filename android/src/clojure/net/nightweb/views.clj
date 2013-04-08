@@ -138,7 +138,7 @@
     (.addView view tile)))
 
 (defn get-grid-view
-  [context content]
+  [context]
   (let [tile-view-min (make-dip context default-tile-width)
         view (proxy [android.widget.GridLayout] [context]
                (onMeasure [width-spec height-spec]
@@ -158,7 +158,7 @@
         linear-layout (.getChildAt view 0)
         text-view (.getChildAt linear-layout 0)
         date-view (.getChildAt linear-layout 1)
-        grid-view (get-grid-view context [])
+        grid-view (get-grid-view context)
         pad (make-dip context 10)]
     (.setPadding text-view pad pad pad pad)
     (.setPadding date-view pad pad pad pad)
@@ -285,7 +285,7 @@
 (defn get-user-view
   [context content]
   (let [view (make-ui context [:scroll-view {}])
-        grid-view (get-grid-view context [])]
+        grid-view (get-grid-view context)]
     (.addView view grid-view)
     (show-spinner
       context
@@ -344,7 +344,7 @@
 (defn get-category-view
   [context content]
   (let [view (make-ui context [:scroll-view {}])
-        grid-view (get-grid-view context [])]
+        grid-view (get-grid-view context)]
     (.addView view grid-view)
     (show-spinner
       context

@@ -12,7 +12,6 @@
         [net.nightweb.main :only [service-name
                                   shutdown-receiver-name]]
         [net.nightweb.views :only [create-tab
-                                   get-grid-view
                                    get-user-view
                                    get-post-view
                                    get-gallery-view
