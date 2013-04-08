@@ -77,6 +77,7 @@
                                   [:image-view {}]
                                   [:linear-layout {:orientation 1}
                                    [:text-view {:text-color white
+                                                :layout-width :fill
                                                 :layout-weight 1}]
                                    [:linear-layout {:orientation 0}
                                     [:text-view {:text-color white
