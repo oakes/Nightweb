@@ -183,7 +183,9 @@
   "Sets the content of a TextView and formats it if necessary."
   [context view content]
   (let [html-text (md-to-html-string content)
-        markdown-text (android.text.Html/fromHtml html-text)
+        markdown-text (try
+                        (android.text.Html/fromHtml html-text)
+                        (catch java.lang.Exception e ""))
         spannable android.widget.TextView$BufferType/SPANNABLE]
     (.setText view markdown-text spannable)
     (.setMovementMethod view (net.nightweb.utils.MovementMethod.))
