@@ -64,8 +64,9 @@
         layout-params (android.widget.AbsListView$LayoutParams.
                                                   tile-view-width
                                                   tile-view-width)
-        pad (make-dip context 2)
+        pad (make-dip context 3)
         radius (make-dip context 10)
+        dip-text-size (make-dip context default-text-size)
         black android.graphics.Color/BLACK
         white android.graphics.Color/WHITE
         end android.text.TextUtils$TruncateAt/END]
@@ -75,8 +76,8 @@
                                  [:frame-layout {}
                                   [:image-view {}]
                                   [:linear-layout {:orientation 1}
-                                   [:text-view {:text-color white}]
-                                   [:text-view {:layout-weight 1}]
+                                   [:text-view {:text-color white
+                                                :layout-weight 1}]
                                    [:linear-layout {:orientation 0}
                                     [:text-view {:text-color white
                                                  :single-line true
@@ -84,18 +85,15 @@
                                                  :ellipsize end}]
                                     [:text-view {:text-color white}]]]])
               item (get content position)
-              image-view (.getChildAt tile-view 0)
+              image (.getChildAt tile-view 0)
               linear-layout (.getChildAt tile-view 1)
               text-top (.getChildAt linear-layout 0)
-              text-spacer (.getChildAt linear-layout 1)
-              bottom-layout (.getChildAt linear-layout 2)
+              bottom-layout (.getChildAt linear-layout 1)
               text-bottom (.getChildAt bottom-layout 0)
-              text-count (.getChildAt bottom-layout 1)
-              dip-text-size (make-dip context default-text-size)]
-          (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
+              text-count (.getChildAt bottom-layout 1)]
+          (.setScaleType image android.widget.ImageView$ScaleType/CENTER_CROP)
           (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
           (.setLayoutParams tile-view layout-params)
-          (.setPadding text-spacer (- pad) (- pad) (- pad) (- pad))
           (doseq [text-view [text-top text-bottom text-count]]
             (set-text-size text-view default-text-size)
             (.setPadding text-view pad pad pad pad)
@@ -108,7 +106,7 @@
               (.setTypeface text-top android.graphics.Typeface/DEFAULT)
               (.setGravity text-top android.view.Gravity/LEFT)))
           (when-let [background (get item :background)]
-            (.setBackgroundResource image-view background))
+            (.setBackgroundResource image background))
           (.setText text-top (or (get item :title)
                                  (get item :body)
                                  (get item :tag)))
@@ -118,16 +116,7 @@
           (if (and (= (.length (.getText text-bottom)) 0)
                    (= (.length (.getText text-count)) 0))
             (.setVisibility bottom-layout android.view.View/GONE))
-          (.setMaxLines text-top
-                        (-> (- tile-view-width pad pad)
-                            (- (if (= (.getVisibility bottom-layout)
-                                      android.view.View/VISIBLE)
-                                 (+ dip-text-size pad pad)
-                                 0))
-                            (/ dip-text-size)
-                            (- 1)
-                            (int)))
-          (.setImageDrawable image-view
+          (.setImageDrawable image
                              (if (nil? (get item :tag))
                                (create-tile-image context
                                                   (get item :userhash)
