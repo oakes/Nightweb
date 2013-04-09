@@ -31,7 +31,7 @@
                       (try
                         (.stopSelf service)
                         (catch java.lang.Exception e nil))))
-    (start-router (.getAbsolutePath (.getFilesDir this)) true))
+    (start-router (.getAbsolutePath (.getFilesDir this)) false))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)
