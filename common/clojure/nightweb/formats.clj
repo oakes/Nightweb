@@ -115,24 +115,28 @@
      :time (when time-val (long-decode time-val))
      :tag tag-val}))
 
-(def min-tag-length 2)
+(def min-tag-length 3)
 (def max-tag-count 20)
 
 (defn get-tag
   [text-str]
-  (when (and text-str (.startsWith text-str "#"))
-    (let [tag (-> (clojure.string/replace text-str #"[\p{P}\t\r\n]" "")
-                  (clojure.string/trim))]
-      (when (and (>= (count tag) min-tag-length)
-                 (not (is-numeric? tag)))
-        (clojure.string/lower-case tag)))))
+  (when text-str
+    (let [tag-parts (vec (clojure.string/split text-str #"[?,;.!\(\)\t\r\n]"))]
+      (if (> (count tag-parts) 1)
+        (clojure.string/join "" (for [part tag-parts] (get-tag part)))
+        (when-let [tag (get tag-parts 0)]
+          (when (and (.startsWith tag "#")
+                     (>= (count tag) min-tag-length)
+                     (not (is-numeric? tag)))
+            (clojure.string/lower-case (subs tag 1))))))))
 
 (defn tags-encode
   [type-name text-str]
   (when text-str
     (->> (for [word (clojure.string/split text-str #" ")]
            (if-let [tag (get-tag word)]
-             (str "#[" tag "](" (url-encode {:type type-name :tag tag}) ")")
+             (->> (str "[" tag "](" (url-encode {:type type-name :tag tag}) ")")
+                  (clojure.string/replace (clojure.string/lower-case word) tag))
              word))
          (clojure.string/join " "))))
 

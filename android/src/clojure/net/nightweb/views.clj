@@ -55,7 +55,7 @@
     results))
 
 (defn create-grid-view-tile
-  [context item layout-params]
+  [context item]
   (let [pad (make-dip context 3)
         radius (make-dip context 10)
         dip-text-size (make-dip context default-text-size)
@@ -83,7 +83,6 @@
         text-count (.getChildAt bottom-layout 1)]
     (.setScaleType image android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setTypeface text-bottom android.graphics.Typeface/DEFAULT_BOLD)
-    (.setLayoutParams tile-view layout-params)
     (doseq [text-view [text-top text-bottom text-count]]
       (set-text-size text-view default-text-size)
       (.setPadding text-view pad pad pad pad)
@@ -129,15 +128,10 @@
           width (.getWidth view)
           tile-view-width (if (and (> width 0) (> num-columns 0))
                             (int (/ width num-columns))
-                            (make-dip context default-tile-width))
-          layout-params (android.view.ViewGroup$LayoutParams.
-                                                tile-view-width
-                                                tile-view-width)]
+                            (make-dip context default-tile-width))]
       (doseq [position (range (count content))]
-        (let [tile (create-grid-view-tile context
-                                          (get content position)
-                                          layout-params)]
-          (on-ui (.addView view tile)))))))
+        (let [tile (create-grid-view-tile context (get content position))]
+          (on-ui (.addView view tile tile-view-width tile-view-width)))))))
 
 (defn get-grid-view
   [context]
