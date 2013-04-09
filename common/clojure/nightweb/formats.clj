@@ -115,36 +115,37 @@
      :time (when time-val (long-decode time-val))
      :tag tag-val}))
 
-(def min-tag-length 3)
+(def min-tag-length 2)
 (def max-tag-count 20)
+(def ignore-chars #"[?,:;.!\(\)\t\r\n ]")
 
 (defn get-tag
   [text-str]
-  (when text-str
-    (let [tag-parts (vec (clojure.string/split text-str #"[?,;.!\(\)\t\r\n]"))]
-      (if (> (count tag-parts) 1)
-        (clojure.string/join "" (for [part tag-parts] (get-tag part)))
-        (when-let [tag (get tag-parts 0)]
-          (when (and (.startsWith tag "#")
-                     (>= (count tag) min-tag-length)
-                     (not (is-numeric? tag)))
-            (clojure.string/lower-case (subs tag 1))))))))
+  (when (and text-str (.startsWith text-str "#"))
+    (let [tag (subs text-str 1)]
+      (when (and (>= (count tag) min-tag-length)
+                 (not (is-numeric? tag)))
+        tag))))
 
 (defn tags-encode
   [type-name text-str]
   (when text-str
-    (->> (for [word (clojure.string/split text-str #" ")]
-           (if-let [tag (get-tag word)]
-             (->> (str "[" tag "](" (url-encode {:type type-name :tag tag}) ")")
-                  (clojure.string/replace (clojure.string/lower-case word) tag))
-             word))
-         (clojure.string/join " "))))
+    (reduce (fn [new-text-str word]
+              (if-let [tag (get-tag word)]
+                (let [lower-case-tag (clojure.string/lower-case tag)
+                      url (url-encode {:type type-name :tag lower-case-tag})
+                      link (str "#[" tag "](" url ")")]
+                  (clojure.string/replace new-text-str (str "#" tag) link))
+                new-text-str))
+            text-str
+            (clojure.string/split text-str ignore-chars))))
 
 (defn tags-decode
   [text-str]
   (when text-str
-    (->> (for [word (clojure.string/split text-str #" ")]
-           (get-tag word))
+    (->> (for [word (clojure.string/split text-str ignore-chars)]
+           (when-let [tag (get-tag word)]
+             (clojure.string/lower-case tag)))
          (remove-dupes-and-nils)
          (take max-tag-count))))
 
