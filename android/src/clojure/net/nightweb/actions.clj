@@ -19,6 +19,7 @@
         [nightweb.router :only [create-meta-torrent
                                 create-imported-user]]
         [nightweb.io :only [read-file
+                            delete-file
                             list-dir
                             get-files-in-uri
                             write-pic-file
@@ -203,6 +204,7 @@
                        dir (android.os.Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str slash user-zip-file))]
+                   (delete-file dest-path)
                    ; if zip succeeds, show app chooser, otherwise show error
                    (if (zip-dir path dest-path password)
                      (send-file context "application/zip" dest-path)
@@ -218,7 +220,8 @@
                                      (str slash user-zip-file))
                        ; if it's a content URI, copy to root of SD card
                        path (if (.startsWith uri-str "content://")
-                              (do (copy-uri-to-path context uri-str temp-path)
+                              (do (delete-file temp-path)
+                                  (copy-uri-to-path context uri-str temp-path)
                                   temp-path)
                               (.getRawPath (java.net.URI. uri-str)))
                        dest-path (get-user-dir)]
