@@ -15,11 +15,12 @@
                                  b-decode-string
                                  b-decode-long
                                  b-decode-list
-                                 b-decode-byte-list]]
+                                 b-decode-byte-list
+                                 tags-decode]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
 (def spec nil)
-(def limit 25)
+(def limit 24)
 
 (def max-length-small 20)
 (def max-length-large 10000)
@@ -95,7 +96,11 @@
   (when-not (check-table :fav)
     (with-connection
       spec
-      (create-generic-table :fav))))
+      (create-generic-table :fav)))
+  (when-not (check-table :tag)
+    (with-connection
+      spec
+      (create-generic-table :tag))))
 
 (defn init-db
   [base-dir]
@@ -180,22 +185,47 @@
   (let [data-type (get params :type)
         sub-type (get params :subtype)
         statement (case data-type
-                    :user ["SELECT * FROM user ORDER BY time DESC"]
-                    :post ["SELECT * FROM post 
-                           WHERE status = 1 ORDER BY time DESC"]
+                    :user (if-let [tag (get params :tag)]
+                            ["SELECT user.* FROM user 
+                             INNER JOIN tag 
+                             ON user.userhash = tag.userhash 
+                             WHERE tag.title = ? 
+                             AND tag.ptrtime IS NULL 
+                             ORDER BY user.time DESC" tag]
+                            ["SELECT * FROM user ORDER BY time DESC"])
+                    :post (if-let [tag (get params :tag)]
+                            ["SELECT post.*, user.title AS subtitle FROM post 
+                             INNER JOIN tag
+                             ON post.userhash = tag.userhash
+                             AND post.time = tag.ptrtime 
+                             LEFT JOIN user 
+                             ON post.userhash = user.userhash 
+                             WHERE post.status = 1 
+                             AND tag.title = ? 
+                             ORDER BY post.time DESC" tag]
+                            ["SELECT post.*, user.title AS subtitle FROM post 
+                             LEFT JOIN user 
+                             ON post.userhash = user.userhash 
+                             WHERE post.status = 1 
+                             ORDER BY post.time DESC"])
                     :fav (case sub-type
                            :user ["SELECT fav.ptrhash AS userhash, user.* 
-                                  FROM fav LEFT JOIN user 
+                                  FROM fav 
+                                  LEFT JOIN user 
                                   ON fav.ptrhash = user.userhash 
                                   WHERE fav.userhash = ? 
                                   AND fav.status = 1 
                                   AND fav.ptrtime IS NULL 
                                   ORDER BY fav.mtime DESC"
                                   (get params :userhash)]
-                           :post ["SELECT fav.ptrhash AS userhash, post.* 
-                                  FROM fav LEFT JOIN post 
+                           :post ["SELECT fav.ptrhash AS userhash, post.*, 
+                                  user.title AS subtitle 
+                                  FROM fav 
+                                  LEFT JOIN post 
                                   ON fav.ptrhash = post.userhash 
                                   AND fav.ptrtime = post.time 
+                                  LEFT JOIN user 
+                                  ON post.userhash = user.userhash 
                                   WHERE fav.userhash = ? 
                                   AND fav.status = 1 
                                   AND post.status = 1 
@@ -203,20 +233,36 @@
                                   (get params :userhash)]
                            nil)
                     :search (case sub-type
-                              :user ["SELECT user.* FROM 
-                                     FT_SEARCH_DATA(?, 0, 0) ft, user 
+                              :user ["SELECT user.* 
+                                     FROM FT_SEARCH_DATA(?, 0, 0) ft, user 
                                      WHERE ft.TABLE = 'USER' 
                                      AND user.id = ft.KEYS[0] 
                                      ORDER BY user.time DESC"
                                      (get params :query)]
-                              :post ["SELECT post.* FROM 
-                                     FT_SEARCH_DATA(?, 0, 0) ft, post 
+                              :post ["SELECT post.*, user.title AS subtitle 
+                                     FROM FT_SEARCH_DATA(?, 0, 0) ft, post 
+                                     LEFT JOIN user 
+                                     ON post.userhash = user.userhash 
                                      WHERE ft.TABLE='POST' 
                                      AND post.id = ft.KEYS[0] 
                                      AND post.status = 1 
                                      ORDER BY post.time DESC"
                                      (get params :query)]
-                              nil))]
+                              nil)
+                    :tag (case sub-type
+                           :user ["SELECT title AS tag, 
+                                  COUNT(*) AS count 
+                                  FROM tag 
+                                  WHERE ptrtime IS NULL 
+                                  GROUP BY title 
+                                  ORDER BY count DESC"]
+                           :post ["SELECT title AS tag, 
+                                  COUNT(*) AS count 
+                                  FROM tag 
+                                  WHERE ptrtime IS NOT NULL 
+                                  GROUP BY title 
+                                  ORDER BY count DESC"]
+                           nil))]
     (when statement
       (with-connection
         spec
@@ -225,6 +271,31 @@
           (vec (concat [(paginate (get params :page) (first statement))]
                        (rest statement)))
           (prepare-results rs (or sub-type data-type)))))))
+
+(defn get-single-tag-data
+  [params]
+  (let [tag (get params :tag)
+        statement (case (get params :type)
+                    :user ["SELECT * FROM tag 
+                           WHERE title = ? 
+                           AND pichash IS NOT NULL 
+                           AND ptrtime IS NULL 
+                           ORDER BY mtime DESC 
+                           LIMIT 1" tag]
+                    :post ["SELECT * FROM tag 
+                           WHERE title = ? 
+                           AND pichash IS NOT NULL 
+                           AND ptrtime IS NOT NULL 
+                           ORDER BY mtime DESC 
+                           LIMIT 1" tag]
+                    nil)]
+    (when statement
+      (with-connection
+        spec
+        (with-query-results
+          rs
+          statement
+          (first (prepare-results rs :tag)))))))
 
 (defn get-pic-data
   ([params]
@@ -237,19 +308,43 @@
          ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
           user-hash pic-hash]
          (prepare-results rs :pic)))))
-  ([params ptr-time]
+  ([params ptr-time paginate?]
    (let [user-hash (get params :userhash)
          page (get params :page)]
      (with-connection
        spec
        (with-query-results
          rs
-         [(paginate page
-                    "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?")
+         [(let [sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"]
+            (if paginate? (paginate page sql) sql))
           user-hash ptr-time]
          (prepare-results rs :pic))))))
 
 ; insertion / removal
+
+(defn insert-tag-list
+  [user-hash ptr-time edit-time args]
+  (let [tags (tags-decode (b-decode-string (get args "body")))
+        pics (b-decode-list (get args "pics"))
+        pic-hash (b-decode-bytes (get pics 0))]
+    (with-connection
+      spec
+      (delete-rows
+        :tag
+        ["userhash = ? AND ptrtime IS ? AND mtime < ?"
+         user-hash ptr-time edit-time])
+      (doseq [tag tags]
+        (update-or-insert-values
+          :tag
+          ["title = ? AND userhash = ? AND ptrtime IS ?"
+           tag user-hash ptr-time]
+          {:realuserhash user-hash
+           :userhash user-hash
+           :title tag
+           :mtime edit-time
+           :ptrtime ptr-time
+           :pichash pic-hash})))
+    tags))
 
 (defn insert-pic-list
   [user-hash ptr-time edit-time args]
@@ -276,7 +371,8 @@
 (defn insert-profile
   [user-hash args]
   (let [edit-time (b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash nil edit-time args)]
+        pics (insert-pic-list user-hash nil edit-time args)
+        tags (insert-tag-list user-hash nil edit-time args)]
     (when (and edit-time
                (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
@@ -299,7 +395,8 @@
 (defn insert-post
   [user-hash post-time args]
   (let [edit-time (b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash post-time edit-time args)]
+        pics (insert-pic-list user-hash post-time edit-time args)
+        tags (insert-tag-list user-hash post-time edit-time args)]
     (when (and post-time
                (<= post-time (.getTime (java.util.Date.)))
                edit-time
@@ -365,4 +462,5 @@
     (delete-rows :user ["userhash = ?" user-hash])
     (delete-rows :post ["userhash = ?" user-hash])
     (delete-rows :pic ["userhash = ?" user-hash])
-    (delete-rows :fav ["userhash = ?" user-hash])))
+    (delete-rows :fav ["userhash = ?" user-hash])
+    (delete-rows :tag ["userhash = ?" user-hash])))

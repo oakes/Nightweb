@@ -1,7 +1,7 @@
 (ns net.nightweb.menus
   (:use [neko.resource :only [get-string get-resource]]
-        [net.nightweb.actions :only [share-url
-                                     show-categories]]
+        [net.nightweb.actions :only [share-url]]
+        [net.nightweb.utils :only [show-categories]]
         [net.nightweb.dialogs :only [show-new-post-dialog]]))
 
 (defn create-main-menu

@@ -1,6 +1,10 @@
 (ns net.nightweb.utils
-  (:use [clojure.java.io :only [input-stream]]
-        [nightweb.formats :only [base32-encode]]
+  (:use [markdown.core :only [md-to-html-string]]
+        [clojure.java.io :only [input-stream file copy]]
+        [neko.resource :only [get-resource]]
+        [neko.threading :only [on-ui]]
+        [nightweb.formats :only [base32-encode
+                                 url-decode]]
         [nightweb.constants :only [slash
                                    get-pic-dir]]))
 
@@ -19,7 +23,7 @@
         is-too-big? (or (> height-ratio 1) (> width-ratio 1))]
     (when is-valid?
       (if is-too-big?
-        (int (max height-ratio width-ratio))
+        (int (java.lang.Math/ceil (max height-ratio width-ratio)))
         1))))
 
 (defn input-stream-to-bitmap
@@ -60,6 +64,16 @@
       (.compress image-bitmap image-format 90 out)
       (.toByteArray out))))
 
+(defn copy-uri-to-path
+  [context uri-str path]
+  "Copies the contents of a URI to a path."
+  (try
+    (let [cr (.getContentResolver context)
+          uri (android.net.Uri/parse uri-str)]
+      (with-open [is (.openInputStream cr uri)]
+        (copy is (file path))))
+    (catch java.lang.Exception e nil)))
+
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."
   [user-hash-bytes image-hash-bytes]
@@ -67,6 +81,25 @@
     (str (get-pic-dir (base32-encode user-hash-bytes))
          slash
          (base32-encode image-hash-bytes))))
+
+(defn create-tile-image
+  "Creates a Drawable ready to set in a tile."
+  [context user-hash pic-hash]
+  (let [states (android.graphics.drawable.StateListDrawable.)
+        blue (->> (get-resource :color :android/holo_blue_light)
+                  (.getDrawable (.getResources context)))
+        transparent (->> (get-resource :color :android/transparent)
+                         (.getDrawable (.getResources context)))
+        pressed (get-resource :attr :android/state_pressed)
+        selected (get-resource :attr :android/state_selected)]
+    (.addState states (int-array [pressed]) blue)
+    (.addState states (int-array [selected]) transparent)
+    (when pic-hash
+      (let [bitmap (-> (get-pic-path user-hash pic-hash)
+                       (path-to-bitmap thumb-size)
+                       (android.graphics.drawable.BitmapDrawable.))]
+        (.addState states (int-array []) bitmap)))
+    states))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."
@@ -76,6 +109,34 @@
       (.density)
       (* number)
       (int)))
+
+(defn show-page
+  "Shows a new activity of the specified type."
+  [context class-name params]
+  (let [class-symbol (java.lang.Class/forName class-name)
+        intent (android.content.Intent. context class-symbol)]
+    (.putExtra intent "params" params)
+    (.startActivity context intent)))
+
+(defn show-categories
+  "Shows the Category page."
+  [context content]
+  (show-page context "net.nightweb.CategoryPage" content))
+
+(defn show-gallery
+  "Shows the Gallery page."
+  [context content]
+  (show-page context "net.nightweb.GalleryPage" content))
+
+(defn show-basic
+  "Shows the Basic page."
+  [context content]
+  (show-page context "net.nightweb.BasicPage" content))
+
+(defn show-home
+  "Shows the Main page."
+  [context content]
+  (show-page context "net.nightweb.MainPage" content))
 
 (def default-text-size 20)
 (def large-text-size 30)
@@ -91,3 +152,50 @@
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
        (into-array android.text.InputFilter)
        (.setFilters view)))
+
+; subclass LinkMovementMethod because it doesn't support text selection
+(do
+  (gen-class
+    :name "net.nightweb.utils.MovementMethod"
+    :extends android.text.method.LinkMovementMethod
+    :prefix "movement-method-"
+    :exposes-methods {canSelectArbitrarily superCanSelectArbitrarily
+                      initialize superInitialize
+                      onTakeFocus superOnTakeFocus
+                      getInstance superGetInstance})
+  (defn movement-method-canSelectArbitrarily
+    [this]
+    true)
+  (defn movement-method-initialize
+    [this widget text]
+    (android.text.Selection/setSelection text 0))
+  (defn movement-method-onTakeFocus
+    [this view text dir]
+    (if (->> (bit-or android.view.View/FOCUS_FORWARD
+                     android.view.View/FOCUS_DOWN)
+             (bit-and dir)
+             (not= 0))
+      (when (nil? (.getLayout view))
+        (android.text.Selection/setSelection text (.length text)))
+      (android.text.Selection/setSelection text (.length text)))))
+
+(defn set-text-content
+  "Sets the content of a TextView and formats it if necessary."
+  [context view content]
+  (let [html-text (md-to-html-string content)
+        markdown-text (try
+                        (android.text.Html/fromHtml html-text)
+                        (catch java.lang.Exception e ""))
+        spannable android.widget.TextView$BufferType/SPANNABLE]
+    (.setText view markdown-text spannable)
+    (.setMovementMethod view (net.nightweb.utils.MovementMethod.))
+    (doseq [old-span (.getUrls view)]
+      (let [text (.getText view)
+            start (.getSpanStart text old-span)
+            end (.getSpanEnd text old-span)
+            new-span (proxy [android.text.style.ClickableSpan] []
+                       (onClick [widget]
+                         (when-let [params (url-decode (.getURL old-span))]
+                           (show-basic context params))))]
+        (.removeSpan text old-span)
+        (.setSpan text new-span start end 0)))))

@@ -5,16 +5,21 @@
         [neko.find-view :only [find-view]]
         [neko.notify :only [toast]]
         [net.clandroid.activity :only [set-state get-state]]
-        [net.clandroid.service :only [send-broadcast]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    get-resample-ratio
                                    uri-to-bitmap
                                    path-to-bitmap
-                                   bitmap-to-byte-array]]
+                                   bitmap-to-byte-array
+                                   copy-uri-to-path
+                                   show-categories
+                                   show-gallery
+                                   show-basic
+                                   show-home]]
         [nightweb.router :only [create-meta-torrent
                                 create-imported-user]]
         [nightweb.io :only [read-file
+                            delete-file
                             list-dir
                             get-files-in-uri
                             write-pic-file
@@ -71,7 +76,7 @@
     (.startActivityForResult context intent 1)))
 
 (defn receive-result
-  "Runs after one or more files are selected by the user."
+  "Runs after a request returns with a result."
   [context request-code result-code intent]
   (case request-code
     1 (let [callback (get-state context :file-request)
@@ -100,14 +105,6 @@
   [context]
   (set-state context :attachments nil))
 
-(defn show-page
-  "Shows a new activity of the specified type."
-  [context class-name params]
-  (let [class-symbol (java.lang.Class/forName class-name)
-        intent (android.content.Intent. context class-symbol)]
-    (.putExtra intent "params" params)
-    (.startActivity context intent)))
-
 (defn show-spinner
   "Displays a spinner while the specified function runs in a thread."
   [context message func]
@@ -116,24 +113,10 @@
       (future
         (let [should-refresh? (func)]
           (on-ui
-            (.dismiss spinner)
-            (when should-refresh? (.recreate context))))))))
-
-(defn show-categories
-  [context content]
-  (show-page context "net.nightweb.CategoryPage" content))
-
-(defn show-gallery
-  [context content]
-  (show-page context "net.nightweb.GalleryPage" content))
-
-(defn show-basic
-  [context content]
-  (show-page context "net.nightweb.BasicPage" content))
-
-(defn show-home
-  [context content]
-  (show-page context "net.nightweb.MainPage" content))
+            (try
+              (.dismiss spinner)
+              (when should-refresh? (.recreate context))
+              (catch java.lang.Exception e nil))))))))
 
 (defn send-post
   "Saves a post to the disk and creates a new meta torrent to share it."
@@ -156,8 +139,7 @@
                                       (path-to-bitmap path full-size))
                                     (bitmap-to-byte-array)
                                     (write-pic-file))))
-                          post (post-encode :create-time create-time
-                                            :text text
+                          post (post-encode :text text
                                             :pic-hashes pic-hashes
                                             :status status
                                             :ptrhash (get pointers :ptrhash)
@@ -216,27 +198,38 @@
 (defn zip-and-send
   "Creates an encrypted zip file with our content and sends it somewhere."
   [context password]
-  (let [path (get-user-dir my-hash-str)
-        ext-dir (android.os.Environment/getExternalStorageDirectory)
-        dest-path (str (.getAbsolutePath ext-dir) slash user-zip-file)]
-    (show-spinner context
-                  (get-string :zipping)
-                  #(if (zip-dir path dest-path password)
+  (show-spinner context
+                (get-string :zipping)
+                #(let [path (get-user-dir my-hash-str)
+                       dir (android.os.Environment/getExternalStorageDirectory)
+                       dest-path (-> (.getAbsolutePath dir)
+                                     (str slash user-zip-file))]
+                   (delete-file dest-path)
+                   ; if zip succeeds, show app chooser, otherwise show error
+                   (if (zip-dir path dest-path password)
                      (send-file context "application/zip" dest-path)
                      (on-ui (toast (get-string :zip_error)))))))
 
 (defn unzip-and-save
   "Unzips an encrypted zip file and replaces the current user with it."
   [context password uri-str]
-  (let [path (.getRawPath (java.net.URI. uri-str))
-        dest-path (get-user-dir)]
-    (show-spinner context
-                  (get-string :unzipping)
-                  #(if (unzip-dir path dest-path password)
-                     (let [headers (set (get-zip-headers path))
-                           new-dirs (filter (fn [d]
-                                              (contains? headers (str d slash)))
-                                            (list-dir dest-path))]
+  (show-spinner context
+                (get-string :unzipping)
+                #(let [dir (android.os.Environment/getExternalStorageDirectory)
+                       temp-path (-> (.getAbsolutePath dir)
+                                     (str slash user-zip-file))
+                       ; if it's a content URI, copy to root of SD card
+                       path (if (.startsWith uri-str "content://")
+                              (do (copy-uri-to-path context uri-str temp-path)
+                                  temp-path)
+                              (.getRawPath (java.net.URI. uri-str)))
+                       dest-path (get-user-dir)]
+                   ; if unzip succeeds, import user, otherwise show error
+                   (if (unzip-dir path dest-path password)
+                     (let [paths (set (get-zip-headers path))
+                           new-dirs (-> (fn [d] (contains? paths (str d slash)))
+                                        (filter (list-dir dest-path)))]
+                       ; if import succeeds, close dialog, otherwise show error
                        (if (create-imported-user new-dirs)
                          true
                          (on-ui (toast (get-string :import_error)))))

@@ -1,6 +1,8 @@
 (ns net.nightweb.pages
-  (:use [neko.resource :only [get-resource get-string]]
-        [neko.activity :only [set-content-view!]]
+  (:use [neko.activity :only [set-content-view!]]
+        [neko.threading :only [on-ui]]
+        [neko.resource :only [get-resource get-string]]
+        [neko.notify :only [toast]]
         [net.clandroid.activity :only [set-state
                                        defactivity]]
         [net.clandroid.service :only [start-service
@@ -10,14 +12,12 @@
         [net.nightweb.main :only [service-name
                                   shutdown-receiver-name]]
         [net.nightweb.views :only [create-tab
-                                   get-grid-view
                                    get-user-view
                                    get-post-view
                                    get-gallery-view
                                    get-category-view]]
         [net.nightweb.menus :only [create-main-menu]]
-        [net.nightweb.actions :only [show-page
-                                     receive-result
+        [net.nightweb.actions :only [receive-result
                                      menu-action]]
         [net.nightweb.dialogs :only [show-new-user-dialog
                                      show-pending-user-dialog
@@ -157,18 +157,23 @@
                      :post (if (get params :time)
                              (get-post-view this params)
                              (get-category-view this params))
-                     (get-grid-view this []))
+                     :tag (get-category-view this params)
+                     nil)
               action-bar (.getActionBar this)]
           (set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
-          (if-let [title (get params :title)]
+          (if-let [title (or (get params :title)
+                             (get params :tag))]
             (.setTitle action-bar title)
             (.setDisplayShowTitleEnabled action-bar false))
-          (set-content-view! basic-page view)
-          (if-not (user-exists? (get params :userhash))
-            (show-new-user-dialog this params)
-            (when-not (user-has-content? (get params :userhash))
-              (show-pending-user-dialog this))))))
+          (if view
+            (set-content-view! basic-page view)
+            (on-ui (toast (get-string :nothing_here))))
+          (when (get params :userhash)
+            (if-not (user-exists? (get params :userhash))
+              (show-new-user-dialog this params)
+              (when-not (user-has-content? (get params :userhash))
+                (show-pending-user-dialog this)))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]

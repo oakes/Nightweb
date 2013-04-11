@@ -27,8 +27,11 @@
                :action [:broadcast shutdown-receiver-name]))
     (start-receiver this
                     shutdown-receiver-name
-                    (fn [context intent] (.stopSelf service)))
-    (start-router (.getAbsolutePath (.getFilesDir this)) true))
+                    (fn [context intent]
+                      (try
+                        (.stopSelf service)
+                        (catch java.lang.Exception e nil))))
+    (start-router (.getAbsolutePath (.getFilesDir this)) false))
   :on-destroy
   (fn [this]
     (stop-receiver this shutdown-receiver-name)

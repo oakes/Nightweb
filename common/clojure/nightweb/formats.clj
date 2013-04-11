@@ -8,6 +8,13 @@
        (distinct)
        (remove nil?)))
 
+(defn is-numeric?
+  [string]
+  (try
+    (java.lang.Integer/parseInt string)
+    true
+    (catch java.lang.Exception e false)))
+
 (defn b-encode
   [data-value]
   (try
@@ -77,13 +84,17 @@
 
 (defn url-encode
   [content]
-  (let [params (concat
-                 (when-let [type-val (get content :type)]
-                   [(str "type=" (name type-val))])
-                 (when-let [userhash-val (get content :userhash)]
-                   [(str "userhash=" (base32-encode userhash-val))])
-                 (when-let [time-val (get content :time)]
-                   [(str "time=" time-val)]))]
+  (let [params (remove-dupes-and-nils
+                 [(when-let [type-val (get content :type)]
+                    (str "type=" (name type-val)))
+                  (when-let [subtype-val (get content :subtype)]
+                    (str "subtype=" (name subtype-val)))
+                  (when-let [userhash-val (get content :userhash)]
+                    (str "userhash=" (base32-encode userhash-val)))
+                  (when-let [time-val (get content :time)]
+                    (str "time=" time-val))
+                  (when-let [tag-val (get content :tag)]
+                    (str "tag=" tag-val))])]
     (str "http://nightweb.net/#" (clojure.string/join "&" params))))
 
 (defn url-decode
@@ -94,11 +105,49 @@
                   (apply hash-map url-vec)
                   {})
         {type-val "type"
+         subtype-val "subtype"
          userhash-val "userhash"
-         time-val "time"} url-map]
+         time-val "time"
+         tag-val "tag"} url-map]
     {:type (when type-val (keyword type-val))
+     :subtype (when subtype-val (keyword subtype-val))
      :userhash (when userhash-val (base32-decode userhash-val))
-     :time (when time-val (long-decode time-val))}))
+     :time (when time-val (long-decode time-val))
+     :tag tag-val}))
+
+(def min-tag-length 2)
+(def max-tag-count 20)
+(def ignore-chars #"[?,:;.!\(\)\t\r\n ]")
+
+(defn get-tag
+  [text-str]
+  (when (and text-str (.startsWith text-str "#"))
+    (let [tag (subs text-str 1)]
+      (when (and (>= (count tag) min-tag-length)
+                 (not (is-numeric? tag)))
+        tag))))
+
+(defn tags-encode
+  [type-name text-str]
+  (when text-str
+    (reduce (fn [new-text-str word]
+              (if-let [tag (get-tag word)]
+                (let [lower-case-tag (clojure.string/lower-case tag)
+                      url (url-encode {:type type-name :tag lower-case-tag})
+                      link (str "#[" tag "](" url ")")]
+                  (clojure.string/replace new-text-str (str "#" tag) link))
+                new-text-str))
+            text-str
+            (clojure.string/split text-str ignore-chars))))
+
+(defn tags-decode
+  [text-str]
+  (when text-str
+    (->> (for [word (clojure.string/split text-str ignore-chars)]
+           (when-let [tag (get-tag word)]
+             (clojure.string/lower-case tag)))
+         (remove-dupes-and-nils)
+         (take max-tag-count))))
 
 (defn key-encode
   [key-obj]
@@ -106,9 +155,9 @@
              "sign_algo" "DSA-SHA1"}))
 
 (defn post-encode
-  [& {:keys [create-time text pic-hashes status ptrhash ptrtime]}]
+  [& {:keys [text pic-hashes status ptrhash ptrtime]}]
   (let [args (merge {"body" text
-                     "mtime" create-time
+                     "mtime" (.getTime (java.util.Date.))
                      "pics" (remove-dupes-and-nils pic-hashes)
                      "status" status}
                     (if ptrhash {"ptrhash" ptrhash} {})
