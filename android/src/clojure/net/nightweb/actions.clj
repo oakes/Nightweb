@@ -220,8 +220,7 @@
                                      (str slash user-zip-file))
                        ; if it's a content URI, copy to root of SD card
                        path (if (.startsWith uri-str "content://")
-                              (do (delete-file temp-path)
-                                  (copy-uri-to-path context uri-str temp-path)
+                              (do (copy-uri-to-path context uri-str temp-path)
                                   temp-path)
                               (.getRawPath (java.net.URI. uri-str)))
                        dest-path (get-user-dir)]
