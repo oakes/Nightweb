@@ -1,11 +1,22 @@
 (ns nightweb-desktop.server
-  (:use [ring.adapter.jetty :only [run-jetty]]))
+  (:use [ring.adapter.jetty :only [run-jetty]]
+        [ring.middleware.params :only [wrap-params]]
+        [nightweb-desktop.pages :only [get-main-page]]))
 
-(defn handler [request]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body "Hello World!"})
+(defn get-markup
+  [params]
+  (if (empty? params)
+    (get-main-page)
+    "Not found."))
+
+(defn handler
+  [request]
+  (case (get request :request-method)
+    :get {:status 200
+          :headers {"Content-Type" "text/html"}
+          :body (get-markup (get request :params))}
+    nil))
 
 (defn start-server
   []
-  (future (run-jetty handler {:port 3000})))
+  (future (run-jetty (wrap-params handler) {:port 3000})))
