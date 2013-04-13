@@ -3,4 +3,7 @@
 
 (defn get-main-page
   []
-  (html [:h1 "Hello World!"]))
+  (html [:head
+         [:title "Nightweb"]]
+        [:body
+         [:h1 "Hello World!"]]))

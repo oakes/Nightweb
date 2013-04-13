@@ -2,17 +2,26 @@
   (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox Priority)
            (javafx.scene.control TabPane Tab)
-           javafx.scene.web.WebView))
+           javafx.scene.web.WebView
+           javafx.beans.value.ChangeListener)
+  (:use [nightweb-desktop.server :only [port]]))
 
 (defn create-tab
   "Creates a new tab."
   []
-  (let [new-tab (Tab. "Browser")
+  (let [new-tab (Tab.)
         web-view (WebView.)
         web-engine (.getEngine web-view)
-        history (.getHistory web-engine)]
+        history (.getHistory web-engine)
+        dots "..."]
     (VBox/setVgrow web-view Priority/ALWAYS)
-    (.load web-engine "http://localhost:3000")
+    (.addListener (.stateProperty (.getLoadWorker web-engine))
+                  (proxy [ChangeListener] []
+                    (changed [ov old-state new-state]
+                      (if (= new-state javafx.concurrent.Worker$State/RUNNING)
+                        (.setText new-tab dots)
+                        (.setText new-tab (or (.getTitle web-engine) dots))))))
+    (.load web-engine (str "http://localhost:" port))
     (.setContent new-tab web-view)
     new-tab))
 

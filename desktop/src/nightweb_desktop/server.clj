@@ -3,6 +3,8 @@
         [ring.middleware.params :only [wrap-params]]
         [nightweb-desktop.pages :only [get-main-page]]))
 
+(def port 3000)
+
 (defn get-markup
   [params]
   (if (empty? params)
@@ -19,4 +21,4 @@
 
 (defn start-server
   []
-  (future (run-jetty (wrap-params handler) {:port 3000})))
+  (future (run-jetty (wrap-params handler) {:port port})))
