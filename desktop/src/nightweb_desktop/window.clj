@@ -1,8 +1,20 @@
 (ns nightweb-desktop.window
   (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox Priority)
-           (javafx.scene.control TabPane Tab))
-  (:use [nightweb-desktop.browser :only [create-tab]]))
+           (javafx.scene.control TabPane Tab)
+           javafx.scene.web.WebView))
+
+(defn create-tab
+  "Creates a new tab."
+  []
+  (let [new-tab (Tab. "Browser")
+        web-view (WebView.)
+        web-engine (.getEngine web-view)
+        history (.getHistory web-engine)]
+    (VBox/setVgrow web-view Priority/ALWAYS)
+    (.load web-engine "http://localhost:3000")
+    (.setContent new-tab web-view)
+    new-tab))
 
 (defn add-tab
   "Creates a tab and adds it to the tab bar."
