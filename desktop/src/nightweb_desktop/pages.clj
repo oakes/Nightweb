@@ -1,17 +1,16 @@
 (ns nightweb-desktop.pages
-  (:use [hiccup.core :only [html]]))
+  (:use [hiccup.core :only [html]]
+        [nightweb-desktop.views :only [get-top-bar]]))
 
 (defn get-main-page
   []
   (html [:head
          [:title "Nightweb"]
-         [:link {:rel "stylesheet" :href "foundation.min.css"}]]
+         [:link {:rel "stylesheet" :href "foundation.min.css"}]
+         [:link {:rel "stylesheet" :href "foundation.override.css"}]
+         [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]
         [:body
-         [:div {:id "my-modal" :class "reveal-modal"}
-          [:h2 "Hello World!"]
-          [:a {:class "close-reveal-modal"} "&#215;"]]
-         [:a {:href "#" :class "button" :data-reveal-id "my-modal"}
-          "Hello World!"]
+         (get-top-bar "Me")
          [:script {:src "zepto.js"}]
          [:script {:src "foundation.min.js"}]
          [:script "$(document).foundation();"]]))

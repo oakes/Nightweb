@@ -1,0 +1,44 @@
+body {
+	background-color: #000;
+
+	/* IE10 Consumer Preview */ 
+	background-image: -ms-linear-gradient(top, #000000 0%, #4F5A64 100%);
+
+	/* Mozilla Firefox */ 
+	background-image: -moz-linear-gradient(top, #000000 0%, #4F5A64 100%);
+
+	/* Opera */ 
+	background-image: -o-linear-gradient(top, #000000 0%, #4F5A64 100%);
+
+	/* Webkit (Safari/Chrome 10) */ 
+	background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, #000000), color-stop(1, #4F5A64));
+
+	/* Webkit (Chrome 11+) */ 
+	background-image: -webkit-linear-gradient(top, #000000 0%, #4F5A64 100%);
+
+	/* W3C Markup, IE10 Release Preview */ 
+	background-image: linear-gradient(to bottom, #000000 0%, #4F5A64 100%);
+}
+
+.top-bar-section li a:not(.button) {
+	background-color: #4f5a64;
+}
+
+.top-bar-section li a:not(.button):hover {
+	background-color: rgba(192, 192, 192, 0.5);
+}
+
+.top-bar-section ul li.active>a {
+	background-color: #4f5a64;
+	border-bottom: thick solid #c0c0c0;
+}
+
+.top-bar-section ul li.active>a:hover {
+	background-color: rgba(192, 192, 192, 0.5);
+	border-bottom: thick solid #c0c0c0;
+}
+
+.top-bar {
+	overflow: visible;
+	background-color: #4f5a64;
+}
