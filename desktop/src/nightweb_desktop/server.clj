@@ -1,23 +1,26 @@
 (ns nightweb-desktop.server
   (:use [ring.adapter.jetty :only [run-jetty]]
         [ring.middleware.params :only [wrap-params]]
-        [nightweb-desktop.pages :only [get-main-page]]))
+        [ring.util.response :only [file-response]]
+        [nightweb-desktop.views :only [get-main-view]]))
 
 (def port 3000)
 
-(defn get-markup
+(defn get-view
   [params]
   (if (empty? params)
-    (get-main-page)
+    (get-main-view)
     "Not found."))
 
 (defn handler
   [request]
-  (case (get request :request-method)
-    :get {:status 200
-          :headers {"Content-Type" "text/html"}
-          :body (get-markup (get request :params))}
-    nil))
+  (case (get request :uri)
+    "/" (case (get request :request-method)
+          :get {:status 200
+                :headers {"Content-Type" "text/html"}
+                :body (get-view (get request :params))}
+          nil)
+    (file-response (get request :uri) {:root "resources/public"})))
 
 (defn start-server
   []
