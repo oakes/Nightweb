@@ -1,7 +1,7 @@
-(ns nightweb-desktop.views
+(ns nightweb-desktop.pages
   (:use [hiccup.core :only [html]]))
 
-(defn get-main-view
+(defn get-main-page
   []
   (html [:head
          [:title "Nightweb"]
@@ -15,3 +15,9 @@
          [:script {:src "zepto.js"}]
          [:script {:src "foundation.min.js"}]
          [:script "$(document).foundation();"]]))
+
+(defn get-page
+  [params]
+  (if (empty? params)
+    (get-main-page)
+    (html [:h2 "Not found."])))
