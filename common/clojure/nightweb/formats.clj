@@ -83,37 +83,39 @@
     (catch java.lang.Exception e nil)))
 
 (defn url-encode
-  [content]
-  (let [params (remove-dupes-and-nils
-                 [(when-let [type-val (get content :type)]
-                    (str "type=" (name type-val)))
-                  (when-let [subtype-val (get content :subtype)]
-                    (str "subtype=" (name subtype-val)))
-                  (when-let [userhash-val (get content :userhash)]
-                    (str "userhash=" (base32-encode userhash-val)))
-                  (when-let [time-val (get content :time)]
-                    (str "time=" time-val))
-                  (when-let [tag-val (get content :tag)]
-                    (str "tag=" tag-val))])]
-    (str "http://nightweb.net/#" (clojure.string/join "&" params))))
+  ([content] (url-encode content "http://nightweb.net/#"))
+  ([content path]
+   (let [params (remove-dupes-and-nils
+                  [(when-let [type-val (get content :type)]
+                     (str "type=" (name type-val)))
+                   (when-let [subtype-val (get content :subtype)]
+                     (str "subtype=" (name subtype-val)))
+                   (when-let [userhash-val (get content :userhash)]
+                     (str "userhash=" (base32-encode userhash-val)))
+                   (when-let [time-val (get content :time)]
+                     (str "time=" time-val))
+                   (when-let [tag-val (get content :tag)]
+                     (str "tag=" tag-val))])]
+     (str path (clojure.string/join "&" params)))))
 
 (defn url-decode
-  [url]
-  (let [url-str (subs url (+ 1 (.indexOf url "#")))
-        url-vec (clojure.string/split url-str #"[&=]")
-        url-map (if (even? (count url-vec))
-                  (apply hash-map url-vec)
-                  {})
-        {type-val "type"
-         subtype-val "subtype"
-         userhash-val "userhash"
-         time-val "time"
-         tag-val "tag"} url-map]
-    {:type (when type-val (keyword type-val))
-     :subtype (when subtype-val (keyword subtype-val))
-     :userhash (when userhash-val (base32-decode userhash-val))
-     :time (when time-val (long-decode time-val))
-     :tag tag-val}))
+  ([url] (url-decode url "#"))
+  ([url delimiter]
+   (let [url-str (subs url (+ 1 (.indexOf url delimiter)))
+         url-vec (clojure.string/split url-str #"[&=]")
+         url-map (if (even? (count url-vec))
+                   (apply hash-map url-vec)
+                   {})
+         {type-val "type"
+          subtype-val "subtype"
+          userhash-val "userhash"
+          time-val "time"
+          tag-val "tag"} url-map]
+     {:type (when type-val (keyword type-val))
+      :subtype (when subtype-val (keyword subtype-val))
+      :userhash (when userhash-val (base32-decode userhash-val))
+      :time (when time-val (long-decode time-val))
+      :tag tag-val})))
 
 (def min-tag-length 2)
 (def max-tag-count 20)
