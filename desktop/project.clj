@@ -8,4 +8,7 @@
                  [hiccup "1.0.3"]]
   :main nightweb-desktop.core
   :source-paths ["src" "../common/clojure"]
-  :java-source-paths ["../common/java"])
+  :java-source-paths ["../common/java"]
+  :resource-paths ["resources"
+                   "../android/res/drawable"
+                   "../android/res/values"])

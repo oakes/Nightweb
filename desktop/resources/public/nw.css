@@ -20,6 +20,25 @@ body {
 	background-image: linear-gradient(to bottom, #000000 0%, #4F5A64 100%);
 }
 
+.top-bar {
+	overflow: visible;
+	background-color: #4f5a64;
+	margin-bottom: 0px;
+}
+
+.top-bar-section ul {
+	display: inline;
+	background-color: #4f5a64;
+}
+
+.top-bar-section ul li {
+	float: left;
+}
+
+.top-bar-section ul li>a {
+	padding-right: 15px;
+}
+
 .top-bar-section li a:not(.button) {
 	background-color: #4f5a64;
 }
@@ -38,7 +57,16 @@ body {
 	border-bottom: thick solid #c0c0c0;
 }
 
-.top-bar {
-	overflow: visible;
-	background-color: #4f5a64;
+.clear {
+	clear: both;
+}
+
+.grid-view {
+	width: 100%;
+}
+
+.grid-view li {
+	display: inline-block;
+	border-bottom: 1px solid #c0c0c0;
+	border-right: 1px solid #c0c0c0;
 }

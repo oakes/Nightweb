@@ -8,7 +8,9 @@
                 {:class "foundicon-plus"
                  :title "New Post"}
                 {:class "foundicon-page"
-                 :title "Link"}]]
+                 :title "Link"}
+                {:class "foundicon-settings"
+                 :title "Settings"}]]
     [:li [:a {:href "#"}
           [:i {:class (get button :class)}]
           (str "&nbsp;" (get button :title))]]))
@@ -30,13 +32,23 @@
     [:section {:class "top-bar-section"}
      (when tab-view
        [:ul {:class "left"} tab-view])
-     [:ul {:class "right"} (get-menu-view)]]]])
+     [:ul {:class "right"} (get-menu-view)]]]
+   [:div {:class "clear"}]])
+
+(defn get-grid-view
+  [content]
+  [:ul {:class "grid-view"}
+   (for [item content]
+     [:li])])
 
 (defn get-user-view
-  [params])
+  [params]
+  (get-grid-view []))
 
 (defn get-post-view
-  [params])
+  [params]
+  (get-grid-view []))
 
 (defn get-category-view
-  [params])
+  [params]
+  (get-grid-view []))
