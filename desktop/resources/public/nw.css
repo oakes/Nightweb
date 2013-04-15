@@ -61,12 +61,7 @@ body {
 	clear: both;
 }
 
-.grid-view {
-	width: 100%;
-}
-
 .grid-view li {
 	display: inline-block;
-	border-bottom: 1px solid #c0c0c0;
-	border-right: 1px solid #c0c0c0;
+	padding: 5px;
 }

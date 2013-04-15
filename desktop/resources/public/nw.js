@@ -2,7 +2,7 @@ $(document).foundation();
 
 var minTileWidth = 160;
 var resizeGrid = function() {
-	var totalWidth = $(window).width();
+	var totalWidth = $(window).width() - 20;
 	var numColumns = Math.floor(totalWidth / minTileWidth);
 	var newTileWidth = totalWidth / numColumns;
 	$('.grid-view li').

@@ -54,7 +54,9 @@
       (add-tab tab-bar)
       (VBox/setVgrow tab-bar Priority/ALWAYS)
       (.setWidth jfx/primary-stage 1024)
+      (.setMinWidth jfx/primary-stage 800)
       (.setHeight jfx/primary-stage 768)
+      (.setMinHeight jfx/primary-stage 600)
       (jfx/add window [tab-bar])
       (jfx/show window)
       (.setOnCloseRequest jfx/primary-stage

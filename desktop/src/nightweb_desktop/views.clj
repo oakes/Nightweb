@@ -43,7 +43,7 @@
 
 (defn get-user-view
   [params]
-  (get-grid-view []))
+  (get-grid-view (range 10)))
 
 (defn get-post-view
   [params]
