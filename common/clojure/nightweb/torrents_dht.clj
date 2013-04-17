@@ -181,7 +181,7 @@
       (on-recv-meta-file user-hash-bytes
                          (read-meta-file parent-dir path-leaves)))
     ; remove any files that the torrent no longer contains
-    (if-not (is-me? user-hash-bytes)
+    (when (and user-hash-bytes (not (is-me? user-hash-bytes)))
       (delete-orphaned-files user-hash-bytes paths))))
 
 ; receiving meta links
