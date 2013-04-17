@@ -182,25 +182,27 @@
 
 (defn delete-orphaned-pics
   [user-hash]
-  (doseq [pic (file-seq (file (get-pic-dir (base32-encode user-hash))))]
-    (when (and (.isFile pic)
-               (-> {:userhash user-hash
-                    :pichash (base32-decode (.getName pic))}
-                   (get-pic-data)
-                   (count)
-                   (= 0)))
-      (.delete pic))))
+  (when user-hash
+    (doseq [pic (file-seq (file (get-pic-dir (base32-encode user-hash))))]
+      (when (and (.isFile pic)
+                 (-> {:userhash user-hash
+                      :pichash (base32-decode (.getName pic))}
+                     (get-pic-data)
+                     (count)
+                     (= 0)))
+        (.delete pic)))))
 
 (defn delete-orphaned-files
   [user-hash file-list]
-  (let [meta-dir (get-meta-dir (base32-encode user-hash))]
-    (doseq [meta-file (file-seq (file meta-dir))]
-      (when (and (.isFile meta-file)
-                 (->> file-list
-                      (filter #(= (.getCanonicalPath meta-file)
-                                  (.getCanonicalPath
-                                    (file meta-dir
-                                          (clojure.string/join slash %)))))
-                      (count)
-                      (= 0)))
-        (.delete meta-file)))))
+  (when user-hash
+    (let [meta-dir (get-meta-dir (base32-encode user-hash))]
+      (doseq [meta-file (file-seq (file meta-dir))]
+        (when (and (.isFile meta-file)
+                   (->> file-list
+                        (filter #(= (.getCanonicalPath meta-file)
+                                    (.getCanonicalPath
+                                      (file meta-dir
+                                            (clojure.string/join slash %)))))
+                        (count)
+                        (= 0)))
+          (.delete meta-file))))))
