@@ -199,3 +199,20 @@
                            (show-basic context params))))]
         (.removeSpan text old-span)
         (.setSpan text new-span start end 0)))))
+
+(defn get-resource-at-runtime
+  [context res-type res-name]
+  (.getIdentifier (.getResources context)
+                  (name res-name)
+                  (name res-type)
+                  (.getPackageName context)))
+
+(defn get-drawable-at-runtime
+  [context res-name]
+  (get-resource-at-runtime context :drawable res-name))
+
+(defn get-string-at-runtime
+  [context res-name]
+  (if (keyword? res-name)
+    (.getString context (get-resource-at-runtime context :string res-name))
+    res-name))

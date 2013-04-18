@@ -12,7 +12,9 @@
                                    default-text-size
                                    set-text-size
                                    set-text-max-length
-                                   set-text-content]]
+                                   set-text-content
+                                   get-drawable-at-runtime
+                                   get-string-at-runtime]]
         [net.nightweb.actions :only [show-spinner
                                      clear-attachments
                                      send-post
@@ -27,39 +29,13 @@
         [nightweb.db :only [get-pic-data
                             get-single-post-data
                             get-single-tag-data]]
-        [nightweb.db_tiles :only [set-resource-funcs
-                                  get-post-tiles
+        [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
                                   get-category-tiles]]
         [nightweb.formats :only [remove-dupes-and-nils
                                  base32-encode
                                  tags-encode]]
         [nightweb.constants :only [is-me?]]))
-
-(set-resource-funcs
-  (fn [res-keyword]
-    (case res-keyword
-      :next (get-resource :drawable :next)
-      :profile (get-resource :drawable :profile)
-      :post (get-resource :drawable :post)
-      :edit_post (get-resource :drawable :edit_post)
-      :remove_fav (get-resource :drawable :remove_fav)
-      :add_fav (get-resource :drawable :add_fav)
-      :favs (get-resource :drawable :favs)
-      :tags (get-resource :drawable :tags)
-      nil))
-  (fn [str-keyword]
-    (case str-keyword
-      :author (get-string :author)
-      :mentioned (get-string :mentioned)
-      :in_reply_to (get-string :in_reply_to)
-      :edit (get-string :edit)
-      :remove_from_favorites (get-string :remove_from_favorites)
-      :add_to_favorites (get-string :add_to_favorites)
-      :profile (get-string :profile)
-      :favorites (get-string :favorites)
-      :tags (get-string :tags)
-      nil)))
 
 (def default-tile-width 160)
 
@@ -103,11 +79,16 @@
       (do
         (.setTypeface text-top android.graphics.Typeface/DEFAULT)
         (.setGravity text-top android.view.Gravity/LEFT)))
-    (when-let [background (get item :background)]
-      (.setBackgroundResource image background))
-    (.setText text-top (or (get item :title)
-                           (get item :body)
-                           (get item :tag)))
+    (when-let [bg (get item :background)]
+      (.setBackgroundResource image (get-drawable-at-runtime context bg)))
+    (when-let [title (or (get item :title)
+                         (get item :body)
+                         (get item :tag))]
+      (if (= title :page)
+        (.setText text-top (str (get-string-at-runtime context title)
+                                " "
+                                (get item :page)))
+        (.setText text-top (get-string-at-runtime context title))))
     (.setText text-bottom (get item :subtitle))
     (if-let [item-count (get item :count)]
       (.setText text-count (if (> item-count 0) (str item-count) nil)))

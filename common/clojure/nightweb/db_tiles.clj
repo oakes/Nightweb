@@ -9,14 +9,6 @@
         [nightweb.formats :only [remove-dupes-and-nils]]
         [nightweb.constants :only [is-me?]]))
 
-(def get-resource nil)
-(def get-string nil)
-
-(defn set-resource-funcs
-  [res-func str-func]
-  (def get-resource res-func)
-  (def get-string str-func))
-
 (defn add-last-tile
   [content results]
   (if (> (count results) limit)
@@ -26,8 +18,8 @@
       (-> results
           (pop)
           (conj (assoc content
-                       :title (get-string :page)
-                       :background (get-resource :next)
+                       :title :page
+                       :background :next
                        :add-emphasis? true
                        :page next-page))))
     results))
@@ -49,35 +41,35 @@
               (get-single-fav-data post))
         ; create tiles based on the values
         user-tile (assoc user
-                         :background (get-resource :profile)
+                         :background :profile
                          :add-emphasis? true
-                         :title (get-string :author)
+                         :title :author
                          :subtitle (get user :title))
         user-pointer-tile (when user-pointer
                             (assoc user-pointer
-                                   :background (get-resource :profile)
+                                   :background :profile
                                    :add-emphasis? true
-                                   :title (get-string :mentioned)
+                                   :title :mentioned
                                    :subtitle (get user-pointer :title)))
         post-pointer-tile (when post-pointer
                             (assoc post-pointer
-                                   :background (get-resource :post)
+                                   :background :post
                                    :add-emphasis? true
-                                   :title (get-string :in_reply_to)))
+                                   :title :in_reply_to))
         action-tile (if (is-me? (get post :userhash))
-                      {:title (get-string :edit)
+                      {:title :edit
                        :add-emphasis? true
-                       :background (get-resource :edit_post)
+                       :background :edit_post
                        :type :custom-func
                        :func (fn [context item]
                                (edit-func context post pics))}
                       {:title (if (= 1 (get fav :status))
-                                (get-string :remove_from_favorites)
-                                (get-string :add_to_favorites))
+                                :remove_from_favorites
+                                :add_to_favorites)
                        :add-emphasis? true
                        :background (if (= 1 (get fav :status))
-                                     (get-resource :remove_fav)
-                                     (get-resource :add_fav))
+                                     :remove_fav
+                                     :add_fav)
                        :type :toggle-fav
                        :userhash (get post :userhash)
                        :ptrtime (get post :time)
@@ -97,28 +89,28 @@
         fav (when-not (is-me? (get user :userhash))
               (get-single-fav-data {:userhash (get user :userhash)}))
         first-tiles (when (nil? (get content :page))
-                      [{:title (get-string :profile)
+                      [{:title :profile
                         :add-emphasis? true
-                        :background (get-resource :profile)
+                        :background :profile
                         :userhash (get user :userhash)
                         :pichash (get user :pichash)
                         :type :custom-func
                         :func (fn [context item]
                                 (profile-func context user))}
-                       {:title (get-string :favorites)
+                       {:title :favorites
                         :add-emphasis? true
                         :userhash (get user :userhash)
-                        :background (get-resource :favs)
+                        :background :favs
                         :type :fav}
                        (when-not (is-me? (get user :userhash))
                          {:title (if (= 1 (get fav :status))
-                                   (get-string :remove_from_favorites)
-                                   (get-string :add_to_favorites))
+                                   :remove_from_favorites
+                                   :add_to_favorites)
                           :add-emphasis? true
                           :background
                           (if (= 1 (get fav :status))
-                            (get-resource :remove_fav)
-                            (get-resource :add_fav))
+                            :remove_fav
+                            :add_fav)
                           :type :custom-func
                           :func
                           (fn [context item]
@@ -129,7 +121,7 @@
                           :status (get fav :status)
                           :time (get fav :time)})])
         posts (->> (for [tile (get-post-data content)]
-                     (assoc tile :background (get-resource :post)))
+                     (assoc tile :background :post))
                    (into [])
                    (add-last-tile content))]
     (-> first-tiles
@@ -144,13 +136,13 @@
                                 (nil? (get content :page)))
                        {:type :tag
                         :subtype (get content :type)
-                        :title (get-string :tags)
+                        :title :tags
                         :add-emphasis? true
-                        :background (get-resource :tags)})]
+                        :background :tags})]
         results (->> (for [tile (get-category-data content)]
                        (case (get tile :type)
-                         :user (assoc tile :background (get-resource :profile))
-                         :post (assoc tile :background (get-resource :post))
+                         :user (assoc tile :background :profile)
+                         :post (assoc tile :background :post)
                          tile))
                      (into [])
                      (add-last-tile content))]
