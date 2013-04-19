@@ -16,6 +16,7 @@
                                    get-post-view
                                    get-gallery-view
                                    get-category-view]]
+        [net.nightweb.utils :only [get-string-at-runtime]]
         [net.nightweb.menus :only [create-main-menu]]
         [net.nightweb.actions :only [receive-result
                                      menu-action]]
@@ -102,7 +103,7 @@
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get params :title))
+      (.setTitle action-bar (get-string-at-runtime this (get params :title)))
       (create-tab action-bar
                   (get-string :users)
                   #(get-category-view this (assoc params :subtype :user)))
@@ -164,7 +165,7 @@
           (.setDisplayHomeAsUpEnabled action-bar true)
           (if-let [title (or (get params :title)
                              (get params :tag))]
-            (.setTitle action-bar title)
+            (.setTitle action-bar (get-string-at-runtime this title))
             (.setDisplayShowTitleEnabled action-bar false))
           (if view
             (set-content-view! basic-page view)

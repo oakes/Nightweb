@@ -12,7 +12,9 @@
                                    default-text-size
                                    set-text-size
                                    set-text-max-length
-                                   set-text-content]]
+                                   set-text-content
+                                   get-drawable-at-runtime
+                                   get-string-at-runtime]]
         [net.nightweb.actions :only [show-spinner
                                      clear-attachments
                                      send-post
@@ -24,35 +26,18 @@
                                      show-remove-user-dialog
                                      show-edit-post-dialog
                                      show-profile-dialog]]
-        [nightweb.db :only [limit
-                            get-single-user-data
-                            get-post-data
-                            get-pic-data
+        [nightweb.db :only [get-pic-data
                             get-single-post-data
-                            get-single-fav-data
-                            get-category-data
                             get-single-tag-data]]
+        [nightweb.db_tiles :only [get-post-tiles
+                                  get-user-tiles
+                                  get-category-tiles]]
         [nightweb.formats :only [remove-dupes-and-nils
                                  base32-encode
                                  tags-encode]]
         [nightweb.constants :only [is-me?]]))
 
 (def default-tile-width 160)
-
-(defn add-last-tile
-  [content results]
-  (if (> (count results) limit)
-    (let [next-page (-> (get content :page)
-                        (or 1)
-                        (+ 1))]
-      (-> results
-          (pop)
-          (conj (assoc content
-                       :title (str (get-string :page) " " next-page)
-                       :background (get-resource :drawable :next)
-                       :add-emphasis? true
-                       :page next-page))))
-    results))
 
 (defn create-grid-view-tile
   [context item]
@@ -94,11 +79,16 @@
       (do
         (.setTypeface text-top android.graphics.Typeface/DEFAULT)
         (.setGravity text-top android.view.Gravity/LEFT)))
-    (when-let [background (get item :background)]
-      (.setBackgroundResource image background))
-    (.setText text-top (or (get item :title)
-                           (get item :body)
-                           (get item :tag)))
+    (when-let [bg (get item :background)]
+      (.setBackgroundResource image (get-drawable-at-runtime context bg)))
+    (when-let [title (or (get item :title)
+                         (get item :body)
+                         (get item :tag))]
+      (if (= title :page)
+        (.setText text-top (str (get-string-at-runtime context title)
+                                " "
+                                (get item :page)))
+        (.setText text-top (get-string-at-runtime context title))))
     (.setText text-bottom (get item :subtitle))
     (if-let [item-count (get item :count)]
       (.setText text-count (if (> item-count 0) (str item-count) nil)))
@@ -165,66 +155,8 @@
       context
       (get-string :loading)
       (fn []
-        (let [; read values from database
-              post (get-single-post-data content)
-              user (get-single-user-data content)
-              user-pointer (when (and (get post :ptrhash)
-                                      (nil? (get post :ptrtime)))
-                             (get-single-user-data
-                               {:userhash (get post :ptrhash)}))
-              post-pointer (when (get post :ptrtime) 
-                             (get-single-post-data
-                               {:userhash (get post :ptrhash)
-                                :time (get post :ptrtime)}))
-              pics (get-pic-data content (get content :time) true)
-              fav (when-not (is-me? (get content :userhash))
-                    (get-single-fav-data content))
-              ; create tiles based on the values
-              user-tile (assoc user
-                               :background (get-resource :drawable :profile)
-                               :add-emphasis? true
-                               :title (get-string :author)
-                               :subtitle (get user :title))
-              user-pointer-tile (when user-pointer
-                                  (assoc user-pointer
-                                         :background
-                                         (get-resource :drawable :profile)
-                                         :add-emphasis? true
-                                         :title (get-string :mentioned)
-                                         :subtitle (get user-pointer :title)))
-              post-pointer-tile (when post-pointer
-                                  (assoc post-pointer
-                                         :background
-                                         (get-resource :drawable :post)
-                                         :add-emphasis? true
-                                         :title (get-string :in_reply_to)))
-              action-tile (if (is-me? (get content :userhash))
-                            {:title (get-string :edit)
-                             :add-emphasis? true
-                             :background (get-resource :drawable :edit_post)
-                             :type :custom-func
-                             :func (fn [context item]
-                                     (show-edit-post-dialog context post pics))}
-                            {:title (if (= 1 (get fav :status))
-                                      (get-string :remove_from_favorites)
-                                      (get-string :add_to_favorites))
-                             :add-emphasis? true
-                             :background (if (= 1 (get fav :status))
-                                           (get-resource :drawable :remove_fav)
-                                           (get-resource :drawable :add_fav))
-                             :type :toggle-fav
-                             :userhash (get content :userhash)
-                             :ptrtime (get content :time)
-                             :status (get fav :status)
-                             :time (get fav :time)})
-              ; combine the tiles together
-              total-results (-> [user-tile
-                                 user-pointer-tile
-                                 post-pointer-tile
-                                 action-tile]
-                                (concat pics)
-                                (remove-dupes-and-nils)
-                                (vec))]
+        (let [post (get-single-post-data content)
+              tiles (get-post-tiles post show-edit-post-dialog)]
           (if (nil? (get post :body))
             (on-ui (toast (get-string :lost_post)))
             (on-ui 
@@ -237,7 +169,7 @@
                 (.setText date-view (->> (get post :time)
                                          (java.util.Date.)
                                          (.format date-format))))
-              (add-grid-view-tiles context total-results grid-view))))
+              (add-grid-view-tiles context tiles grid-view))))
         false))
     view))
 
@@ -286,52 +218,11 @@
       context
       (get-string :loading)
       (fn []
-        (let [user (get-single-user-data content)
-              fav (when-not (is-me? (get user :userhash))
-                    (get-single-fav-data {:userhash (get user :userhash)}))
-              first-tiles (when (nil? (get content :page))
-                            [{:title (get-string :profile)
-                              :add-emphasis? true
-                              :background (get-resource :drawable :profile)
-                              :userhash (get user :userhash)
-                              :pichash (get user :pichash)
-                              :type :custom-func
-                              :func (fn [context item]
-                                      (show-profile-dialog context user))}
-                             {:title (get-string :favorites)
-                              :add-emphasis? true
-                              :userhash (get user :userhash)
-                              :background (get-resource :drawable :favs)
-                              :type :fav}
-                             (when-not (is-me? (get user :userhash))
-                               {:title (if (= 1 (get fav :status))
-                                         (get-string :remove_from_favorites)
-                                         (get-string :add_to_favorites))
-                                :add-emphasis? true
-                                :background
-                                (if (= 1 (get fav :status))
-                                  (get-resource :drawable :remove_fav)
-                                  (get-resource :drawable :add_fav))
-                                :type :custom-func
-                                :func
-                                (fn [context item]
-                                  (if (= 1 (get fav :status))
-                                    (show-remove-user-dialog context item)
-                                    (toggle-fav context item false)))
-                                :userhash (get user :userhash)
-                                :status (get fav :status)
-                                :time (get fav :time)})])
-              posts (->> (for [tile (get-post-data content)]
-                           (assoc tile
-                                  :background
-                                  (get-resource :drawable :post)))
-                         (into [])
-                         (add-last-tile content))
-              grid-content (-> first-tiles
-                               (concat posts)
-                               (remove-dupes-and-nils)
-                               (vec))]
-          (add-grid-view-tiles context grid-content grid-view))
+        (let [tiles (get-user-tiles content
+                                    show-profile-dialog
+                                    show-remove-user-dialog
+                                    toggle-fav)]
+          (add-grid-view-tiles context tiles grid-view))
         false))
     view))
 
@@ -344,30 +235,8 @@
       context
       (get-string :loading)
       (fn []
-        (let [first-tiles [(when (and (nil? (get content :subtype))
-                                      (nil? (get content :tag))
-                                      (nil? (get content :page)))
-                             {:type :tag
-                              :subtype (get content :type)
-                              :title (get-string :tags)
-                              :add-emphasis? true
-                              :background (get-resource :drawable :tags)})]
-              results (->> (for [tile (get-category-data content)]
-                             (case (get tile :type)
-                               :user (assoc tile
-                                            :background
-                                            (get-resource :drawable :profile))
-                               :post (assoc tile
-                                            :background
-                                            (get-resource :drawable :post))
-                               tile))
-                           (into [])
-                           (add-last-tile content))
-              grid-content (-> first-tiles
-                               (concat results)
-                               (remove-dupes-and-nils)
-                               (vec))]
-          (add-grid-view-tiles context grid-content grid-view))
+        (let [tiles (get-category-tiles content)]
+          (add-grid-view-tiles context tiles grid-view))
         false))
     view))
 
