@@ -1,5 +1,6 @@
 (ns nightweb-desktop.pages
   (:use [hiccup.core :only [html]]
+        [nightweb.constants :only [my-hash-bytes]]
         [nightweb-desktop.views :only [get-action-bar-view
                                        get-tab-view
                                        get-user-view
@@ -29,7 +30,7 @@
             (get-post-view params)
             (get-category-view params))
     :tag (get-category-view params)
-    nil (get-user-view params)
+    nil (get-user-view {:type :user :userhash my-hash-bytes})
     [:h2 "There doesn't seem to be anything here."]))
 
 (defn get-main-page

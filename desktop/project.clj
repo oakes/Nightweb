@@ -10,5 +10,4 @@
   :source-paths ["src" "../common/clojure"]
   :java-source-paths ["../common/java"]
   :resource-paths ["resources"
-                   "../android/res/drawable"
                    "../android/res/values"])

@@ -4,7 +4,8 @@
            (javafx.scene.control TabPane Tab)
            javafx.scene.web.WebView
            javafx.beans.value.ChangeListener)
-  (:use [nightweb-desktop.server :only [port]]))
+  (:use [nightweb.router :only [stop-router]]
+        [nightweb-desktop.server :only [port]]))
 
 (defn create-tab
   "Creates a new tab."
@@ -62,4 +63,5 @@
       (.setOnCloseRequest jfx/primary-stage
                           (reify javafx.event.EventHandler
                             (handle [this event]
+                              (stop-router)
                               (java.lang.System/exit 0)))))))

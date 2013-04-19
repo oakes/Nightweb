@@ -6,6 +6,6 @@
 
 (defn -main
   []
-  ;(start-router "nightweb" false)
+  (start-router "nightweb" false)
   (start-server)
   (start-window))

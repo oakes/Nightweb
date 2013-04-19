@@ -67,3 +67,7 @@ body {
 	border-right: 1px solid #c0c0c0;
 	border-bottom: 1px solid #c0c0c0;
 }
+
+.grid-view li:hover {
+	background-color: dodgerblue;
+}
