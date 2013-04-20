@@ -61,13 +61,15 @@ body {
 	clear: both;
 }
 
-.grid-view li {
+.grid-view-tile {
+	color: #c0c0c0;
 	display: inline-block;
 	padding: 5px;
 	border-right: 1px solid #c0c0c0;
 	border-bottom: 1px solid #c0c0c0;
 }
 
-.grid-view li:hover {
+.grid-view-tile:hover {
+	color: #c0c0c0;
 	background-color: dodgerblue;
 }

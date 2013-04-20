@@ -18,6 +18,8 @@
           ~@body
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
+          [:script {:src "custom.modernizr.js"}]
+          [:script {:src "foundation/foundation.topbar.js"}]
           [:script {:src "nw.js"}]]))
 
 (defn get-view

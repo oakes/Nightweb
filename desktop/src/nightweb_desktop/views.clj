@@ -40,9 +40,7 @@
                  :title "Link"}
                 {:class "foundicon-settings"
                  :title "Settings"}]]
-    [:li [:a {:href "#"}
-          [:i {:class (get button :class)}]
-          (str "&nbsp;" (get button :title))]]))
+    [:li [:a {:href "#"} [:i {:class (get button :class)}]]]))
 
 (defn get-action-bar-view
   [tab-view]
@@ -56,17 +54,18 @@
 
 (defn get-grid-view
   [content]
-  [:ul {:class "grid-view"}
-   (for [item content]
-     (let [bg (get item :background)
-           title (get-string (or (get item :title)
-                                 (get item :body)
-                                 (get item :tag)))
-           add-emphasis? (get item :add-emphasis?)]
-       [:li {:style (format "background: url('img/%s.png') no-repeat;
-                             background-size: 100%%;"
-                            (if bg (name bg)))}
-        (if add-emphasis? [:strong title] [:div title])]))])
+  (for [item content]
+    (let [bg (get item :background)
+          title (get-string (or (get item :title)
+                                (get item :body)
+                                (get item :tag)))
+          add-emphasis? (get item :add-emphasis?)]
+      [:a {:href "#"
+           :class "grid-view-tile"
+           :style (format "background: url('img/%s.png') no-repeat;
+                            background-size: 100%%;"
+                           (if bg (name bg)))}
+       (if add-emphasis? [:strong title] [:div title])])))
 
 (defn get-post-view
   [params]
