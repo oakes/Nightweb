@@ -86,11 +86,11 @@
           (vec)))))
 
 (defn get-user-tiles
-  ([content user] (get-user-tiles content user nil nil nil))
-  ([content user profile-func fav-func unfav-func]
+  ([params user] (get-user-tiles params user nil nil nil))
+  ([params user profile-func fav-func unfav-func]
    (let [fav (when-not (is-me? (get user :userhash))
                (get-single-fav-data {:userhash (get user :userhash)}))
-         first-tiles (when (nil? (get content :page))
+         first-tiles (when (nil? (get params :page))
                        [{:title :profile
                          :add-emphasis? true
                          :background :profile
@@ -124,32 +124,32 @@
                            :userhash (get user :userhash)
                            :status (get fav :status)
                            :time (get fav :time)})])
-         posts (->> (for [tile (get-post-data content)]
+         posts (->> (for [tile (get-post-data params)]
                       (assoc tile :background :post))
                     (into [])
-                    (add-last-tile content))]
+                    (add-last-tile params))]
      (-> first-tiles
          (concat posts)
          (remove-dupes-and-nils)
          (vec)))))
 
 (defn get-category-tiles
-  [content]
-  (let [first-tiles [(when (and (nil? (get content :subtype))
-                                (nil? (get content :tag))
-                                (nil? (get content :page)))
+  [params]
+  (let [first-tiles [(when (and (nil? (get params :subtype))
+                                (nil? (get params :tag))
+                                (nil? (get params :page)))
                        {:type :tag
-                        :subtype (get content :type)
+                        :subtype (get params :type)
                         :title :tags
                         :add-emphasis? true
                         :background :tags})]
-        results (->> (for [tile (get-category-data content)]
+        results (->> (for [tile (get-category-data params)]
                        (case (get tile :type)
                          :user (assoc tile :background :profile)
                          :post (assoc tile :background :post)
                          tile))
                      (into [])
-                     (add-last-tile content))]
+                     (add-last-tile params))]
     (-> first-tiles
         (concat results)
         (remove-dupes-and-nils)
