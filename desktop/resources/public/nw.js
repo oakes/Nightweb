@@ -16,3 +16,20 @@ var resizeGrid = function() {
 
 $(window).resize(resizeGrid);
 resizeGrid();
+
+var tileAction = function(url) {
+	var params = {};
+	url.split("&").forEach(function(elem, i, arr) {
+		var param = elem.split("=");
+		if (param.length = 2) {
+			params[param[0]] = param[1];
+		}
+	});
+
+	switch (params.type) {
+		case "custom-func":
+			$('#' + params.subtype + '-dialog').
+				foundation('reveal', 'open');
+			break;
+	}
+};

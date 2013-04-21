@@ -2,8 +2,11 @@
   (:use [clojure.java.io :only [resource]]
         [clojure.xml :only [parse]]
         [nightweb.formats :only [url-encode]]
-        [nightweb.db_tiles :only [get-user-tiles
-                                  get-category-tiles]]))
+        [nightweb.db :only [get-single-post-data]]
+        [nightweb.db_tiles :only [get-post-tiles
+                                  get-user-tiles
+                                  get-category-tiles]]
+        [nightweb_desktop.dialogs :only [get-profile-dialog]]))
 
 (def strings (-> (resource "strings.xml")
                  (.getFile)
@@ -61,20 +64,27 @@
                                 (get item :tag)))
           add-emphasis? (get item :add-emphasis?)]
       [:a {:href "#"
+           :onclick (str "tileAction('" (url-encode item "") "')")
            :class "grid-view-tile"
            :style (format "background: url('img/%s.png') no-repeat;
-                            background-size: 100%%;"
-                           (if bg (name bg)))}
+                           background-size: 100%%;
+                           text-align: %s;"
+                          (if bg (name bg))
+                          (if add-emphasis? "center" "left"))}
        (if add-emphasis? [:strong title] [:div title])])))
 
 (defn get-post-view
   [params]
-  (get-grid-view []))
+  (let [post (get-single-post-data params)
+        tiles (get-post-tiles post)]
+    (get-grid-view tiles)))
 
 (defn get-user-view
   [params]
-  (let [tiles (get-user-tiles params (fn [_ _]) (fn [_ _]) (fn [_ _]))]
-    (get-grid-view tiles)))
+  [:div
+   (let [tiles (get-user-tiles params)]
+     (get-grid-view tiles))
+   (get-profile-dialog)])
 
 (defn get-category-view
   [params]
