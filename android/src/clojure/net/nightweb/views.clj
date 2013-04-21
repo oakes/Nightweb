@@ -28,6 +28,7 @@
                                      show-profile-dialog]]
         [nightweb.db :only [get-pic-data
                             get-single-post-data
+                            get-single-user-data
                             get-single-tag-data]]
         [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
@@ -135,7 +136,7 @@
     view))
 
 (defn get-post-view
-  [context content]
+  [context params]
   (let [view (make-ui context [:scroll-view {}
                                [:linear-layout {:orientation 1}
                                 [:text-view {:layout-width :fill
@@ -155,7 +156,7 @@
       context
       (get-string :loading)
       (fn []
-        (let [post (get-single-post-data content)
+        (let [post (get-single-post-data params)
               tiles (get-post-tiles post show-edit-post-dialog)]
           (if (nil? (get post :body))
             (on-ui (toast (get-string :lost_post)))
@@ -174,13 +175,13 @@
     view))
 
 (defn get-gallery-view
-  [context content]
+  [context params]
   (let [view (make-ui context [:view-pager {}])]
     (show-spinner
       context
       (get-string :loading)
       (fn []
-        (let [pics (get-pic-data content (get content :ptrtime) false)]
+        (let [pics (get-pic-data params (get params :ptrtime) false)]
           (on-ui
             (.setAdapter
               view
@@ -203,14 +204,14 @@
                                   (filter (fn [pic]
                                             (java.util.Arrays/equals
                                               (get pic :pichash)
-                                              (get content :pichash))))
+                                              (get params :pichash))))
                                   (first)
                                   (.indexOf pics)))))
         false))
     view))
 
 (defn get-user-view
-  [context content]
+  [context params]
   (let [view (make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
@@ -218,7 +219,9 @@
       context
       (get-string :loading)
       (fn []
-        (let [tiles (get-user-tiles content
+        (let [user (get-single-user-data params)
+              tiles (get-user-tiles params
+                                    user
                                     show-profile-dialog
                                     show-remove-user-dialog
                                     toggle-fav)]
@@ -227,7 +230,7 @@
     view))
 
 (defn get-category-view
-  [context content]
+  [context params]
   (let [view (make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
@@ -235,7 +238,7 @@
       context
       (get-string :loading)
       (fn []
-        (let [tiles (get-category-tiles content)]
+        (let [tiles (get-category-tiles params)]
           (add-grid-view-tiles context tiles grid-view))
         false))
     view))

@@ -79,6 +79,24 @@
 	background-color: dodgerblue;
 }
 
-.image-view:hover {
+.profile-image {
+	background-image: url("img/profile.png");
+	float: right;
+	width: 250px;
+	height: 250px;
+	margin: 10px;
+}
+
+.profile-image:hover {
 	opacity: 0.5;
+}
+
+.profile-text {
+	margin-right: 270px;
+	min-width: 300px;
+}
+
+.profile-buttons {
+	float: right;
+	clear: both;
 }

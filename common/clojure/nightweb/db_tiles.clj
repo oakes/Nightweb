@@ -86,10 +86,9 @@
           (vec)))))
 
 (defn get-user-tiles
-  ([content] (get-user-tiles content nil nil nil))
-  ([content profile-func fav-func unfav-func]
-   (let [user (get-single-user-data content)
-         fav (when-not (is-me? (get user :userhash))
+  ([content user] (get-user-tiles content user nil nil nil))
+  ([content user profile-func fav-func unfav-func]
+   (let [fav (when-not (is-me? (get user :userhash))
                (get-single-fav-data {:userhash (get user :userhash)}))
          first-tiles (when (nil? (get content :page))
                        [{:title :profile

@@ -1,6 +1,7 @@
 (ns nightweb-desktop.views
   (:use [nightweb.formats :only [url-encode]]
-        [nightweb.db :only [get-single-post-data]]
+        [nightweb.db :only [get-single-post-data
+                            get-single-user-data]]
         [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
                                   get-category-tiles]]
@@ -75,12 +76,13 @@
 
 (defn get-user-view
   [params]
-  [:div
-   (let [tiles (get-user-tiles params)]
-     (get-grid-view tiles))
-   (if (is-me? (get params :userhash))
-     (get-my-profile-dialog params)
-     (get-their-profile-dialog params))])
+  (let [user (get-single-user-data params)
+        tiles (get-user-tiles params user)]
+    [:div
+     (get-grid-view tiles)
+     (if (is-me? (get user :userhash))
+       (get-my-profile-dialog user)
+       (get-their-profile-dialog user))]))
 
 (defn get-category-view
   [params]
