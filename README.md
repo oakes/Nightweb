@@ -4,10 +4,11 @@ Nightweb is an Android app for anonymous, peer-to-peer social networking. It is 
 
 ## Contents
 
-- `android` The Android project with platform-specific code, including the UI
-- `common` All cross-platform code, including the I2P project and the Nightweb backend
+- `android` The Android project with native UI code
+- `common` The backend code that is common to all projects
+- `desktop` The desktop project with browser-based UI code
 - `graphics` SVG files for all the image resources
-- `server` The command line version that you can run on a server to help the network
+- `server` The server project, which has no UI
 
 ## Licensing
 
