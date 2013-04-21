@@ -5,7 +5,11 @@
                                        get-tab-view
                                        get-user-view
                                        get-post-view
-                                       get-category-view]]))
+                                       get-category-view]]
+        [nightweb-desktop.dialogs :only [get-search-dialog
+                                         get-new-post-dialog
+                                         get-link-dialog
+                                         get-settings-dialog]]))
 
 (defmacro get-page
   [& body]
@@ -16,6 +20,10 @@
           [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]
          [:body {:class "dark-gradient"}
           ~@body
+          (get-search-dialog)
+          (get-new-post-dialog)
+          (get-link-dialog)
+          (get-settings-dialog)
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
           [:script {:src "custom.modernizr.js"}]

@@ -4,8 +4,8 @@
         [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
                                   get-category-tiles]]
-        [nightweb_desktop.utils :only [get-string]]
-        [nightweb_desktop.dialogs :only [get-profile-dialog]]))
+        [nightweb-desktop.utils :only [get-string]]
+        [nightweb-desktop.dialogs :only [get-profile-dialog]]))
 
 (defn get-tab-view
   [params show-me-tab?]
@@ -20,14 +20,22 @@
 (defn get-menu-view
   []
   (for [button [{:class "foundicon-search"
-                 :title "Search"}
+                 :title "Search"
+                 :dialog "search-dialog"}
                 {:class "foundicon-plus"
-                 :title "New Post"}
+                 :title "New Post"
+                 :dialog "new-post-dialog"}
                 {:class "foundicon-page"
-                 :title "Link"}
+                 :title "Link"
+                 :dialog "link-dialog"}
                 {:class "foundicon-settings"
-                 :title "Settings"}]]
-    [:li [:a {:href "#"} [:i {:class (get button :class)}]]]))
+                 :title "Settings"
+                 :dialog "settings-dialog"}]]
+    [:li [:a {:href "#"
+              :onclick (str "$('#"
+                            (get button :dialog)
+                            "').foundation('reveal', 'open');")}
+          [:i {:class (get button :class)}]]]))
 
 (defn get-action-bar-view
   [tab-view]

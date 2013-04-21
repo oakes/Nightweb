@@ -1,5 +1,5 @@
-(ns nightweb_desktop.dialogs
-  (:use [nightweb_desktop.utils :only [get-string]]))
+(ns nightweb-desktop.dialogs
+  (:use [nightweb-desktop.utils :only [get-string]]))
 
 (defn get-profile-dialog
   []
@@ -21,4 +21,24 @@
       (get-string :cancel)]
      [:a {:href "#" :class "button"} (get-string :export)]
      [:a {:href "#" :class "button"} (get-string :save)]]]
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-search-dialog
+  []
+  [:div {:id "search-dialog" :class "reveal-modal dark"}
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-new-post-dialog
+  []
+  [:div {:id "new-post-dialog" :class "reveal-modal dark"}
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-link-dialog
+  []
+  [:div {:id "link-dialog" :class "reveal-modal dark"}
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-settings-dialog
+  []
+  [:div {:id "settings-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])

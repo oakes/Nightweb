@@ -1,4 +1,4 @@
-(ns nightweb_desktop.utils
+(ns nightweb-desktop.utils
   (:use [clojure.java.io :only [resource]]
         [clojure.xml :only [parse]]))
 
