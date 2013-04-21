@@ -1,9 +1,7 @@
 (ns nightweb-desktop.window
   (:require [splendid.jfx :as jfx])
   (:import (javafx.scene.layout VBox Priority)
-           (javafx.scene.control TabPane Tab)
-           javafx.scene.web.WebView
-           javafx.beans.value.ChangeListener)
+           javafx.scene.web.WebView)
   (:use [nightweb.router :only [stop-router]]
         [nightweb-desktop.server :only [port]]))
 

@@ -16,4 +16,3 @@
         (get :content)
         (first))
     res-name))
-

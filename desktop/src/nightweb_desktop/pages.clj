@@ -9,7 +9,9 @@
         [nightweb-desktop.dialogs :only [get-search-dialog
                                          get-new-post-dialog
                                          get-link-dialog
-                                         get-settings-dialog]]))
+                                         get-settings-dialog
+                                         get-export-dialog
+                                         get-import-dialog]]))
 
 (defmacro get-page
   [& body]
@@ -24,6 +26,8 @@
           (get-new-post-dialog)
           (get-link-dialog)
           (get-settings-dialog)
+          (get-export-dialog)
+          (get-import-dialog)
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
           [:script {:src "custom.modernizr.js"}]

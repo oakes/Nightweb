@@ -4,8 +4,10 @@
         [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
                                   get-category-tiles]]
+        [nightweb.constants :only [is-me?]]
         [nightweb-desktop.utils :only [get-string]]
-        [nightweb-desktop.dialogs :only [get-profile-dialog]]))
+        [nightweb-desktop.dialogs :only [get-my-profile-dialog
+                                         get-their-profile-dialog]]))
 
 (defn get-tab-view
   [params show-me-tab?]
@@ -76,7 +78,9 @@
   [:div
    (let [tiles (get-user-tiles params)]
      (get-grid-view tiles))
-   (get-profile-dialog)])
+   (if (is-me? (get params :userhash))
+     (get-my-profile-dialog params)
+     (get-their-profile-dialog params))])
 
 (defn get-category-view
   [params]
