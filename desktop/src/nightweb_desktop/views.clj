@@ -1,27 +1,11 @@
 (ns nightweb-desktop.views
-  (:use [clojure.java.io :only [resource]]
-        [clojure.xml :only [parse]]
-        [nightweb.formats :only [url-encode]]
+  (:use [nightweb.formats :only [url-encode]]
         [nightweb.db :only [get-single-post-data]]
         [nightweb.db_tiles :only [get-post-tiles
                                   get-user-tiles
                                   get-category-tiles]]
+        [nightweb_desktop.utils :only [get-string]]
         [nightweb_desktop.dialogs :only [get-profile-dialog]]))
-
-(def strings (-> (resource "strings.xml")
-                 (.getFile)
-                 (parse)
-                 (get :content)))
-
-(defn get-string
-  [res-name]
-  (if (keyword? res-name)
-    (-> (filter #(= (get-in % [:attrs :name]) (name res-name))
-                strings)
-        (first)
-        (get :content)
-        (first))
-    res-name))
 
 (defn get-tab-view
   [params show-me-tab?]

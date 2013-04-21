@@ -14,7 +14,7 @@
           [:link {:rel "stylesheet" :href "foundation.min.css"}]
           [:link {:rel "stylesheet" :href "nw.css"}]
           [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]
-         [:body
+         [:body {:class "dark-gradient"}
           ~@body
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]

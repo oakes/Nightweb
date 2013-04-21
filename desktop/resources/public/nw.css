@@ -1,4 +1,4 @@
-body {
+.dark-gradient {
 	background-color: #000;
 
 	/* IE10 Consumer Preview */ 
@@ -18,6 +18,11 @@ body {
 
 	/* W3C Markup, IE10 Release Preview */ 
 	background-image: linear-gradient(to bottom, #000000 0%, #4F5A64 100%);
+}
+
+.dark {
+	background-color: #303030;
+	color: #c0c0c0;
 }
 
 .top-bar {
@@ -72,4 +77,8 @@ body {
 .grid-view-tile:hover {
 	color: #c0c0c0;
 	background-color: dodgerblue;
+}
+
+.image-view:hover {
+	opacity: 0.5;
 }
