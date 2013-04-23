@@ -6,8 +6,9 @@
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:form
     [:br]
-    [:a {:href "#"}
-     [:img {:class "profile-image"}]]
+    [:div {:class "profile-image"}
+     [:input {:type "button" :value (get-string :clear) :style "float: right;"}]
+     [:input {:type "file" :style "width: 50%;"}]]
     [:div {:class "profile-text"}
      [:input {:type "text" :placeholder (get-string :name)}]
      [:textarea {:placeholder (get-string :about_me)}]]
@@ -16,6 +17,10 @@
           :class "button"
           :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
       (get-string :cancel)]
+     [:a {:href "#"
+          :class "button"
+          :onclick "$('#import-dialog').foundation('reveal', 'open')"}
+      (get-string :import)]
      [:a {:href "#"
           :class "button"
           :onclick "$('#export-dialog').foundation('reveal', 'open')"}
@@ -28,7 +33,7 @@
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:form
     [:br]
-    [:img {:class "profile-image"}]
+    [:div {:class "profile-image"}]
     [:div {:class "profile-text"}]
     [:div {:class "profile-buttons"}
      [:a {:href "#"
@@ -57,12 +62,12 @@
   [:div {:id "settings-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
-(defn get-export-dialog
-  []
-  [:div {:id "export-dialog" :class "reveal-modal dark"}
-   [:a {:class "close-reveal-modal"} "&#215;"]])
-
 (defn get-import-dialog
   []
   [:div {:id "import-dialog" :class "reveal-modal dark"}
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-export-dialog
+  []
+  [:div {:id "export-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])

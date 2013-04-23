@@ -87,10 +87,6 @@
 	margin: 10px;
 }
 
-.profile-image:hover {
-	opacity: 0.5;
-}
-
 .profile-text {
 	margin-right: 270px;
 	min-width: 300px;
