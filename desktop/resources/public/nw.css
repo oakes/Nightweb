@@ -81,15 +81,28 @@
 
 .profile-image {
 	background-image: url("img/profile.png");
-	float: right;
+	background-repeat: no-repeat;
+	background-size: 100% 100%;
+	background-position: center center;
 	width: 250px;
 	height: 250px;
-	margin: 10px;
+	margin: 10px auto 10px auto;
+	float: right;
 }
 
 .profile-text {
 	margin-right: 270px;
-	min-width: 300px;
+}
+
+@media (max-width: 600px) {
+	.profile-image {
+		float: none;
+	}
+
+	.profile-text {
+		margin-right: 0px;
+		width: 100%;
+	}
 }
 
 .profile-buttons {

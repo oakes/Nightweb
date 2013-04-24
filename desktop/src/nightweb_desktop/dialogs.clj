@@ -8,7 +8,7 @@
     [:br]
     [:div {:class "profile-image"}
      [:input {:type "button" :value (get-string :clear) :style "float: right;"}]
-     [:input {:type "file" :style "width: 50%;"}]]
+     [:input {:type "file" :style "width: 50%;" :onchange "importImage(this)"}]]
     [:div {:class "profile-text"}
      [:input {:type "text" :placeholder (get-string :name)}]
      [:textarea {:placeholder (get-string :about_me)}]]
@@ -55,11 +55,6 @@
 (defn get-link-dialog
   []
   [:div {:id "link-dialog" :class "reveal-modal dark"}
-   [:a {:class "close-reveal-modal"} "&#215;"]])
-
-(defn get-settings-dialog
-  []
-  [:div {:id "settings-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-import-dialog

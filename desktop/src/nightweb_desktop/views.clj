@@ -30,10 +30,7 @@
                  :dialog "new-post-dialog"}
                 {:class "foundicon-page"
                  :title "Link"
-                 :dialog "link-dialog"}
-                {:class "foundicon-settings"
-                 :title "Settings"
-                 :dialog "settings-dialog"}]]
+                 :dialog "link-dialog"}]]
     [:li [:a {:href "#"
               :onclick (str "$('#"
                             (get button :dialog)

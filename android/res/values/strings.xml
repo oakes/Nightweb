@@ -71,4 +71,6 @@
   <string name="confirm_delete">Are you sure you want to delete this?</string>
   <string name="export_desc">This will save a password-protected file with all of your user\'s data. You can open it on another device with Nightweb installed.</string>
   <string name="confirm_import">Are you sure you want to import this user? Your existing user will be permanently removed.</string>
+
+  <string name="open_in_browser">Open in Browser</string>
 </resources>

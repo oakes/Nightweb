@@ -1,8 +1,6 @@
-$(document).foundation();
-
-var minTileWidth = 160;
 var resizeGrid = function() {
 	var resize = function() {
+		var minTileWidth = 160;
 		var totalWidth = document.documentElement.clientWidth;
 		var numColumns = Math.floor(totalWidth / minTileWidth);
 		var newTileWidth = totalWidth / numColumns;
@@ -13,9 +11,6 @@ var resizeGrid = function() {
 	resize();
 	resize();
 };
-
-$(window).resize(resizeGrid);
-resizeGrid();
 
 var tileAction = function(url) {
 	var params = {};
@@ -33,3 +28,18 @@ var tileAction = function(url) {
 			break;
 	}
 };
+
+var importImage = function(elem) {
+	var reader = new FileReader();
+
+	reader.onload = function(event) {
+		var url = 'url(' + event.target.result + ')';
+		$('.profile-image').css('background-image', url);
+	};
+
+	reader.readAsDataURL(elem.files[0]);
+};
+
+$(document).foundation();
+$(window).resize(resizeGrid);
+resizeGrid();

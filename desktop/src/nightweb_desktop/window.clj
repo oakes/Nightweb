@@ -1,33 +1,24 @@
 (ns nightweb-desktop.window
-  (:require [splendid.jfx :as jfx])
-  (:import (javafx.scene.layout VBox Priority)
-           javafx.scene.web.WebView)
-  (:use [nightweb.router :only [stop-router]]
+  (:use [seesaw.core :only [invoke-later frame pack! show! button alert]]
+        [nightweb.router :only [stop-router]]
+        [nightweb-desktop.utils :only [get-string]]
         [nightweb-desktop.server :only [port]]))
 
-(defn create-webview
-  "Creates a new WebView."
-  []
-  (let [web-view (WebView.)
-        web-engine (.getEngine web-view)]
-    (VBox/setVgrow web-view Priority/ALWAYS)
-    (.load web-engine (str "http://localhost:" port))
-    web-view))
+(defn open-in-browser
+  [e]
+  (let [address (str "http://localhost:" port)]
+    (if (java.awt.Desktop/isDesktopSupported)
+      (let [uri (java.net.URI. address)]
+        (.browse (java.awt.Desktop/getDesktop) uri))
+      (alert e address))))
 
 (defn start-window
-  "Launches a JavaFX window."
+  "Launches a window."
   []
-  (jfx/jfx
-    (let [window (VBox.)
-          web-view (create-webview)]
-      (.setWidth jfx/primary-stage 1024)
-      (.setMinWidth jfx/primary-stage 800)
-      (.setHeight jfx/primary-stage 768)
-      (.setMinHeight jfx/primary-stage 600)
-      (jfx/add window [web-view])
-      (jfx/show window)
-      (.setOnCloseRequest jfx/primary-stage
-                          (reify javafx.event.EventHandler
-                            (handle [this event]
-                              (stop-router)
-                              (java.lang.System/exit 0)))))))
+  (invoke-later
+    (-> (frame :title (get-string :app_name)
+               :content (button :text (get-string :open_in_browser)
+                                :listen [:action #(open-in-browser %)])
+               :on-close :exit)
+        pack!
+        show!)))
