@@ -29,12 +29,54 @@ var tileAction = function(url) {
 	}
 };
 
+var resizeImage = function(src, crop, callback) {
+	var img = new Image();
+
+	img.onload = function() {
+		var canvas = document.createElement("canvas");
+		var context = canvas.getContext("2d");
+
+		var maxSize = 1024;
+		var sx = 0, sy = 0;
+
+		if (crop) {
+			var size = Math.min(img.width, img.height, maxSize);
+			var width = size, height = size;
+
+			if (img.width > img.height) {
+				sx = -1 * (img.width - img.height) / 2;
+			} else {
+				sy = -1 * (img.height - img.width) / 2;
+			}
+		} else {
+			var width = Math.min(img.width, maxSize);
+			var height = Math.min(img.height, maxSize);
+		}
+
+	        canvas.width = width;
+	        canvas.height = height;
+	        context.drawImage(img, sx, sy);
+
+		callback(canvas.toDataURL());
+	};
+
+	img.src = src;
+};
+
 var importImage = function(elem) {
 	var reader = new FileReader();
 
 	reader.onload = function(event) {
-		var url = 'url(' + event.target.result + ')';
-		$('.profile-image').css('background-image', url);
+		resizeImage(
+			event.target.result,
+			true,
+			function(src) {
+				$('.profile-image').css(
+					'background-image',
+					'url(' + src + ')'
+				);
+			}
+		);
 	};
 
 	reader.readAsDataURL(elem.files[0]);
