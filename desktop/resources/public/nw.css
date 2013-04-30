@@ -1,23 +1,13 @@
 .dark-gradient {
 	background-color: #000;
 
-	/* IE10 Consumer Preview */ 
-	background-image: -ms-linear-gradient(top, #000000 0%, #4F5A64 100%);
-
-	/* Mozilla Firefox */ 
-	background-image: -moz-linear-gradient(top, #000000 0%, #4F5A64 100%);
-
-	/* Opera */ 
-	background-image: -o-linear-gradient(top, #000000 0%, #4F5A64 100%);
-
-	/* Webkit (Safari/Chrome 10) */ 
-	background-image: -webkit-gradient(linear, left top, left bottom, color-stop(0, #000000), color-stop(1, #4F5A64));
-
 	/* Webkit (Chrome 11+) */ 
 	background-image: -webkit-linear-gradient(top, #000000 0%, #4F5A64 100%);
 
 	/* W3C Markup, IE10 Release Preview */ 
 	background-image: linear-gradient(to bottom, #000000 0%, #4F5A64 100%);
+
+	height: 100%;
 }
 
 .dark {
@@ -79,7 +69,7 @@
 	background-color: dodgerblue;
 }
 
-.profile-image {
+#profile-image {
 	background-image: url("img/profile.png");
 	background-repeat: no-repeat;
 	background-size: 100% 100%;
@@ -90,22 +80,30 @@
 	float: right;
 }
 
-.profile-text {
+#profile-inputs {
 	margin-right: 270px;
 }
 
 @media (max-width: 600px) {
-	.profile-image {
+	#profile-image {
 		float: none;
 	}
 
-	.profile-text {
+	#profile-text {
 		margin-right: 0px;
 		width: 100%;
 	}
 }
 
-.profile-buttons {
+#profile-buttons {
 	float: right;
 	clear: both;
+}
+
+#profile-pick {
+	width: 50%;
+}
+
+#profile-clear {
+	float: right;
 }

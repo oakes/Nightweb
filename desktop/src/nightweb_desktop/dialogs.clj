@@ -4,42 +4,47 @@
 (defn get-my-profile-dialog
   [user]
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
-   [:form
-    [:br]
-    [:div {:class "profile-image"}
-     [:input {:type "button" :value (get-string :clear) :style "float: right;"}]
-     [:input {:type "file" :style "width: 50%;" :onchange "importImage(this)"}]]
-    [:div {:class "profile-text"}
-     [:input {:type "text" :placeholder (get-string :name)}]
-     [:textarea {:placeholder (get-string :about_me)}]]
-    [:div {:class "profile-buttons"}
-     [:a {:href "#"
-          :class "button"
-          :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
-      (get-string :cancel)]
-     [:a {:href "#"
-          :class "button"
-          :onclick "$('#import-dialog').foundation('reveal', 'open')"}
-      (get-string :import)]
-     [:a {:href "#"
-          :class "button"
-          :onclick "$('#export-dialog').foundation('reveal', 'open')"}
-      (get-string :export)]
-     [:a {:href "#" :class "button"} (get-string :save)]]]
+   [:br]
+   [:div {:id "profile-image"}
+    [:input {:type "button"
+             :id "profile-clear"
+             :value (get-string :clear)}]
+    [:input {:type "file"
+             :id "profile-pick"
+             :size "1"
+             :onchange "importImage(this)"}]]
+   [:div {:id "profile-inputs"}
+    [:input {:id "profile-name" :placeholder (get-string :name) :type "text"}]
+    [:textarea {:id "profile-about" :placeholder (get-string :about_me)}]
+    [:input {:id "profile-image-hidden" :type "hidden"}]]
+   [:div {:id "profile-buttons"}
+    [:a {:href "#"
+         :class "button"
+         :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
+     (get-string :cancel)]
+    [:a {:href "#"
+         :class "button"
+         :onclick "$('#import-dialog').foundation('reveal', 'open')"}
+     (get-string :import)]
+    [:a {:href "#"
+         :class "button"
+         :onclick "$('#export-dialog').foundation('reveal', 'open')"}
+     (get-string :export)]
+    [:a {:href "#" :class "button" :onclick "saveProfile()"}
+     (get-string :save)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-their-profile-dialog
   [user]
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
-   [:form
-    [:br]
-    [:div {:class "profile-image"}]
-    [:div {:class "profile-text"}]
-    [:div {:class "profile-buttons"}
-     [:a {:href "#"
-          :class "button"
-          :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
-      (get-string :ok)]]]
+   [:br]
+   [:div {:class "profile-image"}]
+   [:div {:class "profile-text"}]
+   [:div {:class "profile-buttons"}
+    [:a {:href "#"
+         :class "button"
+         :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
+     (get-string :ok)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-search-dialog

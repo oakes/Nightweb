@@ -57,7 +57,7 @@ var resizeImage = function(src, crop, callback) {
 	        canvas.height = height;
 	        context.drawImage(img, sx, sy);
 
-		callback(canvas.toDataURL());
+		callback(canvas.toDataURL("image/webp", 0.9));
 	};
 
 	img.src = src;
@@ -71,15 +71,31 @@ var importImage = function(elem) {
 			event.target.result,
 			true,
 			function(src) {
-				$('.profile-image').css(
+				$('#profile-image').css(
 					'background-image',
 					'url(' + src + ')'
 				);
+				$('#profile-image-hidden').val(src);
 			}
 		);
 	};
 
 	reader.readAsDataURL(elem.files[0]);
+};
+
+var saveProfile = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'profile',
+			name: $('#profile-name').val(),
+			about: $('#profile-about').val(),
+			pic: $('#profile-image-hidden').val()
+		},
+		success: function(data) {
+		}
+	});
 };
 
 $(document).foundation();
