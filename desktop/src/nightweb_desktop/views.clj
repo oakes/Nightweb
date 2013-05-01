@@ -16,9 +16,9 @@
                           {:type nil :title "Me"})]
                        [{:type :user :title "Users"}
                         {:type :post :title "Posts"}])]
-    [:li {:class (when (= (get params :type) (get button :type)) "active")}
+    [:li {:class (when (= (:type params) (:type button)) "active")}
      [:a {:href (url-encode button (if show-me-tab? "/?" "/c?"))}
-      (get button :title)]]))
+      (:title button)]]))
 
 (defn get-menu-view
   []
@@ -33,9 +33,9 @@
                  :dialog "link-dialog"}]]
     [:li [:a {:href "#"
               :onclick (str "$('#"
-                            (get button :dialog)
+                            (:dialog button)
                             "').foundation('reveal', 'open');")}
-          [:i {:class (get button :class)}]]]))
+          [:i {:class (:class button)}]]]))
 
 (defn get-action-bar-view
   [tab-view]
@@ -50,11 +50,11 @@
 (defn get-grid-view
   [content]
   (for [item content]
-    (let [bg (get item :background)
-          title (get-string (or (get item :title)
-                                (get item :body)
-                                (get item :tag)))
-          add-emphasis? (get item :add-emphasis?)]
+    (let [bg (:background item)
+          title (get-string (or (:title item)
+                                (:body item)
+                                (:tag item)))
+          add-emphasis? (:add-emphasis? item)]
       [:a {:href "#"
            :onclick (str "tileAction('" (url-encode item "") "')")
            :class "grid-view-tile"
@@ -77,7 +77,7 @@
         tiles (get-user-tiles params user)]
     [:div
      (get-grid-view tiles)
-     (if (is-me? (get user :userhash))
+     (if (is-me? (:userhash user))
        (get-my-profile-dialog user)
        (get-their-profile-dialog user))]))
 

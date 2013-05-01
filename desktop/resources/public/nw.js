@@ -90,10 +90,11 @@ var saveProfile = function() {
 		data: {
 			type: 'profile',
 			name: $('#profile-name').val(),
-			about: $('#profile-about').val(),
+			body: $('#profile-about').val(),
 			pic: $('#profile-image-hidden').val()
 		},
 		success: function(data) {
+			window.location.reload(true);
 		}
 	});
 };

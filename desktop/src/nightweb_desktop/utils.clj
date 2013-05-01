@@ -1,11 +1,17 @@
 (ns nightweb-desktop.utils
-  (:use [clojure.java.io :only [resource]]
-        [clojure.xml :only [parse]]))
+  (:use [ring.util.codec :only [base64-encode]]
+        [clojure.java.io :only [resource]]
+        [clojure.xml :only [parse]]
+        [nightweb.io :only [read-file]]
+        [nightweb.formats :only [base32-encode]]
+        [nightweb.constants :only [my-hash-bytes
+                                   slash
+                                   get-pic-dir]]))
 
 (def strings (-> (resource "strings.xml")
                  (.toString)
                  (parse)
-                 (get :content)))
+                 (:content)))
 
 (defn get-string
   "Returns the localized string for the given keyword."
@@ -14,9 +20,18 @@
     (-> (filter #(= (get-in % [:attrs :name]) (name res-name))
                 strings)
         (first)
-        (get :content)
+        (:content)
         (first))
     res-name))
+
+(defn get-pic
+  "Returns the path to the pic"
+  ([pic-hash] (get-pic my-hash-bytes pic-hash))
+  ([user-hash pic-hash]
+   (when (and user-hash pic-hash)
+     (str (get-pic-dir (base32-encode user-hash))
+          slash
+          (base32-encode pic-hash)))))
 
 (defn get-version
   "Returns version number from project.clj."
@@ -27,3 +42,13 @@
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
       nil)))
+
+(defn pic-to-data-url
+  "Converts the pic from the given pic hash to a data url."
+  ([pic-hash] (pic-to-data-url my-hash-bytes pic-hash))
+  ([user-hash pic-hash]
+   (let [pic-dir (str (get-pic-dir (base32-encode user-hash))
+                      slash
+                      (base32-encode pic-hash))]
+     (when-let [pic (read-file pic-dir)]
+       (str "image/webp;base64," (base64-encode pic))))))

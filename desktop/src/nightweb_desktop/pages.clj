@@ -34,11 +34,11 @@
 
 (defn get-view
   [params]
-  (case (get params :type)
-    :user (if (get params :userhash)
+  (case (:type params)
+    :user (if (:userhash params)
             (get-user-view params)
             (get-category-view params))
-    :post (if (get params :time)
+    :post (if (:time params)
             (get-post-view params)
             (get-category-view params))
     :tag (get-category-view params)

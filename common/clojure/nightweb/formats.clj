@@ -99,23 +99,26 @@
      (str path (clojure.string/join "&" params)))))
 
 (defn url-decode
-  ([url] (url-decode url "#"))
-  ([url delimiter]
-   (let [url-str (subs url (+ 1 (.indexOf url delimiter)))
-         url-vec (clojure.string/split url-str #"[&=]")
-         url-map (if (even? (count url-vec))
-                   (apply hash-map url-vec)
-                   {})
-         {type-val "type"
-          subtype-val "subtype"
-          userhash-val "userhash"
-          time-val "time"
-          tag-val "tag"} url-map]
-     {:type (when type-val (keyword type-val))
-      :subtype (when subtype-val (keyword subtype-val))
-      :userhash (when userhash-val (base32-decode userhash-val))
-      :time (when time-val (long-decode time-val))
-      :tag tag-val})))
+  ([url] (url-decode url true))
+  ([url whitelist?]
+   (when url
+     (let [url-str (subs url (+ 1 (.indexOf url "#")))
+           url-map (->> (clojure.string/split url-str #"[&]")
+                        (map #(clojure.string/split % #"="))
+                        (map (fn [[k v]] [(keyword k) v]))
+                        (into {}))]
+       (if whitelist?
+         (let [{type-val :type
+                subtype-val :subtype
+                userhash-val :userhash
+                time-val :time
+                tag-val :tag} url-map]
+           {:type (when type-val (keyword type-val))
+            :subtype (when subtype-val (keyword subtype-val))
+            :userhash (when userhash-val (base32-decode userhash-val))
+            :time (when time-val (long-decode time-val))
+            :tag tag-val})
+         url-map)))))
 
 (def min-tag-length 2)
 (def max-tag-count 20)

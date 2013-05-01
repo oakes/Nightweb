@@ -1,11 +1,15 @@
 (ns nightweb-desktop.dialogs
-  (:use [nightweb-desktop.utils :only [get-string]]))
+  (:use [nightweb-desktop.utils :only [get-string
+                                       get-pic
+                                       pic-to-data-url]]))
 
 (defn get-my-profile-dialog
   [user]
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:br]
-   [:div {:id "profile-image"}
+   [:div {:id "profile-image"
+          :style (when-let [pic (get-pic (:pichash user))]
+                   (str "background-image: url(" pic ")"))}
     [:input {:type "button"
              :id "profile-clear"
              :value (get-string :clear)}]
@@ -14,9 +18,17 @@
              :size "1"
              :onchange "importImage(this)"}]]
    [:div {:id "profile-inputs"}
-    [:input {:id "profile-name" :placeholder (get-string :name) :type "text"}]
-    [:textarea {:id "profile-about" :placeholder (get-string :about_me)}]
-    [:input {:id "profile-image-hidden" :type "hidden"}]]
+    [:input {:id "profile-name"
+             :placeholder (get-string :name)
+             :type "text"
+             :value (:title user)}]
+    [:textarea {:id "profile-about"
+                :placeholder (get-string :about_me)}
+     (:body user)]
+    [:input {:id "profile-image-hidden"
+             :type "hidden"
+             :value (when-let [pic-hash (:pichash user)]
+                      (pic-to-data-url pic-hash))}]]
    [:div {:id "profile-buttons"}
     [:a {:href "#"
          :class "button"
@@ -38,8 +50,12 @@
   [user]
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:br]
-   [:div {:class "profile-image"}]
-   [:div {:class "profile-text"}]
+   [:div {:class "profile-image"
+          :style (when-let [pic (get-pic (:userhash user) (:pichash user))]
+                   (str "background-image: url(" pic ")"))}]
+   [:div {:id "profile-inputs"}
+    [:div {:id "profile-name"} (:title user)]
+    [:div {:id "profile-about"} (:body user)]]
    [:div {:class "profile-buttons"}
     [:a {:href "#"
          :class "button"
