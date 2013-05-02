@@ -115,7 +115,7 @@
 
 (defn get-single-user-data
   [params]
-  (let [user-hash (get params :userhash)]
+  (let [user-hash (:userhash params)]
     (with-connection
       spec
       (with-query-results
@@ -127,8 +127,8 @@
 
 (defn get-single-post-data
   [params]
-  (let [user-hash (get params :userhash)
-        create-time (get params :time)]
+  (let [user-hash (:userhash params)
+        create-time (:time params)]
     (with-connection
       spec
       (with-query-results
@@ -141,8 +141,8 @@
 
 (defn get-post-data
   [params]
-  (let [user-hash (get params :userhash)
-        page (get params :page)]
+  (let [user-hash (:userhash params)
+        page (:page params)]
     (with-connection
       spec
       (with-query-results
@@ -155,8 +155,8 @@
 
 (defn get-single-fav-data
   [params]
-  (let [ptr-hash (get params :userhash)
-        ptr-time (get params :time)]
+  (let [ptr-hash (:userhash params)
+        ptr-time (:time params)]
     (with-connection
       spec
       (with-query-results
@@ -167,7 +167,7 @@
 
 (defn get-fav-data
   [params]
-  (let [ptr-hash (get params :ptrhash)]
+  (let [ptr-hash (:ptrhash params)]
     (with-connection
       spec
       (with-query-results
@@ -182,10 +182,10 @@
 
 (defn get-category-data
   [params]
-  (let [data-type (get params :type)
-        sub-type (get params :subtype)
+  (let [data-type (:type params)
+        sub-type (:subtype params)
         statement (case data-type
-                    :user (if-let [tag (get params :tag)]
+                    :user (if-let [tag (:tag params)]
                             ["SELECT user.* FROM user 
                              INNER JOIN tag 
                              ON user.userhash = tag.userhash 
@@ -193,7 +193,7 @@
                              AND tag.ptrtime IS NULL 
                              ORDER BY user.time DESC" tag]
                             ["SELECT * FROM user ORDER BY time DESC"])
-                    :post (if-let [tag (get params :tag)]
+                    :post (if-let [tag (:tag params)]
                             ["SELECT post.*, user.title AS subtitle FROM post 
                              INNER JOIN tag
                              ON post.userhash = tag.userhash
@@ -217,7 +217,7 @@
                                   AND fav.status = 1 
                                   AND fav.ptrtime IS NULL 
                                   ORDER BY fav.mtime DESC"
-                                  (get params :userhash)]
+                                  (:userhash params)]
                            :post ["SELECT fav.ptrhash AS userhash, post.*, 
                                   user.title AS subtitle 
                                   FROM fav 
@@ -230,7 +230,7 @@
                                   AND fav.status = 1 
                                   AND post.status = 1 
                                   ORDER BY fav.mtime DESC"
-                                  (get params :userhash)]
+                                  (:userhash params)]
                            nil)
                     :search (case sub-type
                               :user ["SELECT user.* 
@@ -238,7 +238,7 @@
                                      WHERE ft.TABLE = 'USER' 
                                      AND user.id = ft.KEYS[0] 
                                      ORDER BY user.time DESC"
-                                     (get params :query)]
+                                     (:query params)]
                               :post ["SELECT post.*, user.title AS subtitle 
                                      FROM FT_SEARCH_DATA(?, 0, 0) ft, post 
                                      LEFT JOIN user 
@@ -247,7 +247,7 @@
                                      AND post.id = ft.KEYS[0] 
                                      AND post.status = 1 
                                      ORDER BY post.time DESC"
-                                     (get params :query)]
+                                     (:query params)]
                               nil)
                     :tag (case sub-type
                            :user ["SELECT title AS tag, 
@@ -268,14 +268,14 @@
         spec
         (with-query-results
           rs
-          (vec (concat [(paginate (get params :page) (first statement))]
+          (vec (concat [(paginate (:page params) (first statement))]
                        (rest statement)))
           (prepare-results rs (or sub-type data-type)))))))
 
 (defn get-single-tag-data
   [params]
-  (let [tag (get params :tag)
-        statement (case (get params :type)
+  (let [tag (:tag params)
+        statement (case (:type params)
                     :user ["SELECT * FROM tag 
                            WHERE title = ? 
                            AND pichash IS NOT NULL 
@@ -299,8 +299,8 @@
 
 (defn get-pic-data
   ([params]
-   (let [user-hash (get params :userhash)
-         pic-hash (get params :pichash)]
+   (let [user-hash (:userhash params)
+         pic-hash (:pichash params)]
      (with-connection
        spec
        (with-query-results
@@ -309,8 +309,8 @@
           user-hash pic-hash]
          (prepare-results rs :pic)))))
   ([params ptr-time paginate?]
-   (let [user-hash (get params :userhash)
-         page (get params :page)]
+   (let [user-hash (:userhash params)
+         page (:page params)]
      (with-connection
        spec
        (with-query-results
@@ -443,15 +443,15 @@
 
 (defn insert-meta-data
   [user-hash data-map]
-  (case (get data-map :dir-name)
+  (case (:dir-name data-map)
     "post" (insert-post user-hash
-                        (long-decode (get data-map :file-name))
-                        (get data-map :contents))
+                        (long-decode (:file-name data-map))
+                        (:contents data-map))
     "fav" (insert-fav user-hash
-                      (long-decode (get data-map :file-name))
-                      (get data-map :contents))
-    "meta" (case (get data-map :file-name)
-             "user.profile" (insert-profile user-hash (get data-map :contents))
+                      (long-decode (:file-name data-map))
+                      (:contents data-map))
+    "meta" (case (:file-name data-map)
+             "user.profile" (insert-profile user-hash (:contents data-map))
              nil)
     nil))
 

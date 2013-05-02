@@ -36,8 +36,8 @@
   <string name="unfav_user">Unfavorite User</string>
   <string name="clear">Clear</string>
 
-  <string name="import">Import...</string>
-  <string name="export">Export...</string>
+  <string name="import_button">Import...</string>
+  <string name="export_button">Export...</string>
   <string name="zipping">Zipping...</string>
   <string name="unzipping">Unzipping...</string>
   <string name="zip_error">Error zipping file</string>

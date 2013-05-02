@@ -73,38 +73,36 @@
       (set-text-size text-view default-text-size)
       (.setPadding text-view pad pad pad pad)
       (.setShadowLayer text-view radius 0 0 black))
-    (if (get item :add-emphasis?)
+    (if (:add-emphasis? item)
       (do
         (.setTypeface text-top android.graphics.Typeface/DEFAULT_BOLD)
         (.setGravity text-top android.view.Gravity/CENTER_HORIZONTAL))
       (do
         (.setTypeface text-top android.graphics.Typeface/DEFAULT)
         (.setGravity text-top android.view.Gravity/LEFT)))
-    (when-let [bg (get item :background)]
+    (when-let [bg (:background item)]
       (.setBackgroundResource image (get-drawable-at-runtime context bg)))
-    (when-let [title (or (get item :title)
-                         (get item :body)
-                         (get item :tag))]
+    (when-let [title (or (:title item) (:body item) (:tag item))]
       (if (= title :page)
         (.setText text-top (str (get-string-at-runtime context title)
                                 " "
-                                (get item :page)))
+                                (:page item)))
         (.setText text-top (get-string-at-runtime context title))))
-    (.setText text-bottom (get item :subtitle))
-    (if-let [item-count (get item :count)]
+    (.setText text-bottom (:subtitle item))
+    (if-let [item-count (:count item)]
       (.setText text-count (if (> item-count 0) (str item-count) nil)))
     (if (and (= (.length (.getText text-bottom)) 0)
              (= (.length (.getText text-count)) 0))
       (.setVisibility bottom-layout android.view.View/GONE))
     (.setImageDrawable image
-                       (if (nil? (get item :tag))
+                       (if (nil? (:tag item))
                          (create-tile-image context
-                                            (get item :userhash)
-                                            (get item :pichash))
+                                            (:userhash item)
+                                            (:pichash item))
                          (let [tag (get-single-tag-data item)]
                            (create-tile-image context
-                                              (get tag :userhash)
-                                              (get tag :pichash)))))
+                                              (:userhash tag)
+                                              (:pichash tag)))))
     (.setOnClickListener
       tile-view
       (proxy [android.view.View$OnClickListener] []
@@ -158,16 +156,16 @@
       (fn []
         (let [post (get-single-post-data params)
               tiles (get-post-tiles post show-edit-post-dialog)]
-          (if (nil? (get post :body))
+          (if (nil? (:body post))
             (on-ui (toast (get-string :lost_post)))
             (on-ui 
               (set-text-content context
                                 text-view
-                                (tags-encode :post (get post :body)))
+                                (tags-encode :post (:body post)))
               (let [date-format (java.text.DateFormat/getDateTimeInstance
                                   java.text.DateFormat/MEDIUM
                                   java.text.DateFormat/SHORT)]
-                (.setText date-view (->> (get post :time)
+                (.setText date-view (->> (:time post)
                                          (java.util.Date.)
                                          (.format date-format))))
               (add-grid-view-tiles context tiles grid-view))))
@@ -181,7 +179,7 @@
       context
       (get-string :loading)
       (fn []
-        (let [pics (get-pic-data params (get params :ptrtime) false)]
+        (let [pics (get-pic-data params (:ptrtime params) false)]
           (on-ui
             (.setAdapter
               view
@@ -203,8 +201,8 @@
                              (->> pics
                                   (filter (fn [pic]
                                             (java.util.Arrays/equals
-                                              (get pic :pichash)
-                                              (get params :pichash))))
+                                              (:pichash pic)
+                                              (:pichash params))))
                                   (first)
                                   (.indexOf pics)))))
         false))

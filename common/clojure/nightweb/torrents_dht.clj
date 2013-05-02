@@ -163,8 +163,8 @@
   ; insert it into the db
   (insert-meta-data user-hash-bytes meta-file)
   ; if this is a fav of a user, act on it if necessary
-  (let [meta-contents (get meta-file :contents)]
-    (when (and (= "fav" (get meta-file :dir-name))
+  (let [meta-contents (:contents meta-file)]
+    (when (and (= "fav" (:dir-name meta-file))
                (nil? (get meta-contents "ptrtime")))
       (on-recv-fav user-hash-bytes
                    (b-decode-bytes (get meta-contents "ptrhash"))
@@ -209,20 +209,20 @@
   "Makes sure a meta link has the required values and signature."
   [link-map]
   (and link-map
-       (get link-map :time)
-       (<= (get link-map :time) (.getTime (java.util.Date.)))
-       (let [user-hash-str (get link-map :user-hash-str)
+       (:time link-map)
+       (<= (:time link-map) (.getTime (java.util.Date.)))
+       (let [user-hash-str (:user-hash-str link-map)
              pub-key-path (get-user-pub-file user-hash-str)]
          (verify-signature (read-key-file pub-key-path)
-                           (get link-map :sig)
-                           (get link-map :data)))))
+                           (:sig link-map)
+                           (:data link-map)))))
 
 (defn save-meta-link
   "Saves a meta link to the disk."
   [link-map]
-  (let [user-hash-str (get link-map :user-hash-str)
+  (let [user-hash-str (:user-hash-str link-map)
         link-path (get-meta-link-file user-hash-str)]
-    (write-file link-path (get link-map :link))))
+    (write-file link-path (:link link-map))))
 
 (defn replace-meta-link
   "Stops sharing a given meta torrent and begins downloading an updated one."
@@ -230,20 +230,20 @@
   (let [user-dir (get-user-dir user-hash-str)
         meta-torrent-path (str (get-meta-dir user-hash-str) torrent-ext)]
     (remove-torrent meta-torrent-path)
-    (when-let [old-hash-str (get old-link-map :link-hash-str)]
+    (when-let [old-hash-str (:link-hash-str old-link-map)]
       (remove-torrent old-hash-str))
     (save-meta-link new-link-map)
-    (add-hash user-dir (get new-link-map :link-hash-str) false on-recv-meta)
+    (add-hash user-dir (:link-hash-str new-link-map) false on-recv-meta)
     (println "Saved meta link")))
 
 (defn compare-meta-link
   "Checks if a given meta link is newer than the one we already have."
   [link-map]
-  (let [user-hash-str (get link-map :user-hash-str)
+  (let [user-hash-str (:user-hash-str link-map)
         my-link (read-link-file user-hash-str)
         my-link-map (parse-meta-link my-link)
-        my-time (get my-link-map :time)
-        their-time (get link-map :time)]
+        my-time (:time my-link-map)
+        their-time (:time link-map)]
     (if (not= my-time their-time)
       (if (validate-meta-link link-map)
         (if (or (nil? my-time) (> their-time my-time))

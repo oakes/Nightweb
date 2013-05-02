@@ -39,11 +39,11 @@
 (defn create-dialog
   [context message view buttons]
   (let [builder (android.app.AlertDialog$Builder. context)]
-    (when-let [positive-name (get buttons :positive-name)]
+    (when-let [positive-name (:positive-name buttons)]
       (.setPositiveButton builder positive-name nil))
-    (when-let [neutral-name (get buttons :neutral-name)]
+    (when-let [neutral-name (:neutral-name buttons)]
       (.setNeutralButton builder neutral-name nil))
-    (when-let [negative-name (get buttons :negative-name)]
+    (when-let [negative-name (:negative-name buttons)]
       (.setNegativeButton builder negative-name nil))
     (.setMessage builder message)
     (.setView builder view)
@@ -66,17 +66,17 @@
               (.setOnClickListener
                 positive-btn (btn-action d
                                          positive-btn
-                                         (get buttons :positive-func))))
+                                         (:positive-func buttons))))
             (when-let [neutral-btn (.getButton d neutral-type)]
               (.setOnClickListener
                 neutral-btn (btn-action d
                                         neutral-btn
-                                        (get buttons :neutral-func))))
+                                        (:neutral-func buttons))))
             (when-let [negative-btn (.getButton d negative-type)]
               (.setOnClickListener
                 negative-btn (btn-action d
                                          negative-btn
-                                         (get buttons :negative-func)))))))
+                                         (:negative-func buttons)))))))
       (.setCanceledOnTouchOutside dialog false)
       dialog)))
 
@@ -264,16 +264,16 @@
   [context content]
   (let [page-content (get-state context :share)
         pointers (if (empty? content)
-                   {:ptrhash (when (and (get page-content :userhash)
-                                        (or (= :post (get page-content :type))
-                                            (-> (get page-content :userhash)
+                   {:ptrhash (when (and (:userhash page-content)
+                                        (or (= :post (:type page-content))
+                                            (-> (:userhash page-content)
                                                 (is-me?)
                                                 (not))))
-                               (get page-content :userhash))
-                    :ptrtime (when (= :post (get page-content :type))
-                               (get page-content :time))}
-                   {:ptrhash (get content :ptrhash)
-                    :ptrtime (get content :ptrtime)})
+                               (:userhash page-content))
+                    :ptrtime (when (= :post (:type page-content))
+                               (:time page-content))}
+                   {:ptrhash (:ptrhash content)
+                    :ptrtime (:ptrtime content)})
         view (make-ui context [:linear-layout {:orientation 1}
                                [:linear-layout {:orientation 0
                                                 :tag "user-info"}
@@ -297,16 +297,16 @@
     (.setPadding user-name pad 0 0 0)
     (.setLayoutParams user-img (android.widget.LinearLayout$LayoutParams. s s))
     (.setScaleType user-img android.widget.ImageView$ScaleType/CENTER_CROP)
-    (if-let [ptr-hash (get pointers :ptrhash)]
+    (if-let [ptr-hash (:ptrhash pointers)]
       (future (let [user (get-single-user-data {:userhash ptr-hash})
-                    path (get-pic-path (get user :userhash) (get user :pichash))
+                    path (get-pic-path (:userhash user) (:pichash user))
                     bitmap (path-to-bitmap path thumb-size)]
-                (on-ui (.setText user-name (get user :title))
+                (on-ui (.setText user-name (:title user))
                        (.setImageBitmap user-img bitmap))))
       (.setVisibility user-info android.view.View/GONE))
     (set-text-size post-body default-text-size)
     (set-text-max-length post-body max-length-large)
-    (.setText post-body (get content :body))
+    (.setText post-body (:body content))
     (clear-attachments context)
     view))
 
@@ -316,7 +316,7 @@
     (show-dialog context
                  nil
                  view
-                 {:positive-name (if (get (.getTag view) :ptrtime)
+                 {:positive-name (if (:ptrtime (.getTag view))
                                    (get-string :send_reply)
                                    (get-string :send))
                   :positive-func send-post
@@ -336,9 +336,9 @@
                   (send-post context
                              dialog-view
                              button-view
-                             (get content :time)
+                             (:time content)
                              (for [pic pics]
-                               (get pic :pichash))
+                               (:pichash pic))
                              1))
                 :neutral-name (get-string :delete)
                 :neutral-func
@@ -347,14 +347,14 @@
                                   context
                                   dialog-view
                                   button-view
-                                  (get content :time)))
+                                  (:time content)))
                 :negative-name (get-string :cancel)
                 :negative-func cancel}))
 
 (defn get-profile-view
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (is-me? (get content :userhash))
+        view (if (is-me? (:userhash content))
                (make-ui context [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:edit-text {:single-line true
@@ -388,13 +388,13 @@
     (set-text-max-length text-name max-length-small)
     (set-text-max-length text-body max-length-large)
     ; set text content
-    (when (is-me? (get content :userhash))
+    (when (is-me? (:userhash content))
       (.setHint text-name (get-string :name))
       (.setHint text-body (get-string :about_me)))
-    (.setText text-name (get content :title))
-    (if (is-me? (get content :userhash))
-      (.setText text-body (get content :body))
-      (->> (get content :body)
+    (.setText text-name (:title content))
+    (if (is-me? (:userhash content))
+      (.setText text-body (:body content))
+      (->> (:body content)
            (tags-encode :user)
            (set-text-content context text-body)))
     (.setText clear-btn (get-string :clear))
@@ -412,12 +412,12 @@
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setBackgroundResource image-view (get-resource :drawable :profile))
     (future
-      (let [bitmap (-> (get-pic-path (get content :userhash)
-                                     (get content :pichash))
+      (let [bitmap (-> (get-pic-path (:userhash content)
+                                     (:pichash content))
                        (path-to-bitmap full-size))]
         (on-ui (.setImageBitmap image-view bitmap))))
     (.addView relative-layout image-view)
-    (when (is-me? (get content :userhash))
+    (when (is-me? (:userhash content))
       (.setOnClickListener
         image-view
         (proxy [android.view.View$OnClickListener] []
@@ -440,10 +440,10 @@
   (show-dialog context
                nil
                (get-profile-view context content)
-               (if (is-me? (get content :userhash))
+               (if (is-me? (:userhash content))
                  {:positive-name (get-string :save)
                   :positive-func save-profile
-                  :neutral-name (get-string :export)
+                  :neutral-name (get-string :export_button)
                   :neutral-func show-export-dialog
                   :negative-name (get-string :cancel)
                   :negative-func cancel}

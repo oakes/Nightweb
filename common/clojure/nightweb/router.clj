@@ -91,7 +91,7 @@
     ; add meta torrent
     (if (file-exists? meta-torrent-path)
       (add-torrent meta-path false on-recv-meta)
-      (when-let [new-link-str (get link-map :link-hash-str)]
+      (when-let [new-link-str (:link-hash-str link-map)]
         (add-hash user-dir new-link-str false on-recv-meta)))))
 
 (defn create-new-user

@@ -37,11 +37,11 @@
     [:a {:href "#"
          :class "button"
          :onclick "$('#import-dialog').foundation('reveal', 'open')"}
-     (get-string :import)]
+     (get-string :import_button)]
     [:a {:href "#"
          :class "button"
          :onclick "$('#export-dialog').foundation('reveal', 'open')"}
-     (get-string :export)]
+     (get-string :export_button)]
     [:a {:href "#" :class "button" :onclick "saveProfile()"}
      (get-string :save)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])

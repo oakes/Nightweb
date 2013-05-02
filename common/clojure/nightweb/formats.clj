@@ -86,15 +86,15 @@
   ([content] (url-encode content "http://nightweb.net/#"))
   ([content path]
    (let [params (remove-dupes-and-nils
-                  [(when-let [type-val (get content :type)]
+                  [(when-let [type-val (:type content)]
                      (str "type=" (name type-val)))
-                   (when-let [subtype-val (get content :subtype)]
+                   (when-let [subtype-val (:subtype content)]
                      (str "subtype=" (name subtype-val)))
-                   (when-let [userhash-val (get content :userhash)]
+                   (when-let [userhash-val (:userhash content)]
                      (str "userhash=" (base32-encode userhash-val)))
-                   (when-let [time-val (get content :time)]
+                   (when-let [time-val (:time content)]
                      (str "time=" time-val))
-                   (when-let [tag-val (get content :tag)]
+                   (when-let [tag-val (:tag content)]
                      (str "tag=" tag-val))])]
      (str path (clojure.string/join "&" params)))))
 

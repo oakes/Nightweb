@@ -12,7 +12,7 @@
 (defn add-last-tile
   [content results]
   (if (> (count results) limit)
-    (let [next-page (-> (get content :page)
+    (let [next-page (-> (:page content)
                         (or 1)
                         (+ 1))]
       (-> results
@@ -29,35 +29,35 @@
   ([post edit-func]
    (let [; read values from the database
          user (get-single-user-data post)
-         user-pointer (when (and (get post :ptrhash)
-                                 (nil? (get post :ptrtime)))
+         user-pointer (when (and (:ptrhash post)
+                                 (nil? (:ptrtime post)))
                         (get-single-user-data
-                          {:userhash (get post :ptrhash)}))
-         post-pointer (when (get post :ptrtime) 
+                          {:userhash (:ptrhash post)}))
+         post-pointer (when (:ptrtime post) 
                         (get-single-post-data
-                          {:userhash (get post :ptrhash)
-                           :time (get post :ptrtime)}))
-         pics (get-pic-data post (get post :time) true)
-         fav (when-not (is-me? (get post :userhash))
+                          {:userhash (:ptrhash post)
+                           :time (:ptrtime post)}))
+         pics (get-pic-data post (:time post) true)
+         fav (when-not (is-me? (:userhash post))
                (get-single-fav-data post))
          ; create tiles based on the values
          user-tile (assoc user
                           :background :profile
                           :add-emphasis? true
                           :title :author
-                          :subtitle (get user :title))
+                          :subtitle (:title user))
          user-pointer-tile (when user-pointer
                              (assoc user-pointer
                                     :background :profile
                                     :add-emphasis? true
                                     :title :mentioned
-                                    :subtitle (get user-pointer :title)))
+                                    :subtitle (:title user-pointer)))
          post-pointer-tile (when post-pointer
                              (assoc post-pointer
                                     :background :post
                                     :add-emphasis? true
                                     :title :in_reply_to))
-         action-tile (if (is-me? (get post :userhash))
+         action-tile (if (is-me? (:userhash post))
                        {:title :edit
                         :add-emphasis? true
                         :background :edit_post
@@ -65,18 +65,18 @@
                         :subtype :edit
                         :func (fn [context item]
                                 (edit-func context post pics))}
-                       {:title (if (= 1 (get fav :status))
+                       {:title (if (= 1 (:status fav))
                                  :remove_from_favorites
                                  :add_to_favorites)
                         :add-emphasis? true
-                        :background (if (= 1 (get fav :status))
+                        :background (if (= 1 (:status fav))
                                       :remove_fav
                                       :add_fav)
                         :type :toggle-fav
-                        :userhash (get post :userhash)
-                        :ptrtime (get post :time)
-                        :status (get fav :status)
-                        :time (get fav :time)})]
+                        :userhash (:userhash post)
+                        :ptrtime (:time post)
+                        :status (:status fav)
+                        :time (:time fav)})]
      (-> [user-tile
           user-pointer-tile
           post-pointer-tile
@@ -88,42 +88,42 @@
 (defn get-user-tiles
   ([params user] (get-user-tiles params user nil nil nil))
   ([params user profile-func fav-func unfav-func]
-   (let [fav (when-not (is-me? (get user :userhash))
-               (get-single-fav-data {:userhash (get user :userhash)}))
-         first-tiles (when (nil? (get params :page))
+   (let [fav (when-not (is-me? (:userhash user))
+               (get-single-fav-data {:userhash (:userhash user)}))
+         first-tiles (when (nil? (:page params))
                        [{:title :profile
                          :add-emphasis? true
                          :background :profile
-                         :userhash (get user :userhash)
-                         :pichash (get user :pichash)
+                         :userhash (:userhash user)
+                         :pichash (:pichash user)
                          :type :custom-func
                          :subtype :profile
                          :func (fn [context item]
                                  (profile-func context user))}
                         {:title :favorites
                          :add-emphasis? true
-                         :userhash (get user :userhash)
+                         :userhash (:userhash user)
                          :background :favs
                          :type :fav}
-                        (when-not (is-me? (get user :userhash))
-                          {:title (if (= 1 (get fav :status))
+                        (when-not (is-me? (:userhash user))
+                          {:title (if (= 1 (:status fav))
                                     :remove_from_favorites
                                     :add_to_favorites)
                            :add-emphasis? true
                            :background
-                           (if (= 1 (get fav :status))
+                           (if (= 1 (:status fav))
                              :remove_fav
                              :add_fav)
                            :type :custom-func
                            :subtype :fav
                            :func
                            (fn [context item]
-                             (if (= 1 (get fav :status))
+                             (if (= 1 (:status fav))
                                (fav-func context item)
                                (unfav-func context item false)))
-                           :userhash (get user :userhash)
-                           :status (get fav :status)
-                           :time (get fav :time)})])
+                           :userhash (:userhash user)
+                           :status (:status fav)
+                           :time (:time fav)})])
          posts (->> (for [tile (get-post-data params)]
                       (assoc tile :background :post))
                     (into [])
@@ -135,16 +135,16 @@
 
 (defn get-category-tiles
   [params]
-  (let [first-tiles [(when (and (nil? (get params :subtype))
-                                (nil? (get params :tag))
-                                (nil? (get params :page)))
+  (let [first-tiles [(when (and (nil? (:subtype params))
+                                (nil? (:tag params))
+                                (nil? (:page params)))
                        {:type :tag
-                        :subtype (get params :type)
+                        :subtype (:type params)
                         :title :tags
                         :add-emphasis? true
                         :background :tags})]
         results (->> (for [tile (get-category-data params)]
-                       (case (get tile :type)
+                       (case (:type tile)
                          :user (assoc tile :background :profile)
                          :post (assoc tile :background :post)
                          tile))

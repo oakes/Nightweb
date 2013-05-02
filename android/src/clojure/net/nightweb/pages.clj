@@ -103,7 +103,7 @@
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
-      (.setTitle action-bar (get-string-at-runtime this (get params :title)))
+      (.setTitle action-bar (get-string-at-runtime this (:title params)))
       (create-tab action-bar
                   (get-string :users)
                   #(get-category-view this (assoc params :subtype :user)))
@@ -151,11 +151,11 @@
         (let [params (if-let [url (.getDataString (.getIntent this))]
                        (url-decode url)
                        (get-params this))
-              view (case (get params :type)
-                     :user (if (get params :userhash)
+              view (case (:type params)
+                     :user (if (:userhash params)
                              (get-user-view this params)
                              (get-category-view this params))
-                     :post (if (get params :time)
+                     :post (if (:time params)
                              (get-post-view this params)
                              (get-category-view this params))
                      :tag (get-category-view this params)
@@ -163,17 +163,17 @@
               action-bar (.getActionBar this)]
           (set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
-          (if-let [title (or (get params :title)
-                             (get params :tag))]
+          (if-let [title (or (:title params)
+                             (:tag params))]
             (.setTitle action-bar (get-string-at-runtime this title))
             (.setDisplayShowTitleEnabled action-bar false))
           (if view
             (set-content-view! basic-page view)
             (on-ui (toast (get-string :nothing_here))))
-          (when (get params :userhash)
-            (if-not (user-exists? (get params :userhash))
+          (when (:userhash params)
+            (if-not (user-exists? (:userhash params))
               (show-new-user-dialog this params)
-              (when-not (user-has-content? (get params :userhash))
+              (when-not (user-has-content? (:userhash params))
                 (show-pending-user-dialog this)))))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-destroy

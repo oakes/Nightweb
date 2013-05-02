@@ -142,8 +142,8 @@
                           post (post-encode :text text
                                             :pic-hashes pic-hashes
                                             :status status
-                                            :ptrhash (get pointers :ptrhash)
-                                            :ptrtime (get pointers :ptrtime))]
+                                            :ptrhash (:ptrhash pointers)
+                                            :ptrtime (:ptrtime pointers))]
                       (insert-post my-hash-bytes
                                    create-time
                                    (b-decode-map (b-decode post)))
@@ -246,14 +246,14 @@
   ([context content] (toggle-fav context content false))
   ([context content go-home?]
    (show-spinner context
-                 (if (= 1 (get content :status))
+                 (if (= 1 (:status content))
                    (get-string :removing)
                    (get-string :adding))
-                 #(let [fav-time (or (get content :time)
+                 #(let [fav-time (or (:time content)
                                      (.getTime (java.util.Date.)))
-                        ptr-hash (get content :userhash)
-                        ptr-time (get content :ptrtime)
-                        new-status (if (= 1 (get content :status)) 0 1)
+                        ptr-hash (:userhash content)
+                        ptr-time (:ptrtime content)
+                        new-status (if (= 1 (:status content)) 0 1)
                         fav (fav-encode ptr-hash ptr-time new-status)]
                     (insert-fav my-hash-bytes
                                 fav-time
@@ -268,11 +268,11 @@
 (defn tile-action
   "Provides a central place to associate types with the appropriate actions."
   [context item]
-  (when-let [func (case (get item :type)
+  (when-let [func (case (:type item)
                     :fav show-categories
                     :toggle-fav toggle-fav
                     :search show-categories
                     :pic show-gallery
-                    :custom-func (get item :func)
+                    :custom-func (:func item)
                     show-basic)]
     (func context item)))
