@@ -8,8 +8,7 @@
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:br]
    [:div {:id "profile-image"
-          :style (when-let [pic (get-pic (:pichash user))]
-                   (str "background-image: url(" pic ")"))}
+          :style (str "background-image: url(" (get-pic (:pichash user)) ")")}
     [:input {:type "button"
              :id "profile-clear"
              :value (get-string :clear)}]
@@ -27,8 +26,7 @@
      (:body user)]
     [:input {:id "profile-image-hidden"
              :type "hidden"
-             :value (when-let [pic-hash (:pichash user)]
-                      (pic-to-data-url pic-hash))}]]
+             :value (pic-to-data-url (:pichash user))}]]
    [:div {:id "profile-buttons"}
     [:a {:href "#"
          :class "button"

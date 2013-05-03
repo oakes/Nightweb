@@ -58,10 +58,11 @@
 
 .grid-view-tile {
 	color: #c0c0c0;
-	display: inline-block;
+	float: left;
 	padding: 5px;
 	border-right: 1px solid #c0c0c0;
 	border-bottom: 1px solid #c0c0c0;
+	overflow: hidden;
 }
 
 .grid-view-tile:hover {

@@ -47,8 +47,9 @@
   "Converts the pic from the given pic hash to a data url."
   ([pic-hash] (pic-to-data-url my-hash-bytes pic-hash))
   ([user-hash pic-hash]
-   (let [pic-dir (str (get-pic-dir (base32-encode user-hash))
-                      slash
-                      (base32-encode pic-hash))]
-     (when-let [pic (read-file pic-dir)]
-       (str "image/webp;base64," (base64-encode pic))))))
+   (when (and user-hash pic-hash)
+     (let [pic-dir (str (get-pic-dir (base32-encode user-hash))
+                        slash
+                        (base32-encode pic-hash))]
+       (when-let [pic (read-file pic-dir)]
+         (str "image/webp;base64," (base64-encode pic)))))))

@@ -6,7 +6,8 @@
                                   get-user-tiles
                                   get-category-tiles]]
         [nightweb.constants :only [is-me?]]
-        [nightweb-desktop.utils :only [get-string]]
+        [nightweb-desktop.utils :only [get-string
+                                       get-pic]]
         [nightweb-desktop.dialogs :only [get-my-profile-dialog
                                          get-their-profile-dialog]]))
 
@@ -50,7 +51,9 @@
 (defn get-grid-view
   [content]
   (for [item content]
-    (let [bg (:background item)
+    (let [background (or (get-pic (:userhash item) (:pichash item))
+                         (when-let [bg (:background item)]
+                           (str "img/" (name bg) ".png")))
           title (get-string (or (:title item)
                                 (:body item)
                                 (:tag item)))
@@ -58,10 +61,10 @@
       [:a {:href "#"
            :onclick (str "tileAction('" (url-encode item "") "')")
            :class "grid-view-tile"
-           :style (format "background: url('img/%s.png') no-repeat;
+           :style (format "background: url(%s) no-repeat;
                            background-size: 100%%;
                            text-align: %s;"
-                          (if bg (name bg))
+                          background
                           (if add-emphasis? "center" "left"))}
        (if add-emphasis? [:strong title] [:div title])])))
 
