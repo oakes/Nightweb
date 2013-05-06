@@ -15,7 +15,7 @@
     [:input {:type "file"
              :id "profile-pick"
              :size "1"
-             :onchange "importImage(this)"}]]
+             :onchange "profilePick(this)"}]]
    [:div {:id "profile-inputs"}
     [:input {:id "profile-name"
              :placeholder (get-string :name)
@@ -27,7 +27,7 @@
     [:input {:id "profile-image-hidden"
              :type "hidden"
              :value (pic-to-data-url (:pichash user))}]]
-   [:div {:id "profile-buttons"}
+   [:div {:class "dialog-buttons"}
     [:a {:href "#"
          :class "button"
          :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
@@ -54,7 +54,7 @@
    [:div {:id "profile-inputs"}
     [:div {:id "profile-name"} (:title user)]
     [:div {:id "profile-about"} (:body user)]]
-   [:div {:class "profile-buttons"}
+   [:div {:class "dialog-buttons"}
     [:a {:href "#"
          :class "button"
          :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
@@ -79,6 +79,17 @@
 (defn get-import-dialog
   []
   [:div {:id "import-dialog" :class "reveal-modal dark"}
+   [:div {:class "dialog-element"} (get-string :confirm_import)]
+   [:input {:id "import-pick"
+            :class "dialog-element"
+            :type "file"}]
+   [:input {:id "import-password"
+            :class "dialog-element"
+            :type "password"
+            :placeholder (get-string :password)}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick "importUser()"}
+     (get-string :import_user)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-export-dialog

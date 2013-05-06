@@ -26,8 +26,12 @@
     (write-profile-file profile)
     (create-meta-torrent)))
 
+(defn import-user
+  [params])
+
 (defn do-action
   [params]
   (case (:type params)
     "profile" (save-profile params)
+    "import" (import-user params)
     nil))

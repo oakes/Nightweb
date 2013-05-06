@@ -63,7 +63,7 @@ var resizeImage = function(src, crop, callback) {
 	img.src = src;
 };
 
-var importImage = function(elem) {
+var profilePick = function(elem) {
 	var reader = new FileReader();
 
 	reader.onload = function(event) {
@@ -97,6 +97,27 @@ var saveProfile = function() {
 			window.location.reload(true);
 		}
 	});
+};
+
+var importUser = function() {
+	var reader = new FileReader();
+
+	reader.onload = function(event) {
+		$.ajax({
+			type: 'POST',
+		  	url: '/',
+		  	data: {
+				type: 'import',
+		  		file: event.target.result,
+		  		pass: $('#import-password').val()
+			},
+		  	success: function(data) {
+				window.location.reload(true);
+			}
+		});
+	};
+
+	reader.readAsDataURL($('#import-pick').get(0).files[0]);
 };
 
 $(document).foundation();

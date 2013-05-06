@@ -70,6 +70,15 @@
 	background-color: dodgerblue;
 }
 
+.dialog-buttons {
+	float: right;
+	clear: both;
+}
+
+.dialog-element {
+	margin: 6px;
+}
+
 #profile-image {
 	background-image: url("img/profile.png");
 	background-repeat: no-repeat;
@@ -94,11 +103,6 @@
 		margin-right: 0px;
 		width: 100%;
 	}
-}
-
-#profile-buttons {
-	float: right;
-	clear: both;
 }
 
 #profile-pick {
