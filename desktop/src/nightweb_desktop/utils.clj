@@ -1,5 +1,6 @@
 (ns nightweb-desktop.utils
-  (:use [ring.util.codec :only [base64-encode]]
+  (:use [ring.util.codec :only [base64-encode
+                                form-decode-str]]
         [clojure.java.io :only [resource]]
         [clojure.xml :only [parse]]
         [nightweb.io :only [read-file]]
@@ -53,3 +54,9 @@
                         (base32-encode pic-hash))]
        (when-let [pic (read-file pic-dir)]
          (str "image/webp;base64," (base64-encode pic)))))))
+
+(defn decode-values
+  "Decodes the values of the given map."
+  [m]
+  (into {} (for [[k v] m]
+             [k (form-decode-str v)])))

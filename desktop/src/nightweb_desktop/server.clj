@@ -2,13 +2,13 @@
   (:use [ring.adapter.jetty :only [run-jetty]]
         [ring.util.response :only [file-response
                                    resource-response]]
-        [ring.util.codec :only [form-decode-str]]
         [nightweb.formats :only [url-decode]]
         [nightweb.constants :only [nw-dir]]
         [nightweb-desktop.pages :only [get-main-page
                                        get-category-page
                                        get-basic-page]]
-        [nightweb-desktop.actions :only [do-action]]))
+        [nightweb-desktop.actions :only [do-action]]
+        [nightweb-desktop.utils :only [decode-values]]))
 
 (def port 3000)
 
@@ -22,8 +22,8 @@
   [request]
   (if (= :post (:request-method request))
     (make-response (do-action (-> (slurp (:body request))
-                                  (form-decode-str)
-                                  (url-decode false))))
+                                  (url-decode false)
+                                  (decode-values))))
     (let [params (url-decode (:query-string request))]
       (case (:uri request)
         "/" (make-response (get-main-page params))

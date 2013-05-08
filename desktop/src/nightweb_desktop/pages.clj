@@ -26,10 +26,12 @@
           (get-link-dialog)
           (get-export-dialog)
           (get-import-dialog)
+          [:div {:id "lightbox"}]
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
           [:script {:src "custom.modernizr.js"}]
           [:script {:src "foundation/foundation.topbar.js"}]
+          [:script {:src "spin.min.js"}]
           [:script {:src "nw.js"}]]))
 
 (defn get-view

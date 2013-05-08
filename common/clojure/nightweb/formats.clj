@@ -103,7 +103,7 @@
   ([url whitelist?]
    (when url
      (let [url-str (subs url (+ 1 (.indexOf url "#")))
-           url-map (->> (clojure.string/split url-str #"[&]")
+           url-map (->> (clojure.string/split url-str #"&")
                         (map #(clojure.string/split % #"="))
                         (map (fn [[k v]] [(keyword k) v]))
                         (into {}))]
