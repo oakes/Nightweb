@@ -60,9 +60,8 @@
           add-emphasis? (:add-emphasis? item)]
       [:a {:href "#"
            :onclick (str "tileAction('" (url-encode item "") "')")
-           :class "grid-view-tile"
-           :style (format "background: url(%s) no-repeat;
-                           background-size: 100%%;
+           :class "grid-view-tile square-image"
+           :style (format "background: url(%s);
                            text-align: %s;"
                           background
                           (if add-emphasis? "center" "left"))}

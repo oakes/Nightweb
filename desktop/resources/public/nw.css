@@ -90,11 +90,14 @@
 	margin: 6px;
 }
 
-#profile-image {
-	background-image: url("img/profile.png");
+.square-image {
 	background-repeat: no-repeat;
 	background-size: 100%;
 	background-position: center center;
+}
+
+#profile-image {
+	background-image: url("img/profile.png");
 	width: 250px;
 	height: 250px;
 	margin: 10px auto 10px auto;
