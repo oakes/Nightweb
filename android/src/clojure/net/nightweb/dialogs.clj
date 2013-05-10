@@ -238,7 +238,7 @@
                            android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
     (show-dialog context
-                 (get-string :confirm_import)
+                 (get-string :import_desc)
                  view
                  {:positive-name (get-string :import_user)
                   :positive-func
@@ -443,7 +443,7 @@
                (if (is-me? (:userhash content))
                  {:positive-name (get-string :save)
                   :positive-func save-profile
-                  :neutral-name (get-string :export_button)
+                  :neutral-name (get-string :export_start)
                   :neutral-func show-export-dialog
                   :negative-name (get-string :cancel)
                   :negative-func cancel}

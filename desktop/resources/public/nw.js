@@ -124,6 +124,22 @@ var importUser = function() {
 	reader.readAsDataURL($('#import-pick').get(0).files[0]);
 };
 
+var exportUser = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'export',
+			pass: $('#export-password').val()
+		},
+		success: function(data) {
+			if (data.length > 0) {
+				window.location = data;
+			}
+		}
+	});
+};
+
 // initialize framework
 $(document).foundation();
 

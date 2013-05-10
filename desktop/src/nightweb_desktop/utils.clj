@@ -22,7 +22,9 @@
                 strings)
         (first)
         (:content)
-        (first))
+        (first)
+        (or "")
+        (clojure.string/replace "\\" ""))
     res-name))
 
 (defn get-pic

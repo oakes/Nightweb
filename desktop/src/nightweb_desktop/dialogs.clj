@@ -31,16 +31,12 @@
    [:div {:class "dialog-buttons"}
     [:a {:href "#"
          :class "button"
-         :onclick "$('#profile-dialog').foundation('reveal', 'close')"}
-     (get-string :cancel)]
-    [:a {:href "#"
-         :class "button"
          :onclick "$('#import-dialog').foundation('reveal', 'open')"}
-     (get-string :import_button)]
+     (get-string :import_start)]
     [:a {:href "#"
          :class "button"
          :onclick "$('#export-dialog').foundation('reveal', 'open')"}
-     (get-string :export_button)]
+     (get-string :export_start)]
     [:a {:href "#" :class "button" :onclick "saveProfile()"}
      (get-string :save)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
@@ -81,7 +77,7 @@
 (defn get-import-dialog
   []
   [:div {:id "import-dialog" :class "reveal-modal dark"}
-   [:div {:class "dialog-element"} (get-string :confirm_import)]
+   [:div {:class "dialog-element"} (get-string :import_desc)]
    [:input {:id "import-pick"
             :class "dialog-element"
             :type "file"}]
@@ -97,4 +93,12 @@
 (defn get-export-dialog
   []
   [:div {:id "export-dialog" :class "reveal-modal dark"}
+   [:div {:class "dialog-element"} (get-string :export_desc)]
+   [:input {:id "import-password"
+            :class "dialog-element"
+            :type "password"
+            :placeholder (get-string :password)}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick "exportUser()"}
+     (get-string :save)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])

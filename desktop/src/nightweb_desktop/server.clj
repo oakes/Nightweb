@@ -1,6 +1,7 @@
 (ns nightweb-desktop.server
   (:use [ring.adapter.jetty :only [run-jetty]]
-        [ring.util.response :only [file-response
+        [ring.util.response :only [response
+                                   file-response
                                    resource-response]]
         [nightweb.formats :only [url-decode]]
         [nightweb.constants :only [nw-dir]]
@@ -12,23 +13,17 @@
 
 (def port 3000)
 
-(defn make-response
-  [body]
-  {:status 200
-   :headers {"Content-Type" "text/html"}
-   :body body})
-
 (defn handler
   [request]
   (if (= :post (:request-method request))
-    (make-response (do-action (-> (slurp (:body request))
-                                  (url-decode false)
-                                  (decode-values))))
+    (response (do-action (-> (slurp (:body request))
+                         (url-decode false)
+                         (decode-values))))
     (let [params (url-decode (:query-string request))]
       (case (:uri request)
-        "/" (make-response (get-main-page params))
-        "/c" (make-response (get-category-page params))
-        "/b" (make-response (get-basic-page params))
+        "/" (response (get-main-page params))
+        "/c" (response (get-category-page params))
+        "/b" (response (get-basic-page params))
         (if (> (.indexOf (:uri request) nw-dir) 0)
           (file-response (:uri request) {:root "."})
           (resource-response (:uri request) {:root "public"}))))))

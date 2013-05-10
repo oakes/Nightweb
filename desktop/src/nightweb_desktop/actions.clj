@@ -4,6 +4,7 @@
                                 create-imported-user]]
         [nightweb.io :only [list-dir
                             write-file
+                            delete-file
                             write-pic-file
                             write-profile-file
                             delete-orphaned-pics]]
@@ -13,6 +14,7 @@
                                  b-decode-map]]
         [nightweb.zip :only [zip-dir unzip-dir get-zip-headers]]
         [nightweb.constants :only [my-hash-bytes
+                                   my-hash-str
                                    base-dir
                                    nw-dir
                                    user-zip-file
@@ -54,9 +56,20 @@
           (get-string :import_error)))
       (get-string :unzip_error))))
 
+(defn export-user
+  [params]
+  (let [path (get-user-dir my-hash-str)
+        dest-path (str base-dir nw-dir slash user-zip-file)
+        password (:pass params)]
+    (delete-file dest-path)
+    (if (zip-dir path dest-path password)
+      dest-path
+      "")))
+
 (defn do-action
   [params]
   (case (:type params)
     "profile" (save-profile params)
     "import" (import-user params)
+    "export" (export-user params)
     nil))
