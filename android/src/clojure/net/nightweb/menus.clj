@@ -47,4 +47,13 @@
         (proxy [android.view.MenuItem$OnMenuItemClickListener] []
           (onMenuItemClick [menu-item]
             (share-url context)
-            true))))))
+            true)))))
+  (let [switch-user-item (.add menu (get-string :switch_user))]
+    (.setIcon switch-user-item (get-resource :drawable :profile_small))
+    (.setShowAsAction switch-user-item
+                      android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
+    (.setOnMenuItemClickListener
+      switch-user-item
+      (proxy [android.view.MenuItem$OnMenuItemClickListener] []
+        (onMenuItemClick [menu-item]
+          true)))))

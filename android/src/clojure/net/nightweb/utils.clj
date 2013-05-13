@@ -168,7 +168,9 @@
     true)
   (defn movement-method-initialize
     [this widget text]
-    (android.text.Selection/setSelection text 0))
+    (try
+      (android.text.Selection/setSelection text 0)
+      (catch java.lang.Exception e nil)))
   (defn movement-method-onTakeFocus
     [this view text dir]
     (if (->> (bit-or android.view.View/FOCUS_FORWARD

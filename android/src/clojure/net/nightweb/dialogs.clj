@@ -127,7 +127,7 @@
                                     :tag "subtitle-text"}]
                        [:linear-layout {:orientation 0}
                         [:image-view {:image-resource
-                                      (get-resource :drawable :profile)
+                                      (get-resource :drawable :profile_small)
                                       :tag "profile-image"}]
                         [:text-view {:text (get-string :welcome_profile)
                                      :tag "profile-text"}]]
@@ -245,6 +245,17 @@
                   (fn [c d b]
                     (unzip-and-save context (.toString (.getText view)) uri-str)
                     true)
+                  :negative-name (get-string :cancel)
+                  :negative-func cancel})))
+
+(defn show-switch-user-dialog
+  [context dialog-view button-view]
+  (let [view (make-ui context [:scroll-view {}])]
+    (show-dialog context
+                 (get-string :switch_user)
+                 view
+                 {:positive-name (get-string :new_user)
+                  :positive-func (fn [c d b])
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
 

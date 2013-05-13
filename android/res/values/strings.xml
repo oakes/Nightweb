@@ -45,6 +45,8 @@
   <string name="import_error">Error importing user -- invalid zip file?</string>
   <string name="password">Password</string>
   <string name="import_user">Import User</string>
+  <string name="switch_user">Switch User</string>
+  <string name="create_user">Create User</string>
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>
