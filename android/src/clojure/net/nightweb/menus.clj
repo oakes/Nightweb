@@ -2,7 +2,8 @@
   (:use [neko.resource :only [get-string get-resource]]
         [net.nightweb.actions :only [share-url]]
         [net.nightweb.utils :only [show-categories]]
-        [net.nightweb.dialogs :only [show-new-post-dialog]]))
+        [net.nightweb.dialogs :only [show-new-post-dialog
+                                     show-switch-user-dialog]]))
 
 (defn create-main-menu
   [context menu show-share-button?]
@@ -56,4 +57,5 @@
       switch-user-item
       (proxy [android.view.MenuItem$OnMenuItemClickListener] []
         (onMenuItemClick [menu-item]
+          (show-switch-user-dialog context {})
           true)))))

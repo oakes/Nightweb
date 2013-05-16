@@ -24,6 +24,7 @@
                                    set-text-size
                                    set-text-max-length
                                    set-text-content]]
+        [nightweb.io :only [read-user-list-file]]
         [nightweb.formats :only [tags-encode]]
         [nightweb.db :only [max-length-small
                             max-length-large
@@ -178,7 +179,7 @@
 (defn show-new-user-dialog
   [context content]
   (show-dialog context
-               (get-string :new_user)
+               (get-string :found_user)
                nil
                {:positive-name (get-string :download_user)
                 :positive-func
@@ -249,13 +250,20 @@
                   :negative-func cancel})))
 
 (defn show-switch-user-dialog
-  [context dialog-view button-view]
-  (let [view (make-ui context [:scroll-view {}])]
+  [context content]
+  (let [view (make-ui context [:scroll-view {}
+                               [:linear-layout {:orientation 1}]])]
+    (future
+      (let [linear-layout (.getChildAt view 0)
+            users (for [user-hash (read-user-list-file)]
+                    (get-single-user-data {:userhash user-hash}))]))
     (show-dialog context
-                 (get-string :switch_user)
+                 nil
                  view
-                 {:positive-name (get-string :new_user)
+                 {:positive-name (get-string :switch_user)
                   :positive-func (fn [c d b])
+                  :neutral-name (get-string :new_user)
+                  :neutral-func (fn [c d b])
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
 

@@ -46,7 +46,7 @@
   <string name="password">Password</string>
   <string name="import_user">Import User</string>
   <string name="switch_user">Switch User</string>
-  <string name="create_user">Create User</string>
+  <string name="new_user">New User</string>
 
   <string name="saving">Saving...</string>
   <string name="sending">Sending...</string>
@@ -65,7 +65,7 @@
   <string name="welcome_post">Write some posts</string>
   <string name="welcome_share">Share your link so others can add you</string>
 
-  <string name="new_user">This looks like a new user. Would you like to favorite and begin downloading them?</string>
+  <string name="found_user">This looks like a new user. Would you like to favorite and begin downloading them?</string>
   <string name="pending_user">We haven\'t received anything from this user yet. Check back later.</string>
   <string name="lost_post">Can\'t find this post.</string>
   <string name="nothing_here">There doesn\'t seem to be anything here.</string>
