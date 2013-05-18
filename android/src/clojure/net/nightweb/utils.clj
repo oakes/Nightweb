@@ -82,24 +82,30 @@
          slash
          (base32-encode image-hash-bytes))))
 
+(defn create-highlight
+  "Creates a Drawable that highlights when pressed."
+  ([context] (create-highlight context nil))
+  ([context drawable]
+   (let [states (android.graphics.drawable.StateListDrawable.)
+         blue (->> (get-resource :color :android/holo_blue_light)
+                   (.getDrawable (.getResources context)))
+         transparent (->> (get-resource :color :android/transparent)
+                          (.getDrawable (.getResources context)))
+         pressed (get-resource :attr :android/state_pressed)
+         selected (get-resource :attr :android/state_selected)]
+     (.addState states (int-array [pressed]) blue)
+     (.addState states (int-array [selected]) transparent)
+     (when drawable (.addState states (int-array []) drawable))
+     states)))
+
 (defn create-tile-image
   "Creates a Drawable ready to set in a tile."
   [context user-hash pic-hash]
-  (let [states (android.graphics.drawable.StateListDrawable.)
-        blue (->> (get-resource :color :android/holo_blue_light)
-                  (.getDrawable (.getResources context)))
-        transparent (->> (get-resource :color :android/transparent)
-                         (.getDrawable (.getResources context)))
-        pressed (get-resource :attr :android/state_pressed)
-        selected (get-resource :attr :android/state_selected)]
-    (.addState states (int-array [pressed]) blue)
-    (.addState states (int-array [selected]) transparent)
-    (when pic-hash
-      (let [bitmap (-> (get-pic-path user-hash pic-hash)
-                       (path-to-bitmap thumb-size)
-                       (android.graphics.drawable.BitmapDrawable.))]
-        (.addState states (int-array []) bitmap)))
-    states))
+  (create-highlight context
+                    (when pic-hash
+                      (-> (get-pic-path user-hash pic-hash)
+                          (path-to-bitmap thumb-size)
+                          (android.graphics.drawable.BitmapDrawable.)))))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."

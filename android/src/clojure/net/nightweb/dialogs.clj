@@ -35,6 +35,8 @@
 (set-classname! :frame-layout android.widget.FrameLayout)
 (set-classname! :relative-layout android.widget.RelativeLayout)
 (set-classname! :image-view android.widget.ImageView)
+(set-classname! :radio-button android.widget.RadioButton)
+(set-classname! :radio-group android.widget.RadioGroup)
 (set-classname! :view-pager android.support.v4.view.ViewPager)
 
 (defn create-dialog
@@ -252,17 +254,34 @@
 (defn show-switch-user-dialog
   [context content]
   (let [view (make-ui context [:scroll-view {}
-                               [:linear-layout {:orientation 1}]])]
+                               [:radio-group {:orientation 1}]])
+        linear-layout (.getChildAt view 0)
+        items (conj (vec (for [user-hash (read-user-list-file)]
+                           (get-single-user-data {:userhash user-hash})))
+                    {:title (get-string :create_user)})]
     (future
-      (let [linear-layout (.getChildAt view 0)
-            users (for [user-hash (read-user-list-file)]
-                    (get-single-user-data {:userhash user-hash}))]))
+      (doseq [item items]
+        (let [title (if (= 0 (count (:title item)))
+                      (get-string :no_name)
+                      (:title item))
+              button (make-ui context [:radio-button {:text title
+                                                      :single-line true}])
+              pad (make-dip context 10)]
+          (on-ui (set-text-size button default-text-size)
+                 (.setPadding button pad pad pad pad)
+                 (when (nil? (:userhash item))
+                   (.setTypeface button (cast String nil) 2))
+                 (.setOnClickListener
+                   button
+                   (proxy [android.view.View$OnClickListener] []
+                     (onClick [v])))
+                 (.addView linear-layout button)))))
     (show-dialog context
                  nil
                  view
-                 {:positive-name (get-string :switch_user)
+                 {:positive-name (get-string :select)
                   :positive-func (fn [c d b])
-                  :neutral-name (get-string :new_user)
+                  :neutral-name (get-string :delete)
                   :neutral-func (fn [c d b])
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
