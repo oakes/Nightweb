@@ -255,18 +255,22 @@
   [context content]
   (let [view (make-ui context [:scroll-view {}
                                [:radio-group {:orientation 1}]])
-        linear-layout (.getChildAt view 0)
+        radio-group (.getChildAt view 0)
         items (conj (vec (for [user-hash (read-user-list-file)]
                            (get-single-user-data {:userhash user-hash})))
                     {:title (get-string :create_user)})]
+    ; add each user to the list
     (future
-      (doseq [item items]
-        (let [title (if (= 0 (count (:title item)))
+      (doseq [i (range (count items))]
+        (let [item (get items i)
+              title (if (= 0 (count (:title item)))
                       (get-string :no_name)
                       (:title item))
               button (make-ui context [:radio-button {:text title
-                                                      :single-line true}])
+                                                      :single-line true
+                                                      :id i}])
               pad (make-dip context 10)]
+          (.setChecked button (is-me? (:userhash item)))
           (on-ui (set-text-size button default-text-size)
                  (.setPadding button pad pad pad pad)
                  (when (nil? (:userhash item))
@@ -275,7 +279,8 @@
                    button
                    (proxy [android.view.View$OnClickListener] []
                      (onClick [v])))
-                 (.addView linear-layout button)))))
+                 (.addView radio-group button)))))
+    ; display a dialog with the list
     (show-dialog context
                  nil
                  view
