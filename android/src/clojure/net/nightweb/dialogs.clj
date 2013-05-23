@@ -12,7 +12,10 @@
                                      cancel
                                      zip-and-send
                                      unzip-and-save
-                                     save-profile]]
+                                     save-profile
+                                     select-user
+                                     delete-user
+                                     create-user]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    uri-to-bitmap
@@ -35,8 +38,6 @@
 (set-classname! :frame-layout android.widget.FrameLayout)
 (set-classname! :relative-layout android.widget.RelativeLayout)
 (set-classname! :image-view android.widget.ImageView)
-(set-classname! :radio-button android.widget.RadioButton)
-(set-classname! :radio-group android.widget.RadioGroup)
 (set-classname! :view-pager android.support.v4.view.ViewPager)
 
 (defn create-dialog
@@ -254,40 +255,38 @@
 (defn show-switch-user-dialog
   [context content]
   (let [view (make-ui context [:scroll-view {}
-                               [:radio-group {:orientation 1}]])
-        radio-group (.getChildAt view 0)
-        items (conj (vec (for [user-hash (read-user-list-file)]
-                           (get-single-user-data {:userhash user-hash})))
-                    {:title (get-string :create_user)})]
+                               [:linear-layout {:orientation 1}]])
+        linear-layout (.getChildAt view 0)
+        items (for [user-hash (read-user-list-file)]
+                (get-single-user-data {:userhash user-hash}))]
     ; add each user to the list
     (future
-      (doseq [i (range (count items))]
-        (let [item (get items i)
-              title (if (= 0 (count (:title item)))
+      (doseq [item items]
+        (let [title (if (= 0 (count (:title item)))
                       (get-string :no_name)
                       (:title item))
-              button (make-ui context [:radio-button {:text title
-                                                      :single-line true
-                                                      :id i}])
-              pad (make-dip context 10)]
-          (.setChecked button (is-me? (:userhash item)))
-          (on-ui (set-text-size button default-text-size)
-                 (.setPadding button pad pad pad pad)
-                 (when (nil? (:userhash item))
-                   (.setTypeface button (cast String nil) 2))
-                 (.setOnClickListener
-                   button
+              list-item (make-ui context [:linear-layout {:orientation 0}
+                                          [:button {:text title
+                                                    :layout-weight 3}]
+                                          [:button {:text (get-string :delete)
+                                                    :layout-weight 1}]])
+              select-button (.getChildAt list-item 0)
+              delete-button (.getChildAt list-item 1)]
+          (on-ui (.setOnClickListener
+                   select-button
                    (proxy [android.view.View$OnClickListener] []
-                     (onClick [v])))
-                 (.addView radio-group button)))))
+                     (onClick [v] (select-user item))))
+                 (.setOnClickListener
+                   delete-button
+                   (proxy [android.view.View$OnClickListener] []
+                     (onClick [v] (delete-user item))))
+                 (.addView linear-layout list-item)))))
     ; display a dialog with the list
     (show-dialog context
                  nil
                  view
-                 {:positive-name (get-string :select)
-                  :positive-func (fn [c d b])
-                  :neutral-name (get-string :delete)
-                  :neutral-func (fn [c d b])
+                 {:positive-name (get-string :create_user)
+                  :positive-func create-user
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
 
