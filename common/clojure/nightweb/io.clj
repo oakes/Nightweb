@@ -103,24 +103,24 @@
 (defn write-priv-node-key-file
   [priv-node]
   (let [priv-node-file (net.i2p.data.PrivateKeyFile.
-                         (file (str base-dir priv-node-key-file))
+                         (file (str @base-dir priv-node-key-file))
                          priv-node)]
     (.write priv-node-file)))
 
 (defn read-priv-node-key-file
   []
-  (let [path (str base-dir priv-node-key-file)]
+  (let [path (str @base-dir priv-node-key-file)]
     (when (file-exists? path)
       (input-stream (file path)))))
 
 (defn write-pub-node-key-file
   [pub-node]
-  (write-file (str base-dir pub-node-key-file)
+  (write-file (str @base-dir pub-node-key-file)
               (.getBytes pub-node)))
 
 (defn read-pub-node-key-file
   []
-  (let [path (str base-dir pub-node-key-file)]
+  (let [path (str @base-dir pub-node-key-file)]
     (when (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
@@ -129,25 +129,25 @@
   (when data-barray
     (let [image-hash (create-hash data-barray)
           file-name (base32-encode image-hash)]
-      (write-file (str (get-pic-dir my-hash-str) slash file-name)
+      (write-file (str (get-pic-dir @my-hash-str) slash file-name)
                   data-barray)
       image-hash)))
 
 (defn write-post-file
   [create-time encoded-args]
-  (write-file (str (get-post-dir my-hash-str) slash create-time) encoded-args))
+  (write-file (str (get-post-dir @my-hash-str) slash create-time) encoded-args))
 
 (defn write-profile-file
   [encoded-args]
-  (write-file (str (get-meta-dir my-hash-str) slash profile) encoded-args))
+  (write-file (str (get-meta-dir @my-hash-str) slash profile) encoded-args))
 
 (defn write-fav-file
   [create-time encoded-args]
-  (write-file (str (get-fav-dir my-hash-str) slash create-time) encoded-args))
+  (write-file (str (get-fav-dir @my-hash-str) slash create-time) encoded-args))
 
 (defn write-link-file
   [link-hash]
-  (write-file (str (get-meta-dir my-hash-str) link-ext)
+  (write-file (str (get-meta-dir @my-hash-str) link-ext)
               (link-encode link-hash)))
 
 (defn read-user-list-file

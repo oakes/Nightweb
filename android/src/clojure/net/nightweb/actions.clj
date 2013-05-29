@@ -144,10 +144,10 @@
                                             :status status
                                             :ptrhash (:ptrhash pointers)
                                             :ptrtime (:ptrtime pointers))]
-                      (insert-post my-hash-bytes
+                      (insert-post @my-hash-bytes
                                    create-time
                                    (b-decode-map (b-decode post)))
-                      (delete-orphaned-pics my-hash-bytes)
+                      (delete-orphaned-pics @my-hash-bytes)
                       (write-post-file create-time post)
                       (future (create-meta-torrent))
                       (if-not is-new?
@@ -187,9 +187,9 @@
                   #(let [image-barray (bitmap-to-byte-array image-bitmap)
                          img-hash (write-pic-file image-barray)
                          profile (profile-encode name-text body-text img-hash)]
-                     (insert-profile my-hash-bytes
+                     (insert-profile @my-hash-bytes
                                      (b-decode-map (b-decode profile)))
-                     (delete-orphaned-pics my-hash-bytes)
+                     (delete-orphaned-pics @my-hash-bytes)
                      (write-profile-file profile)
                      (future (create-meta-torrent))
                      true)))
@@ -215,7 +215,7 @@
   [context password]
   (show-spinner context
                 (get-string :zipping)
-                #(let [path (get-user-dir my-hash-str)
+                #(let [path (get-user-dir @my-hash-str)
                        dir (android.os.Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str slash user-zip-file))]
@@ -270,7 +270,7 @@
                         ptr-time (:ptrtime content)
                         new-status (if (= 1 (:status content)) 0 1)
                         fav (fav-encode ptr-hash ptr-time new-status)]
-                    (insert-fav my-hash-bytes
+                    (insert-fav @my-hash-bytes
                                 fav-time
                                 (b-decode-map (b-decode fav)))
                     (write-fav-file fav-time fav)

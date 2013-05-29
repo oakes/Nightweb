@@ -43,32 +43,32 @@
 
 (defn get-node-info-for-peer
   [peer]
-  (let [dht (.getDHT (.util manager))
+  (let [dht (.getDHT (.util @manager))
         destination (.getAddress (.getPeerID peer))]
     (.getNodeInfo dht destination)))
 
 (defn get-public-node
   []
-  (if-let [dht (.getDHT (.util manager))]
+  (if-let [dht (.getDHT (.util @manager))]
     (.toPersistentString (.getNodeInfo dht nil))
     (println "Failed to get public node")))
 
 (defn get-private-node
   []
-  (if-let [socket-manager (.getSocketManager (.util manager))]
+  (if-let [socket-manager (.getSocketManager (.util @manager))]
     (.getSession socket-manager)
     (println "Failed to get private node")))
 
 (defn add-node
   [node-info-str]
-  (if-let [dht (.getDHT (.util manager))]
+  (if-let [dht (.getDHT (.util @manager))]
     (let [ninfo (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))]
       (.setPermanent ninfo true))
     (println "Failed to add bootstrap node")))
 
 (defn is-connecting?
   []
-  (if-let [util (.util manager)]
+  (if-let [util (.util @manager)]
     (.isConnecting util)
     true))
 
@@ -80,12 +80,12 @@
   (let [query (doto (java.util.HashMap.)
                 (.put "q" method)
                 (.put "a" args))]
-    (.sendQuery (.getDHT (.util manager)) node-info query true)))
+    (.sendQuery (.getDHT (.util @manager)) node-info query true)))
 
 (defn send-meta-link
   "Sends the relevant meta link to all peers in a given user torrent."
   ([]
-   (when-let [torrent (-> (get-user-pub-file my-hash-str)
+   (when-let [torrent (-> (get-user-pub-file @my-hash-str)
                           (str torrent-ext)
                           (get-torrent-by-path))]
      (send-meta-link torrent)))
@@ -268,10 +268,10 @@
   (let [priv-node (read-priv-node-key-file)
         pub-node (read-pub-node-key-file)]
     (when (and priv-node pub-node)
-      (.setDHTNode (.util manager) priv-node pub-node)))
+      (.setDHTNode (.util @manager) priv-node pub-node)))
   ; set the custom query handler
   (.setDHTCustomQueryHandler
-    (.util manager)
+    (.util @manager)
     (reify org.klomp.snark.dht.CustomQueryHandler
       (receiveQuery [this method args]
         (case method
@@ -281,7 +281,7 @@
         (receive-meta-link args))))
   ; set the init callback
   (.setDHTInitCallback
-    (.util manager)
+    (.util @manager)
     (fn []
       (let [priv-node (get-private-node)
             pub-node (get-public-node)]

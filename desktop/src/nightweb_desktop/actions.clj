@@ -33,14 +33,14 @@
                             (base64-decode)))
         img-hash (write-pic-file image-barray)
         profile (profile-encode name-str body-str img-hash)]
-    (insert-profile my-hash-bytes (b-decode-map (b-decode profile)))
-    (delete-orphaned-pics my-hash-bytes)
+    (insert-profile @my-hash-bytes (b-decode-map (b-decode profile)))
+    (delete-orphaned-pics @my-hash-bytes)
     (write-profile-file profile)
     (create-meta-torrent)))
 
 (defn import-user
   [params]
-  (let [path (str base-dir nw-dir slash user-zip-file)
+  (let [path (str @base-dir nw-dir slash user-zip-file)
         dest-path (get-user-dir)
         file-str (:file params)
         password (:pass params)]
@@ -58,8 +58,8 @@
 
 (defn export-user
   [params]
-  (let [path (get-user-dir my-hash-str)
-        dest-path (str base-dir nw-dir slash user-zip-file)
+  (let [path (get-user-dir @my-hash-str)
+        dest-path (str @base-dir nw-dir slash user-zip-file)
         password (:pass params)]
     (delete-file dest-path)
     (if (zip-dir path dest-path password)

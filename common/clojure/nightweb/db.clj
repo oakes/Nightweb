@@ -19,11 +19,11 @@
                                  tags-decode]]
         [nightweb.constants :only [db-file my-hash-bytes]]))
 
-(def spec nil)
-(def limit 24)
+(def spec (atom nil))
+(def ^:const limit 24)
 
-(def max-length-small 20)
-(def max-length-large 10000)
+(def ^:const max-length-small 20)
+(def ^:const max-length-large 10000)
 
 (defn paginate
   [page statement]
@@ -45,7 +45,7 @@
   ([table-name column-name]
    (try
      (with-connection
-       spec
+       @spec
        (with-query-results
          rs
          [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
@@ -81,34 +81,34 @@
   []
   (when-not (check-table :user)
     (with-connection
-      spec
+      @spec
       (create-generic-table :user)
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
     (with-connection
-      spec
+      @spec
       (create-generic-table :post)
       (create-index "POST" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :pic)
     (with-connection
-      spec
+      @spec
       (create-generic-table :pic)))
   (when-not (check-table :fav)
     (with-connection
-      spec
+      @spec
       (create-generic-table :fav)))
   (when-not (check-table :tag)
     (with-connection
-      spec
+      @spec
       (create-generic-table :tag))))
 
 (defn init-db
   [base-dir]
-  (when (nil? spec)
-    (def spec
-      {:classname "org.h2.Driver"
-       :subprotocol "h2"
-       :subname (str base-dir db-file)})
+  (when (nil? @spec)
+    (reset! spec
+            {:classname "org.h2.Driver"
+             :subprotocol "h2"
+             :subname (str base-dir db-file)})
     (create-tables)))
 
 ; retrieval
@@ -117,7 +117,7 @@
   [params]
   (let [user-hash (:userhash params)]
     (with-connection
-      spec
+      @spec
       (with-query-results
         rs
         ["SELECT * FROM user WHERE userhash = ?" user-hash]
@@ -130,7 +130,7 @@
   (let [user-hash (:userhash params)
         create-time (:time params)]
     (with-connection
-      spec
+      @spec
       (with-query-results
         rs
         ["SELECT * FROM post WHERE userhash = ? AND time = ? AND status = 1"
@@ -144,7 +144,7 @@
   (let [user-hash (:userhash params)
         page (:page params)]
     (with-connection
-      spec
+      @spec
       (with-query-results
         rs
         [(paginate page
@@ -158,18 +158,18 @@
   (let [ptr-hash (:userhash params)
         ptr-time (:time params)]
     (with-connection
-      spec
+      @spec
       (with-query-results
         rs
         ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
-         my-hash-bytes ptr-hash ptr-time]
+         @my-hash-bytes ptr-hash ptr-time]
         (first (prepare-results rs :fav))))))
 
 (defn get-fav-data
   [params]
   (let [ptr-hash (:ptrhash params)]
     (with-connection
-      spec
+      @spec
       (with-query-results
         rs
         ["SELECT * FROM fav WHERE ptrhash = ? 
@@ -177,7 +177,7 @@
          AND (userhash IN 
          (SELECT ptrhash FROM fav WHERE userhash = ? AND status = 1) 
          OR userhash = ?)"
-         ptr-hash my-hash-bytes my-hash-bytes]
+         ptr-hash @my-hash-bytes @my-hash-bytes]
         (prepare-results rs :fav)))))
 
 (defn get-category-data
@@ -265,7 +265,7 @@
                            nil))]
     (when statement
       (with-connection
-        spec
+        @spec
         (with-query-results
           rs
           (vec (concat [(paginate (:page params) (first statement))]
@@ -291,7 +291,7 @@
                     nil)]
     (when statement
       (with-connection
-        spec
+        @spec
         (with-query-results
           rs
           statement
@@ -302,7 +302,7 @@
    (let [user-hash (:userhash params)
          pic-hash (:pichash params)]
      (with-connection
-       spec
+       @spec
        (with-query-results
          rs
          ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
@@ -312,7 +312,7 @@
    (let [user-hash (:userhash params)
          page (:page params)]
      (with-connection
-       spec
+       @spec
        (with-query-results
          rs
          [(let [sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"]
@@ -328,7 +328,7 @@
         pics (b-decode-list (get args "pics"))
         pic-hash (b-decode-bytes (get pics 0))]
     (with-connection
-      spec
+      @spec
       (delete-rows
         :tag
         ["userhash = ? AND ptrtime IS ? AND mtime < ?"
@@ -350,7 +350,7 @@
   [user-hash ptr-time edit-time args]
   (let [pics (b-decode-list (get args "pics"))]
     (with-connection
-      spec
+      @spec
       (delete-rows
         :pic
         ["userhash = ? AND ptrtime IS ? AND mtime < ?"
@@ -376,7 +376,7 @@
     (when (and edit-time
                (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
-        spec
+        @spec
         (update-or-insert-values
           :user
           ["userhash = ?" user-hash]
@@ -402,7 +402,7 @@
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
-        spec
+        @spec
         (update-or-insert-values
           :post
           ["userhash = ? AND time = ?" user-hash post-time]
@@ -428,7 +428,7 @@
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
       (with-connection
-        spec
+        @spec
         (update-or-insert-values
           :fav
           ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
@@ -458,7 +458,7 @@
 (defn delete-user
   [user-hash]
   (with-connection
-    spec
+    @spec
     (delete-rows :user ["userhash = ?" user-hash])
     (delete-rows :post ["userhash = ?" user-hash])
     (delete-rows :pic ["userhash = ?" user-hash])

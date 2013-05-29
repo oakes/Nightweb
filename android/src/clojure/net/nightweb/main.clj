@@ -11,8 +11,8 @@
 
 (defapplication net.nightweb.Application)
 
-(def service-name "net.nightweb.MainService")
-(def shutdown-receiver-name "ACTION_CLOSE_APP")
+(def ^:const service-name "net.nightweb.MainService")
+(def ^:const shutdown-receiver-name "ACTION_CLOSE_APP")
 
 (defservice
   net.nightweb.MainService

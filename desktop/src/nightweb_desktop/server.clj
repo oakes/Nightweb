@@ -11,7 +11,7 @@
         [nightweb-desktop.actions :only [do-action]]
         [nightweb-desktop.utils :only [decode-values]]))
 
-(def port 3000)
+(def ^:const port 3000)
 
 (defn handler
   [request]

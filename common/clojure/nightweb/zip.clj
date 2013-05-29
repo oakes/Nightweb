@@ -1,6 +1,6 @@
 (ns nightweb.zip)
 
-(def def-pass "hunter2")
+(def ^:const def-pass "hunter2")
 
 (defn zip-dir 
   [path dest-path password]

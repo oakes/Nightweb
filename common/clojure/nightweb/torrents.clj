@@ -4,17 +4,17 @@
         [nightweb.formats :only [base32-decode]]
         [nightweb.constants :only [torrent-ext]]))
 
-(def manager nil)
+(def manager (atom nil))
 
 ; active torrents
 
 (defn get-torrent-paths
   []
-  (.listTorrentFiles manager))
+  (.listTorrentFiles @manager))
 
 (defn get-torrent-by-path
   [path]
-  (.getTorrent manager path))
+  (.getTorrent @manager path))
 
 (defn iterate-torrents
   [func]
@@ -50,11 +50,11 @@
         torrent-path (str path torrent-ext)
         storage (if (file-exists? torrent-path)
                   (org.klomp.snark.Storage.
-                    (.util manager)
+                    (.util @manager)
                     (org.klomp.snark.MetaInfo. (input-stream torrent-path))
                     listener)
                   (org.klomp.snark.Storage.
-                    (.util manager) (file path) nil nil false listener))]
+                    (.util @manager) (file path) nil nil false listener))]
     (.close storage)
     storage))
 
@@ -64,30 +64,30 @@
   (reify org.klomp.snark.CompleteListener
     (torrentComplete [this snark]
       (println "torrentComplete")
-      (.torrentComplete manager snark)
+      (.torrentComplete @manager snark)
       (complete-callback snark))
     (updateStatus [this snark]
       (println "updateStatus")
-      (.updateStatus manager snark))
+      (.updateStatus @manager snark))
     (gotMetaInfo [this snark]
       (println "gotMetaInfo")
-      (.gotMetaInfo manager snark path))
+      (.gotMetaInfo @manager snark path))
     (fatal [this snark error]
       (println "fatal" error)
-      (.fatal manager snark error))
+      (.fatal @manager snark error))
     (addMessage [this snark message]
       (println "addMessage" message)
-      (.addMessage manager snark message))
+      (.addMessage @manager snark message))
     (gotPiece [this snark]
       (println "gotPiece")
-      (.gotPiece manager snark))
+      (.gotPiece @manager snark))
     (getSavedTorrentTime [this snark]
       (println "getSavedTorrentTime")
-      ;(.getSavedTorrentTime manager snark)
+      ;(.getSavedTorrentTime @manager snark)
       0)
     (getSavedTorrentBitField [this snark]
       (println "getSavedTorrentBitField")
-      ;(.getSavedTorrentBitField manager snark)
+      ;(.getSavedTorrentBitField @manager snark)
       nil)))
 
 (defn add-hash
@@ -95,7 +95,7 @@
   [path info-hash-str is-persistent? complete-callback]
   (future
     (try
-      (.addMagnet manager
+      (.addMagnet @manager
                   info-hash-str
                   (base32-decode info-hash-str)
                   nil
@@ -122,7 +122,7 @@
           bit-field (.getBitField storage)
           listener (get-complete-listener root-path complete-callback)]
       (future
-        (.addTorrent manager
+        (.addTorrent @manager
                      meta-info
                      bit-field
                      torrent-path
@@ -140,7 +140,7 @@
 (defn remove-torrent
   "Stops and deletes a torrent."
   [path]
-  (.removeTorrent manager path))
+  (.removeTorrent @manager path))
 
 (defn get-info-hash
   "Gets the info hash for a given path."
@@ -155,8 +155,8 @@
   "Starts the I2PSnark manager."
   []
   (let [context (net.i2p.I2PAppContext/getGlobalContext)]
-    (def manager (org.klomp.snark.SnarkManager. context))
-    (.updateConfig manager
+    (reset! manager (org.klomp.snark.SnarkManager. context))
+    (.updateConfig @manager
                    nil ;dataDir
                    true ;filesPublic
                    true ;autoStart
@@ -173,4 +173,4 @@
                    false ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
-    (.start manager false)))
+    (.start @manager false)))

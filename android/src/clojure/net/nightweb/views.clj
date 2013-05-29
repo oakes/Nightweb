@@ -38,7 +38,7 @@
                                  tags-encode]]
         [nightweb.constants :only [is-me?]]))
 
-(def default-tile-width 160)
+(def ^:const default-tile-width 160)
 
 (defn create-grid-view-tile
   [context item]

@@ -44,7 +44,7 @@
             (get-post-view params)
             (get-category-view params))
     :tag (get-category-view params)
-    nil (get-user-view {:type :user :userhash my-hash-bytes})
+    nil (get-user-view {:type :user :userhash @my-hash-bytes})
     [:h2 "There doesn't seem to be anything here."]))
 
 (defn get-main-page

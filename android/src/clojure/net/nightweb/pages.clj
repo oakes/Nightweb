@@ -31,7 +31,7 @@
                                 user-exists?
                                 user-has-content?]]))
 
-(def show-welcome-message? true)
+(def show-welcome-message? (atom true))
 
 (defn shutdown-receiver-func
   [context intent]
@@ -56,7 +56,7 @@
           (.setDisplayShowHomeEnabled action-bar false)
           (create-tab action-bar
                       (get-string :me)
-                      #(let [content {:type :user :userhash my-hash-bytes}]
+                      #(let [content {:type :user :userhash @my-hash-bytes}]
                          (set-state this :share content)
                          (get-user-view this content)))
           (create-tab action-bar
@@ -69,8 +69,8 @@
                       #(let [content {:type :post}]
                          (set-state this :share content)
                          (get-category-view this content)))
-          (when (and is-first-boot? show-welcome-message?)
-            (def show-welcome-message? false)
+          (when (and @is-first-boot? @show-welcome-message?)
+            (reset! show-welcome-message? false)
             (show-welcome-dialog this)))))
     (start-receiver this shutdown-receiver-name shutdown-receiver-func))
   :on-new-intent

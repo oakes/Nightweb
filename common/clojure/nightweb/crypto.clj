@@ -1,7 +1,7 @@
 (ns nightweb.crypto)
 
-(def priv-key nil)
-(def pub-key nil)
+(def priv-key (atom nil))
+(def pub-key (atom nil))
 
 (defn gen-priv-key
   []
@@ -12,10 +12,10 @@
 
 (defn load-user-keys
   [priv-key-bytes]
-  (def priv-key (if priv-key-bytes
-                  (net.i2p.data.SigningPrivateKey. priv-key-bytes)
-                  (gen-priv-key)))
-  (def pub-key (.toPublic priv-key)))
+  (reset! priv-key (if priv-key-bytes
+                     (net.i2p.data.SigningPrivateKey. priv-key-bytes)
+                     (gen-priv-key)))
+  (reset! pub-key (.toPublic @priv-key)))
 
 (defn get-hash-algo
   []
@@ -29,7 +29,7 @@
 (defn create-signature
   ([message-bytes]
    (-> (net.i2p.crypto.DSAEngine/getInstance)
-       (.sign message-bytes priv-key)
+       (.sign message-bytes @priv-key)
        (.getData)))
   ([priv-key-bytes message-bytes]
    (-> (net.i2p.crypto.DSAEngine/getInstance)

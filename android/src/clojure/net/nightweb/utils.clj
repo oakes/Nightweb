@@ -8,8 +8,10 @@
         [nightweb.constants :only [slash
                                    get-pic-dir]]))
 
-(def full-size 1024)
-(def thumb-size 256)
+(def ^:const full-size 1024)
+(def ^:const thumb-size 256)
+(def ^:const default-text-size 20)
+(def ^:const large-text-size 30)
 
 (defn get-resample-ratio
   "Provides a ratio to resize an image at if it exceeds max-length."
@@ -143,9 +145,6 @@
   "Shows the Main page."
   [context content]
   (show-page context "net.nightweb.MainPage" content))
-
-(def default-text-size 20)
-(def large-text-size 30)
 
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."

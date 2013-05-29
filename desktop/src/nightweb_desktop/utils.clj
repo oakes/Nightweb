@@ -29,7 +29,7 @@
 
 (defn get-pic
   "Returns the path to the pic"
-  ([pic-hash] (get-pic my-hash-bytes pic-hash))
+  ([pic-hash] (get-pic @my-hash-bytes pic-hash))
   ([user-hash pic-hash]
    (when (and user-hash pic-hash)
      (str (get-pic-dir (base32-encode user-hash))
@@ -48,7 +48,7 @@
 
 (defn pic-to-data-url
   "Converts the pic from the given pic hash to a data url."
-  ([pic-hash] (pic-to-data-url my-hash-bytes pic-hash))
+  ([pic-hash] (pic-to-data-url @my-hash-bytes pic-hash))
   ([user-hash pic-hash]
    (when (and user-hash pic-hash)
      (let [pic-dir (str (get-pic-dir (base32-encode user-hash))

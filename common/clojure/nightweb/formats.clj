@@ -120,9 +120,9 @@
             :tag tag-val})
          url-map)))))
 
-(def min-tag-length 2)
-(def max-tag-count 20)
-(def ignore-chars #"[?,:;.!\(\)\t\r\n ]")
+(def ^:const min-tag-length 2)
+(def ^:const max-tag-count 20)
+(def ^:const ignore-chars #"[?,:;.!\(\)\t\r\n ]")
 
 (defn get-tag
   [text-str]
@@ -188,7 +188,7 @@
 
 (defn link-encode
   [link-hash]
-  (let [args {"user_hash" my-hash-bytes
+  (let [args {"user_hash" @my-hash-bytes
               "link_hash" link-hash
               "mtime" (.getTime (java.util.Date.))}
         signed-data (b-encode args)
