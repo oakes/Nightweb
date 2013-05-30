@@ -48,7 +48,7 @@
                                       parse-meta-link
                                       init-dht]]))
 
-(def ^:const enable-router? false) ; if false, I2P won't boot
+(def ^:const enable-router? true) ; if false, I2P won't boot
 (def is-first-boot? (atom false))
 
 (defn user-exists?
