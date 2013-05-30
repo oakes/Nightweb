@@ -3,10 +3,7 @@
 (def base-dir (atom nil))
 (def my-hash-bytes (atom nil))
 (def my-hash-str (atom nil))
-
-(defn is-me?
-  [user-hash]
-  (java.util.Arrays/equals user-hash @my-hash-bytes))
+(def my-hash-list (atom []))
 
 (def ^:const slash java.io.File/separator)
 (def ^:const nw-dir (str slash "nwapp"))
@@ -28,6 +25,17 @@
 (def ^:const pub-node-key-file (str nw-dir slash "public.node.key"))
 (def ^:const db-file (str nw-dir slash "main"))
 (def ^:const user-dir (str nw-dir slash "user"))
+
+(defn is-me?
+  ([user-hash]
+   (is-me? user-hash false))
+  ([user-hash all-my-users?]
+   (if all-my-users?
+     (-> (filter #(java.util.Arrays/equals user-hash %)
+                 @my-hash-list)
+         (count)
+         (> 0))
+     (java.util.Arrays/equals user-hash @my-hash-bytes))))
 
 (defn get-user-list-file
   []

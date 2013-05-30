@@ -24,6 +24,7 @@
                                    base-dir
                                    my-hash-bytes
                                    my-hash-str
+                                   my-hash-list
                                    slash
                                    torrent-ext
                                    link-ext
@@ -47,7 +48,7 @@
                                       parse-meta-link
                                       init-dht]]))
 
-(def ^:const enable-router? true) ; if false, I2P won't boot
+(def ^:const enable-router? false) ; if false, I2P won't boot
 (def is-first-boot? (atom false))
 
 (defn user-exists?
@@ -55,7 +56,7 @@
   [user-hash-bytes]
   (let [user-hash-str (base32-encode user-hash-bytes)]
     (or (file-exists? (get-user-dir user-hash-str))
-        (is-me? user-hash-bytes))))
+        (is-me? user-hash-bytes true))))
 
 (defn user-has-content?
   "Checks if we've received anything from this user."
@@ -65,7 +66,7 @@
         meta-dir (get-meta-dir user-hash-str)]
     (or (file-exists? meta-torrent-file)
         (file-exists? meta-dir)
-        (is-me? user-hash-bytes))))
+        (is-me? user-hash-bytes true))))
 
 (defn add-user-and-meta-torrents
   "Starts the user and meta torrent for this user."
@@ -92,7 +93,7 @@
       (when-let [new-link-str (:link-hash-str link-map)]
         (add-hash user-dir new-link-str false on-recv-meta)))))
 
-(defn create-new-user
+(defn create-user
   "Creates a new user."
   []
   (load-user-keys nil)
@@ -104,45 +105,40 @@
     (delete-file (get-user-pub-file nil))
     (write-key-file (get-user-priv-file info-hash-str) @priv-key)
     (write-key-file (get-user-pub-file info-hash-str) @pub-key)
-    (write-user-list-file [info-hash])
+    (write-user-list-file (cons info-hash @my-hash-list))
     info-hash))
 
-(defn create-or-load-user
-  "Loads user into memory (creating new user if necessary)."
-  []
-  ; create keys if necessary
-  (when (nil? (get (read-user-list-file) 0))
-    (reset! is-first-boot? true)
-    (create-new-user))
-  ; load keys based on the first hash stored in the user list
-  (let [user-hash (get (read-user-list-file) 0)
+(defn load-user
+  "Loads user into memory."
+  [index]
+  (let [user-list (read-user-list-file)
+        user-hash (get user-list index)
         user-hash-str (base32-encode user-hash)
         priv-key-path (get-user-priv-file user-hash-str)
         pub-key-path (get-user-pub-file user-hash-str)
         priv-key-bytes (read-key-file priv-key-path)]
     (load-user-keys priv-key-bytes)
     (reset! my-hash-bytes user-hash)
-    (reset! my-hash-str user-hash-str)))
+    (reset! my-hash-str user-hash-str)
+    (reset! my-hash-list user-list)))
 
 (defn create-imported-user
   "Replaces current user with imported user."
   [user-hash-str-list]
   (let [imported-user-str (first user-hash-str-list)
         imported-user (base32-decode imported-user-str)
-        old-user-hash @my-hash-bytes]
-    (if (and imported-user-str imported-user)
-      (do
-        (write-user-list-file [imported-user])
-        (create-or-load-user)
-        (doseq [f (file-seq (file (get-meta-dir imported-user-str)))]
-          (when (.isFile f)
-            (on-recv-meta-file imported-user
-                               (read-meta-file (.getAbsolutePath f)))))
-        (when (not= imported-user-str (base32-encode old-user-hash))
-          (add-user-and-meta-torrents imported-user-str)
-          (remove-user-hash old-user-hash))
-        true)
-      false)))
+        is-valid? (and imported-user-str
+                       imported-user
+                       (not (is-me? imported-user true)))]
+    (when is-valid?
+      (write-user-list-file (cons imported-user @my-hash-list))
+      (load-user 0)
+      (doseq [f (file-seq (file (get-meta-dir imported-user-str)))]
+        (when (.isFile f)
+          (on-recv-meta-file imported-user
+                             (read-meta-file (.getAbsolutePath f)))))
+      (add-user-and-meta-torrents imported-user-str))
+    is-valid?))
 
 (defn create-meta-torrent
   "Creates a new meta torrent."
@@ -169,18 +165,22 @@
   ; start i2psnark
   (start-torrent-manager)
   (init-dht)
-  ; create or load keys
-  (create-or-load-user)
+  ; create or load user
+  (when (= 0 (count (read-user-list-file)))
+    (reset! is-first-boot? true)
+    (create-user))
+  (load-user 0)
+  ; run the rest of the initialization in a separate thread
   (future
     ; start i2p router
     (when enable-router?
-      (java.lang.System/setProperty "i2p.dir.base" dir)
-      (java.lang.System/setProperty "i2p.dir.config" dir)
-      (java.lang.System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
+      (System/setProperty "i2p.dir.base" dir)
+      (System/setProperty "i2p.dir.config" dir)
+      (System/setProperty "wrapper.logfile" (str dir slash "wrapper.log"))
       (net.i2p.router.RouterLaunch/main nil)
       (when-let [router (get-router)]
         (.saveConfig router "router.hiddenMode" (if hide? "true" "false")))
-      (java.lang.Thread/sleep 10000))
+      (Thread/sleep 10000))
     ; add all user and meta torrents
     (iterate-dir (get-user-dir) add-user-and-meta-torrents)
     ; add default fav user

@@ -21,7 +21,6 @@
 
 (def spec (atom nil))
 (def ^:const limit 24)
-
 (def ^:const max-length-small 20)
 (def ^:const max-length-large 10000)
 

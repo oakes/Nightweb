@@ -123,7 +123,7 @@
   "Removes a user completely if nobody we care about is following them."
   [their-hash-bytes]
   (when (and their-hash-bytes
-             (not (is-me? their-hash-bytes))
+             (not (is-me? their-hash-bytes true))
              (-> {:ptrhash their-hash-bytes}
                  (get-fav-data)
                  (count)
@@ -145,7 +145,7 @@
   "Add or remove user if necessary based on a fav we received."
   [user-hash ptr-hash status]
   ; if this is from a user we care about
-  (when (or (is-me? user-hash)
+  (when (or (is-me? user-hash true)
             (-> {:userhash user-hash}
                 (get-single-fav-data)
                 (get :status)

@@ -73,7 +73,7 @@
   <string name="confirm_unfav">Are you sure you want to unfavorite this user? You may not be able to see them anymore.</string>
   <string name="confirm_delete">Are you sure you want to delete this?</string>
   <string name="export_desc">This will save a password-protected file with all of your user\'s data. You can open it on another device with Nightweb installed.</string>
-  <string name="import_desc">When you import a user, your existing user will be permanently removed.</string>
+  <string name="import_desc">When you import a user, your current user will still exist.</string>
 
   <string name="open_in_browser">Open in browser</string>
   <string name="enable_remote">Enable remote access</string>
