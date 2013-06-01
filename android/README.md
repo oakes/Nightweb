@@ -11,7 +11,7 @@
 4. Edit your `~/.lein/profiles.clj` to enable [lein-droid](https://github.com/alexander-yakushev/lein-droid) and point it to the Android SDK path
 	- Here's what mine looks like:
     {:user {
-        :plugins [[lein-droid "0.1.0-preview2"]]
+        :plugins [[lein-droid "0.1.0-preview5"]]
         :android {:sdk-path "path/to/android-sdk-linux" :force-dex-optimize true}
     }}
 5. In this directory, run `lein droid build; lein droid apk; lein droid install`

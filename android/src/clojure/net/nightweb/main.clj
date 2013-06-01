@@ -30,7 +30,7 @@
                     (fn [context intent]
                       (try
                         (.stopSelf service)
-                        (catch java.lang.Exception e nil))))
+                        (catch Exception e nil))))
     (start-router (.getAbsolutePath (.getFilesDir this)) false))
   :on-destroy
   (fn [this]

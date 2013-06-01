@@ -61,7 +61,7 @@
                            (when (func context view button)
                              (try
                                (.dismiss dialog)
-                               (catch java.lang.Exception e nil))))))]
+                               (catch Exception e nil))))))]
       (.setOnShowListener
         dialog
         (proxy [android.content.DialogInterface$OnShowListener] []
@@ -94,7 +94,7 @@
        (.setCanceledOnTouchOutside dialog false)
        (try
          (.show dialog)
-         (catch java.lang.Exception e nil)))))
+         (catch Exception e nil)))))
   ([context message view buttons]
    (let [dialog-fragment (proxy [android.app.DialogFragment] []
                            (onCreate [bundle]
@@ -114,7 +114,7 @@
                              (create-dialog context message view buttons)))]
      (try
        (.show dialog-fragment (.getFragmentManager context) "dialog")
-       (catch java.lang.Exception e nil)))))
+       (catch Exception e nil)))))
 
 (defn show-pending-user-dialog
   [context]

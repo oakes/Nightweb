@@ -19,7 +19,7 @@
       (.setPassword params (if (zero? (count password)) def-pass password))
       (.addFolder zip-file path params)
       true)
-    (catch java.lang.Exception e false)))
+    (catch Exception e false)))
 
 (defn unzip-dir
   [path dest-path password]
@@ -28,7 +28,7 @@
       (.setPassword zip-file (if (zero? (count password)) def-pass password))
       (.extractAll zip-file dest-path)
       true)
-    (catch java.lang.Exception e false)))
+    (catch Exception e false)))
 
 (defn get-zip-headers
   [path]
@@ -36,4 +36,4 @@
     (let [zip-file (net.lingala.zip4j.core.ZipFile. path)]
       (for [header (.getFileHeaders zip-file)]
         (.getFileName header)))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))

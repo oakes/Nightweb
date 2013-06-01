@@ -49,7 +49,7 @@
          rs
          [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
          rs))
-     (catch java.lang.Exception e nil))))
+     (catch Exception e nil))))
 
 (defn create-index
   [table-name columns]

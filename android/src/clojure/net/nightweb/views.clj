@@ -259,4 +259,4 @@
       (.setText tab title)
       (.setTabListener tab listener)
       (.addTab action-bar tab))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))

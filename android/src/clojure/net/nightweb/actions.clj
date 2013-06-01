@@ -116,7 +116,7 @@
             (try
               (.dismiss spinner)
               (when should-refresh? (.recreate context))
-              (catch java.lang.Exception e nil))))))))
+              (catch Exception e nil))))))))
 
 (defn send-post
   "Saves a post to the disk and creates a new meta torrent to share it."

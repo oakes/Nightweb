@@ -25,7 +25,7 @@
         is-too-big? (or (> height-ratio 1) (> width-ratio 1))]
     (when is-valid?
       (if is-too-big?
-        (int (java.lang.Math/ceil (max height-ratio width-ratio)))
+        (int (Math/ceil (max height-ratio width-ratio)))
         1))))
 
 (defn input-stream-to-bitmap
@@ -45,7 +45,7 @@
                          (get-resample-ratio is full-size))]
         (with-open [is (.openInputStream cr uri)]
           (input-stream-to-bitmap is ratio))))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn path-to-bitmap
   "Reads from a file path into a bitmap, resizing if necessary."
@@ -55,7 +55,7 @@
                        (get-resample-ratio is max-length))]
       (with-open [is (input-stream path)]
         (input-stream-to-bitmap is ratio)))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn bitmap-to-byte-array
   "Compresses a bitmap into a specific image format as a byte array."
@@ -74,7 +74,7 @@
           uri (android.net.Uri/parse uri-str)]
       (with-open [is (.openInputStream cr uri)]
         (copy is (file path))))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."
@@ -121,7 +121,7 @@
 (defn show-page
   "Shows a new activity of the specified type."
   [context class-name params]
-  (let [class-symbol (java.lang.Class/forName class-name)
+  (let [class-symbol (Class/forName class-name)
         intent (android.content.Intent. context class-symbol)]
     (.putExtra intent "params" params)
     (.startActivity context intent)))
@@ -175,7 +175,7 @@
     [this widget text]
     (try
       (android.text.Selection/setSelection text 0)
-      (catch java.lang.Exception e nil)))
+      (catch Exception e nil)))
   (defn movement-method-onTakeFocus
     [this view text dir]
     (if (->> (bit-or android.view.View/FOCUS_FORWARD
@@ -192,7 +192,7 @@
   (let [html-text (md-to-html-string content)
         markdown-text (try
                         (android.text.Html/fromHtml html-text)
-                        (catch java.lang.Exception e ""))
+                        (catch Exception e ""))
         spannable android.widget.TextView$BufferType/SPANNABLE]
     (.setText view markdown-text spannable)
     (.setMovementMethod view (net.nightweb.utils.MovementMethod.))

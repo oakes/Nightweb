@@ -11,52 +11,52 @@
 (defn is-numeric?
   [string]
   (try
-    (java.lang.Integer/parseInt string)
+    (Integer/parseInt string)
     true
-    (catch java.lang.Exception e false)))
+    (catch Exception e false)))
 
 (defn b-encode
   [data-value]
   (try
     (org.klomp.snark.bencode.BEncoder/bencode data-value)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode
   [data-barray]
   (try
     (org.klomp.snark.bencode.BDecoder/bdecode
       (java.io.ByteArrayInputStream. data-barray))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-map
   [be-value]
   (try
     (.getMap be-value)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-list
   [be-value]
   (try
     (vec (.getList be-value))
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-bytes
   [be-value]
   (try
     (.getBytes be-value)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-long
   [be-value]
   (try
     (.getLong be-value)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-string
   [be-value]
   (try
     (.getString be-value)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn b-decode-byte-list
   [be-value]
@@ -68,19 +68,19 @@
   [data-barray]
   (try
     (net.i2p.data.Base32/encode data-barray)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn base32-decode
   [data-str]
   (try
     (net.i2p.data.Base32/decode data-str)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn long-decode
   [data-str]
   (try
     (Long/parseLong data-str)
-    (catch java.lang.Exception e nil)))
+    (catch Exception e nil)))
 
 (defn url-encode
   ([content] (url-encode content "http://nightweb.net/#"))

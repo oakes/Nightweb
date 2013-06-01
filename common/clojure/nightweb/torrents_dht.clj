@@ -102,7 +102,7 @@
   [seconds]
   (future
     (while true
-      (java.lang.Thread/sleep (* seconds 1000))
+      (Thread/sleep (* seconds 1000))
       (iterate-torrents (fn [torrent]
                           (when (.getPersistent torrent)
                             (send-meta-link torrent)))))))
