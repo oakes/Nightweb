@@ -195,21 +195,6 @@
                      true)))
   true)
 
-(defn select-user
-  "Switches to a different user."
-  [user]
-  (let []))
-
-(defn delete-user
-  "Deletes a user."
-  [user]
-  (let []))
-
-(defn create-user
-  "Creates a user."
-  [context dialog-view button-view]
-  (let []))
-
 (defn zip-and-send
   "Creates an encrypted zip file with our content and sends it somewhere."
   [context password]

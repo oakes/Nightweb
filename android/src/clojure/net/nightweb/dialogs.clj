@@ -12,21 +12,20 @@
                                      cancel
                                      zip-and-send
                                      unzip-and-save
-                                     save-profile
-                                     select-user
-                                     delete-user
-                                     create-user]]
+                                     save-profile]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    uri-to-bitmap
                                    path-to-bitmap
                                    get-pic-path
                                    make-dip
+                                   show-home
                                    default-text-size
                                    large-text-size
                                    set-text-size
                                    set-text-max-length
                                    set-text-content]]
+        [nightweb.router :only [create-user load-user delete-user]]
         [nightweb.io :only [read-user-list-file]]
         [nightweb.formats :only [tags-encode]]
         [nightweb.db :only [max-length-small
@@ -213,6 +212,19 @@
                   :negative-func cancel})
   false)
 
+(defn show-delete-user-dialog
+  [context user-hash]
+  (show-dialog context
+               (get-string :confirm_delete)
+               nil
+               {:positive-name (get-string :delete)
+                :positive-func (fn [c d b]
+                                 (delete-user user-hash)
+                                 (.finish context)
+                                 (show-home context {}))
+                :negative-name (get-string :cancel)
+                :negative-func cancel}))
+
 (defn show-export-dialog
   [context dialog-view button-view]
   (let [view (make-ui context [:edit-text {:single-line true
@@ -275,18 +287,25 @@
           (on-ui (.setOnClickListener
                    select-button
                    (proxy [android.view.View$OnClickListener] []
-                     (onClick [v] (select-user item))))
+                     (onClick [v]
+                       (load-user (:userhash item))
+                       (.finish context)
+                       (show-home context {}))))
                  (.setOnClickListener
                    delete-button
                    (proxy [android.view.View$OnClickListener] []
-                     (onClick [v] (delete-user item))))
+                     (onClick [v]
+                       (show-delete-user-dialog context (:userhash item)))))
                  (.addView linear-layout list-item)))))
     ; display a dialog with the list
     (show-dialog context
                  nil
                  view
                  {:positive-name (get-string :create_user)
-                  :positive-func create-user
+                  :positive-func (fn [context dialog-view button-view]
+                                   (load-user (create-user))
+                                   (.finish context)
+                                   (show-home context {}))
                   :negative-name (get-string :cancel)
                   :negative-func cancel})))
 

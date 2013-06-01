@@ -106,13 +106,14 @@
     (write-key-file (get-user-priv-file info-hash-str) @priv-key)
     (write-key-file (get-user-pub-file info-hash-str) @pub-key)
     (write-user-list-file (cons info-hash @my-hash-list))
+    (add-user-and-meta-torrents info-hash-str)
     info-hash))
 
 (defn load-user
   "Loads user into memory."
-  [index]
+  [user-hash-bytes]
   (let [user-list (read-user-list-file)
-        user-hash (get user-list index)
+        user-hash (or user-hash-bytes (get user-list 0))
         user-hash-str (base32-encode user-hash)
         priv-key-path (get-user-priv-file user-hash-str)
         pub-key-path (get-user-pub-file user-hash-str)
@@ -121,6 +122,17 @@
     (reset! my-hash-bytes user-hash)
     (reset! my-hash-str user-hash-str)
     (reset! my-hash-list user-list)))
+
+(defn delete-user
+  "Removes user permanently."
+  [user-hash-bytes]
+  (let [user-list (remove #(java.util.Arrays/equals user-hash-bytes %)
+                          @my-hash-list)]
+    (write-user-list-file (if (= 0 (count user-list))
+                            (cons (create-user) user-list)
+                            user-list))
+    (load-user nil)
+    (future (remove-user-hash user-hash-bytes))))
 
 (defn create-imported-user
   "Replaces current user with imported user."
@@ -132,7 +144,7 @@
                        (not (is-me? imported-user true)))]
     (when is-valid?
       (write-user-list-file (cons imported-user @my-hash-list))
-      (load-user 0)
+      (load-user imported-user)
       (doseq [f (file-seq (file (get-meta-dir imported-user-str)))]
         (when (.isFile f)
           (on-recv-meta-file imported-user
@@ -169,7 +181,7 @@
   (when (= 0 (count (read-user-list-file)))
     (reset! is-first-boot? true)
     (create-user))
-  (load-user 0)
+  (load-user nil)
   ; run the rest of the initialization in a separate thread
   (future
     ; start i2p router
