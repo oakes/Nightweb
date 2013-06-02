@@ -665,6 +665,10 @@ public class Snark
         return storage;
     }
 
+    public String getDataDir() {
+        return rootDataDir;
+    }
+
     /**
      *  @since 0.8.4
      */
@@ -1189,6 +1193,18 @@ public class Snark
     //System.out.println("Completely received: " + torrent);
     if (completeListener != null)
         completeListener.torrentComplete(this);
+  }
+
+  public void setPersistent(boolean isPersistent) {
+    if (coordinator != null)
+      coordinator.setPersistent(isPersistent);
+  }
+
+  public boolean getPersistent() {
+    if (coordinator != null)
+      return coordinator.getPersistent();
+
+    return false;
   }
 
   public void setWantedPieces(Storage storage)
