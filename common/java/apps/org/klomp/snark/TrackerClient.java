@@ -85,7 +85,7 @@ public class TrackerClient implements Runnable {
   private final static int MAX_CONSEC_FAILS = 5;    // slow down after this
   private final static int LONG_SLEEP = 30*60*1000; // sleep a while after lots of fails
   private final static long MIN_TRACKER_ANNOUNCE_INTERVAL = 15*60*1000;
-  private final static long MIN_DHT_ANNOUNCE_INTERVAL = 60*1000;
+  private final static long MIN_DHT_ANNOUNCE_INTERVAL = 10*60*1000;
 
   private final I2PSnarkUtil _util;
   private final MetaInfo meta;
@@ -378,10 +378,6 @@ public class TrackerClient implements Runnable {
                 dht.announce(snark.getInfoHash());
 
             int maxSeenPeers = 0;
-            int p = getPeersFromDHT();
-            if (p > maxSeenPeers)
-                maxSeenPeers = p;
-            /*
             if (!trackers.isEmpty())
                 maxSeenPeers = getPeersFromTrackers(trackers);
             int p = getPeersFromPEX();
@@ -396,7 +392,6 @@ public class TrackerClient implements Runnable {
                 if (p > maxSeenPeers)
                     maxSeenPeers = p;
             }
-            */
 
             // we could try and total the unique peers but that's too hard for now
             snark.setTrackerSeenPeers(maxSeenPeers);
@@ -407,8 +402,7 @@ public class TrackerClient implements Runnable {
             try {
                 // Sleep some minutes...
                 // Sleep the minimum interval for all the trackers, but 60s minimum
-                int delay = 60000;
-		/*
+                int delay;
                 Random r = _util.getContext().random();
                 int random = r.nextInt(120*1000);
                 if (completed && runStarted)
@@ -420,7 +414,6 @@ public class TrackerClient implements Runnable {
                 else
                   // sleep a while, when we wake up we will contact only the trackers whose intervals have passed
                   delay = SLEEP*60*1000 + random;
-		*/
 
                 if (delay > 20*1000) {
                   // put ourselves on SimpleTimer2
@@ -446,31 +439,37 @@ public class TrackerClient implements Runnable {
    *  @return max peers seen
    */
   private int getPeersFromTrackers(List<TCTracker> trckrs) {
-            long uploaded = coordinator.getUploaded();
-            long downloaded = coordinator.getDownloaded();
             long left = coordinator.getLeft();   // -1 in magnet mode
             
             // First time we got a complete download?
-            String event;
-            if (!completed && left == 0)
-              {
+            boolean newlyCompleted;
+            if (!completed && left == 0) {
                 completed = true;
-                event = COMPLETED_EVENT;
-              }
-            else
-              event = NO_EVENT;
+                newlyCompleted = true;
+            } else {
+                newlyCompleted = false;
+            }
 
             // *** loop once for each tracker
             int maxSeenPeers = 0;
             for (TCTracker tr : trckrs) {
               if ((!stop) && (!tr.stop) &&
                   (completed || coordinator.needOutboundPeers() || !tr.started) &&
-                  (event.equals(COMPLETED_EVENT) || System.currentTimeMillis() > tr.lastRequestTime + tr.interval))
+                  (newlyCompleted || System.currentTimeMillis() > tr.lastRequestTime + tr.interval))
               {
                 try
                   {
-                    if (!tr.started)
-                      event = STARTED_EVENT;
+                    long uploaded = coordinator.getUploaded();
+                    long downloaded = coordinator.getDownloaded();
+                    left = coordinator.getLeft();
+                    String event;
+                    if (!tr.started) {
+                        event = STARTED_EVENT;
+                    } else if (newlyCompleted) {
+                        event = COMPLETED_EVENT;
+                    } else {
+                        event = NO_EVENT;
+                    }
                     TrackerInfo info = doRequest(tr, infoHash, peerID,
                                                  uploaded, downloaded, left,
                                                  event);

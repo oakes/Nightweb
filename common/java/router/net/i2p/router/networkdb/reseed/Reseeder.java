@@ -63,25 +63,29 @@ public class Reseeder {
     public static final String DEFAULT_SEED_URL =
               "http://netdb.i2p2.de/" + "," +
               "http://reseed.i2p-projekt.de/" + "," +
-              "http://euve5653.vserver.de/netDb/" +  "," +
+             //"http://euve5653.vserver.de/netDb/" +  "," +
               "http://cowpuncher.drollette.com/netdb/" + "," +
               "http://i2p.mooo.com/netDb/" + "," +
               "http://193.150.121.66/netDb/" + "," +
               "http://netdb.i2p2.no/" + "," +
               "http://reseed.info/"  + "," +
-              "http://i2p.feared.eu/";
+              "http://ieb9oopo.mooo.com";
+              // Temp disabled since h2ik have been AWOL since 06-03-2013
+              //"http://i2p.feared.eu/";
 
     /** @since 0.8.2 */
     public static final String DEFAULT_SSL_SEED_URL =
               "https://netdb.i2p2.de/" + "," +
               "https://reseed.i2p-projekt.de/" + "," +
-              "https://euve5653.vserver.de/netDb/" + "," +
+              //"https://euve5653.vserver.de/netDb/" + "," +
               "https://cowpuncher.drollette.com/netdb/" + "," +
               "https://i2p.mooo.com/netDb/" + "," +
               "https://193.150.121.66/netDb/" + "," +
               "https://netdb.i2p2.no/" + "," +
               "https://reseed.info/"  + "," +
-              "https://i2p.feared.eu/";
+              "https://ieb9oopo.mooo.com";
+              // Temp disabled since h2ik have been AWOL since 06-03-2013
+              //"https://i2p.feared.eu/";
 
     public static final String PROP_PROXY_HOST = "router.reseedProxyHost";
     public static final String PROP_PROXY_PORT = "router.reseedProxyPort";

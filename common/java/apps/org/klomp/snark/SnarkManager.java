@@ -57,6 +57,8 @@ public class SnarkManager implements CompleteListener {
     private /* FIXME final FIXME */ File _configFile;
     private Properties _config;
     private final I2PAppContext _context;
+    private final String _contextPath;
+    private final String _contextName;
     private final Log _log;
     private final Queue<String> _messages;
     private final I2PSnarkUtil _util;
@@ -82,7 +84,7 @@ public class SnarkManager implements CompleteListener {
     public static final String PROP_META_PRIORITY_SUFFIX = ".priority";
     public static final String PROP_META_MAGNET_PREFIX = "i2psnark.magnet.";
 
-    private static final String CONFIG_FILE = "i2psnark.config";
+    private static final String CONFIG_FILE_SUFFIX = ".config";
     public static final String PROP_FILES_PUBLIC = "i2psnark.filesPublic";
     public static final String PROP_AUTO_START = "i2snark.autoStart";   // oops
     public static final String DEFAULT_AUTO_START = "false";
@@ -90,6 +92,7 @@ public class SnarkManager implements CompleteListener {
     //public static final String DEFAULT_LINK_PREFIX = "file:///";
     public static final String PROP_STARTUP_DELAY = "i2psnark.startupDelay";
     public static final String PROP_REFRESH_DELAY = "i2psnark.refreshSeconds";
+    public static final String PROP_PAGE_SIZE = "i2psnark.pageSize";
     public static final String RC_PROP_THEME = "routerconsole.theme";
     public static final String RC_PROP_UNIVERSAL_THEMING = "routerconsole.universal.theme";
     public static final String PROP_THEME = "i2psnark.theme";
@@ -103,6 +106,7 @@ public class SnarkManager implements CompleteListener {
     public static final int DEFAULT_MAX_UP_BW = 10;
     public static final int DEFAULT_STARTUP_DELAY = 3; 
     public static final int DEFAULT_REFRESH_DELAY_SECS = 60;
+    private static final int DEFAULT_PAGE_SIZE = 50;
 
     /**
      *  "name", "announceURL=websiteURL" pairs
@@ -128,17 +132,33 @@ public class SnarkManager implements CompleteListener {
     /** comma delimited list of name=announceURL=baseURL for the trackers to be displayed */
     public static final String PROP_TRACKERS = "i2psnark.trackers";
 
+    /**
+     *  For embedded.
+     */
     public SnarkManager(I2PAppContext ctx) {
+        this(ctx, "/i2psnark", "i2psnark");
+    }
+
+    /**
+     *  For webapp.
+     *  @param ctxPath generally "/i2psnark"
+     *  @param ctxName generally "i2psnark"
+     *  @since 0.9.6
+     */
+    public SnarkManager(I2PAppContext ctx, String ctxPath, String ctxName) {
         _snarks = new ConcurrentHashMap();
         _magnets = new ConcurrentHashSet();
         _addSnarkLock = new Object();
         _context = ctx;
+        _contextPath = ctxPath;
+        _contextName = ctxName;
         _log = _context.logManager().getLog(SnarkManager.class);
         _messages = new LinkedBlockingQueue();
-        _util = new I2PSnarkUtil(_context);
-        _configFile = new File(CONFIG_FILE);
+        _util = new I2PSnarkUtil(_context, ctxName);
+        String cfile = ctxName + CONFIG_FILE_SUFFIX;
+        _configFile = new File(cfile);
         if (!_configFile.isAbsolute())
-            _configFile = new File(_context.getConfigDir(), CONFIG_FILE);
+            _configFile = new File(_context.getConfigDir(), cfile);
         _trackerMap = new ConcurrentHashMap(4);
         loadConfig(null);
     }
@@ -147,18 +167,15 @@ public class SnarkManager implements CompleteListener {
      *  for i2cp host/port or i2psnark.dir
      */
     public void start() {
-        start(true);
-    }
-    public void start(boolean runDirMonitor) {
         _running = true;
         _peerCoordinatorSet = new PeerCoordinatorSet();
         _connectionAcceptor = new ConnectionAcceptor(_util);
-        if (runDirMonitor) {
-            _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
-            _monitor.start();
-        }
-        // delay until UpdateManager is there
-        _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
+        _monitor = new I2PAppThread(new DirMonitor(), "Snark DirMonitor", true);
+        _monitor.start();
+        // only if default instance
+        if ("i2psnark".equals(_contextName))
+            // delay until UpdateManager is there
+            _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
         // Not required, Jetty has a shutdown hook
         //_context.addShutdownTask(new SnarkManagerShutdown());
     }
@@ -255,6 +272,18 @@ public class SnarkManager implements CompleteListener {
         }
     }
 
+    /**
+     *  For GUI
+     *  @since 0.9.6
+     */
+    public int getPageSize() { 
+        try {
+            return Integer.parseInt(_config.getProperty(PROP_PAGE_SIZE));
+        } catch (NumberFormatException nfe) {
+            return DEFAULT_PAGE_SIZE;
+        }
+    }
+
     private int getStartupDelayMinutes() { 
         try {
 	    return Integer.parseInt(_config.getProperty(PROP_STARTUP_DELAY));
@@ -264,7 +293,7 @@ public class SnarkManager implements CompleteListener {
     }
 
     public File getDataDir() { 
-        String dir = _config.getProperty(PROP_DIR, "i2psnark");
+        String dir = _config.getProperty(PROP_DIR, _contextName);
         File f;
         if (areFilesPublic())
             f = new File(dir);
@@ -310,13 +339,15 @@ public class SnarkManager implements CompleteListener {
         if (!_config.containsKey(PROP_UPLOADERS_TOTAL))
             _config.setProperty(PROP_UPLOADERS_TOTAL, "" + Snark.MAX_TOTAL_UPLOADERS);
         if (!_config.containsKey(PROP_DIR))
-            _config.setProperty(PROP_DIR, "i2psnark");
+            _config.setProperty(PROP_DIR, _contextName);
         if (!_config.containsKey(PROP_AUTO_START))
             _config.setProperty(PROP_AUTO_START, DEFAULT_AUTO_START);
         if (!_config.containsKey(PROP_REFRESH_DELAY))
             _config.setProperty(PROP_REFRESH_DELAY, Integer.toString(DEFAULT_REFRESH_DELAY_SECS));
         if (!_config.containsKey(PROP_STARTUP_DELAY))
             _config.setProperty(PROP_STARTUP_DELAY, Integer.toString(DEFAULT_STARTUP_DELAY));
+        if (!_config.containsKey(PROP_PAGE_SIZE))
+            _config.setProperty(PROP_PAGE_SIZE, Integer.toString(DEFAULT_PAGE_SIZE));
         if (!_config.containsKey(PROP_THEME))
             _config.setProperty(PROP_THEME, DEFAULT_THEME);
         // no, so we can switch default to true later
@@ -434,11 +465,15 @@ public class SnarkManager implements CompleteListener {
         return defaultVal;
     }
     
+    /**
+     *  all params may be null or need trimming
+     */
     public void updateConfig(String dataDir, boolean filesPublic, boolean autoStart, String refreshDelay,
-                             String startDelay, String seedPct, String eepHost, 
+                             String startDelay, String pageSize, String seedPct, String eepHost, 
                              String eepPort, String i2cpHost, String i2cpPort, String i2cpOpts,
                              String upLimit, String upBW, boolean useOpenTrackers, boolean useDHT, String theme) {
         boolean changed = false;
+        boolean interruptMonitor = false;
         //if (eepHost != null) {
         //    // unused, we use socket eepget
         //    int port = _util.getEepProxyPort();
@@ -455,12 +490,12 @@ public class SnarkManager implements CompleteListener {
         //}
         if (upLimit != null) {
             int limit = _util.getMaxUploaders();
-            try { limit = Integer.parseInt(upLimit); } catch (NumberFormatException nfe) {}
+            try { limit = Integer.parseInt(upLimit.trim()); } catch (NumberFormatException nfe) {}
             if ( limit != _util.getMaxUploaders()) {
                 if ( limit >= Snark.MIN_TOTAL_UPLOADERS ) {
                     _util.setMaxUploaders(limit);
                     changed = true;
-                    _config.setProperty(PROP_UPLOADERS_TOTAL, "" + limit);
+                    _config.setProperty(PROP_UPLOADERS_TOTAL, Integer.toString(limit));
                     addMessage(_("Total uploaders limit changed to {0}", limit));
                 } else {
                     addMessage(_("Minimum total uploaders limit is {0}", Snark.MIN_TOTAL_UPLOADERS));
@@ -469,12 +504,12 @@ public class SnarkManager implements CompleteListener {
         }
         if (upBW != null) {
             int limit = _util.getMaxUpBW();
-            try { limit = Integer.parseInt(upBW); } catch (NumberFormatException nfe) {}
+            try { limit = Integer.parseInt(upBW.trim()); } catch (NumberFormatException nfe) {}
             if ( limit != _util.getMaxUpBW()) {
                 if ( limit >= MIN_UP_BW ) {
                     _util.setMaxUpBW(limit);
                     changed = true;
-                    _config.setProperty(PROP_UPBW_MAX, "" + limit);
+                    _config.setProperty(PROP_UPBW_MAX, Integer.toString(limit));
                     addMessage(_("Up BW limit changed to {0}KBps", limit));
                 } else {
                     addMessage(_("Minimum up bandwidth limit is {0}KBps", MIN_UP_BW));
@@ -484,21 +519,21 @@ public class SnarkManager implements CompleteListener {
         
 	if (startDelay != null){
 		int minutes = _util.getStartupDelay();
-                try { minutes = Integer.parseInt(startDelay); } catch (NumberFormatException nfe) {}
+                try { minutes = Integer.parseInt(startDelay.trim()); } catch (NumberFormatException nfe) {}
 	        if ( minutes != _util.getStartupDelay()) {
                 	    _util.setStartupDelay(minutes);
 	                    changed = true;
-        	            _config.setProperty(PROP_STARTUP_DELAY, "" + minutes);
+        	            _config.setProperty(PROP_STARTUP_DELAY, Integer.toString(minutes));
                 	    addMessage(_("Startup delay changed to {0}", DataHelper.formatDuration2(minutes * 60 * 1000)));
                 }
 	}
 
 	if (refreshDelay != null) {
 	    try {
-                int secs = Integer.parseInt(refreshDelay);
+                int secs = Integer.parseInt(refreshDelay.trim());
 	        if (secs != getRefreshDelaySeconds()) {
 	            changed = true;
-	            _config.setProperty(PROP_REFRESH_DELAY, refreshDelay);
+	            _config.setProperty(PROP_REFRESH_DELAY, Integer.toString(secs));
                     if (secs >= 0)
 	                addMessage(_("Refresh time changed to {0}", DataHelper.formatDuration2(secs * 1000)));
 	            else
@@ -506,6 +541,42 @@ public class SnarkManager implements CompleteListener {
 	        }
 	    } catch (NumberFormatException nfe) {}
 	}
+
+        if (pageSize != null) {
+            try {
+                int size = Integer.parseInt(pageSize.trim());
+                if (size <= 0)
+                    size = 999999;
+                else if (size < 5)
+                    size = 5;
+                if (size != getPageSize()) {
+                    changed = true;
+                    pageSize = Integer.toString(size);
+                    _config.setProperty(PROP_PAGE_SIZE, pageSize);
+                    addMessage(_("Page size changed to {0}", pageSize));
+                }
+            } catch (NumberFormatException nfe) {}
+        }
+
+        if (dataDir != null && !dataDir.equals(getDataDir().getAbsolutePath())) {
+            dataDir = dataDir.trim();
+            File dd = new File(dataDir);
+            if (!dd.isAbsolute()) {
+                addMessage(_("Data directory must be an absolute path") + ": " + dataDir);
+            } else if (!dd.exists()) {
+                addMessage(_("Data directory does not exist") + ": " + dataDir);
+            } else if (!dd.isDirectory()) {
+                addMessage(_("Not a directory") + ": " + dataDir);
+            } else if (!dd.canRead()) {
+                addMessage(_("Unreadable") + ": " + dataDir);
+            } else {
+                changed = true;
+                interruptMonitor = true;
+                _config.setProperty(PROP_DIR, dataDir);
+                addMessage(_("Data directory changed to {0}", dataDir));
+            }
+
+        }
 
 	// Start of I2CP stuff.
 	// i2cpHost will generally be null since it is hidden from the form if in router context.
@@ -641,6 +712,9 @@ public class SnarkManager implements CompleteListener {
         }
         if (changed) {
             saveConfig();
+            if (interruptMonitor)
+                // Data dir changed. this will stop and remove all old torrents, and add the new ones
+                _monitor.interrupt();
         } else {
             addMessage(_("Configuration unchanged."));
         }
@@ -736,6 +810,11 @@ public class SnarkManager implements CompleteListener {
     
     public Properties getConfig() { return _config; }
     
+    /** @since Jetty 7 */
+    public String getConfigFilename() {
+        return _configFile.getAbsolutePath();
+    }
+
     /** hardcoded for sanity.  perhaps this should be customizable, for people who increase their ulimit, etc. */
     public static final int MAX_FILES_PER_TORRENT = 512;
     
@@ -802,9 +881,6 @@ public class SnarkManager implements CompleteListener {
      *  @throws RuntimeException via Snark.fatal()
      */
     private void addTorrent(String filename, boolean dontAutoStart) {
-        addTorrent(filename, dontAutoStart, this, getDataDir().getPath());
-    }
-    private void addTorrent(String filename, boolean dontAutoStart, CompleteListener listener, String dataDir) {
         if ((!dontAutoStart) && !_util.connected()) {
             addMessage(_("Connecting to I2P"));
             boolean ok = _util.connect();
@@ -821,6 +897,7 @@ public class SnarkManager implements CompleteListener {
             addMessage(_("Error: Could not add the torrent {0}", filename) + ": " + ioe.getMessage());
             return;
         }
+        File dataDir = getDataDir();
         Snark torrent = null;
         synchronized (_snarks) {
             torrent = _snarks.get(filename);
@@ -884,9 +961,9 @@ public class SnarkManager implements CompleteListener {
                     } else {
                         // TODO load saved closest DHT nodes and pass to the Snark ?
                         // This may take a LONG time
-                        torrent = new Snark(_util, filename, null, -1, null, null, listener,
+                        torrent = new Snark(_util, filename, null, -1, null, null, this,
                                             _peerCoordinatorSet, _connectionAcceptor,
-                                            false, dataDir);
+                                            false, dataDir.getPath());
                         loadSavedFilePriorities(torrent);
                         synchronized (_snarks) {
                             _snarks.put(filename, torrent);
@@ -933,7 +1010,7 @@ public class SnarkManager implements CompleteListener {
     public void addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus) {
         addMagnet(name, ih, trackerURL, updateStatus, shouldAutoStart(), this);
     }
-
+    
     /**
      * Add a torrent with the info hash alone (magnet / maggot)
      * External use is for UpdateRunner.
@@ -945,20 +1022,15 @@ public class SnarkManager implements CompleteListener {
      *                     to save it across restarts, in case we don't get
      *                     the metadata before shutdown?
      * @param listener to intercept callbacks, should pass through to this
-     * @param dataDir directory to store the downloaded files
      * @return the new Snark or null on failure
      * @throws RuntimeException via Snark.fatal()
      * @since 0.9.4
      */
     public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
                           boolean autoStart, CompleteListener listener) {
-        return addMagnet(name, ih, trackerURL, updateStatus, shouldAutoStart(), this, getDataDir().getPath());
-    }
-    public Snark addMagnet(String name, byte[] ih, String trackerURL, boolean updateStatus,
-                          boolean autoStart, CompleteListener listener, String dataDir) {
         Snark torrent = new Snark(_util, name, ih, trackerURL, listener,
                                   _peerCoordinatorSet, _connectionAcceptor,
-                                  false, dataDir);
+                                  false, getDataDir().getPath());
 
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(ih);
@@ -1041,10 +1113,6 @@ public class SnarkManager implements CompleteListener {
      * @since 0.8.4
      */
     public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart) throws IOException {
-        addTorrent(metainfo, bitfield, filename, dontAutoStart, this, getDataDir().getPath());
-    }
-    public void addTorrent(MetaInfo metainfo, BitField bitfield, String filename, boolean dontAutoStart,
-                    CompleteListener listener, String dataDir) throws IOException {
         // prevent interference by DirMonitor
         synchronized (_snarks) {
             Snark snark = getTorrentByInfoHash(metainfo.getInfoHash());
@@ -1057,7 +1125,7 @@ public class SnarkManager implements CompleteListener {
             try {
                 locked_writeMetaInfo(metainfo, filename, areFilesPublic());
                 // hold the lock for a long time
-                addTorrent(filename, dontAutoStart, listener, dataDir);
+                addTorrent(filename, dontAutoStart);
             } catch (IOException ioe) {
                 addMessage(_("Failed to copy torrent file to {0}", filename));
                 _log.error("Failed to write torrent file", ioe);
@@ -1105,7 +1173,7 @@ public class SnarkManager implements CompleteListener {
     private static void locked_writeMetaInfo(MetaInfo metainfo, String filename, boolean areFilesPublic) throws IOException {
         File file = new File(filename);
         if (file.exists())
-            return;
+            throw new IOException("Cannot overwrite an existing .torrent file: " + file.getPath());
         OutputStream out = null;
         try {
             if (areFilesPublic)
@@ -1461,7 +1529,7 @@ public class SnarkManager implements CompleteListener {
         if (meta == null || storage == null)
             return;
         StringBuilder buf = new StringBuilder(256);
-        buf.append("<a href=\"/i2psnark/").append(storage.getBaseName());
+        buf.append("<a href=\"").append(_contextPath).append('/').append(storage.getBaseName());
         if (meta.getFiles() != null)
             buf.append('/');
         buf.append("\">").append(storage.getBaseName()).append("</a>");
@@ -1489,9 +1557,6 @@ public class SnarkManager implements CompleteListener {
      * @since 0.8.4
      */
     public String gotMetaInfo(Snark snark) {
-        return gotMetaInfo(snark, getDataDir().getPath());
-    }
-    public String gotMetaInfo(Snark snark, String dataDir) {
         MetaInfo meta = snark.getMetaInfo();
         Storage storage = snark.getStorage();
         if (meta != null && storage != null) {
@@ -1506,7 +1571,7 @@ public class SnarkManager implements CompleteListener {
             String name = storage.getBaseName();
             try {
                 // _snarks must use canonical
-                name = (new File(dataDir, storage.getBaseName() + ".torrent")).getCanonicalPath();
+                name = (new File(getDataDir(), storage.getBaseName() + ".torrent")).getCanonicalPath();
                 // put the announce URL in the file
                 String announce = snark.getTrackerURL();
                 if (announce != null)

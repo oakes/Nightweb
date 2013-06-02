@@ -2,7 +2,6 @@ package org.klomp.snark;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.InputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,8 +39,6 @@ import net.i2p.util.Translate;
 
 import org.klomp.snark.dht.DHT;
 import org.klomp.snark.dht.KRPC;
-import org.klomp.snark.dht.NodeInfo;
-import org.klomp.snark.dht.CustomQueryHandler;
 
 /**
  * I2P specific helpers for I2PSnark
@@ -52,6 +49,7 @@ import org.klomp.snark.dht.CustomQueryHandler;
 public class I2PSnarkUtil {
     private final I2PAppContext _context;
     private final Log _log;
+    private final String _baseName;
     
     private boolean _shouldProxy;
     private String _proxyHost;
@@ -73,10 +71,6 @@ public class I2PSnarkUtil {
     private boolean _areFilesPublic;
     private List<String> _openTrackers;
     private DHT _dht;
-    private InputStream _myPrivateKeyStream;
-    private NodeInfo _myNodeInfo;
-    private CustomQueryHandler _customQueryHandler;
-    private Runnable _dhtInitCallback;
 
     private static final int EEPGET_CONNECT_TIMEOUT = 45*1000;
     private static final int EEPGET_CONNECT_TIMEOUT_SHORT = 5*1000;
@@ -89,8 +83,17 @@ public class I2PSnarkUtil {
     public static final boolean DEFAULT_USE_DHT = true;
 
     public I2PSnarkUtil(I2PAppContext ctx) {
+        this(ctx, "i2psnark");
+    }
+
+    /**
+     *  @param baseName generally "i2psnark"
+     *  @since Jetty 7
+     */
+    public I2PSnarkUtil(I2PAppContext ctx, String baseName) {
         _context = ctx;
         _log = _context.logManager().getLog(Snark.class);
+        _baseName = baseName;
         _opts = new HashMap();
         //setProxy("127.0.0.1", 4444);
         setI2CPConfig("127.0.0.1", 7654, null);
@@ -106,7 +109,7 @@ public class I2PSnarkUtil {
         // This is used for both announce replies and .torrent file downloads,
         // so it must be available even if not connected to I2CP.
         // so much for multiple instances
-        _tmpDir = new SecureDirectory(ctx.getTempDir(), "i2psnark");
+        _tmpDir = new SecureDirectory(ctx.getTempDir(), baseName);
         FileUtil.rmdir(_tmpDir, false);
         _tmpDir.mkdirs();
     }
@@ -181,20 +184,7 @@ public class I2PSnarkUtil {
 	_startupDelay = minutes;
 	_configured = true;
     }
-   
-    public void setDHTNode(InputStream privateKeyStream, NodeInfo nodeInfo) {
-        _myPrivateKeyStream = privateKeyStream;
-        _myNodeInfo = nodeInfo;
-    }
-
-    public void setDHTCustomQueryHandler(CustomQueryHandler handler) {
-        _customQueryHandler = handler;
-    }
-
-    public void setDHTInitCallback(Runnable callback) {
-        _dhtInitCallback = callback;
-    }
- 
+    
     public String getI2CPHost() { return _i2cpHost; }
     public int getI2CPPort() { return _i2cpPort; }
     public Map<String, String> getI2CPOptions() { return _opts; }
@@ -236,9 +226,9 @@ public class I2PSnarkUtil {
                 }
             }
             if (opts.getProperty("inbound.nickname") == null)
-                opts.setProperty("inbound.nickname", "I2PSnark");
+                opts.setProperty("inbound.nickname", _baseName.replace("i2psnark", "I2PSnark"));
             if (opts.getProperty("outbound.nickname") == null)
-                opts.setProperty("outbound.nickname", "I2PSnark");
+                opts.setProperty("outbound.nickname", _baseName.replace("i2psnark", "I2PSnark"));
             if (opts.getProperty("outbound.priority") == null)
                 opts.setProperty("outbound.priority", "-10");
             // Dont do this for now, it is set in I2PSocketEepGet for announces,
@@ -269,19 +259,11 @@ public class I2PSnarkUtil {
                 opts.setProperty("i2p.streaming.enforceProtocol", "true");
             if (opts.getProperty("i2p.streaming.disableRejectLogging") == null)
                 opts.setProperty("i2p.streaming.disableRejectLogging", "true");
-            if (_myPrivateKeyStream != null) {
-                _manager = I2PSocketManagerFactory.createManager(_myPrivateKeyStream, _i2cpHost, _i2cpPort, opts);
-            } else {
-                _manager = I2PSocketManagerFactory.createManager(_i2cpHost, _i2cpPort, opts);
-            }
+            _manager = I2PSocketManagerFactory.createManager(_i2cpHost, _i2cpPort, opts);
             _connecting = false;
         }
-        if (_shouldUseDHT && _manager != null && _dht == null) {
-            _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
-            if (_dhtInitCallback != null) {
-                _dhtInitCallback.run();
-            }
-        }
+        if (_shouldUseDHT && _manager != null && _dht == null)
+            _dht = new KRPC(_context, _baseName, _manager.getSession());
         return (_manager != null);
     }
     
@@ -616,10 +598,7 @@ public class I2PSnarkUtil {
     public synchronized void setUseDHT(boolean yes) {
         _shouldUseDHT = yes;
         if (yes && _manager != null && _dht == null) {
-            _dht = new KRPC(_context, _manager.getSession(), _myNodeInfo, _customQueryHandler);
-            if (_dhtInitCallback != null) {
-                _dhtInitCallback.run();
-            }
+            _dht = new KRPC(_context, _baseName, _manager.getSession());
         } else if (!yes && _dht != null) {
             _dht.stop();
             _dht = null;
