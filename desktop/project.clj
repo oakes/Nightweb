@@ -1,4 +1,4 @@
-(defproject nightweb-desktop "0.1.0-SNAPSHOT"
+(defproject nightweb-desktop "0.0.1-SNAPSHOT"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :dependencies [[org.clojure/clojure "1.5.1"]
