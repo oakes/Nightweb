@@ -162,6 +162,7 @@
                    true ;autoStart
                    nil ;refreshDelay
                    nil ;startDelay
+                   nil ;pageSize
                    nil ;seedPct
                    nil ;eepHost
                    nil ;eepPort
