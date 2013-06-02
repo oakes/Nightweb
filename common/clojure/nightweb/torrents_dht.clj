@@ -27,6 +27,7 @@
         [nightweb.crypto :only [verify-signature]]
         [nightweb.constants :only [is-me?
                                    my-hash-str
+                                   my-hash-list
                                    torrent-ext
                                    get-user-dir
                                    get-user-pub-file
@@ -124,8 +125,10 @@
   [their-hash-bytes]
   (when (and their-hash-bytes
              (not (is-me? their-hash-bytes true))
-             (-> {:ptrhash their-hash-bytes}
-                 (get-fav-data)
+             (-> (for [my-user-hash @my-hash-list]
+                   (get-fav-data {:ptrhash their-hash-bytes} my-user-hash))
+                 (doall)
+                 (flatten)
                  (count)
                  (= 0)))
     (let [their-hash-str (base32-encode their-hash-bytes)
@@ -146,10 +149,13 @@
   [user-hash ptr-hash status]
   ; if this is from a user we care about
   (when (or (is-me? user-hash true)
-            (-> {:userhash user-hash}
-                (get-single-fav-data)
-                (get :status)
-                (= 1)))
+            (->> (for [my-user-hash @my-hash-list]
+                   (get-single-fav-data {:userhash user-hash} my-user-hash))
+                 (doall)
+                 (filter #(= 1 (:status %)))
+                 (count)
+                 (= 0)
+                 (not)))
     (case status
       ; if the fav has a status of 0, unfollow them if necessary
       0 (remove-user-hash ptr-hash)

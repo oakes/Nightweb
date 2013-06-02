@@ -17,7 +17,9 @@
                                  b-decode-list
                                  b-decode-byte-list
                                  tags-decode]]
-        [nightweb.constants :only [db-file my-hash-bytes]]))
+        [nightweb.constants :only [db-file
+                                   my-hash-bytes
+                                   my-hash-list]]))
 
 (def spec (atom nil))
 (def ^:const limit 24)
@@ -153,31 +155,33 @@
         (prepare-results rs :post)))))
 
 (defn get-single-fav-data
-  [params]
-  (let [ptr-hash (:userhash params)
-        ptr-time (:time params)]
-    (with-connection
-      @spec
-      (with-query-results
-        rs
-        ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
-         @my-hash-bytes ptr-hash ptr-time]
-        (first (prepare-results rs :fav))))))
+  ([params] (get-single-fav-data params @my-hash-bytes))
+  ([params my-user-hash]
+   (let [ptr-hash (:userhash params)
+         ptr-time (:time params)]
+     (with-connection
+       @spec
+       (with-query-results
+         rs
+         ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
+          my-user-hash ptr-hash ptr-time]
+         (first (prepare-results rs :fav)))))))
 
 (defn get-fav-data
-  [params]
-  (let [ptr-hash (:ptrhash params)]
-    (with-connection
-      @spec
-      (with-query-results
-        rs
-        ["SELECT * FROM fav WHERE ptrhash = ? 
-         AND status = 1 
-         AND (userhash IN 
-         (SELECT ptrhash FROM fav WHERE userhash = ? AND status = 1) 
-         OR userhash = ?)"
-         ptr-hash @my-hash-bytes @my-hash-bytes]
-        (prepare-results rs :fav)))))
+  ([params] (get-fav-data params @my-hash-bytes))
+  ([params my-user-hash]
+   (let [ptr-hash (:ptrhash params)]
+     (with-connection
+       @spec
+       (with-query-results
+         rs
+         ["SELECT * FROM fav WHERE ptrhash = ? 
+          AND status = 1 
+          AND (userhash IN 
+          (SELECT ptrhash FROM fav WHERE userhash = ? AND status = 1) 
+          OR userhash = ?)"
+          ptr-hash my-user-hash my-user-hash]
+         (prepare-results rs :fav))))))
 
 (defn get-category-data
   [params]
