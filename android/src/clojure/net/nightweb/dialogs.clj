@@ -267,36 +267,37 @@
 (defn show-switch-user-dialog
   [context content]
   (let [view (make-ui context [:scroll-view {}
-                               [:linear-layout {:orientation 1}]])
-        linear-layout (.getChildAt view 0)
-        items (for [user-hash (read-user-list-file)]
-                (get-single-user-data {:userhash user-hash}))]
+                               [:linear-layout {:orientation 1}]])]
     ; add each user to the list
     (future
-      (doseq [item items]
-        (let [title (if (= 0 (count (:title item)))
-                      (get-string :no_name)
-                      (:title item))
-              list-item (make-ui context [:linear-layout {:orientation 0}
-                                          [:button {:text title
-                                                    :layout-weight 3}]
-                                          [:button {:text (get-string :delete)
-                                                    :layout-weight 1}]])
-              select-button (.getChildAt list-item 0)
-              delete-button (.getChildAt list-item 1)]
-          (on-ui (.setOnClickListener
-                   select-button
-                   (proxy [android.view.View$OnClickListener] []
-                     (onClick [v]
-                       (load-user (:userhash item))
-                       (.finish context)
-                       (show-home context {}))))
-                 (.setOnClickListener
-                   delete-button
-                   (proxy [android.view.View$OnClickListener] []
-                     (onClick [v]
-                       (show-delete-user-dialog context (:userhash item)))))
-                 (.addView linear-layout list-item)))))
+      (let [linear-layout (.getChildAt view 0)
+            items (for [user-hash (read-user-list-file)]
+                    (get-single-user-data {:userhash user-hash}))]
+        (doseq [item items]
+          (let [title (if (= 0 (count (:title item)))
+                        (get-string :no_name)
+                        (:title item))
+                list-item (make-ui context [:linear-layout {:orientation 0}
+                                            [:button {:text title
+                                                      :layout-weight 3}]
+                                            [:button {:text (get-string :delete)
+                                                      :layout-weight 1}]])
+                select-button (.getChildAt list-item 0)
+                delete-button (.getChildAt list-item 1)]
+            (on-ui (.setEnabled select-button (not (is-me? (:userhash item))))
+                   (.setOnClickListener
+                     select-button
+                     (proxy [android.view.View$OnClickListener] []
+                       (onClick [v]
+                         (load-user (:userhash item))
+                         (.finish context)
+                         (show-home context {}))))
+                   (.setOnClickListener
+                     delete-button
+                     (proxy [android.view.View$OnClickListener] []
+                       (onClick [v]
+                         (show-delete-user-dialog context (:userhash item)))))
+                   (.addView linear-layout list-item))))))
     ; display a dialog with the list
     (show-dialog context
                  nil
