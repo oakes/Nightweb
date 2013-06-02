@@ -6,7 +6,7 @@
                                      show-switch-user-dialog]]))
 
 (defn create-main-menu
-  [context menu show-share-button?]
+  [context menu show-share-button? show-switch-button?]
   ; create search button
   (let [search-item (.add menu (get-string :search))
         search-view (android.widget.SearchView. context)]
@@ -49,13 +49,14 @@
           (onMenuItemClick [menu-item]
             (share-url context)
             true)))))
-  (let [switch-user-item (.add menu (get-string :switch_user))]
-    (.setIcon switch-user-item (get-resource :drawable :profile_small))
-    (.setShowAsAction switch-user-item
-                      android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
-    (.setOnMenuItemClickListener
-      switch-user-item
-      (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-        (onMenuItemClick [menu-item]
-          (show-switch-user-dialog context {})
-          true)))))
+  (when show-switch-button?
+    (let [switch-user-item (.add menu (get-string :switch_user))]
+      (.setIcon switch-user-item (get-resource :drawable :profile_small))
+      (.setShowAsAction switch-user-item
+                        android.view.MenuItem/SHOW_AS_ACTION_IF_ROOM)
+      (.setOnMenuItemClickListener
+        switch-user-item
+        (proxy [android.view.MenuItem$OnMenuItemClickListener] []
+          (onMenuItemClick [menu-item]
+            (show-switch-user-dialog context {})
+            true))))))

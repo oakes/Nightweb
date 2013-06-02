@@ -90,7 +90,7 @@
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu true))
+    (create-main-menu this menu true true))
   :on-activity-result
   receive-result)
 
@@ -115,7 +115,7 @@
     (stop-receiver this shutdown-receiver-name))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu false))
+    (create-main-menu this menu false false))
   :on-options-item-selected
   (fn [this item]
     (menu-action this item))
@@ -182,7 +182,7 @@
     (stop-service this))
   :on-create-options-menu
   (fn [this menu]
-    (create-main-menu this menu true))
+    (create-main-menu this menu true false))
   :on-options-item-selected
   (fn [this item]
     (menu-action this item))
