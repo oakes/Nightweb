@@ -4,6 +4,7 @@
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [com.h2database/h2 "1.3.170"]
                  [seesaw "1.4.3"]
+                 [com.github.insubstantial/substance "7.1"]
                  [ring "1.1.8"]
                  [hiccup "1.0.3"]]
   :main nightweb-desktop.core

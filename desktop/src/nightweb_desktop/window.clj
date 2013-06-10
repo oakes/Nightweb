@@ -35,6 +35,8 @@
   "Launches the main window."
   []
   (native!)
+  (org.pushingpixels.substance.api.SubstanceLookAndFeel/setSkin
+    (org.pushingpixels.substance.api.skin.GraphiteSkin.))
   (invoke-later
     (-> (frame :title (get-string :app_name)
                :content (get-window-content)
