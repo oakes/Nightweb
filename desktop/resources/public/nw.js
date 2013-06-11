@@ -88,12 +88,12 @@ var saveProfile = function() {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'profile',
+			type: 'save-profile',
 			name: $('#profile-name').val(),
 			body: $('#profile-about').val(),
 			pic: $('#profile-image-hidden').val()
 		},
-		success: function(data) {
+		success: function(response) {
 			window.location.reload(true);
 		}
 	});
@@ -107,13 +107,13 @@ var importUser = function() {
 			type: 'POST',
 		  	url: '/',
 		  	data: {
-				type: 'import',
+				type: 'import-user',
 		  		file: event.target.result,
 		  		pass: $('#import-password').val()
 			},
-		  	success: function(data) {
-				if (data.length > 0) {
-					alert(data);
+		  	success: function(response) {
+				if (response.length > 0) {
+					alert(response);
 				} else {
 					window.location.reload(true);
 				}
@@ -129,13 +129,29 @@ var exportUser = function() {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'export',
+			type: 'export-user',
 			pass: $('#export-password').val()
 		},
-		success: function(data) {
-			if (data.length > 0) {
-				window.location = data;
+		success: function(response) {
+			if (response.length > 0) {
+				window.location = response;
+				$('#export-dialog')
+					.foundation('reveal', 'close');
 			}
+		}
+	});
+};
+
+var newPost = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'new-post',
+			text: $('#new-post-text').text()
+		},
+		success: function(response) {
+			
 		}
 	});
 };

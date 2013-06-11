@@ -67,6 +67,14 @@
 (defn get-new-post-dialog
   []
   [:div {:id "new-post-dialog" :class "reveal-modal dark"}
+   [:br]
+   [:textarea {:id "new-post-text"
+               :class "new-post-text"}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick ""}
+     (get-string :attach_pics)]
+    [:a {:href "#" :class "button" :onclick "newPost()"}
+     (get-string :send)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-link-dialog

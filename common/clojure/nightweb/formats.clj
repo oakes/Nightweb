@@ -161,7 +161,7 @@
 
 (defn post-encode
   [& {:keys [text pic-hashes status ptrhash ptrtime]}]
-  (let [args (merge {"body" text
+  (let [args (merge {"body" (or text "")
                      "mtime" (.getTime (java.util.Date.))
                      "pics" (remove-dupes-and-nils pic-hashes)
                      "status" status}
@@ -171,8 +171,8 @@
 
 (defn profile-encode
   [name-text body-text image-hash]
-  (let [args {"title" name-text
-              "body" body-text
+  (let [args {"title" (or name-text "")
+              "body" (or body-text "")
               "mtime" (.getTime (java.util.Date.))
               "pics" (if image-hash [image-hash] [])
               "status" 1}]

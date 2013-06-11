@@ -66,10 +66,14 @@
       dest-path
       "")))
 
+(defn new-post
+  [params])
+
 (defn do-action
   [params]
   (case (:type params)
-    "profile" (save-profile params)
-    "import" (import-user params)
-    "export" (export-user params)
+    "save-profile" (save-profile params)
+    "import-user" (import-user params)
+    "export-user" (export-user params)
+    "new-post" (new-post params)
     nil))
