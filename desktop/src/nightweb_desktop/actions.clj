@@ -20,6 +20,7 @@
                                    user-zip-file
                                    slash
                                    get-user-dir]]
+        [nightweb-desktop.pages :only [get-main-page]]
         [nightweb-desktop.utils :only [get-string]]))
 
 (defn save-profile
@@ -67,7 +68,8 @@
       "")))
 
 (defn new-post
-  [params])
+  [params]
+  (get-main-page {}))
 
 (defn do-action
   [params]

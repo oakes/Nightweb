@@ -66,15 +66,17 @@
 
 (defn get-new-post-dialog
   []
-  [:div {:id "new-post-dialog" :class "reveal-modal dark"}
+  [:form {:id "new-post-dialog"
+          :class "reveal-modal dark"
+          :action "/"
+          :method "POST"
+          :enctype "multipart/form-data"}
    [:br]
-   [:textarea {:id "new-post-text"
-               :class "new-post-text"}]
+   [:input {:type "hidden" :name "type" :value "new-post"}]
+   [:textarea {:id "new-post-text" :class "new-post-text" :name "body"}]
    [:div {:class "dialog-buttons"}
-    [:a {:href "#" :class "button" :onclick ""}
-     (get-string :attach_pics)]
-    [:a {:href "#" :class "button" :onclick "newPost()"}
-     (get-string :send)]]
+    [:input {:id "attach-pick" :type "file" :multiple "multiple" :name "pics"}]
+    [:input {:class "button" :type "submit" :value (get-string :send)}]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-link-dialog

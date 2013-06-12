@@ -5,7 +5,7 @@
 (defn remove-dupes-and-nils
   [the-list]
   (->> the-list
-       (distinct)
+       distinct
        (remove nil?)))
 
 (defn is-numeric?

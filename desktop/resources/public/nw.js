@@ -115,7 +115,7 @@ var importUser = function() {
 				if (response.length > 0) {
 					alert(response);
 				} else {
-					window.location.reload(true);
+					window.location = '/';
 				}
 			}
 		});
@@ -138,20 +138,6 @@ var exportUser = function() {
 				$('#export-dialog')
 					.foundation('reveal', 'close');
 			}
-		}
-	});
-};
-
-var newPost = function() {
-	$.ajax({
-		type: 'POST',
-		url: '/',
-		data: {
-			type: 'new-post',
-			text: $('#new-post-text').text()
-		},
-		success: function(response) {
-			
 		}
 	});
 };

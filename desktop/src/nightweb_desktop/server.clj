@@ -3,6 +3,7 @@
         [ring.util.response :only [response
                                    file-response
                                    resource-response]]
+        [ring.middleware.multipart-params :only [wrap-multipart-params]]
         [nightweb.formats :only [url-decode]]
         [nightweb.constants :only [nw-dir]]
         [nightweb-desktop.pages :only [get-main-page
@@ -16,9 +17,12 @@
 (defn handler
   [request]
   (if (= :post (:request-method request))
-    (response (do-action (-> (slurp (:body request))
-                         (url-decode false)
-                         (decode-values))))
+    (-> (slurp (:body request))
+        (url-decode false)
+        decode-values
+        (merge (clojure.walk/keywordize-keys (:multipart-params request)))
+        do-action
+        response)
     (let [params (url-decode (:query-string request))]
       (case (:uri request)
         "/" (response (get-main-page params))
@@ -30,4 +34,4 @@
 
 (defn start-server
   []
-  (future (run-jetty handler {:port port})))
+  (future (run-jetty (wrap-multipart-params handler) {:port port})))
