@@ -61,7 +61,7 @@
       [:a {:href "#"
            :onclick (str "tileAction('" (url-encode item "") "')")
            :class "grid-view-tile square-image"
-           :style (format "background: url(%s);
+           :style (format "background-image: url(%s);
                            text-align: %s;"
                           background
                           (if add-emphasis? "center" "left"))}

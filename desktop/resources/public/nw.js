@@ -73,7 +73,7 @@ var profilePicker = function(elem) {
 			function(src) {
 				$('#profile-image').css(
 					'background-image',
-					'url(' + src + ')'
+					['url(', src, ')'].join('')
 				);
 				$('#profile-image-hidden').val(src);
 			}
@@ -154,6 +154,9 @@ var attachPicker = function(elem) {
 				false,
 				function(src) {
 					attachments.push(src);
+					$('#attach-count').html([
+						'(', attachments.length, ')'
+					].join(''));
 				}
 			);
 		};
@@ -169,12 +172,18 @@ var newPost = function() {
 		data: {
 			type: 'new-post',
 			body: $('#new-post-body').val(),
-			pics: "[\"" + attachments.join("\" \"") + "\"]"
+			pics: ['["', attachments.join('" "'), '"]'].join('')
 		},
 		success: function(response) {
 			window.location.reload(true);
 		}
 	});
+};
+
+var clearPost = function() {
+	$('#new-post-dialog').get(0).reset();
+	attachments = [];
+	$('#attach-count').html('(0)');
 };
 
 // initialize framework

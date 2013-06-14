@@ -66,14 +66,21 @@
 
 (defn get-new-post-dialog
   []
-  [:div {:id "new-post-dialog" :class "reveal-modal dark"}
+  [:form {:id "new-post-dialog"
+          :class "reveal-modal dark"
+          :action "/"
+          :method "POST"
+          :enctype "multipart/form-data"}
    [:br]
-   [:textarea {:id "new-post-text" :class "new-post-text" :name "body"}]
+   [:textarea {:id "new-post-text" :name "body"}]
    [:div {:class "dialog-buttons"}
+    [:span {:id "attach-count"}]
     [:input {:type "file"
              :id "attach-picker"
+             :size "1"
              :multiple "multiple"
              :onchange "attachPicker(this)"}]
+    [:a {:href "#" :class "button" :onclick "clearPost()"} (get-string :clear)]
     [:a {:href "#" :class "button" :onclick "newPost()"} (get-string :send)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
