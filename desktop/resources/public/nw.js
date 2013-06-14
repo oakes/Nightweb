@@ -121,7 +121,7 @@ var importUser = function() {
 		});
 	};
 
-	reader.readAsDataURL($('#import-pick').get(0).files[0]);
+	reader.readAsDataURL($('#import-picker').get(0).files[0]);
 };
 
 var exportUser = function() {

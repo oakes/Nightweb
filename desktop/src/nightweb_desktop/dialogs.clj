@@ -93,7 +93,7 @@
   []
   [:div {:id "import-dialog" :class "reveal-modal dark"}
    [:div {:class "dialog-element"} (get-string :import_desc)]
-   [:input {:id "import-pick"
+   [:input {:id "import-picker"
             :class "dialog-element"
             :type "file"}]
    [:input {:id "import-password"
@@ -109,7 +109,7 @@
   []
   [:div {:id "export-dialog" :class "reveal-modal dark"}
    [:div {:class "dialog-element"} (get-string :export_desc)]
-   [:input {:id "import-password"
+   [:input {:id "export-password"
             :class "dialog-element"
             :type "password"
             :placeholder (get-string :password)}]
