@@ -20,8 +20,8 @@
                                    user-zip-file
                                    slash
                                    get-user-dir]]
-        [nightweb-desktop.pages :only [get-main-page]]
-        [nightweb-desktop.utils :only [get-string]]))
+        [nightweb-desktop.utils :only [get-string]])
+  (:require clojure.edn))
 
 (defn save-profile
   [params]
@@ -69,7 +69,8 @@
 
 (defn new-post
   [params]
-  (get-main-page {}))
+  (let [body (:body params)
+        pics (clojure.edn/read-string (:pics params))]))
 
 (defn do-action
   [params]

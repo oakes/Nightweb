@@ -49,6 +49,7 @@
           (onMenuItemClick [menu-item]
             (share-url context)
             true)))))
+  ; create switch user button
   (when show-switch-button?
     (let [switch-user-item (.add menu (get-string :switch_user))]
       (.setIcon switch-user-item (get-resource :drawable :profile_small))

@@ -63,7 +63,7 @@ var resizeImage = function(src, crop, callback) {
 	img.src = src;
 };
 
-var profilePick = function(elem) {
+var profilePicker = function(elem) {
 	var reader = new FileReader();
 
 	reader.onload = function(event) {
@@ -138,6 +138,41 @@ var exportUser = function() {
 				$('#export-dialog')
 					.foundation('reveal', 'close');
 			}
+		}
+	});
+};
+
+var attachments = [];
+
+var attachPicker = function(elem) {
+	for (var i in elem.files) {
+		var reader = new FileReader();
+
+		reader.onload = function(event) {
+			resizeImage(
+				event.target.result,
+				false,
+				function(src) {
+					attachments.push(src);
+				}
+			);
+		};
+
+		reader.readAsDataURL(elem.files[i]);
+	}
+};
+
+var newPost = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'new-post',
+			body: $('#new-post-body').val(),
+			pics: "[\"" + attachments.join("\" \"") + "\"]"
+		},
+		success: function(response) {
+			window.location.reload(true);
 		}
 	});
 };
