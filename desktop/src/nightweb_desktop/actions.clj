@@ -13,7 +13,8 @@
         [nightweb.formats :only [profile-encode
                                  post-encode
                                  b-decode
-                                 b-decode-map]]
+                                 b-decode-map
+                                 base32-decode]]
         [nightweb.zip :only [zip-dir unzip-dir get-zip-headers]]
         [nightweb.constants :only [my-hash-bytes
                                    my-hash-str
@@ -74,7 +75,7 @@
         post (post-encode :text text
                           :pic-hashes pic-hashes
                           :status 1
-                          :ptrhash (:ptrhash params)
+                          :ptrhash (:ptrhash (base32-decode params))
                           :ptrtime (:ptrtime params))
         create-time (.getTime (java.util.Date.))]
     (insert-post @my-hash-bytes

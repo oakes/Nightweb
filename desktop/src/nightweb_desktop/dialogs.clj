@@ -1,5 +1,5 @@
 (ns nightweb-desktop.dialogs
-  (:use [ring.util.codec :only [base64-encode]]
+  (:use [nightweb.formats :only [base32-encode]]
         [nightweb.constants :only [is-me?]]
         [nightweb-desktop.utils :only [get-string
                                        get-pic
@@ -73,7 +73,7 @@
                                 (-> (:userhash params)
                                     (is-me?)
                                     (not))))
-                   (base64-encode (:userhash params)))
+                   (base32-encode (:userhash params)))
         ptr-time (when (= :post (:type params))
                        (:time params))]
     [:form {:id "new-post-dialog"
