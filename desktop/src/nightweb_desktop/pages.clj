@@ -10,12 +10,13 @@
                                          get-new-post-dialog
                                          get-link-dialog
                                          get-export-dialog
-                                         get-import-dialog]]))
+                                         get-import-dialog]]
+        [nightweb-desktop.utils :only [get-string]]))
 
 (defmacro get-page
   [& body]
   `(html [:head
-          [:title "Nightweb"]
+          [:title (get-string :app_name)]
           [:link {:rel "stylesheet" :href "foundation.min.css"}]
           [:link {:rel "stylesheet" :href "nw.css"}]
           [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]

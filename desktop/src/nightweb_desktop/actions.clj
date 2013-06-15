@@ -1,15 +1,17 @@
 (ns nightweb-desktop.actions
-  (:use [ring.util.codec :only [base64-decode]]
-        [nightweb.router :only [create-meta-torrent
+  (:use [nightweb.router :only [create-meta-torrent
                                 create-imported-user]]
         [nightweb.io :only [list-dir
                             write-file
                             delete-file
                             write-pic-file
                             write-profile-file
+                            write-post-file
                             delete-orphaned-pics]]
-        [nightweb.db :only [insert-profile]]
+        [nightweb.db :only [insert-profile
+                            insert-post]]
         [nightweb.formats :only [profile-encode
+                                 post-encode
                                  b-decode
                                  b-decode-map]]
         [nightweb.zip :only [zip-dir unzip-dir get-zip-headers]]
@@ -20,7 +22,8 @@
                                    user-zip-file
                                    slash
                                    get-user-dir]]
-        [nightweb-desktop.utils :only [get-string]])
+        [nightweb-desktop.utils :only [get-string
+                                       decode-data-uri]])
   (:require clojure.edn))
 
 (defn save-profile
@@ -28,12 +31,9 @@
   (let [pic-str (:pic params)
         name-str (:name params)
         body-str (:body params)
-        image-barray (when pic-str
-                       (->> (+ 1 (.indexOf pic-str ","))
-                            (subs pic-str)
-                            (base64-decode)))
-        img-hash (write-pic-file image-barray)
-        profile (profile-encode name-str body-str img-hash)]
+        image-barray (decode-data-uri pic-str)
+        pic-hash (write-pic-file image-barray)
+        profile (profile-encode name-str body-str pic-hash)]
     (insert-profile @my-hash-bytes (b-decode-map (b-decode profile)))
     (delete-orphaned-pics @my-hash-bytes)
     (write-profile-file profile)
@@ -45,9 +45,7 @@
         dest-path (get-user-dir)
         file-str (:file params)
         password (:pass params)]
-    (write-file path (->> (+ 1 (.indexOf file-str ","))
-                          (subs file-str)
-                          (base64-decode)))
+    (write-file path (decode-data-uri file-str))
     (if (unzip-dir path dest-path password)
       (let [paths (set (get-zip-headers path))
             new-dirs (-> (fn [d] (contains? paths (str d slash)))
@@ -69,8 +67,20 @@
 
 (defn new-post
   [params]
-  (let [body (:body params)
-        pics (clojure.edn/read-string (:pics params))]))
+  (let [text (:body params)
+        pics (clojure.edn/read-string (:pics params))
+        pic-hashes (for [pic-str pics]
+                     (write-pic-file (decode-data-uri pic-str)))
+        post (post-encode :text text
+                          :pic-hashes pic-hashes
+                          :status 1)
+        create-time (.getTime (java.util.Date.))]
+    (insert-post @my-hash-bytes
+                 create-time
+                 (b-decode-map (b-decode post)))
+    (delete-orphaned-pics @my-hash-bytes)
+    (write-post-file create-time post)
+    (create-meta-torrent)))
 
 (defn do-action
   [params]

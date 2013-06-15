@@ -72,7 +72,7 @@
           :method "POST"
           :enctype "multipart/form-data"}
    [:br]
-   [:textarea {:id "new-post-text" :name "body"}]
+   [:textarea {:id "new-post-body"}]
    [:div {:class "dialog-buttons"}
     [:span {:id "attach-count"}]
     [:input {:type "file"

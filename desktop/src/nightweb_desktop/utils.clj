@@ -1,5 +1,6 @@
 (ns nightweb-desktop.utils
   (:use [ring.util.codec :only [base64-encode
+                                base64-decode
                                 form-decode-str]]
         [clojure.java.io :only [resource]]
         [clojure.xml :only [parse]]
@@ -62,3 +63,10 @@
   [m]
   (into {} (for [[k v] m]
              [k (form-decode-str v)])))
+
+(defn decode-data-uri
+  [uri-str]
+  (when uri-str
+    (->> (+ 1 (.indexOf uri-str ","))
+         (subs uri-str)
+         (base64-decode))))
