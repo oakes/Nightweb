@@ -1,5 +1,7 @@
 (ns nightweb-desktop.dialogs
-  (:use [nightweb-desktop.utils :only [get-string
+  (:use [ring.util.codec :only [base64-encode]]
+        [nightweb.constants :only [is-me?]]
+        [nightweb-desktop.utils :only [get-string
                                        get-pic
                                        pic-to-data-url]]))
 
@@ -60,37 +62,49 @@
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-search-dialog
-  []
+  [params]
   [:div {:id "search-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-new-post-dialog
-  []
-  [:form {:id "new-post-dialog"
-          :class "reveal-modal dark"
-          :action "/"
-          :method "POST"
-          :enctype "multipart/form-data"}
-   [:br]
-   [:textarea {:id "new-post-body"}]
-   [:div {:class "dialog-buttons"}
-    [:span {:id "attach-count"}]
-    [:input {:type "file"
-             :id "attach-picker"
-             :size "1"
-             :multiple "multiple"
-             :onchange "attachPicker(this)"}]
-    [:a {:href "#" :class "button" :onclick "clearPost()"} (get-string :clear)]
-    [:a {:href "#" :class "button" :onclick "newPost()"} (get-string :send)]]
-   [:a {:class "close-reveal-modal"} "&#215;"]])
+  [params]
+  (let [ptr-hash (when (and (:userhash params)
+                            (or (= :post (:type params))
+                                (-> (:userhash params)
+                                    (is-me?)
+                                    (not))))
+                   (base64-encode (:userhash params)))
+        ptr-time (when (= :post (:type params))
+                       (:time params))]
+    [:form {:id "new-post-dialog"
+            :class "reveal-modal dark"
+            :action "/"
+            :method "POST"
+            :enctype "multipart/form-data"}
+     [:input {:type "hidden" :id "new-post-ptr-hash" :value ptr-hash}]
+     [:input {:type "hidden" :id "new-post-ptr-time" :value ptr-time}]
+     [:br]
+     [:textarea {:id "new-post-body"}]
+     [:div {:class "dialog-buttons"}
+      [:span {:id "attach-count"}]
+      [:input {:type "file"
+               :id "attach-picker"
+               :size "1"
+               :multiple "multiple"
+               :onchange "attachPicker(this)"}]
+      [:a {:href "#" :class "button" :onclick "clearPost()"}
+       (get-string :clear)]
+      [:a {:href "#" :class "button" :onclick "newPost()"}
+       (if ptr-time (get-string :send_reply) (get-string :send))]]
+     [:a {:class "close-reveal-modal"} "&#215;"]]))
 
 (defn get-link-dialog
-  []
+  [params]
   [:div {:id "link-dialog" :class "reveal-modal dark"}
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-import-dialog
-  []
+  [params]
   [:div {:id "import-dialog" :class "reveal-modal dark"}
    [:div {:class "dialog-element"} (get-string :import_desc)]
    [:input {:id "import-picker"
@@ -106,7 +120,7 @@
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-export-dialog
-  []
+  [params]
   [:div {:id "export-dialog" :class "reveal-modal dark"}
    [:div {:class "dialog-element"} (get-string :export_desc)]
    [:input {:id "export-password"

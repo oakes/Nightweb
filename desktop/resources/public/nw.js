@@ -172,7 +172,9 @@ var newPost = function() {
 		data: {
 			type: 'new-post',
 			body: $('#new-post-body').val(),
-			pics: ['["', attachments.join('" "'), '"]'].join('')
+			pics: ['["', attachments.join('" "'), '"]'].join(''),
+			ptrhash: $('#new-post-ptr-hash').val(),
+			ptrtime: $('#new-post-ptr-time').val()
 		},
 		success: function(response) {
 			window.location.reload(true);

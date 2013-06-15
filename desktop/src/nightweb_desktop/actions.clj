@@ -73,7 +73,9 @@
                      (write-pic-file (decode-data-uri pic-str)))
         post (post-encode :text text
                           :pic-hashes pic-hashes
-                          :status 1)
+                          :status 1
+                          :ptrhash (:ptrhash params)
+                          :ptrtime (:ptrtime params))
         create-time (.getTime (java.util.Date.))]
     (insert-post @my-hash-bytes
                  create-time

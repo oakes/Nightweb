@@ -14,7 +14,7 @@
         [nightweb-desktop.utils :only [get-string]]))
 
 (defmacro get-page
-  [& body]
+  [params & body]
   `(html [:head
           [:title (get-string :app_name)]
           [:link {:rel "stylesheet" :href "foundation.min.css"}]
@@ -22,11 +22,11 @@
           [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]
          [:body {:class "dark-gradient"}
           ~@body
-          (get-search-dialog)
-          (get-new-post-dialog)
-          (get-link-dialog)
-          (get-export-dialog)
-          (get-import-dialog)
+          (get-search-dialog ~params)
+          (get-new-post-dialog ~params)
+          (get-link-dialog ~params)
+          (get-export-dialog ~params)
+          (get-import-dialog ~params)
           [:div {:id "lightbox"}]
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
@@ -51,16 +51,19 @@
 (defn get-main-page
   [params]
   (get-page
+    params
     (get-action-bar-view (get-tab-view params true))
     (get-view params)))
 
 (defn get-category-page
   [params]
   (get-page
+    params
     (get-action-bar-view (get-tab-view params false))))
 
 (defn get-basic-page
   [params]
   (get-page
+    params
     (get-action-bar-view nil)
     (get-view params)))
