@@ -75,7 +75,7 @@
         post (post-encode :text text
                           :pic-hashes pic-hashes
                           :status 1
-                          :ptrhash (:ptrhash (base32-decode params))
+                          :ptrhash (base32-decode (:ptrhash params))
                           :ptrtime (:ptrtime params))
         create-time (.getTime (java.util.Date.))]
     (insert-post @my-hash-bytes
