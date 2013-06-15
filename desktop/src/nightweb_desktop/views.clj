@@ -33,9 +33,7 @@
                  :title "Link"
                  :dialog "link-dialog"}]]
     [:li [:a {:href "#"
-              :onclick (str "$('#"
-                            (:dialog button)
-                            "').foundation('reveal', 'open');")}
+              :onclick (format "showDialog('%s')" (:dialog button))}
           [:i {:class (:class button)}]]]))
 
 (defn get-action-bar-view

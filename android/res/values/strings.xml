@@ -35,6 +35,7 @@
   <string name="download_user">Download User</string>
   <string name="unfav_user">Unfavorite User</string>
   <string name="clear">Clear</string>
+  <string name="go">Go</string>
 
   <string name="import_start">Import...</string>
   <string name="export_start">Export...</string>

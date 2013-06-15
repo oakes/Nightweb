@@ -1,5 +1,6 @@
 (ns nightweb-desktop.dialogs
-  (:use [nightweb.formats :only [base32-encode]]
+  (:use [nightweb.formats :only [base32-encode
+                                 url-encode]]
         [nightweb.constants :only [is-me?]]
         [nightweb-desktop.utils :only [get-string
                                        get-pic
@@ -101,6 +102,9 @@
 (defn get-link-dialog
   [params]
   [:div {:id "link-dialog" :class "reveal-modal dark"}
+   [:input {:type "text" :id "link-text" :value (url-encode params)}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick "openLink()"} (get-string :go)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-import-dialog
