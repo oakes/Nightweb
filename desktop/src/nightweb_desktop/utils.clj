@@ -69,4 +69,4 @@
   (when uri-str
     (->> (+ 1 (.indexOf uri-str ","))
          (subs uri-str)
-         (base64-decode))))
+         base64-decode)))
