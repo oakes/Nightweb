@@ -2,7 +2,7 @@
   (:use [neko.resource :only [get-string get-resource]]
         [neko.threading :only [on-ui]]
         [neko.ui :only [make-ui]]
-        [neko.ui.mapping :only [set-classname!]]
+        [neko.ui.mapping :only [defelement]]
         [net.clandroid.activity :only [get-state]]
         [net.nightweb.actions :only [clear-attachments
                                      send-post
@@ -33,11 +33,16 @@
                             get-single-user-data]]
         [nightweb.constants :only [is-me?]]))
 
-(set-classname! :scroll-view android.widget.ScrollView)
-(set-classname! :frame-layout android.widget.FrameLayout)
-(set-classname! :relative-layout android.widget.RelativeLayout)
-(set-classname! :image-view android.widget.ImageView)
-(set-classname! :view-pager android.support.v4.view.ViewPager)
+(defelement :scroll-view
+            :classname android.widget.ScrollView)
+(defelement :frame-layout
+            :classname android.widget.FrameLayout)
+(defelement :relative-layout
+            :classname android.widget.RelativeLayout)
+(defelement :image-view
+            :classname android.widget.ImageView)
+(defelement :view-pager
+            :classname android.support.v4.view.ViewPager)
 
 (defn create-dialog
   [context message view buttons]
