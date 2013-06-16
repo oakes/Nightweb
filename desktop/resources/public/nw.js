@@ -33,8 +33,13 @@ var tileAction = function(url) {
 		case 'custom-func':
 			showDialog(params.subtype + '-dialog');
 			break;
-		case 'tag':
+		case 'toggle-fav':
+			toggleFav(params);
+			break;
+		case 'fav':
 			window.location = 'c?' + url;
+			break;
+		case 'tag':
 		case 'post':
 		case 'user':
 			window.location = 'b?' + url;
@@ -255,6 +260,17 @@ var createUser = function() {
 		},
 		success: function(response) {
 			window.location = '/';
+		}
+	});
+};
+
+var toggleFav = function(obj) {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: $.extend(obj, {type: 'toggle-fav'}),
+		success: function(response) {
+			window.location.reload(true);
 		}
 	});
 };

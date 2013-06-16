@@ -7,11 +7,16 @@
                             write-pic-file
                             write-profile-file
                             write-post-file
+                            write-fav-file
                             delete-orphaned-pics]]
         [nightweb.db :only [insert-profile
-                            insert-post]]
+                            insert-post
+                            insert-fav
+                            get-single-fav-data]]
+        [nightweb.torrents-dht :only [add-user-hash]]
         [nightweb.formats :only [profile-encode
                                  post-encode
+                                 fav-encode
                                  b-decode
                                  b-decode-map
                                  base32-decode]]
@@ -86,6 +91,22 @@
     (write-post-file create-time post)
     (create-meta-torrent)))
 
+(defn toggle-fav
+  [params]
+  (let [ptr-hash (base32-decode (:userhash params))
+        ptr-time (clojure.edn/read-string (:time params))
+        content (get-single-fav-data {:userhash ptr-hash
+                                      :time ptr-time})
+        new-status (if (= 1 (:status content)) 0 1)
+        fav-time (or (:time content) (.getTime (java.util.Date.)))
+        fav (fav-encode ptr-hash ptr-time new-status)]
+    (insert-fav @my-hash-bytes
+                fav-time
+                (b-decode-map (b-decode fav)))
+    (write-fav-file fav-time fav)
+    (add-user-hash ptr-hash)
+    (create-meta-torrent)))
+
 (defn do-action
   [params]
   (case (:type params)
@@ -98,4 +119,5 @@
                     (deref thread)
                     nil)
     "create-user" (load-user (create-user))
+    "toggle-fav" (toggle-fav params)
     nil))

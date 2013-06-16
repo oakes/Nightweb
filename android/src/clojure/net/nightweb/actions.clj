@@ -252,7 +252,7 @@
                  #(let [fav-time (or (:time content)
                                      (.getTime (java.util.Date.)))
                         ptr-hash (:userhash content)
-                        ptr-time (:ptrtime content)
+                        ptr-time (:time content)
                         new-status (if (= 1 (:status content)) 0 1)
                         fav (fav-encode ptr-hash ptr-time new-status)]
                     (insert-fav @my-hash-bytes

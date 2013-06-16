@@ -23,7 +23,6 @@
                                      cancel
                                      toggle-fav]]
         [net.nightweb.dialogs :only [show-delete-post-dialog
-                                     show-remove-user-dialog
                                      show-edit-post-dialog
                                      show-profile-dialog]]
         [nightweb.db :only [get-pic-data
@@ -218,11 +217,7 @@
       (get-string :loading)
       (fn []
         (let [user (get-single-user-data params)
-              tiles (get-user-tiles params
-                                    user
-                                    show-profile-dialog
-                                    show-remove-user-dialog
-                                    toggle-fav)]
+              tiles (get-user-tiles params user show-profile-dialog)]
           (add-grid-view-tiles context tiles grid-view))
         false))
     view))

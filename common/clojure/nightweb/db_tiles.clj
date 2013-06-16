@@ -74,9 +74,8 @@
                                       :add_fav)
                         :type :toggle-fav
                         :userhash (:userhash post)
-                        :ptrtime (:time post)
-                        :status (:status fav)
-                        :time (:time fav)})]
+                        :time (:time post)
+                        :status (:status fav)})]
      (-> [user-tile
           user-pointer-tile
           post-pointer-tile
@@ -86,8 +85,8 @@
           (vec)))))
 
 (defn get-user-tiles
-  ([params user] (get-user-tiles params user nil nil nil))
-  ([params user profile-func fav-func unfav-func]
+  ([params user] (get-user-tiles params user nil))
+  ([params user profile-func]
    (let [fav (when-not (is-me? (:userhash user))
                (get-single-fav-data {:userhash (:userhash user)}))
          first-tiles (when (nil? (:page params))
@@ -104,7 +103,8 @@
                          :add-emphasis? true
                          :userhash (:userhash user)
                          :background :favs
-                         :type :fav}
+                         :type :fav
+                         :subtype :user}
                         (when-not (is-me? (:userhash user))
                           {:title (if (= 1 (:status fav))
                                     :remove_from_favorites
@@ -114,24 +114,17 @@
                            (if (= 1 (:status fav))
                              :remove_fav
                              :add_fav)
-                           :type :custom-func
-                           :subtype :fav
-                           :func
-                           (fn [context item]
-                             (if (= 1 (:status fav))
-                               (fav-func context item)
-                               (unfav-func context item false)))
+                           :type :toggle-fav
                            :userhash (:userhash user)
-                           :status (:status fav)
-                           :time (:time fav)})])
+                           :status (:status fav)})])
          posts (->> (for [tile (get-post-data params)]
                       (assoc tile :background :post))
                     (into [])
                     (add-last-tile params))]
      (-> first-tiles
          (concat posts)
-         (remove-dupes-and-nils)
-         (vec)))))
+         remove-dupes-and-nils
+         vec))))
 
 (defn get-category-tiles
   [params]
