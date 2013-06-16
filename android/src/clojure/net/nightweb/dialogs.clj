@@ -334,8 +334,8 @@
                    {:ptrhash (when (and (:userhash page-content)
                                         (or (= :post (:type page-content))
                                             (-> (:userhash page-content)
-                                                (is-me?)
-                                                (not))))
+                                                is-me?
+                                                not)))
                                (:userhash page-content))
                     :ptrtime (when (= :post (:type page-content))
                                (:time page-content))}

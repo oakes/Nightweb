@@ -54,19 +54,19 @@
   [params]
   (get-page
     params
-    (get-action-bar-view (get-tab-view params true))
+    (get-action-bar-view params :is-main? true :show-tabs? true)
     (get-view params)))
 
 (defn get-category-page
   [params]
   (get-page
     params
-    (get-action-bar-view (get-tab-view params false))
+    (get-action-bar-view params :show-home-button? true :show-tabs? true)
     (get-category-view params)))
 
 (defn get-basic-page
   [params]
   (get-page
     params
-    (get-action-bar-view nil)
+    (get-action-bar-view params :show-home-button? true)
     (get-view params)))

@@ -52,6 +52,24 @@
 	border-bottom: thick solid #c0c0c0;
 }
 
+.home-button {
+	float: left;
+	background-image: url('img/ic_launcher.png');
+	background-size: 45px 45px;
+	background-repeat: no-repeat;
+	width: 45px;
+	height: 45px;
+}
+
+.home-button:hover {
+	background-color: #c0c0c0;
+}
+
+.title {
+	float: left;
+	margin: 10px;
+}
+
 .clear {
 	clear: both;
 }
@@ -131,6 +149,10 @@
 #new-post-body {
 	width: 100%;
 	height: 100px;
+}
+
+.post-body {
+	margin: 20px;
 }
 
 #attach-count {

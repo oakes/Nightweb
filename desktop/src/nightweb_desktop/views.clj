@@ -1,5 +1,6 @@
 (ns nightweb-desktop.views
-  (:use [nightweb.formats :only [url-encode]]
+  (:use [markdown.core :only [md-to-html-string]]
+        [nightweb.formats :only [url-encode]]
         [nightweb.db :only [get-single-post-data
                             get-single-user-data]]
         [nightweb.db_tiles :only [get-post-tiles
@@ -44,12 +45,16 @@
           [:i {:class (:class button)}]]]))
 
 (defn get-action-bar-view
-  [tab-view]
+  [params & {:keys [is-main? show-tabs? show-home-button?]}]
   [:div {:class "sticky"}
    [:nav {:class "top-bar"}
     [:section {:class "top-bar-section"}
-     (when tab-view
-       [:ul {:class "left"} tab-view])
+     [:ul {:class "left"}
+      (when show-home-button?
+        [:a {:href "/" :class "home-button"}])
+      (when-let [title (or (:title params) (:tag params))]
+        [:div {:class "title"} title])
+      (when show-tabs? (get-tab-view params is-main?))]
      [:ul {:class "right"} (get-menu-view)]]]
    [:div {:class "clear"}]])
 
@@ -75,8 +80,11 @@
 (defn get-post-view
   [params]
   (let [post (get-single-post-data params)
-        tiles (get-post-tiles post)]
-    (get-grid-view tiles)))
+        tiles (get-post-tiles post)
+        html-text (md-to-html-string (:body post))]
+    [:div
+     [:div {:class "post-body"} html-text]
+     (get-grid-view tiles)]))
 
 (defn get-user-view
   [params]

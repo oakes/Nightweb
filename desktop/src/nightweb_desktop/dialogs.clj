@@ -71,7 +71,8 @@
   [:div {:id "search-dialog" :class "reveal-modal dark"}
    [:input {:type "text" :id "search-text"}]
    [:div {:class "dialog-buttons"}
-    [:a {:href "#" :class "button" :onclick "openSearch()"} (get-string :go)]]
+    [:a {:href "#" :class "button" :onclick "openSearch()"}
+     (get-string :search)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-new-post-dialog
@@ -79,8 +80,8 @@
   (let [ptr-hash (when (and (:userhash params)
                             (or (= :post (:type params))
                                 (-> (:userhash params)
-                                    (is-me?)
-                                    (not))))
+                                    is-me?
+                                    not)))
                    (base32-encode (:userhash params)))
         ptr-time (when (= :post (:type params))
                        (:time params))]

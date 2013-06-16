@@ -6,7 +6,8 @@
                  [seesaw "1.4.3"]
                  [com.github.insubstantial/substance "7.1"]
                  [ring "1.1.8"]
-                 [hiccup "1.0.3"]]
+                 [hiccup "1.0.3"]
+                 [markdown-clj "0.9.19"]]
   :main nightweb-desktop.core
   :source-paths ["src" "../common/clojure"]
   :java-source-paths ["../common/java"]

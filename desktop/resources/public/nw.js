@@ -21,18 +21,23 @@ var closeDialog = function(id) {
 };
 
 var tileAction = function(url) {
-	console.log(url);
 	var params = {};
-	url.split("&").forEach(function(elem, i, arr) {
-		var param = elem.split("=");
+	url.split('&').forEach(function(elem, i, arr) {
+		var param = elem.split('=');
 		if (param.length = 2) {
 			params[param[0]] = param[1];
 		}
 	});
 
 	switch (params.type) {
-		case "custom-func":
+		case 'custom-func':
 			showDialog(params.subtype + '-dialog');
+			break;
+		case 'tag':
+			window.location = 'c?' + url;
+		case 'post':
+		case 'user':
+			window.location = 'b?' + url;
 			break;
 	}
 };
@@ -278,6 +283,15 @@ $(document).foundation();
 // initialize grid
 $(window).resize(resizeGrid);
 resizeGrid();
+
+// make sure only internal links work
+$('.post-body a').each(function() {
+	var href = $(this).attr('href');
+	if (href != '#') {
+		$(this).attr('href', '#');
+		$(this).attr('onclick', 'tileAction("' + href + '")');
+	}
+});
 
 // show spinner
 var spinner = new Spinner({
