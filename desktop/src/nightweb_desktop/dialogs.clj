@@ -15,7 +15,8 @@
    [:br]
    [:form {:id "profile-image"
            :class "square-image"
-           :style (str "background-image: url(" (get-pic (:pichash user)) ")")}
+           :style (when-let [url (get-pic (:pichash user))]
+                    (str "background-image: url(" url ")"))}
     [:input {:type "button"
              :id "profile-clear"
              :value (get-string :clear)

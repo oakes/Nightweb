@@ -189,16 +189,22 @@ var attachPicker = function(elem) {
 };
 
 var newPost = function() {
+	var params = {
+		type: 'new-post',
+		body: $('#new-post-body').val(),
+		ptrhash: $('#new-post-ptr-hash').val(),
+		ptrtime: $('#new-post-ptr-time').val()
+	};
+	if (attachments.length > 0) {
+		params = $.extend(
+			params,
+			{pics: '["' + attachments.join('" "') + '"]'}
+		);
+	}
 	$.ajax({
 		type: 'POST',
 		url: '/',
-		data: {
-			type: 'new-post',
-			body: $('#new-post-body').val(),
-			pics: '["' + attachments.join('" "') + '"]',
-			ptrhash: $('#new-post-ptr-hash').val(),
-			ptrtime: $('#new-post-ptr-time').val()
-		},
+		data: params,
 		success: function(response) {
 			window.location.reload(true);
 		}
