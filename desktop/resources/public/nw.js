@@ -90,6 +90,12 @@ var profilePicker = function(elem) {
 	reader.readAsDataURL(elem.files[0]);
 };
 
+var clearProfilePic = function() {
+	$('#profile-image').get(0).reset();
+	$('#profile-image').css('background-image', '');
+	$('#profile-image-hidden').val('');
+};
+
 var saveProfile = function() {
 	$.ajax({
 		type: 'POST',

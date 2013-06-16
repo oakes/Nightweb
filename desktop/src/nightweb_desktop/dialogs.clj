@@ -10,16 +10,17 @@
   [user]
   [:div {:id "profile-dialog" :class "reveal-modal dark"}
    [:br]
-   [:div {:id "profile-image"
-          :class "square-image"
-          :style (str "background-image: url(" (get-pic (:pichash user)) ")")}
+   [:form {:id "profile-image"
+           :class "square-image"
+           :style (str "background-image: url(" (get-pic (:pichash user)) ")")}
     [:input {:type "button"
              :id "profile-clear"
-             :value (get-string :clear)}]
+             :value (get-string :clear)
+             :onclick "clearProfilePic()"}]
     [:input {:type "file"
              :id "profile-picker"
              :size "1"
-             :onchange "profilePick(this)"}]]
+             :onchange "profilePicker(this)"}]]
    [:div {:id "profile-inputs"}
     [:input {:id "profile-name"
              :placeholder (get-string :name)
