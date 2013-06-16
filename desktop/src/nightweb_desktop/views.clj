@@ -1,6 +1,7 @@
 (ns nightweb-desktop.views
   (:use [markdown.core :only [md-to-html-string]]
-        [nightweb.formats :only [url-encode]]
+        [nightweb.formats :only [url-encode
+                                 tags-encode]]
         [nightweb.db :only [get-single-post-data
                             get-single-user-data]]
         [nightweb.db_tiles :only [get-post-tiles
@@ -81,7 +82,8 @@
   [params]
   (let [post (get-single-post-data params)
         tiles (get-post-tiles post)
-        html-text (md-to-html-string (:body post))]
+        body (tags-encode :post (:body post))
+        html-text (md-to-html-string body)]
     [:div
      [:div {:class "post-body"} html-text]
      (get-grid-view tiles)]))

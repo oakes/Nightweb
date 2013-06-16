@@ -304,6 +304,7 @@ resizeGrid();
 $('.post-body a').each(function() {
 	var href = $(this).attr('href');
 	if (href != '#') {
+		href = href.substr(href.indexOf('#') + 1);
 		$(this).attr('href', '#');
 		$(this).attr('onclick', 'tileAction("' + href + '")');
 	}
