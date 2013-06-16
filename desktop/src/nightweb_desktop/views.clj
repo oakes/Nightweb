@@ -13,13 +13,15 @@
 
 (defn get-tab-view
   [params show-me-tab?]
-  (for [button (concat [(when show-me-tab?
-                          {:type nil :title "Me"})]
-                       [{:type :user :title "Users"}
-                        {:type :post :title "Posts"}])]
-    [:li {:class (when (= (:type params) (:type button)) "active")}
-     [:a {:href (url-encode button (if show-me-tab? "/?" "/c?"))}
-      (:title button)]]))
+  (let [active-tab (or (:subtype params) (:type params))]
+    (for [button [{:type nil :title "Me"}
+                  {:type :user :title "Users"}
+                  {:type :post :title "Posts"}]]
+      (when (or show-me-tab? (not= nil (:type button)))
+        [:li {:class (when (= active-tab (:type button)) "active")}
+         [:a {:href (url-encode (assoc params :subtype (:type button))
+                                (if show-me-tab? "/?" "/c?"))}
+          (:title button)]]))))
 
 (defn get-menu-view
   []

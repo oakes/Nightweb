@@ -59,7 +59,8 @@
   [params]
   (get-page
     params
-    (get-action-bar-view (get-tab-view params false))))
+    (get-action-bar-view (get-tab-view params false))
+    (get-category-view params)))
 
 (defn get-basic-page
   [params]

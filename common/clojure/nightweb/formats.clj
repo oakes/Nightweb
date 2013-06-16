@@ -95,7 +95,9 @@
                    (when-let [time-val (:time content)]
                      (str "time=" time-val))
                    (when-let [tag-val (:tag content)]
-                     (str "tag=" tag-val))])]
+                     (str "tag=" tag-val))
+                   (when-let [query-val (:query content)]
+                     (str "query=" query-val))])]
      (str path (clojure.string/join "&" params)))))
 
 (defn url-decode
@@ -112,12 +114,14 @@
                 subtype-val :subtype
                 userhash-val :userhash
                 time-val :time
-                tag-val :tag} url-map]
+                tag-val :tag
+                query-val :query} url-map]
            {:type (when type-val (keyword type-val))
             :subtype (when subtype-val (keyword subtype-val))
             :userhash (when userhash-val (base32-decode userhash-val))
             :time (when time-val (long-decode time-val))
-            :tag tag-val})
+            :tag tag-val
+            :query query-val})
          url-map)))))
 
 (def ^:const min-tag-length 2)

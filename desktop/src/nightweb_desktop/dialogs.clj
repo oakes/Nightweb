@@ -65,6 +65,9 @@
 (defn get-search-dialog
   [params]
   [:div {:id "search-dialog" :class "reveal-modal dark"}
+   [:input {:type "text" :id "search-text"}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick "openSearch()"} (get-string :go)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
 
 (defn get-new-post-dialog

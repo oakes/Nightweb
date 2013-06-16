@@ -16,7 +16,7 @@ var showDialog = function(id) {
 	$('#' + id).foundation('reveal', 'open');
 };
 
-var closeDialog = function() {
+var closeDialog = function(id) {
 	$('#' + id).foundation('reveal', 'close');
 };
 
@@ -199,6 +199,11 @@ var openLink = function() {
 	window.location = '?' + link.substr(link.indexOf('#') + 1);
 };
 
+var openSearch = function() {
+	window.location = 'c?type=search&subtype=user&query=' +
+		$('#search-text').val();
+};
+
 // initialize dialogs
 $('.reveal-modal').foundation('reveal', {
 	opened: function() {
@@ -209,6 +214,9 @@ $('.reveal-modal').foundation('reveal', {
 			case 'new-post-dialog':
 				clearPost();
 				$('#new-post-body').focus();
+				break;
+			case 'search-dialog':
+				$('#search-text').focus();
 				break;
 		}
 	}
