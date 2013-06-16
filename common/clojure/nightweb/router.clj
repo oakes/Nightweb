@@ -121,7 +121,8 @@
     (load-user-keys priv-key-bytes)
     (reset! my-hash-bytes user-hash)
     (reset! my-hash-str user-hash-str)
-    (reset! my-hash-list user-list)))
+    (reset! my-hash-list user-list))
+  nil)
 
 (defn delete-user
   "Removes user permanently."

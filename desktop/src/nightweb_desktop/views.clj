@@ -13,27 +13,32 @@
 
 (defn get-tab-view
   [params show-me-tab?]
-  (let [active-tab (or (:subtype params) (:type params))]
-    (for [button [{:type nil :title "Me"}
-                  {:type :user :title "Users"}
-                  {:type :post :title "Posts"}]]
-      (when (or show-me-tab? (not= nil (:type button)))
+  (for [button [{:type nil :title "Me"}
+                {:type :user :title "Users"}
+                {:type :post :title "Posts"}]]
+    (when (or show-me-tab? (not= nil (:type button)))
+      (let [active-tab (or (:subtype params) (:type params))]
         [:li {:class (when (= active-tab (:type button)) "active")}
-         [:a {:href (url-encode (assoc params :subtype (:type button))
+         [:a {:href (url-encode (if (:subtype params)
+                                  (assoc params :subtype (:type button))
+                                  button)
                                 (if show-me-tab? "/?" "/c?"))}
           (:title button)]]))))
 
 (defn get-menu-view
   []
   (for [button [{:class "foundicon-search"
-                 :title "Search"
+                 :title (get-string :search)
                  :dialog "search-dialog"}
                 {:class "foundicon-plus"
-                 :title "New Post"
+                 :title (get-string :new_post)
                  :dialog "new-post-dialog"}
                 {:class "foundicon-page"
-                 :title "Link"
-                 :dialog "link-dialog"}]]
+                 :title (get-string :share)
+                 :dialog "link-dialog"}
+                {:class "foundicon-people"
+                 :title (get-string :switch_user)
+                 :dialog "switch-user-dialog"}]]
     [:li [:a {:href "#"
               :onclick (format "showDialog('%s')" (:dialog button))}
           [:i {:class (:class button)}]]]))

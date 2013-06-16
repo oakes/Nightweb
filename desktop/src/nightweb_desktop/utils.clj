@@ -47,9 +47,9 @@
       (nth project-clj 2)
       nil)))
 
-(defn pic-to-data-url
+(defn pic-to-data-uri
   "Converts the pic from the given pic hash to a data url."
-  ([pic-hash] (pic-to-data-url @my-hash-bytes pic-hash))
+  ([pic-hash] (pic-to-data-uri @my-hash-bytes pic-hash))
   ([user-hash pic-hash]
    (when (and user-hash pic-hash)
      (let [pic-dir (str (get-pic-dir (base32-encode user-hash))

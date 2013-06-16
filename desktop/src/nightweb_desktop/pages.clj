@@ -10,7 +10,8 @@
                                          get-new-post-dialog
                                          get-link-dialog
                                          get-export-dialog
-                                         get-import-dialog]]
+                                         get-import-dialog
+                                         get-switch-user-dialog]]
         [nightweb-desktop.utils :only [get-string]]))
 
 (defmacro get-page
@@ -27,6 +28,7 @@
           (get-link-dialog ~params)
           (get-export-dialog ~params)
           (get-import-dialog ~params)
+          (get-switch-user-dialog ~params)
           [:div {:id "lightbox"}]
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]

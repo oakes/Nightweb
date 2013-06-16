@@ -1,10 +1,13 @@
 (ns nightweb-desktop.dialogs
   (:use [nightweb.formats :only [base32-encode
                                  url-encode]]
-        [nightweb.constants :only [is-me?]]
+        [nightweb.constants :only [is-me?
+                                   my-hash-bytes]]
+        [nightweb.io :only [read-user-list-file]]
+        [nightweb.db :only [get-single-user-data]]
         [nightweb-desktop.utils :only [get-string
                                        get-pic
-                                       pic-to-data-url]]))
+                                       pic-to-data-uri]]))
 
 (defn get-my-profile-dialog
   [user]
@@ -31,7 +34,7 @@
      (:body user)]
     [:input {:id "profile-image-hidden"
              :type "hidden"
-             :value (pic-to-data-url (:pichash user))}]]
+             :value (pic-to-data-uri (:pichash user))}]]
    [:div {:class "dialog-buttons"}
     [:a {:href "#"
          :class "button"
@@ -106,7 +109,13 @@
 (defn get-link-dialog
   [params]
   [:div {:id "link-dialog" :class "reveal-modal dark"}
-   [:input {:type "text" :id "link-text" :value (url-encode params)}]
+   [:input {:type "text"
+            :id "link-text"
+            :value (url-encode (if-not (:type params)
+                                 (assoc params
+                                        :type :user
+                                        :userhash @my-hash-bytes)
+                                 params))}]
    [:div {:class "dialog-buttons"}
     [:a {:href "#" :class "button" :onclick "openLink()"} (get-string :go)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
@@ -138,4 +147,30 @@
    [:div {:class "dialog-buttons"}
     [:a {:href "#" :class "button" :onclick "exportUser()"}
      (get-string :save)]]
+   [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-switch-user-dialog
+  [params]
+  [:div {:id "switch-user-dialog" :class "reveal-modal dark"}
+   (let [items (for [user-hash (read-user-list-file)]
+                 (get-single-user-data {:userhash user-hash}))]
+     (for [item items]
+       [:div
+        [:a {:href "#"
+             :class (if (is-me? (:userhash item)) "button disabled" "button")
+             :onclick (when-not (is-me? (:userhash item))
+                        (format "switchUser('%s')"
+                                (base32-encode (:userhash item))))}
+         (if (= 0 (count (:title item)))
+           (get-string :no_name)
+           (:title item))]
+        [:a {:href "#"
+             :class "button"
+             :onclick (format "deleteUser('%s')"
+                              (base32-encode (:userhash item)))}
+         (get-string :delete)]]))
+   [:input {:type "hidden" :id "del-text" :value (get-string :confirm_delete)}]
+   [:div {:class "dialog-buttons"}
+    [:a {:href "#" :class "button" :onclick "createUser()"}
+     (get-string :create_user)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])

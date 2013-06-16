@@ -21,6 +21,7 @@ var closeDialog = function(id) {
 };
 
 var tileAction = function(url) {
+	console.log(url);
 	var params = {};
 	url.split("&").forEach(function(elem, i, arr) {
 		var param = elem.split("=");
@@ -208,6 +209,49 @@ var openLink = function() {
 var openSearch = function() {
 	window.location = 'c?type=search&subtype=user&query=' +
 		$('#search-text').val();
+};
+
+var switchUser = function(userhash) {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'switch-user',
+			userhash: userhash
+		},
+		success: function(response) {
+			window.location = '/';
+		}
+	});
+};
+
+var deleteUser = function(userhash) {
+	if (confirm($('#del-text').val())) {
+		$.ajax({
+			type: 'POST',
+			url: '/',
+			data: {
+				type: 'delete-user',
+				userhash: userhash
+			},
+			success: function(response) {
+				window.location = '/';
+			}
+		});
+	}
+};
+
+var createUser = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			type: 'create-user'
+		},
+		success: function(response) {
+			window.location = '/';
+		}
+	});
 };
 
 // initialize dialogs

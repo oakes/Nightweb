@@ -23,6 +23,7 @@
                                    user-zip-file
                                    slash
                                    get-user-dir]]
+        [nightweb.router :only [create-user load-user delete-user]]
         [nightweb-desktop.utils :only [get-string
                                        decode-data-uri]])
   (:require clojure.edn))
@@ -92,4 +93,9 @@
     "import-user" (import-user params)
     "export-user" (export-user params)
     "new-post" (new-post params)
+    "switch-user" (load-user (base32-decode (:userhash params)))
+    "delete-user" (let [thread (delete-user (base32-decode (:userhash params)))]
+                    (deref thread)
+                    nil)
+    "create-user" (load-user (create-user))
     nil))
