@@ -30,7 +30,7 @@
   (:require clojure.edn))
 
 (defn save-profile
-  [& {:keys [pic name-str body-str]}]
+  [{:keys [pic name-str body-str]}]
   (let [pic-hash (write-pic-file pic)
         profile (profile-encode name-str body-str pic-hash)]
     (insert-profile @my-hash-bytes (b-decode-map (b-decode profile)))
@@ -39,10 +39,10 @@
     (future (create-meta-torrent))))
 
 (defn import-user
-  [& {:keys [file-barray pass-str]}]
+  [{:keys [file pass-str]}]
   (let [path (str @base-dir nw-dir slash user-zip-file)
         dest-path (get-user-dir)]
-    (write-file path file-barray)
+    (write-file path file)
     (if (unzip-dir path dest-path pass-str)
       (let [paths (set (get-zip-headers path))
             new-dirs (-> (fn [d] (contains? paths (str d slash)))
@@ -62,7 +62,7 @@
       "")))
 
 (defn new-post
-  [& {:keys [pics body-str ptr-hash ptr-time]}]
+  [{:keys [pics body-str ptr-hash ptr-time]}]
   (let [pic-hashes (for [pic pics] (write-pic-file pic))
         post (post-encode :text body-str
                           :pic-hashes pic-hashes
@@ -78,7 +78,7 @@
     (future (create-meta-torrent))))
 
 (defn toggle-fav
-  [& {:keys [ptr-hash ptr-time]}]
+  [{:keys [ptr-hash ptr-time]}]
   (let [content (get-single-fav-data {:userhash ptr-hash
                                       :time ptr-time})
         new-status (if (= 1 (:status content)) 0 1)

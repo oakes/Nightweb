@@ -112,10 +112,10 @@ var saveProfile = function() {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'save-profile',
-			name: $('#profile-name').val(),
-			body: $('#profile-about').val(),
-			pic: $('#profile-image-hidden').val()
+			'type': 'save-profile',
+			'name-str': $('#profile-name').val(),
+			'body-str': $('#profile-about').val(),
+			'pic-str': $('#profile-image-hidden').val()
 		},
 		success: function(response) {
 			window.location.reload(true);
@@ -131,9 +131,9 @@ var importUser = function() {
 			type: 'POST',
 		  	url: '/',
 		  	data: {
-				type: 'import-user',
-		  		file: event.target.result,
-		  		pass: $('#import-password').val()
+				'type': 'import-user',
+		  		'file-str': event.target.result,
+		  		'pass-str': $('#import-password').val()
 			},
 		  	success: function(response) {
 				if (response.length > 0) {
@@ -153,8 +153,8 @@ var exportUser = function() {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'export-user',
-			pass: $('#export-password').val()
+			'type': 'export-user',
+			'pass-str': $('#export-password').val()
 		},
 		success: function(response) {
 			if (response.length > 0) {
@@ -190,15 +190,15 @@ var attachPicker = function(elem) {
 
 var newPost = function() {
 	var params = {
-		type: 'new-post',
-		body: $('#new-post-body').val(),
-		ptrhash: $('#new-post-ptr-hash').val(),
-		ptrtime: $('#new-post-ptr-time').val()
+		'type': 'new-post',
+		'body-str': $('#new-post-body').val(),
+		'ptr-hash': $('#new-post-ptr-hash').val(),
+		'ptr-time': $('#new-post-ptr-time').val()
 	};
 	if (attachments.length > 0) {
 		params = $.extend(
 			params,
-			{pics: '["' + attachments.join('" "') + '"]'}
+			{'pics-str': '["' + attachments.join('" "') + '"]'}
 		);
 	}
 	$.ajax({
@@ -232,8 +232,8 @@ var switchUser = function(userhash) {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'switch-user',
-			userhash: userhash
+			'type': 'switch-user',
+			'userhash': userhash
 		},
 		success: function(response) {
 			window.location = '/';
@@ -247,8 +247,8 @@ var deleteUser = function(userhash) {
 			type: 'POST',
 			url: '/',
 			data: {
-				type: 'delete-user',
-				userhash: userhash
+				'type': 'delete-user',
+				'userhash': userhash
 			},
 			success: function(response) {
 				window.location = '/';
@@ -262,7 +262,7 @@ var createUser = function() {
 		type: 'POST',
 		url: '/',
 		data: {
-			type: 'create-user'
+			'type': 'create-user'
 		},
 		success: function(response) {
 			window.location = '/';
@@ -274,7 +274,7 @@ var toggleFav = function(obj) {
 	$.ajax({
 		type: 'POST',
 		url: '/',
-		data: $.extend(obj, {type: 'toggle-fav'}),
+		data: $.extend(obj, {'type': 'toggle-fav'}),
 		success: function(response) {
 			window.location.reload(true);
 		}

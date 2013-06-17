@@ -13,21 +13,18 @@
 (defn do-action
   [params]
   (case (:type params)
-    "save-profile" (-> (save-profile :pic (decode-data-uri (:pic params))
-                                     :name-str (:name params)
-                                     :body-str (:body params))
+    "save-profile" (-> (assoc params :pic (decode-data-uri (:pic-str params)))
+                       save-profile
                        deref
                        println)
-    "import-user" (-> (import-user :file-barray (decode-data-uri (:file params))
-                                   :pass-str (:pass params))
+    "import-user" (-> (assoc params :file (decode-data-uri (:file-str params)))
+                      import-user
                       get-string)
-    "export-user" (export-user (:pass params))
-    "new-post" (-> (new-post :pics (for [pic-str (-> (:pics params)
-                                                   clojure.edn/read-string)]
-                                     (decode-data-uri pic-str))
-                             :body-str (:body params)
-                             :ptr-hash (:ptrhash params)
-                             :ptr-time (:ptrtime params))
+    "export-user" (export-user (:pass-str params))
+    "new-post" (-> (assoc params :pics (for [pic-str (-> (:pics-str params)
+                                                       clojure.edn/read-string)]
+                                         (decode-data-uri pic-str)))
+                   new-post
                    deref
                    println)
     "switch-user" (-> (:userhash params)
@@ -39,9 +36,10 @@
                       deref
                       println)
     "create-user" (load-user (create-user))
-    "toggle-fav" (-> (toggle-fav :ptr-hash (base32-decode (:userhash params))
-                                 :ptr-time (-> (:time params)
-                                               clojure.edn/read-string))
+    "toggle-fav" (-> (assoc params
+                            :ptr-hash (base32-decode (:userhash params))
+                            :ptr-time (clojure.edn/read-string (:time params)))
+                     toggle-fav
                      deref
                      println)
     nil))
