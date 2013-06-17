@@ -24,7 +24,7 @@
                                                    write-pic-file))
                        save-profile
                        deref
-                       println)
+                       (do nil))
     "import-user" (let [path (str @base-dir nw-dir slash user-zip-file)
                         file-barray (decode-data-uri (:file-str params))]
                     (write-file path file-barray)
@@ -44,7 +44,7 @@
                           :status 1)
                    new-post
                    deref
-                   println)
+                   (do nil))
     "edit-post" (-> (assoc params
                            :create-time (-> (:create-time params)
                                             clojure.edn/read-string)
@@ -57,7 +57,18 @@
                            :status 1)
                     new-post
                     deref
-                    println)
+                    (do nil))
+    "delete-post" (-> (assoc params
+                             :create-time (-> (:create-time params)
+                                              clojure.edn/read-string)
+                             :body-str nil
+                             :ptr-hash nil
+                             :ptr-time nil
+                             :pic-hashes nil
+                             :status 0)
+                    new-post
+                    deref
+                    (do nil))
     "switch-user" (-> (:userhash params)
                       base32-decode
                       load-user)
@@ -65,12 +76,12 @@
                       base32-decode
                       delete-user
                       deref
-                      println)
+                      (do nil))
     "create-user" (load-user (create-user))
     "toggle-fav" (-> (assoc params
                             :ptr-hash (base32-decode (:userhash params))
                             :ptr-time (clojure.edn/read-string (:time params)))
                      toggle-fav
                      deref
-                     println)
+                     (do nil))
     nil))

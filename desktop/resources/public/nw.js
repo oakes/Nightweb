@@ -229,6 +229,22 @@ var editPost = function() {
 	});
 };
 
+var deletePost = function(confirmText) {
+	if (confirm(confirmText)) {
+		$.ajax({
+			type: 'POST',
+			url: '/',
+			data: {
+				'type': 'delete-post',
+				'create-time': $('#edit-post-time').val()
+			},
+			success: function(response) {
+				window.location = '/';
+			}
+		});
+	}
+};
+
 var clearPost = function() {
 	$('#new-post-dialog').get(0).reset();
 	attachments = [];
@@ -260,8 +276,8 @@ var switchUser = function(userhash) {
 	});
 };
 
-var deleteUser = function(userhash) {
-	if (confirm($('#del-text').val())) {
+var deleteUser = function(userhash, confirmText) {
+	if (confirm(confirmText)) {
 		$.ajax({
 			type: 'POST',
 			url: '/',

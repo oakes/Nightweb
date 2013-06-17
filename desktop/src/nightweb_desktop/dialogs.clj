@@ -132,6 +132,10 @@
      [:br]
      [:textarea {:id "edit-post-body"} (:body post)]
      [:div {:class "dialog-buttons"}
+      [:a {:href "#"
+           :class "button"
+           :onclick (format "deletePost(\"%s\")" (get-string :confirm_delete))}
+       (get-string :delete)]
       [:a {:href "#" :class "button" :onclick "editPost()"}
        (if ptr-time (get-string :send_reply) (get-string :send))]]
      [:a {:class "close-reveal-modal"} "&#215;"]]))
@@ -196,10 +200,10 @@
            (:title item))]
         [:a {:href "#"
              :class "button"
-             :onclick (format "deleteUser('%s')"
-                              (base32-encode (:userhash item)))}
+             :onclick (format "deleteUser('%s', \"%s\")"
+                              (base32-encode (:userhash item))
+                              (get-string :confirm_delete))}
          (get-string :delete)]]))
-   [:input {:type "hidden" :id "del-text" :value (get-string :confirm_delete)}]
    [:div {:class "dialog-buttons"}
     [:a {:href "#" :class "button" :onclick "createUser()"}
      (get-string :create_user)]]
