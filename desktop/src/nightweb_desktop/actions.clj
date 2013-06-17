@@ -39,10 +39,25 @@
                                         (-> pic
                                             decode-data-uri
                                             write-pic-file))
-                          :status (clojure.edn/read-string (:status params)))
+                          :ptr-hash (base32-decode (:ptr-hash params))
+                          :ptr-time (clojure.edn/read-string (:ptr-time params))
+                          :status 1)
                    new-post
                    deref
                    println)
+    "edit-post" (-> (assoc params
+                           :create-time (-> (:create-time params)
+                                            clojure.edn/read-string)
+                           :ptr-hash (base32-decode (:ptr-hash params))
+                           :ptr-time (-> (:ptr-time params)
+                                         clojure.edn/read-string)
+                           :pic-hashes (for [pic (-> (:pic-hashes params)
+                                                   clojure.edn/read-string)]
+                                         (base32-decode pic))
+                           :status 1)
+                    new-post
+                    deref
+                    println)
     "switch-user" (-> (:userhash params)
                       base32-decode
                       load-user)

@@ -178,7 +178,7 @@
                        dir (android.os.Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str slash user-zip-file))]
-                   (if (export-user :dest-str dest-path :pass-str password)
+                   (if (export-user {:dest-str dest-path :pass-str password})
                      (send-file context "application/zip" dest-path)
                      (on-ui (toast (get-string :zip_error)))))))
 
@@ -196,8 +196,8 @@
                                   temp-path)
                               (.getRawPath (java.net.URI. uri-str)))]
                    ; if unzip succeeds, import user, otherwise show error
-                   (if-let [error (import-user :source-str path
-                                               :pass-str password)]
+                   (if-let [error (import-user {:source-str path
+                                                :pass-str password})]
                      (on-ui (toast (get-string-at-runtime error)))
                      true))))
 
@@ -216,8 +216,8 @@
                    (get-string :removing)
                    (get-string :adding))
                  #(do
-                    (toggle-fav :ptr-hash (:userhash content)
-                                :ptr-time (:time content))
+                    (toggle-fav {:ptr-hash (:userhash content)
+                                 :ptr-time (:time content)})
                     (if go-home?
                       (show-home context {})
                       true)))))
@@ -227,7 +227,7 @@
   [context item]
   (when-let [func (case (:type item)
                     :fav show-categories
-                    :toggle-fav toggle-fav
+                    :toggle-fav do-toggle-fav
                     :search show-categories
                     :pic show-gallery
                     :custom-func (:func item)

@@ -4,7 +4,9 @@
         [nightweb.constants :only [is-me?
                                    my-hash-bytes]]
         [nightweb.io :only [read-user-list-file]]
-        [nightweb.db :only [get-single-user-data]]
+        [nightweb.db :only [get-single-user-data
+                            get-single-post-data
+                            get-pic-data]]
         [nightweb-desktop.utils :only [get-string
                                        get-pic
                                        pic-to-data-uri]]))
@@ -105,6 +107,32 @@
       [:a {:href "#" :class "button" :onclick "clearPost()"}
        (get-string :clear)]
       [:a {:href "#" :class "button" :onclick "newPost()"}
+       (if ptr-time (get-string :send_reply) (get-string :send))]]
+     [:a {:class "close-reveal-modal"} "&#215;"]]))
+
+(defn get-edit-post-dialog
+  [params]
+  (let [post (get-single-post-data params)
+        pics (get-pic-data post (:time post) false)
+        pic-hashes (-> (for [pic pics]
+                         (base32-encode (:pichash pic)))
+                       vec
+                       pr-str)
+        ptr-hash (base32-encode (:ptrhash params))
+        ptr-time (:ptrtime params)]
+    [:form {:id "edit-dialog"
+            :class "reveal-modal dark"
+            :action "/"
+            :method "POST"
+            :enctype "multipart/form-data"}
+     [:input {:type "hidden" :id "edit-post-ptr-hash" :value ptr-hash}]
+     [:input {:type "hidden" :id "edit-post-ptr-time" :value ptr-time}]
+     [:input {:type "hidden" :id "edit-post-time" :value (:time post)}]
+     [:input {:type "hidden" :id "edit-post-pic-hashes" :value pic-hashes}]
+     [:br]
+     [:textarea {:id "edit-post-body"} (:body post)]
+     [:div {:class "dialog-buttons"}
+      [:a {:href "#" :class "button" :onclick "editPost()"}
        (if ptr-time (get-string :send_reply) (get-string :send))]]
      [:a {:class "close-reveal-modal"} "&#215;"]]))
 

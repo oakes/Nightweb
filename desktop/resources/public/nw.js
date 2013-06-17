@@ -193,8 +193,7 @@ var newPost = function() {
 		'type': 'new-post',
 		'body-str': $('#new-post-body').val(),
 		'ptr-hash': $('#new-post-ptr-hash').val(),
-		'ptr-time': $('#new-post-ptr-time').val(),
-		'status': 1
+		'ptr-time': $('#new-post-ptr-time').val()
 	};
 	if (attachments.length > 0) {
 		params = $.extend(
@@ -206,6 +205,24 @@ var newPost = function() {
 		type: 'POST',
 		url: '/',
 		data: params,
+		success: function(response) {
+			window.location.reload(true);
+		}
+	});
+};
+
+var editPost = function() {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			'type': 'edit-post',
+			'body-str': $('#edit-post-body').val(),
+			'create-time': $('#edit-post-time').val(),
+			'ptr-hash': $('#edit-post-ptr-hash').val(),
+			'ptr-time': $('#edit-post-ptr-time').val(),
+			'pic-hashes': $('#edit-post-pic-hashes').val()
+		},
 		success: function(response) {
 			window.location.reload(true);
 		}
@@ -292,6 +309,9 @@ $('.reveal-modal').foundation('reveal', {
 			case 'new-post-dialog':
 				clearPost();
 				$('#new-post-body').focus();
+				break;
+			case 'edit-dialog':
+				$('#edit-post-body').focus();
 				break;
 			case 'search-dialog':
 				$('#search-text').focus();

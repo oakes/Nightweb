@@ -37,7 +37,7 @@
                         (get-single-post-data
                           {:userhash (:ptrhash post)
                            :time (:ptrtime post)}))
-         pics (get-pic-data post (:time post) true)
+         pics (get-pic-data post (:time post) false)
          fav (when-not (is-me? (:userhash post))
                (get-single-fav-data post))
          ; create tiles based on the values
@@ -80,7 +80,7 @@
           user-pointer-tile
           post-pointer-tile
           action-tile]
-          (concat pics)
+          (concat (get-pic-data post (:time post) true))
           (remove-dupes-and-nils)
           (vec)))))
 

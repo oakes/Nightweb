@@ -8,6 +8,7 @@
                                        get-category-view]]
         [nightweb-desktop.dialogs :only [get-search-dialog
                                          get-new-post-dialog
+                                         get-edit-post-dialog
                                          get-link-dialog
                                          get-export-dialog
                                          get-import-dialog
@@ -25,6 +26,7 @@
           ~@body
           (get-search-dialog ~params)
           (get-new-post-dialog ~params)
+          (get-edit-post-dialog ~params)
           (get-link-dialog ~params)
           (get-export-dialog ~params)
           (get-import-dialog ~params)
