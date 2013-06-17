@@ -68,25 +68,31 @@
           title (get-string (or (:title item)
                                 (:body item)
                                 (:tag item)))
-          add-emphasis? (:add-emphasis? item)]
-      [:a {:href "#"
-           :onclick (str "doAction('" (url-encode item "") "')")
-           :class "grid-view-tile square-image"
-           :style (format "background-image: url(%s);
-                           text-align: %s;"
-                          background
-                          (if add-emphasis? "center" "left"))}
-       (if add-emphasis? [:strong title] [:div title])])))
+          add-emphasis? (:add-emphasis? item)
+          is-pic? (= :pic (:type item))]
+      [(if is-pic? :li :div)
+       [:a {:href (if is-pic? background "#")
+            :onclick (str "doAction('" (url-encode item "") "')")
+            :class "grid-view-tile square-image"
+            :style (format "background-image: url(%s); text-align: %s;"
+                           (if is-pic? "" background)
+                           (if add-emphasis? "center" "left"))}
+        (if is-pic? [:img {:src background
+                           :style "width: 100%; height: 100%;"}])
+        (if add-emphasis? [:strong title] [:div title])]])))
 
 (defn get-post-view
   [params]
   (let [post (get-single-post-data params)
         tiles (get-post-tiles post)
-        body (tags-encode :post (:body post))
-        html-text (md-to-html-string body)]
-    [:div
+        text (tags-encode :post (:body post))
+        html-text (md-to-html-string text)
+        html-tiles (get-grid-view tiles)]
+    [:div {:id "post"}
      [:div {:class "post-body"} html-text]
-     (get-grid-view tiles)]))
+     (filter #(= :div (get % 0)) html-tiles)
+     [:ul {:data-clearing true}
+      (filter #(= :li (get % 0)) html-tiles)]]))
 
 (defn get-user-view
   [params]

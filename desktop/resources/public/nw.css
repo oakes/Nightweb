@@ -155,6 +155,11 @@
 	margin: 20px;
 }
 
+#post ul {
+	line-height: 0px;
+	list-style-type: none;
+}
+
 #attach-count {
 	margin-right: 5px;
 }

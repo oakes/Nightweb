@@ -35,7 +35,6 @@
           [:script {:src "zepto.js"}]
           [:script {:src "foundation.min.js"}]
           [:script {:src "custom.modernizr.js"}]
-          [:script {:src "foundation/foundation.topbar.js"}]
           [:script {:src "spin.min.js"}]
           [:script {:src "nw.js"}]]))
 
@@ -50,7 +49,7 @@
             (get-category-view params))
     :tag (get-category-view params)
     nil (get-user-view {:type :user :userhash @my-hash-bytes})
-    [:h2 "There doesn't seem to be anything here."]))
+    [:h2 (get-string :nothing_here)]))
 
 (defn get-main-page
   [params]
