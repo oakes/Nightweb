@@ -193,7 +193,8 @@ var newPost = function() {
 		'type': 'new-post',
 		'body-str': $('#new-post-body').val(),
 		'ptr-hash': $('#new-post-ptr-hash').val(),
-		'ptr-time': $('#new-post-ptr-time').val()
+		'ptr-time': $('#new-post-ptr-time').val(),
+		'status': 1
 	};
 	if (attachments.length > 0) {
 		params = $.extend(

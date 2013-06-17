@@ -2,12 +2,10 @@
   (:use [clojure.java.io :only [file]]
         [neko.resource :only [get-resource get-string]]
         [neko.threading :only [on-ui]]
-        [neko.find-view :only [find-view]]
         [neko.notify :only [toast]]
         [net.clandroid.activity :only [set-state get-state]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
-                                   get-resample-ratio
                                    uri-to-bitmap
                                    path-to-bitmap
                                    bitmap-to-byte-array
@@ -15,33 +13,18 @@
                                    show-categories
                                    show-gallery
                                    show-basic
-                                   show-home]]
-        [nightweb.router :only [create-meta-torrent
-                                create-imported-user]]
-        [nightweb.io :only [read-file
-                            delete-file
-                            list-dir
-                            get-files-in-uri
-                            write-pic-file
-                            write-post-file
-                            write-profile-file
-                            write-fav-file
-                            delete-orphaned-pics]]
-        [nightweb.db :only [insert-post
-                            insert-profile
-                            insert-fav]]
-        [nightweb.formats :only [b-decode
-                                 b-decode-map
-                                 base32-encode
-                                 url-encode
-                                 post-encode
-                                 profile-encode
-                                 fav-encode
+                                   show-home
+                                   get-string-at-runtime]]
+        [nightweb.io :only [get-files-in-uri
+                            write-pic-file]]
+        [nightweb.formats :only [url-encode
                                  remove-dupes-and-nils]]
-        [nightweb.torrents-dht :only [add-user-hash]]
-        [nightweb.zip :only [zip-dir unzip-dir get-zip-headers]]
+        [nightweb.actions :only [save-profile
+                                 new-post
+                                 import-user
+                                 export-user
+                                 toggle-fav]]
         [nightweb.constants :only [slash
-                                   my-hash-bytes
                                    my-hash-str
                                    get-user-dir
                                    user-zip-file]]))
@@ -118,39 +101,32 @@
               (when should-refresh? (.recreate context))
               (catch Exception e nil))))))))
 
-(defn send-post
+(defn do-new-post
   "Saves a post to the disk and creates a new meta torrent to share it."
   ([context dialog-view button-view]
-   (send-post context dialog-view button-view nil nil 1))
+   (do-new-post context dialog-view button-view nil nil 1))
   ([context dialog-view button-view create-time pic-hashes status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
          attachments (get-state context :attachments)
-         is-new? (nil? create-time)
-         create-time (or create-time (.getTime (java.util.Date.)))
          pointers (.getTag dialog-view)]
      (show-spinner context
                    (get-string :sending)
-                   #(let [pic-hashes
-                          (or pic-hashes
-                              (for [path attachments]
-                                (-> (if (.startsWith path "content://")
-                                      (uri-to-bitmap context path)
-                                      (path-to-bitmap path full-size))
-                                    (bitmap-to-byte-array)
-                                    (write-pic-file))))
-                          post (post-encode :text text
-                                            :pic-hashes pic-hashes
-                                            :status status
-                                            :ptrhash (:ptrhash pointers)
-                                            :ptrtime (:ptrtime pointers))]
-                      (insert-post @my-hash-bytes
-                                   create-time
-                                   (b-decode-map (b-decode post)))
-                      (delete-orphaned-pics @my-hash-bytes)
-                      (write-post-file create-time post)
-                      (future (create-meta-torrent))
-                      (if-not is-new?
+                   #(do
+                      (new-post {:pic-hashes
+                                 (or pic-hashes
+                                     (for [path attachments]
+                                       (-> (if (.startsWith path "content://")
+                                             (uri-to-bitmap context path)
+                                             (path-to-bitmap path full-size))
+                                           bitmap-to-byte-array
+                                           write-pic-file)))
+                                 :status status
+                                 :body-str text
+                                 :ptr-hash (:ptrhash pointers)
+                                 :ptr-time (:ptrtime pointers)
+                                 :create-time create-time})
+                      (if-not (nil? create-time)
                         (show-home context {})
                         true))))
    true))
@@ -172,7 +148,7 @@
   [context dialog-view button-view]
   true)
 
-(defn save-profile
+(defn do-save-profile
   "Saves the profile to the disk and creates a new meta torrent to share it."
   [context dialog-view button-view]
   (let [name-field (.findViewWithTag dialog-view "profile-title")
@@ -184,14 +160,12 @@
                        (.getBitmap drawable))]
     (show-spinner context
                   (get-string :saving)
-                  #(let [image-barray (bitmap-to-byte-array image-bitmap)
-                         img-hash (write-pic-file image-barray)
-                         profile (profile-encode name-text body-text img-hash)]
-                     (insert-profile @my-hash-bytes
-                                     (b-decode-map (b-decode profile)))
-                     (delete-orphaned-pics @my-hash-bytes)
-                     (write-profile-file profile)
-                     (future (create-meta-torrent))
+                  #(do
+                     (save-profile {:pic-hash (-> image-bitmap
+                                                  bitmap-to-byte-array
+                                                  write-pic-file)
+                                    :name-str name-text
+                                    :body-str body-text})
                      true)))
   true)
 
@@ -204,9 +178,7 @@
                        dir (android.os.Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str slash user-zip-file))]
-                   (delete-file dest-path)
-                   ; if zip succeeds, show app chooser, otherwise show error
-                   (if (zip-dir path dest-path password)
+                   (if (export-user :dest-str dest-path :pass-str password)
                      (send-file context "application/zip" dest-path)
                      (on-ui (toast (get-string :zip_error)))))))
 
@@ -222,18 +194,12 @@
                        path (if (.startsWith uri-str "content://")
                               (do (copy-uri-to-path context uri-str temp-path)
                                   temp-path)
-                              (.getRawPath (java.net.URI. uri-str)))
-                       dest-path (get-user-dir)]
+                              (.getRawPath (java.net.URI. uri-str)))]
                    ; if unzip succeeds, import user, otherwise show error
-                   (if (unzip-dir path dest-path password)
-                     (let [paths (set (get-zip-headers path))
-                           new-dirs (-> (fn [d] (contains? paths (str d slash)))
-                                        (filter (list-dir dest-path)))]
-                       ; if import succeeds, close dialog, otherwise show error
-                       (if (create-imported-user new-dirs)
-                         true
-                         (on-ui (toast (get-string :import_error)))))
-                     (on-ui (toast (get-string :unzip_error)))))))
+                   (if-let [error (import-user :source-str path
+                                               :pass-str password)]
+                     (on-ui (toast (get-string-at-runtime error)))
+                     true))))
 
 (defn menu-action
   "Provides an action for menu items in the action bar."
@@ -241,31 +207,22 @@
   (when (= (.getItemId item) (get-resource :id :android/home))
     (show-home context {})))
 
-(defn toggle-fav
+(defn do-toggle-fav
   "Toggles our favorite status for the specified content."
-  ([context content] (toggle-fav context content false))
+  ([context content] (do-toggle-fav context content false))
   ([context content go-home?]
    (show-spinner context
                  (if (= 1 (:status content))
                    (get-string :removing)
                    (get-string :adding))
-                 #(let [fav-time (or (:time content)
-                                     (.getTime (java.util.Date.)))
-                        ptr-hash (:userhash content)
-                        ptr-time (:time content)
-                        new-status (if (= 1 (:status content)) 0 1)
-                        fav (fav-encode ptr-hash ptr-time new-status)]
-                    (insert-fav @my-hash-bytes
-                                fav-time
-                                (b-decode-map (b-decode fav)))
-                    (write-fav-file fav-time fav)
-                    (add-user-hash ptr-hash)
-                    (future (create-meta-torrent))
+                 #(do
+                    (toggle-fav :ptr-hash (:userhash content)
+                                :ptr-time (:time content))
                     (if go-home?
                       (show-home context {})
                       true)))))
 
-(defn tile-action
+(defn do-action
   "Provides a central place to associate types with the appropriate actions."
   [context item]
   (when-let [func (case (:type item)

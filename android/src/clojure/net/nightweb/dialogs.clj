@@ -5,14 +5,14 @@
         [neko.ui.mapping :only [defelement]]
         [net.clandroid.activity :only [get-state]]
         [net.nightweb.actions :only [clear-attachments
-                                     send-post
+                                     do-new-post
+                                     do-save-profile
                                      request-files
-                                     toggle-fav
+                                     do-toggle-fav
                                      attach-to-post
                                      cancel
                                      zip-and-send
-                                     unzip-and-save
-                                     save-profile]]
+                                     unzip-and-save]]
         [net.nightweb.utils :only [full-size
                                    thumb-size
                                    uri-to-bitmap
@@ -191,7 +191,7 @@
                {:positive-name (get-string :download_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (toggle-fav context content true))
+                  (do-toggle-fav context content true))
                 :negative-name (get-string :cancel)
                 :negative-func
                 (fn [context dialog-view button-view]
@@ -207,12 +207,12 @@
                   (fn [c d b]
                     (let [text-view (.findViewWithTag dialog-view "post-body")]
                       (.setText text-view "")
-                      (send-post context
-                                    dialog-view
-                                    button-view
-                                    create-time
-                                    nil
-                                    0)))
+                      (do-new-post context
+                                   dialog-view
+                                   button-view
+                                   create-time
+                                   nil
+                                   0)))
                   :negative-name (get-string :cancel)
                   :negative-func cancel})
   false)
@@ -323,7 +323,7 @@
                {:positive-name (get-string :unfav_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (toggle-fav context content true))
+                  (do-toggle-fav context content true))
                 :negative-name (get-string :cancel)
                 :negative-func cancel}))
 
@@ -386,7 +386,7 @@
                  {:positive-name (if (:ptrtime (.getTag view))
                                    (get-string :send_reply)
                                    (get-string :send))
-                  :positive-func send-post
+                  :positive-func do-new-post
                   :neutral-name (get-string :attach_pics)
                   :neutral-func attach-to-post
                   :negative-name (get-string :cancel)
@@ -400,13 +400,12 @@
                {:positive-name (get-string :save)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (send-post context
-                             dialog-view
-                             button-view
-                             (:time content)
-                             (for [pic pics]
-                               (:pichash pic))
-                             1))
+                  (do-new-post context
+                               dialog-view
+                               button-view
+                               (:time content)
+                               (for [pic pics] (:pichash pic))
+                               1))
                 :neutral-name (get-string :delete)
                 :neutral-func
                 (fn [context dialog-view button-view]
@@ -509,7 +508,7 @@
                (get-profile-view context content)
                (if (is-me? (:userhash content))
                  {:positive-name (get-string :save)
-                  :positive-func save-profile
+                  :positive-func do-save-profile
                   :neutral-name (get-string :export_start)
                   :neutral-func show-export-dialog
                   :negative-name (get-string :cancel)

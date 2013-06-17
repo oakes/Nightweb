@@ -5,7 +5,12 @@
                                  import-user
                                  export-user
                                  toggle-fav]]
+        [nightweb.io :only [write-pic-file]]
         [nightweb.formats :only [base32-decode]]
+        [nightweb.constants :only [base-dir
+                                   nw-dir
+                                   slash
+                                   user-zip-file]]
         [nightweb-desktop.utils :only [get-string
                                        decode-data-uri]])
   (:require clojure.edn))
@@ -13,17 +18,26 @@
 (defn do-action
   [params]
   (case (:type params)
-    "save-profile" (-> (assoc params :pic (decode-data-uri (:pic-str params)))
+    "save-profile" (-> (assoc params :pic-hash (-> (:pic-str params)
+                                                   decode-data-uri
+                                                   write-pic-file))
                        save-profile
                        deref
                        println)
-    "import-user" (-> (assoc params :file (decode-data-uri (:file-str params)))
-                      import-user
-                      get-string)
-    "export-user" (export-user (:pass-str params))
-    "new-post" (-> (assoc params :pics (for [pic-str (-> (:pics-str params)
-                                                       clojure.edn/read-string)]
-                                         (decode-data-uri pic-str)))
+    "import-user" (let [path (str @base-dir nw-dir slash user-zip-file)
+                        file-barray (decode-data-uri (:file-str params))]
+                    (write-file path file-barray)
+                    (-> (assoc params :source-str path)
+                        import-user
+                        get-string))
+    "export-user" (let [path (str @base-dir nw-dir slash user-zip-file)]
+                    (export-user (:pass-str params)))
+    "new-post" (-> (assoc params
+                          :pic-hashes (for [pic (-> (:pics-str params)
+                                                    clojure.edn/read-string)]
+                                        (-> pic
+                                            decode-data-uri
+                                            write-pic-file)))
                    new-post
                    deref
                    println)

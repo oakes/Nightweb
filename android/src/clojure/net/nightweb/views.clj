@@ -16,12 +16,7 @@
                                    get-drawable-at-runtime
                                    get-string-at-runtime]]
         [net.nightweb.actions :only [show-spinner
-                                     clear-attachments
-                                     send-post
-                                     tile-action
-                                     save-profile
-                                     cancel
-                                     toggle-fav]]
+                                     do-action]]
         [net.nightweb.dialogs :only [show-delete-post-dialog
                                      show-edit-post-dialog
                                      show-profile-dialog]]
@@ -106,7 +101,7 @@
       tile-view
       (proxy [android.view.View$OnClickListener] []
         (onClick [view]
-          (tile-action context item))))
+          (do-action context item))))
     tile-view))
 
 (defn add-grid-view-tiles
