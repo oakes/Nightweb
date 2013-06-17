@@ -20,7 +20,7 @@ var closeDialog = function(id) {
 	$('#' + id).foundation('reveal', 'close');
 };
 
-var tileAction = function(url) {
+var doAction = function(url) {
 	var params = {};
 	url.split('&').forEach(function(elem, i, arr) {
 		var param = elem.split('=');
@@ -237,7 +237,8 @@ var clearPost = function() {
 
 var openLink = function() {
 	var link = $('#link-text').val();
-	window.location = '?' + link.substr(link.indexOf('#') + 1);
+	link = link.substr(link.indexOf('#') + 1);
+	doAction(link);
 };
 
 var openSearch = function() {
@@ -333,7 +334,7 @@ $('.post-body a').each(function() {
 	if (href != '#') {
 		href = href.substr(href.indexOf('#') + 1);
 		$(this).attr('href', '#');
-		$(this).attr('onclick', 'tileAction("' + href + '")');
+		$(this).attr('onclick', 'doAction("' + href + '")');
 	}
 });
 

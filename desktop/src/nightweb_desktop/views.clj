@@ -70,7 +70,7 @@
                                 (:tag item)))
           add-emphasis? (:add-emphasis? item)]
       [:a {:href "#"
-           :onclick (str "tileAction('" (url-encode item "") "')")
+           :onclick (str "doAction('" (url-encode item "") "')")
            :class "grid-view-tile square-image"
            :style (format "background-image: url(%s);
                            text-align: %s;"
