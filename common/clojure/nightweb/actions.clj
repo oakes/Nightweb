@@ -33,6 +33,31 @@
     (write-profile-file profile)
     (future (create-meta-torrent))))
 
+(defn new-post
+  [{:keys [pic-hashes body-str ptr-hash ptr-time status create-time]}]
+  (let [post (post-encode :text body-str
+                          :pic-hashes pic-hashes
+                          :status status
+                          :ptrhash ptr-hash
+                          :ptrtime ptr-time)
+        file-name (or create-time (.getTime (java.util.Date.)))]
+    (insert-post @my-hash-bytes file-name (b-decode-map (b-decode post)))
+    (delete-orphaned-pics @my-hash-bytes)
+    (write-post-file file-name post)
+    (future (create-meta-torrent))))
+
+(defn toggle-fav
+  [{:keys [ptr-hash ptr-time]}]
+  (let [content (get-single-fav-data {:userhash ptr-hash
+                                      :time ptr-time})
+        new-status (if (= 1 (:status content)) 0 1)
+        fav-time (or (:time content) (.getTime (java.util.Date.)))
+        fav (fav-encode ptr-hash ptr-time new-status)]
+    (insert-fav @my-hash-bytes fav-time (b-decode-map (b-decode fav)))
+    (write-fav-file fav-time fav)
+    (add-user-hash ptr-hash)
+    (future (create-meta-torrent))))
+
 (defn import-user
   [{:keys [source-str pass-str]}]
   (let [dest-str (get-user-dir)]
@@ -51,32 +76,3 @@
     (delete-file dest-str)
     (when (zip-dir source-str dest-str pass-str)
       dest-str)))
-
-(defn new-post
-  [{:keys [pic-hashes body-str ptr-hash ptr-time status create-time]}]
-  (let [post (post-encode :text body-str
-                          :pic-hashes pic-hashes
-                          :status status
-                          :ptrhash ptr-hash
-                          :ptrtime ptr-time)
-        create-time (or create-time (.getTime (java.util.Date.)))]
-    (insert-post @my-hash-bytes
-                 create-time
-                 (b-decode-map (b-decode post)))
-    (delete-orphaned-pics @my-hash-bytes)
-    (write-post-file create-time post)
-    (future (create-meta-torrent))))
-
-(defn toggle-fav
-  [{:keys [ptr-hash ptr-time]}]
-  (let [content (get-single-fav-data {:userhash ptr-hash
-                                      :time ptr-time})
-        new-status (if (= 1 (:status content)) 0 1)
-        fav-time (or (:time content) (.getTime (java.util.Date.)))
-        fav (fav-encode ptr-hash ptr-time new-status)]
-    (insert-fav @my-hash-bytes
-                fav-time
-                (b-decode-map (b-decode fav)))
-    (write-fav-file fav-time fav)
-    (add-user-hash ptr-hash)
-    (future (create-meta-torrent))))

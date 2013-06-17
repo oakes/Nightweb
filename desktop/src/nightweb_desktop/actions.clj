@@ -5,7 +5,8 @@
                                  import-user
                                  export-user
                                  toggle-fav]]
-        [nightweb.io :only [write-pic-file]]
+        [nightweb.io :only [write-file
+                            write-pic-file]]
         [nightweb.formats :only [base32-decode]]
         [nightweb.constants :only [base-dir
                                    nw-dir
@@ -37,7 +38,8 @@
                                                     clojure.edn/read-string)]
                                         (-> pic
                                             decode-data-uri
-                                            write-pic-file)))
+                                            write-pic-file))
+                          :status (clojure.edn/read-string (:status params)))
                    new-post
                    deref
                    println)
