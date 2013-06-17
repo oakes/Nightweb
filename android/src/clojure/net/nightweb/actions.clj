@@ -198,7 +198,7 @@
                    ; if unzip succeeds, import user, otherwise show error
                    (if-let [error (import-user {:source-str path
                                                 :pass-str password})]
-                     (on-ui (toast (get-string-at-runtime error)))
+                     (on-ui (toast (get-string-at-runtime context error)))
                      true))))
 
 (defn menu-action

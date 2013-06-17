@@ -32,7 +32,7 @@
                         import-user
                         get-string))
     "export-user" (let [path (str @base-dir nw-dir slash user-zip-file)]
-                    (export-user (:pass-str params)))
+                    (export-user (assoc params :dest-str path)))
     "new-post" (-> (assoc params
                           :pic-hashes (for [pic (-> (:pics-str params)
                                                     clojure.edn/read-string)]

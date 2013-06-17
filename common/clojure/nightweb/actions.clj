@@ -71,7 +71,7 @@
       :unzip_error)))
 
 (defn export-user
-  [dest-str pass-str]
+  [{:keys [dest-str pass-str]}]
   (let [source-str (get-user-dir @my-hash-str)]
     (delete-file dest-str)
     (when (zip-dir source-str dest-str pass-str)
