@@ -118,8 +118,8 @@
                          (base32-encode (:pichash pic)))
                        vec
                        pr-str)
-        ptr-hash (base32-encode (:ptrhash params))
-        ptr-time (:ptrtime params)]
+        ptr-hash (base32-encode (:ptrhash post))
+        ptr-time (:ptrtime post)]
     [:form {:id "edit-dialog"
             :class "reveal-modal dark"
             :action "/"
