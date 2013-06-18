@@ -35,7 +35,9 @@
    (when (and user-hash pic-hash)
      (str (get-pic-dir (base32-encode user-hash))
           slash
-          (base32-encode pic-hash)))))
+          (base32-encode pic-hash)
+          ; add a non-existent file-extension so WebPJS works
+          ".webp"))))
 
 (defn get-version
   "Returns version number from project.clj."

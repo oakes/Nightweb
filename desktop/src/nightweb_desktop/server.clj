@@ -29,7 +29,8 @@
         "/c" (response (get-category-page params))
         "/b" (response (get-basic-page params))
         (if (> (.indexOf (:uri request) nw-dir) 0)
-          (file-response (:uri request) {:root "."})
+          (file-response (clojure.string/replace (:uri request) ".webp" "")
+                         {:root "."})
           (resource-response (:uri request) {:root "public"}))))))
 
 (defn start-server

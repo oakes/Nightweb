@@ -69,6 +69,12 @@ var resizeImage = function(src, crop, callback) {
 		} else {
 			var width = Math.min(img.width, maxSize);
 			var height = Math.min(img.height, maxSize);
+
+			if (img.width > img.height) {
+				height *= (img.height / img.width);
+			} else {
+				width *= (img.width / img.height);
+			}
 		}
 
 	        canvas.width = width;
@@ -353,6 +359,27 @@ $('.post-body a').each(function() {
 		$(this).attr('onclick', 'doAction("' + href + '")');
 	}
 });
+
+// determine if WEBP is supported
+(function() {
+	var WebP = new Image();
+	WebP.onload = WebP.onerror = function() {
+		if (WebP.height != 2) {
+			var sc = document.createElement('script');
+			sc.type = 'text/javascript';
+			sc.async = true;
+			var s = document.getElementsByTagName('script')[0];
+			sc.src = 'webpjs-0.0.2.min.js';
+			s.parentNode.insertBefore(sc, s);
+			$('#profile-picker').hide();
+			$('#profile-clear').hide();
+			$('#attach-picker').hide();
+			$('#attach-count').hide();
+		}
+	};
+	WebP.src = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
+})();
+
 
 // show spinner
 var spinner = new Spinner({

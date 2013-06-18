@@ -52,20 +52,15 @@
                            :ptr-time (-> (:ptr-time params)
                                          clojure.edn/read-string)
                            :pic-hashes (for [pic (-> (:pic-hashes params)
-                                                   clojure.edn/read-string)]
+                                                     clojure.edn/read-string)]
                                          (base32-decode pic))
                            :status 1)
                     new-post
                     deref
                     (do nil))
-    "delete-post" (-> (assoc params
-                             :create-time (-> (:create-time params)
-                                              clojure.edn/read-string)
-                             :body-str nil
-                             :ptr-hash nil
-                             :ptr-time nil
-                             :pic-hashes nil
-                             :status 0)
+    "delete-post" (-> {:create-time (-> (:create-time params)
+                                        clojure.edn/read-string)
+                       :status 0}
                     new-post
                     deref
                     (do nil))
