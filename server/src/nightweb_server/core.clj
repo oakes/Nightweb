@@ -4,4 +4,4 @@
 
 (defn -main
   []
-  (router/start-router "nightweb" false))
+  (router/start-router "nightweb"))

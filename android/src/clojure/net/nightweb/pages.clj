@@ -1,10 +1,10 @@
 (ns net.nightweb.pages
-  (:require [neko.activity :as activity]
+  (:require [neko.activity :as a]
             [neko.notify :as notify]
             [neko.resource :as r]
             [neko.threading :as thread]
-            [net.clandroid.activity :as a]
-            [net.clandroid.service :as s]
+            [net.clandroid.activity :as activity]
+            [net.clandroid.service :as service]
             [net.nightweb.actions :as actions]
             [net.nightweb.dialogs :as dialogs]
             [net.nightweb.main :as main]
@@ -13,7 +13,8 @@
             [net.nightweb.views :as views]
             [nightweb.constants :as c]
             [nightweb.formats :as f]
-            [nightweb.router :as router]))
+            [nightweb.router :as router]
+            [nightweb.users :as users]))
 
 (def show-welcome-message? (atom true))
 
@@ -25,11 +26,11 @@
   [context]
   (into {} (.getSerializableExtra (.getIntent context) "params")))
 
-(a/defactivity
+(activity/defactivity
   net.nightweb.MainPage
   :on-create
   (fn [this bundle]
-    (s/start-service
+    (service/start-service
       this
       main/service-name
       (fn [binder]
@@ -42,22 +43,23 @@
                             (r/get-string :me)
                             #(let [content {:type :user
                                             :userhash @c/my-hash-bytes}]
-                               (a/set-state this :share content)
+                               (activity/set-state this :share content)
                                (views/get-user-view this content)))
           (views/create-tab action-bar
                             (r/get-string :users)
                             #(let [content {:type :user}]
-                               (a/set-state this :share content)
+                               (activity/set-state this :share content)
                                (views/get-category-view this content)))
           (views/create-tab action-bar
                             (r/get-string :posts)
                             #(let [content {:type :post}]
-                               (a/set-state this :share content)
+                               (activity/set-state this :share content)
                                (views/get-category-view this content)))
           (when (and @router/is-first-boot? @show-welcome-message?)
             (reset! show-welcome-message? false)
             (dialogs/show-welcome-dialog this)))))
-    (s/start-receiver this main/shutdown-receiver-name shutdown-receiver-func))
+    (service/start-receiver
+      this main/shutdown-receiver-name shutdown-receiver-func))
   :on-new-intent
   (fn [this intent]
     (.setIntent this intent)
@@ -71,19 +73,20 @@
       (.setData (.getIntent this) nil)))
   :on-destroy
   (fn [this]
-    (s/stop-receiver this main/shutdown-receiver-name)
-    (s/stop-service this))
+    (service/stop-receiver this main/shutdown-receiver-name)
+    (service/stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (menus/create-main-menu this menu true true))
   :on-activity-result
   actions/receive-result)
 
-(a/defactivity
+(activity/defactivity
   net.nightweb.CategoryPage
   :on-create
   (fn [this bundle]
-    (s/start-receiver this main/shutdown-receiver-name shutdown-receiver-func)
+    (service/start-receiver
+      this main/shutdown-receiver-name shutdown-receiver-func)
     (let [params (get-params this)
           action-bar (.getActionBar this)]
       (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
@@ -99,7 +102,7 @@
                            this (assoc params :subtype :post)))))
   :on-destroy
   (fn [this]
-    (s/stop-receiver this main/shutdown-receiver-name))
+    (service/stop-receiver this main/shutdown-receiver-name))
   :on-create-options-menu
   (fn [this menu]
     (menus/create-main-menu this menu false false))
@@ -109,29 +112,30 @@
   :on-activity-result
   actions/receive-result)
 
-(a/defactivity
+(activity/defactivity
   net.nightweb.GalleryPage
   :def gallery-page
   :on-create
   (fn [this bundle]
-    (s/start-receiver this main/shutdown-receiver-name shutdown-receiver-func)
+    (service/start-receiver
+      this main/shutdown-receiver-name shutdown-receiver-func)
     (let [params (get-params this)
           action-bar (.getActionBar this)
           view (views/get-gallery-view this params)]
       (.hide action-bar)
-      (activity/set-content-view! gallery-page view)))
+      (a/set-content-view! gallery-page view)))
   :on-destroy
   (fn [this]
-    (s/stop-receiver this main/shutdown-receiver-name))
+    (service/stop-receiver this main/shutdown-receiver-name))
   :on-activity-result
   actions/receive-result)
 
-(a/defactivity
+(activity/defactivity
   net.nightweb.BasicPage
   :def basic-page
   :on-create
   (fn [this bundle]
-    (s/start-service
+    (service/start-service
       this
       main/service-name
       (fn [binder]
@@ -148,25 +152,26 @@
                      :tag (views/get-category-view this params)
                      nil)
               action-bar (.getActionBar this)]
-          (a/set-state this :share params)
+          (activity/set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
           (if-let [title (or (:title params)
                              (:tag params))]
             (.setTitle action-bar (utils/get-string-at-runtime this title))
             (.setDisplayShowTitleEnabled action-bar false))
           (if view
-            (activity/set-content-view! basic-page view)
+            (a/set-content-view! basic-page view)
             (thread/on-ui (notify/toast (r/get-string :nothing_here))))
           (when (:userhash params)
-            (if-not (router/user-exists? (:userhash params))
+            (if-not (users/user-exists? (:userhash params))
               (dialogs/show-new-user-dialog this params)
-              (when-not (router/user-has-content? (:userhash params))
+              (when-not (users/user-has-content? (:userhash params))
                 (dialogs/show-pending-user-dialog this)))))))
-    (s/start-receiver this main/shutdown-receiver-name shutdown-receiver-func))
+    (service/start-receiver
+      this main/shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
   (fn [this]
-    (s/stop-receiver this main/shutdown-receiver-name)
-    (s/stop-service this))
+    (service/stop-receiver this main/shutdown-receiver-name)
+    (service/stop-service this))
   :on-create-options-menu
   (fn [this menu]
     (menus/create-main-menu this menu true false))

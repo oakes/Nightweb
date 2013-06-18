@@ -3,14 +3,15 @@
             [neko.threading :as thread]
             [neko.ui :as ui]
             [neko.ui.mapping :as mapping]
-            [net.clandroid.activity :as a]
+            [net.clandroid.activity :as activity]
             [net.nightweb.actions :as actions]
             [net.nightweb.utils :as utils]
+            [nightweb.actions :as a]
             [nightweb.constants :as c]
             [nightweb.db :as db]
             [nightweb.formats :as f]
             [nightweb.io :as io]
-            [nightweb.router :as router]))
+            [nightweb.users :as users]))
 
 (mapping/defelement :scroll-view :classname android.widget.ScrollView)
 (mapping/defelement :frame-layout :classname android.widget.FrameLayout)
@@ -199,7 +200,7 @@
                nil
                {:positive-name (r/get-string :delete)
                 :positive-func (fn [c d b]
-                                 (router/delete-user user-hash)
+                                 (users/delete-user user-hash)
                                  (.finish context)
                                  (utils/show-home context {}))
                 :negative-name (r/get-string :cancel)
@@ -239,9 +240,8 @@
                  {:positive-name (r/get-string :import_user)
                   :positive-func
                   (fn [c d b]
-                    (actions/unzip-and-save context
-                                            (.toString (.getText view))
-                                            uri-str)
+                    (actions/unzip-and-save
+                      context (.toString (.getText view)) uri-str)
                     true)
                   :negative-name (r/get-string :cancel)
                   :negative-func actions/cancel})))
@@ -273,7 +273,7 @@
                 select-button
                 (proxy [android.view.View$OnClickListener] []
                   (onClick [v]
-                    (router/load-user (:userhash item))
+                    (users/load-user (:userhash item))
                     (.finish context)
                     (utils/show-home context {}))))
               (.setOnClickListener
@@ -288,7 +288,8 @@
                  view
                  {:positive-name (r/get-string :create_user)
                   :positive-func (fn [context dialog-view button-view]
-                                   (router/load-user (router/create-user))
+                                   (users/load-user (users/create-user))
+                                   (a/fav-default-user)
                                    (.finish context)
                                    (utils/show-home context {}))
                   :negative-name (r/get-string :cancel)
@@ -308,7 +309,7 @@
 
 (defn get-new-post-view
   [context content]
-  (let [page-content (a/get-state context :share)
+  (let [page-content (activity/get-state context :share)
         pointers (if (empty? content)
                    {:ptrhash (when (and (:userhash page-content)
                                         (or (= :post (:type page-content))
@@ -470,12 +471,12 @@
         image-view
         (proxy [android.view.View$OnClickListener] []
           (onClick [v]
-            (actions/request-files context
-                           "image/*"
-                           (fn [uri]
-                             (let [pic (utils/uri-to-bitmap context
-                                                            (.toString uri))]
-                               (.setImageBitmap image-view pic)))))))
+            (actions/request-files
+              context
+              "image/*"
+              (fn [uri]
+                (let [pic (utils/uri-to-bitmap context (.toString uri))]
+                  (.setImageBitmap image-view pic)))))))
       (.setOnClickListener clear-btn
                            (proxy [android.view.View$OnClickListener] []
                              (onClick [v]

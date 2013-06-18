@@ -3,9 +3,17 @@
             [nightweb.db :as db]
             [nightweb.formats :as f]
             [nightweb.io :as io]
-            [nightweb.router :as router]
+            [nightweb.torrents :as t]
             [nightweb.torrents-dht :as dht]
+            [nightweb.users :as users]
             [nightweb.zip :as zip]))
+
+(defn create-meta-torrent
+  []
+  (let [path (c/get-meta-dir @c/my-hash-str)]
+    (t/remove-torrent (str path c/torrent-ext))
+    (io/write-link-file (t/add-torrent path false dht/on-recv-meta))
+    (dht/send-meta-link)))
 
 (defn save-profile
   [{:keys [pic-hash name-str body-str]}]
@@ -13,7 +21,7 @@
     (db/insert-profile @c/my-hash-bytes (f/b-decode-map (f/b-decode profile)))
     (io/delete-orphaned-pics @c/my-hash-bytes)
     (io/write-profile-file profile)
-    (future (router/create-meta-torrent))))
+    (future (create-meta-torrent))))
 
 (defn new-post
   [{:keys [pic-hashes body-str ptr-hash ptr-time status create-time]}]
@@ -28,7 +36,7 @@
                     (f/b-decode-map (f/b-decode post)))
     (io/delete-orphaned-pics @c/my-hash-bytes)
     (io/write-post-file file-name post)
-    (future (router/create-meta-torrent))))
+    (future (create-meta-torrent))))
 
 (defn toggle-fav
   [{:keys [ptr-hash ptr-time]}]
@@ -40,7 +48,12 @@
     (db/insert-fav @c/my-hash-bytes fav-time (f/b-decode-map (f/b-decode fav)))
     (io/write-fav-file fav-time fav)
     (dht/add-user-hash ptr-hash)
-    (future (router/create-meta-torrent))))
+    (future (create-meta-torrent))))
+
+(defn fav-default-user
+  []
+  (let [user-hash-bytes (f/base32-decode "zc3bf63ca7p756p5lffnypyzbo53qtzb")]
+    (toggle-fav {:ptr-hash user-hash-bytes})))
 
 (defn import-user
   [{:keys [source-str pass-str]}]
@@ -49,7 +62,7 @@
       (let [paths (set (zip/get-zip-headers source-str))
             new-dirs (-> (fn [d] (contains? paths (str d c/slash)))
                          (filter (io/list-dir dest-str)))]
-        (if (router/create-imported-user new-dirs)
+        (if (users/create-imported-user new-dirs)
           nil
           :import_error))
       :unzip_error)))

@@ -3,9 +3,9 @@
             [neko.resource :as r]
             [neko.threading :as thread]
             [neko.notify :as notify]
-            [net.clandroid.activity :as a]
+            [net.clandroid.activity :as activity]
             [net.nightweb.utils :as utils]
-            [nightweb.actions :as actions]
+            [nightweb.actions :as a]
             [nightweb.constants :as c]
             [nightweb.io :as io]
             [nightweb.formats :as f]))
@@ -14,7 +14,7 @@
   "Displays an app chooser to share a link to the displayed content."
   [context]
   (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        url (f/url-encode (a/get-state context :share))]
+        url (f/url-encode (activity/get-state context :share))]
     (.setType intent "text/plain")
     (.putExtra intent android.content.Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
@@ -32,7 +32,7 @@
 (defn request-files
   "Displays an app chooser to select files of the specified file type."
   [context file-type callback]
-  (a/set-state context :file-request callback)
+  (activity/set-state context :file-request callback)
   (let [intent (android.content.Intent.
                  android.content.Intent/ACTION_GET_CONTENT)]
     (.setType intent file-type)
@@ -43,7 +43,7 @@
   "Runs after a request returns with a result."
   [context request-code result-code intent]
   (case request-code
-    1 (let [callback (a/get-state context :file-request)
+    1 (let [callback (activity/get-state context :file-request)
             data-result (when intent (.getData intent))]
         (when (and callback data-result)
           (callback data-result)))
@@ -53,7 +53,7 @@
   "Stores a list of selected attachments."
   [context uri]
   (let [uri-str (.toString uri)
-        attachments (a/get-state context :attachments)
+        attachments (activity/get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
                           (for [path (io/get-files-in-uri uri-str)]
                             (when (utils/path-to-bitmap path utils/thumb-size)
@@ -62,13 +62,13 @@
                             [uri-str]))
         total-attachments (f/remove-dupes-and-nils
                             (concat attachments new-attachments))]
-    (a/set-state context :attachments total-attachments)
+    (activity/set-state context :attachments total-attachments)
     total-attachments))
 
 (defn clear-attachments
   "Clears the list of selected attachments."
   [context]
-  (a/set-state context :attachments nil))
+  (activity/set-state context :attachments nil))
 
 (defn show-spinner
   "Displays a spinner while the specified function runs in a thread."
@@ -90,12 +90,12 @@
   ([context dialog-view button-view create-time pic-hashes status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
-         attachments (a/get-state context :attachments)
+         attachments (activity/get-state context :attachments)
          pointers (.getTag dialog-view)]
      (show-spinner context
                    (r/get-string :sending)
                    #(do
-                      (actions/new-post
+                      (a/new-post
                         {:pic-hashes
                          (or pic-hashes
                              (for [path attachments]
@@ -145,7 +145,7 @@
     (show-spinner context
                   (r/get-string :saving)
                   #(do
-                     (actions/save-profile
+                     (a/save-profile
                        {:pic-hash (-> image-bitmap
                                       utils/bitmap-to-byte-array
                                       io/write-pic-file)
@@ -163,7 +163,7 @@
                        dir (android.os.Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str c/slash c/user-zip-file))]
-                   (if (actions/export-user
+                   (if (a/export-user
                          {:dest-str dest-path
                           :pass-str password})
                      (send-file context "application/zip" dest-path)
@@ -186,9 +186,8 @@
                                   temp-path)
                               (.getRawPath (java.net.URI. uri-str)))]
                    ; if unzip succeeds, import user, otherwise show error
-                   (if-let [error (actions/import-user
-                                    {:source-str path
-                                     :pass-str password})]
+                   (if-let [error (a/import-user {:source-str path
+                                                  :pass-str password})]
                      (thread/on-ui
                        (notify/toast
                          (utils/get-string-at-runtime context error)))
@@ -209,8 +208,8 @@
                    (r/get-string :removing)
                    (r/get-string :adding))
                  #(do
-                    (actions/toggle-fav {:ptr-hash (:userhash content)
-                                         :ptr-time (:time content)})
+                    (a/toggle-fav {:ptr-hash (:userhash content)
+                                   :ptr-time (:time content)})
                     (if go-home?
                       (utils/show-home context {})
                       true)))))

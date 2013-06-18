@@ -4,7 +4,7 @@
             [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb.io :as io]
-            [nightweb.router :as router]
+            [nightweb.users :as users]
             [nightweb-desktop.utils :as utils]))
 
 (defn do-action
@@ -55,13 +55,16 @@
                     (do nil))
     "switch-user" (-> (:userhash params)
                       f/base32-decode
-                      router/load-user)
+                      users/load-user)
     "delete-user" (-> (:userhash params)
                       f/base32-decode
-                      router/delete-user
+                      users/delete-user
                       deref
                       (do nil))
-    "create-user" (router/load-user (router/create-user))
+    "create-user" (do
+                    (users/load-user (users/create-user))
+                    (actions/fav-default-user)
+                    nil)
     "toggle-fav" (-> (assoc params
                             :ptr-hash (f/base32-decode (:userhash params))
                             :ptr-time (edn/read-string (:time params)))
