@@ -1,7 +1,7 @@
 (ns nightweb-server.core
   (:gen-class)
-  (:use [nightweb.router :only [start-router]]))
+  (:require [nightweb.router :as router]))
 
 (defn -main
   []
-  (start-router "nightweb" false))
+  (router/start-router "nightweb" false))

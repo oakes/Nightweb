@@ -2,7 +2,7 @@
   (:require [neko.notify :as notify]
             [neko.resource :as r]
             [neko.threading :as thread]
-            [neko.ui]
+            [neko.ui :as ui]
             [net.nightweb.actions :as actions]
             [net.nightweb.dialogs :as dialogs]
             [net.nightweb.utils :as utils]
@@ -20,19 +20,19 @@
         black android.graphics.Color/BLACK
         white android.graphics.Color/WHITE
         end android.text.TextUtils$TruncateAt/END
-        tile-view (neko.ui/make-ui context
-                                   [:frame-layout {}
-                                    [:image-view {}]
-                                    [:linear-layout {:orientation 1}
-                                     [:text-view {:text-color white
-                                                  :layout-width :fill
-                                                  :layout-weight 1}]
-                                     [:linear-layout {:orientation 0}
-                                      [:text-view {:text-color white
-                                                   :single-line true
-                                                   :layout-weight 1
-                                                   :ellipsize end}]
-                                      [:text-view {:text-color white}]]]])
+        tile-view (ui/make-ui context
+                              [:frame-layout {}
+                               [:image-view {}]
+                               [:linear-layout {:orientation 1}
+                                [:text-view {:text-color white
+                                             :layout-width :fill
+                                             :layout-weight 1}]
+                                [:linear-layout {:orientation 0}
+                                 [:text-view {:text-color white
+                                              :single-line true
+                                              :layout-weight 1
+                                              :ellipsize end}]
+                                 [:text-view {:text-color white}]]]])
         image (.getChildAt tile-view 0)
         linear-layout (.getChildAt tile-view 1)
         text-top (.getChildAt linear-layout 0)
@@ -108,12 +108,12 @@
 
 (defn get-post-view
   [context params]
-  (let [view (neko.ui/make-ui context
-                              [:scroll-view {}
-                               [:linear-layout {:orientation 1}
-                                [:text-view {:layout-width :fill
-                                             :text-is-selectable true}]
-                                [:text-view {:layout-width :fill}]]])
+  (let [view (ui/make-ui context
+                         [:scroll-view {}
+                          [:linear-layout {:orientation 1}
+                           [:text-view {:layout-width :fill
+                                        :text-is-selectable true}]
+                           [:text-view {:layout-width :fill}]]])
         linear-layout (.getChildAt view 0)
         text-view (.getChildAt linear-layout 0)
         date-view (.getChildAt linear-layout 1)
@@ -148,8 +148,7 @@
 
 (defn get-gallery-view
   [context params]
-  (let [view (neko.ui/make-ui context
-                              [:view-pager {}])]
+  (let [view (ui/make-ui context [:view-pager {}])]
     (actions/show-spinner
       context
       (r/get-string :loading)
@@ -186,7 +185,7 @@
 
 (defn get-user-view
   [context params]
-  (let [view (neko.ui/make-ui context [:scroll-view {}])
+  (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
     (actions/show-spinner
@@ -203,7 +202,7 @@
 
 (defn get-category-view
   [context params]
-  (let [view (neko.ui/make-ui context [:scroll-view {}])
+  (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
     (actions/show-spinner

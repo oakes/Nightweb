@@ -1,7 +1,7 @@
 (ns net.nightweb.dialogs
   (:require [neko.resource :as r]
             [neko.threading :as thread]
-            [neko.ui]
+            [neko.ui :as ui]
             [neko.ui.mapping :as mapping]
             [net.clandroid.activity :as a]
             [net.nightweb.actions :as actions]
@@ -100,7 +100,7 @@
 
 (defn get-welcome-view
   [context]
-  (let [view (neko.ui/make-ui
+  (let [view (ui/make-ui
                context
                [:linear-layout {:orientation 1}
                 [:text-view {:text (r/get-string :welcome_title)
@@ -207,10 +207,9 @@
 
 (defn show-export-dialog
   [context dialog-view button-view]
-  (let [view (neko.ui/make-ui context
-                              [:edit-text {:single-line true
-                                           :layout-width :fill
-                                           :hint (r/get-string :password)}])
+  (let [view (ui/make-ui context [:edit-text {:single-line true
+                                              :layout-width :fill
+                                              :hint (r/get-string :password)}])
         input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
                            android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
@@ -228,10 +227,9 @@
 
 (defn show-import-dialog
   [context uri-str]
-  (let [view (neko.ui/make-ui context
-                              [:edit-text {:single-line true
-                                           :layout-width :fill
-                                           :hint (r/get-string :password)}])
+  (let [view (ui/make-ui context [:edit-text {:single-line true
+                                              :layout-width :fill
+                                              :hint (r/get-string :password)}])
         input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
                            android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
@@ -250,9 +248,8 @@
 
 (defn show-switch-user-dialog
   [context content]
-  (let [view (neko.ui/make-ui context
-                              [:scroll-view {}
-                               [:linear-layout {:orientation 1}]])]
+  (let [view (ui/make-ui context [:scroll-view {}
+                                  [:linear-layout {:orientation 1}]])]
     ; add each user to the list
     (future
       (let [linear-layout (.getChildAt view 0)
@@ -262,13 +259,12 @@
           (let [title (if (= 0 (count (:title item)))
                         (r/get-string :no_name)
                         (:title item))
-                list-item (neko.ui/make-ui
-                            context
-                            [:linear-layout {:orientation 0}
-                             [:button {:text title
-                                       :layout-weight 3}]
-                             [:button {:text (r/get-string :delete)
-                                       :layout-weight 1}]])
+                list-item (ui/make-ui context
+                                      [:linear-layout {:orientation 0}
+                                       [:button {:text title
+                                                 :layout-weight 3}]
+                                       [:button {:text (r/get-string :delete)
+                                                 :layout-weight 1}]])
                 select-button (.getChildAt list-item 0)
                 delete-button (.getChildAt list-item 1)]
             (thread/on-ui
@@ -324,7 +320,7 @@
                                (:time page-content))}
                    {:ptrhash (:ptrhash content)
                     :ptrtime (:ptrtime content)})
-        view (neko.ui/make-ui
+        view (ui/make-ui
                context
                [:linear-layout {:orientation 1}
                 [:linear-layout {:orientation 0
@@ -405,25 +401,25 @@
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
         view (if (c/is-me? (:userhash content))
-               (neko.ui/make-ui context
-                                [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:edit-text {:single-line true
-                                               :layout-width :fill
-                                               :tag "profile-title"}]
-                                  [:edit-text {:layout-width :fill
-                                               :tag "profile-body"}]
-                                  [:relative-layout {}]]])
-               (neko.ui/make-ui context
-                                [:scroll-view {}
-                                 [:linear-layout {:orientation 1}
-                                  [:text-view {:single-line true
-                                               :layout-width :fill
-                                               :text-is-selectable true
-                                               :typeface bold}]
-                                  [:text-view {:layout-width :fill
-                                               :text-is-selectable true}]
-                                  [:relative-layout {}]]]))
+               (ui/make-ui context
+                           [:scroll-view {}
+                            [:linear-layout {:orientation 1}
+                             [:edit-text {:single-line true
+                                          :layout-width :fill
+                                          :tag "profile-title"}]
+                             [:edit-text {:layout-width :fill
+                                          :tag "profile-body"}]
+                             [:relative-layout {}]]])
+               (ui/make-ui context
+                           [:scroll-view {}
+                            [:linear-layout {:orientation 1}
+                             [:text-view {:single-line true
+                                          :layout-width :fill
+                                          :text-is-selectable true
+                                          :typeface bold}]
+                             [:text-view {:layout-width :fill
+                                          :text-is-selectable true}]
+                             [:relative-layout {}]]]))
         linear-layout (.getChildAt view 0)
         text-name (.getChildAt linear-layout 0)
         text-body (.getChildAt linear-layout 1)
