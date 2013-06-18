@@ -1,11 +1,11 @@
 (ns nightweb-desktop.core
   (:gen-class)
-  (:use [nightweb.router :only [start-router]]
-        [nightweb-desktop.server :only [start-server]]
-        [nightweb-desktop.window :only [start-window]]))
+  (:require [nightweb.router :as router]
+            [nightweb-desktop.server :as server]
+            [nightweb-desktop.window :as window]))
 
 (defn -main
   []
-  (start-router "nightweb" false)
-  (start-server)
-  (start-window))
+  (router/start-router "nightweb" false)
+  (server/start-server)
+  (window/start-window))

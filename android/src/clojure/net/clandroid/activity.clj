@@ -1,8 +1,5 @@
 (ns net.clandroid.activity
-  (:use [neko.-utils :only [simple-name
-                            unicaseize
-                            keyword->camelcase
-                            capitalize]]))
+  (:require [neko.-utils :as utils]))
 
 (defn set-state
   [context content-key content-val]
@@ -42,9 +39,9 @@
                   def]
            :as options}]
   (let [options (or options {}) ;; Handle no-options case
-        sname (simple-name name)
+        sname (utils/simple-name name)
         prefix (or prefix (str sname "-"))
-        def (or def (symbol (unicaseize sname)))]
+        def (or def (symbol (utils/unicaseize sname)))]
     `(do
        (gen-class
         :name ~name
@@ -105,11 +102,12 @@
              (def ~(vary-meta def assoc :tag name) ~'this)
              (~on-new-intent ~'this ~'intent)))
        ~@(map #(let [func (options %)
-                     event-name (keyword->camelcase %)]
+                     event-name (utils/keyword->camelcase %)]
                  (when func
                    `(defn ~(symbol (str prefix event-name))
                       [~(vary-meta 'this assoc :tag name)]
-                      (~(symbol (str ".super" (capitalize event-name))) ~'this)
+                      (~(symbol (str ".super" (utils/capitalize event-name)))
+                          ~'this)
                       (~func ~'this))))
               [:on-start :on-restart :on-resume
                :on-pause :on-stop :on-destroy]))))

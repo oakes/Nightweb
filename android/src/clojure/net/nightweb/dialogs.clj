@@ -1,48 +1,22 @@
 (ns net.nightweb.dialogs
-  (:use [neko.resource :only [get-string get-resource]]
-        [neko.threading :only [on-ui]]
-        [neko.ui :only [make-ui]]
-        [neko.ui.mapping :only [defelement]]
-        [net.clandroid.activity :only [get-state]]
-        [net.nightweb.actions :only [clear-attachments
-                                     do-new-post
-                                     do-save-profile
-                                     request-files
-                                     do-toggle-fav
-                                     attach-to-post
-                                     cancel
-                                     zip-and-send
-                                     unzip-and-save]]
-        [net.nightweb.utils :only [full-size
-                                   thumb-size
-                                   uri-to-bitmap
-                                   path-to-bitmap
-                                   get-pic-path
-                                   make-dip
-                                   show-home
-                                   default-text-size
-                                   large-text-size
-                                   set-text-size
-                                   set-text-max-length
-                                   set-text-content]]
-        [nightweb.router :only [create-user load-user delete-user]]
-        [nightweb.io :only [read-user-list-file]]
-        [nightweb.formats :only [tags-encode]]
-        [nightweb.db :only [max-length-small
-                            max-length-large
-                            get-single-user-data]]
-        [nightweb.constants :only [is-me?]]))
+  (:require [neko.resource :as r]
+            [neko.threading :as thread]
+            [neko.ui]
+            [neko.ui.mapping :as mapping]
+            [net.clandroid.activity :as a]
+            [net.nightweb.actions :as actions]
+            [net.nightweb.utils :as utils]
+            [nightweb.constants :as c]
+            [nightweb.db :as db]
+            [nightweb.formats :as f]
+            [nightweb.io :as io]
+            [nightweb.router :as router]))
 
-(defelement :scroll-view
-            :classname android.widget.ScrollView)
-(defelement :frame-layout
-            :classname android.widget.FrameLayout)
-(defelement :relative-layout
-            :classname android.widget.RelativeLayout)
-(defelement :image-view
-            :classname android.widget.ImageView)
-(defelement :view-pager
-            :classname android.support.v4.view.ViewPager)
+(mapping/defelement :scroll-view :classname android.widget.ScrollView)
+(mapping/defelement :frame-layout :classname android.widget.FrameLayout)
+(mapping/defelement :relative-layout :classname android.widget.RelativeLayout)
+(mapping/defelement :image-view :classname android.widget.ImageView)
+(mapping/defelement :view-pager :classname android.support.v4.view.ViewPager)
 
 (defn create-dialog
   [context message view buttons]
@@ -91,7 +65,7 @@
 (defn show-dialog
   ([context title message]
    (let [builder (android.app.AlertDialog$Builder. context)]
-     (.setPositiveButton builder (get-string :ok) nil)
+     (.setPositiveButton builder (r/get-string :ok) nil)
      (let [dialog (.create builder)]
        (.setTitle dialog title)
        (.setMessage dialog message)
@@ -122,37 +96,38 @@
 
 (defn show-pending-user-dialog
   [context]
-  (show-dialog context nil (get-string :pending_user)))
+  (show-dialog context nil (r/get-string :pending_user)))
 
 (defn get-welcome-view
   [context]
-  (let [view (make-ui context
-                      [:linear-layout {:orientation 1}
-                       [:text-view {:text (get-string :welcome_title)
-                                    :tag "title-text"
-                                    :layout-width :fill}]
-                       [:text-view {:text (get-string :welcome_subtitle)
-                                    :tag "subtitle-text"}]
-                       [:linear-layout {:orientation 0}
-                        [:image-view {:image-resource
-                                      (get-resource :drawable :profile_small)
-                                      :tag "profile-image"}]
-                        [:text-view {:text (get-string :welcome_profile)
-                                     :tag "profile-text"}]]
-                       [:linear-layout {:orientation 0}
-                        [:image-view {:image-resource
-                                      (get-resource :drawable
-                                                    :android/ic_menu_add)
-                                      :tag "post-image"}]
-                        [:text-view {:text (get-string :welcome_post)
-                                     :tag "post-text"}]]
-                       [:linear-layout {:orientation 0}
-                        [:image-view {:image-resource
-                                      (get-resource :drawable
-                                                    :android/ic_menu_share)
-                                      :tag "share-image"}]
-                        [:text-view {:text (get-string :welcome_share)
-                                     :tag "share-text"}]]])
+  (let [view (neko.ui/make-ui
+               context
+               [:linear-layout {:orientation 1}
+                [:text-view {:text (r/get-string :welcome_title)
+                             :tag "title-text"
+                             :layout-width :fill}]
+                [:text-view {:text (r/get-string :welcome_subtitle)
+                             :tag "subtitle-text"}]
+                [:linear-layout {:orientation 0}
+                 [:image-view {:image-resource
+                               (r/get-resource :drawable :profile_small)
+                               :tag "profile-image"}]
+                 [:text-view {:text (r/get-string :welcome_profile)
+                              :tag "profile-text"}]]
+                [:linear-layout {:orientation 0}
+                 [:image-view {:image-resource
+                               (r/get-resource :drawable
+                                             :android/ic_menu_add)
+                               :tag "post-image"}]
+                 [:text-view {:text (r/get-string :welcome_post)
+                              :tag "post-text"}]]
+                [:linear-layout {:orientation 0}
+                 [:image-view {:image-resource
+                               (r/get-resource :drawable
+                                             :android/ic_menu_share)
+                               :tag "share-image"}]
+                 [:text-view {:text (r/get-string :welcome_share)
+                              :tag "share-text"}]]])
         title-text (.findViewWithTag view "title-text")
         subtitle-text (.findViewWithTag view "subtitle-text")
         profile-text (.findViewWithTag view "profile-text")
@@ -161,13 +136,13 @@
         profile-image (.findViewWithTag view "profile-image")
         post-image (.findViewWithTag view "post-image")
         share-image (.findViewWithTag view "share-image")
-        pad (make-dip context 10)
+        pad (utils/make-dip context 10)
         s 80]
-    (set-text-size title-text large-text-size)
-    (set-text-size subtitle-text default-text-size)
+    (utils/set-text-size title-text utils/large-text-size)
+    (utils/set-text-size subtitle-text utils/default-text-size)
     (.setGravity title-text android.view.Gravity/CENTER_HORIZONTAL)
     (doseq [txt [profile-text post-text share-text]]
-      (set-text-size txt default-text-size)
+      (utils/set-text-size txt utils/default-text-size)
       (.setMinHeight txt s)
       (.setGravity txt android.view.Gravity/CENTER_VERTICAL))
     (doseq [img [profile-image post-image share-image]]
@@ -180,19 +155,19 @@
   (show-dialog context
                nil
                (get-welcome-view context)
-               {:positive-name (get-string :ok)
-                :positive-func cancel}))
+               {:positive-name (r/get-string :ok)
+                :positive-func actions/cancel}))
 
 (defn show-new-user-dialog
   [context content]
   (show-dialog context
-               (get-string :found_user)
+               (r/get-string :found_user)
                nil
-               {:positive-name (get-string :download_user)
+               {:positive-name (r/get-string :download_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (do-toggle-fav context content true))
-                :negative-name (get-string :cancel)
+                  (actions/toggle-fav context content true))
+                :negative-name (r/get-string :cancel)
                 :negative-func
                 (fn [context dialog-view button-view]
                   (.finish context))}))
@@ -200,181 +175,191 @@
 (defn show-delete-post-dialog
   [context dialog-view button-view create-time]
     (show-dialog context
-                 (get-string :confirm_delete)
+                 (r/get-string :confirm_delete)
                  nil
-                 {:positive-name (get-string :delete)
+                 {:positive-name (r/get-string :delete)
                   :positive-func
                   (fn [c d b]
                     (let [text-view (.findViewWithTag dialog-view "post-body")]
                       (.setText text-view "")
-                      (do-new-post context
-                                   dialog-view
-                                   button-view
-                                   create-time
-                                   nil
-                                   0)))
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel})
+                      (actions/new-post context
+                                        dialog-view
+                                        button-view
+                                        create-time
+                                        nil
+                                        0)))
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel})
   false)
 
 (defn show-delete-user-dialog
   [context user-hash]
   (show-dialog context
-               (get-string :confirm_delete)
+               (r/get-string :confirm_delete)
                nil
-               {:positive-name (get-string :delete)
+               {:positive-name (r/get-string :delete)
                 :positive-func (fn [c d b]
-                                 (delete-user user-hash)
+                                 (router/delete-user user-hash)
                                  (.finish context)
-                                 (show-home context {}))
-                :negative-name (get-string :cancel)
-                :negative-func cancel}))
+                                 (utils/show-home context {}))
+                :negative-name (r/get-string :cancel)
+                :negative-func actions/cancel}))
 
 (defn show-export-dialog
   [context dialog-view button-view]
-  (let [view (make-ui context [:edit-text {:single-line true
+  (let [view (neko.ui/make-ui context
+                              [:edit-text {:single-line true
                                            :layout-width :fill
-                                           :hint (get-string :password)}])
+                                           :hint (r/get-string :password)}])
         input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
                            android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
     (show-dialog context
-                 (get-string :export_desc)
+                 (r/get-string :export_desc)
                  view
-                 {:positive-name (get-string :save)
+                 {:positive-name (r/get-string :save)
                   :positive-func
                   (fn [c d b]
-                    (zip-and-send context (.toString (.getText view)))
+                    (actions/zip-and-send context (.toString (.getText view)))
                     true)
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel}))
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel}))
   true)
 
 (defn show-import-dialog
   [context uri-str]
-  (let [view (make-ui context [:edit-text {:single-line true
+  (let [view (neko.ui/make-ui context
+                              [:edit-text {:single-line true
                                            :layout-width :fill
-                                           :hint (get-string :password)}])
+                                           :hint (r/get-string :password)}])
         input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
                            android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
     (show-dialog context
-                 (get-string :import_desc)
+                 (r/get-string :import_desc)
                  view
-                 {:positive-name (get-string :import_user)
+                 {:positive-name (r/get-string :import_user)
                   :positive-func
                   (fn [c d b]
-                    (unzip-and-save context (.toString (.getText view)) uri-str)
+                    (actions/unzip-and-save context
+                                            (.toString (.getText view))
+                                            uri-str)
                     true)
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel})))
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel})))
 
 (defn show-switch-user-dialog
   [context content]
-  (let [view (make-ui context [:scroll-view {}
+  (let [view (neko.ui/make-ui context
+                              [:scroll-view {}
                                [:linear-layout {:orientation 1}]])]
     ; add each user to the list
     (future
       (let [linear-layout (.getChildAt view 0)
-            items (for [user-hash (read-user-list-file)]
-                    (get-single-user-data {:userhash user-hash}))]
+            items (for [user-hash (io/read-user-list-file)]
+                    (db/get-single-user-data {:userhash user-hash}))]
         (doseq [item items]
           (let [title (if (= 0 (count (:title item)))
-                        (get-string :no_name)
+                        (r/get-string :no_name)
                         (:title item))
-                list-item (make-ui context [:linear-layout {:orientation 0}
-                                            [:button {:text title
-                                                      :layout-weight 3}]
-                                            [:button {:text (get-string :delete)
-                                                      :layout-weight 1}]])
+                list-item (neko.ui/make-ui
+                            context
+                            [:linear-layout {:orientation 0}
+                             [:button {:text title
+                                       :layout-weight 3}]
+                             [:button {:text (r/get-string :delete)
+                                       :layout-weight 1}]])
                 select-button (.getChildAt list-item 0)
                 delete-button (.getChildAt list-item 1)]
-            (on-ui (.setEnabled select-button (not (is-me? (:userhash item))))
-                   (.setOnClickListener
-                     select-button
-                     (proxy [android.view.View$OnClickListener] []
-                       (onClick [v]
-                         (load-user (:userhash item))
-                         (.finish context)
-                         (show-home context {}))))
-                   (.setOnClickListener
-                     delete-button
-                     (proxy [android.view.View$OnClickListener] []
-                       (onClick [v]
-                         (show-delete-user-dialog context (:userhash item)))))
-                   (.addView linear-layout list-item))))))
+            (thread/on-ui
+              (.setEnabled select-button (not (c/is-me? (:userhash item))))
+              (.setOnClickListener
+                select-button
+                (proxy [android.view.View$OnClickListener] []
+                  (onClick [v]
+                    (router/load-user (:userhash item))
+                    (.finish context)
+                    (utils/show-home context {}))))
+              (.setOnClickListener
+                delete-button
+                (proxy [android.view.View$OnClickListener] []
+                  (onClick [v]
+                    (show-delete-user-dialog context (:userhash item)))))
+              (.addView linear-layout list-item))))))
     ; display a dialog with the list
     (show-dialog context
                  nil
                  view
-                 {:positive-name (get-string :create_user)
+                 {:positive-name (r/get-string :create_user)
                   :positive-func (fn [context dialog-view button-view]
-                                   (load-user (create-user))
+                                   (router/load-user (router/create-user))
                                    (.finish context)
-                                   (show-home context {}))
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel})))
+                                   (utils/show-home context {}))
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel})))
 
 (defn show-remove-user-dialog
   [context content]
   (show-dialog context
-               (get-string :confirm_unfav)
+               (r/get-string :confirm_unfav)
                nil
-               {:positive-name (get-string :unfav_user)
+               {:positive-name (r/get-string :unfav_user)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (do-toggle-fav context content true))
-                :negative-name (get-string :cancel)
-                :negative-func cancel}))
+                  (actions/toggle-fav context content true))
+                :negative-name (r/get-string :cancel)
+                :negative-func actions/cancel}))
 
 (defn get-new-post-view
   [context content]
-  (let [page-content (get-state context :share)
+  (let [page-content (a/get-state context :share)
         pointers (if (empty? content)
                    {:ptrhash (when (and (:userhash page-content)
                                         (or (= :post (:type page-content))
                                             (-> (:userhash page-content)
-                                                is-me?
+                                                c/is-me?
                                                 not)))
                                (:userhash page-content))
                     :ptrtime (when (= :post (:type page-content))
                                (:time page-content))}
                    {:ptrhash (:ptrhash content)
                     :ptrtime (:ptrtime content)})
-        view (make-ui context [:linear-layout {:orientation 1}
-                               [:linear-layout {:orientation 0
-                                                :tag "user-info"}
-                                [:image-view {:background-resource
-                                              (get-resource :drawable :profile)
-                                              :tag "user-img"}]
-                                [:text-view {:single-line true
-                                             :tag "user-name"}]]
-                               [:edit-text {:min-lines 10
-                                            :tag "post-body"}]])
+        view (neko.ui/make-ui
+               context
+               [:linear-layout {:orientation 1}
+                [:linear-layout {:orientation 0
+                                 :tag "user-info"}
+                 [:image-view {:background-resource
+                               (r/get-resource :drawable :profile)
+                               :tag "user-img"}]
+                 [:text-view {:single-line true
+                              :tag "user-name"}]]
+                [:edit-text {:min-lines 10
+                             :tag "post-body"}]])
         user-info (.findViewWithTag view "user-info")
         user-img (.findViewWithTag view "user-img")
         user-name (.findViewWithTag view "user-name")
         post-body (.findViewWithTag view "post-body")
-        pad (make-dip context 10)
+        pad (utils/make-dip context 10)
         s 80]
     (.setTag view pointers)
-    (set-text-size user-name default-text-size)
+    (utils/set-text-size user-name utils/default-text-size)
     (.setMinHeight user-name s)
     (.setGravity user-name android.view.Gravity/CENTER_VERTICAL)
     (.setPadding user-name pad 0 0 0)
     (.setLayoutParams user-img (android.widget.LinearLayout$LayoutParams. s s))
     (.setScaleType user-img android.widget.ImageView$ScaleType/CENTER_CROP)
     (if-let [ptr-hash (:ptrhash pointers)]
-      (future (let [user (get-single-user-data {:userhash ptr-hash})
-                    path (get-pic-path (:userhash user) (:pichash user))
-                    bitmap (path-to-bitmap path thumb-size)]
-                (on-ui (.setText user-name (:title user))
-                       (.setImageBitmap user-img bitmap))))
+      (future (let [user (db/get-single-user-data {:userhash ptr-hash})
+                    path (utils/get-pic-path (:userhash user) (:pichash user))
+                    bitmap (utils/path-to-bitmap path utils/thumb-size)]
+                (thread/on-ui (.setText user-name (:title user))
+                              (.setImageBitmap user-img bitmap))))
       (.setVisibility user-info android.view.View/GONE))
-    (set-text-size post-body default-text-size)
-    (set-text-max-length post-body max-length-large)
+    (utils/set-text-size post-body utils/default-text-size)
+    (utils/set-text-max-length post-body db/max-length-large)
     (.setText post-body (:body content))
-    (clear-attachments context)
+    (actions/clear-attachments context)
     view))
 
 (defn show-new-post-dialog
@@ -384,44 +369,44 @@
                  nil
                  view
                  {:positive-name (if (:ptrtime (.getTag view))
-                                   (get-string :send_reply)
-                                   (get-string :send))
-                  :positive-func do-new-post
-                  :neutral-name (get-string :attach_pics)
-                  :neutral-func attach-to-post
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel})))
+                                   (r/get-string :send_reply)
+                                   (r/get-string :send))
+                  :positive-func actions/new-post
+                  :neutral-name (r/get-string :attach_pics)
+                  :neutral-func actions/attach-to-post
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel})))
 
 (defn show-edit-post-dialog
   [context content pics]
   (show-dialog context
                nil
                (get-new-post-view context content)
-               {:positive-name (get-string :save)
+               {:positive-name (r/get-string :save)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (do-new-post context
-                               dialog-view
-                               button-view
-                               (:time content)
-                               (for [pic pics] (:pichash pic))
-                               1))
-                :neutral-name (get-string :delete)
+                  (actions/new-post context
+                                    dialog-view
+                                    button-view
+                                    (:time content)
+                                    (for [pic pics] (:pichash pic))
+                                    1))
+                :neutral-name (r/get-string :delete)
                 :neutral-func
                 (fn [context dialog-view button-view]
-                  (show-delete-post-dialog
-                                  context
-                                  dialog-view
-                                  button-view
-                                  (:time content)))
-                :negative-name (get-string :cancel)
-                :negative-func cancel}))
+                  (show-delete-post-dialog context
+                                           dialog-view
+                                           button-view
+                                           (:time content)))
+                :negative-name (r/get-string :cancel)
+                :negative-func actions/cancel}))
 
 (defn get-profile-view
   [context content]
   (let [bold android.graphics.Typeface/DEFAULT_BOLD
-        view (if (is-me? (:userhash content))
-               (make-ui context [:scroll-view {}
+        view (if (c/is-me? (:userhash content))
+               (neko.ui/make-ui context
+                                [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:edit-text {:single-line true
                                                :layout-width :fill
@@ -429,7 +414,8 @@
                                   [:edit-text {:layout-width :fill
                                                :tag "profile-body"}]
                                   [:relative-layout {}]]])
-               (make-ui context [:scroll-view {}
+               (neko.ui/make-ui context
+                                [:scroll-view {}
                                  [:linear-layout {:orientation 1}
                                   [:text-view {:single-line true
                                                :layout-width :fill
@@ -446,24 +432,24 @@
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
         clear-btn (android.widget.Button. context)
-        pad (make-dip context 10)]
+        pad (utils/make-dip context 10)]
     ; set padding and text size
     (.setPadding linear-layout pad pad pad pad)
-    (set-text-size text-name default-text-size)
-    (set-text-size text-body default-text-size)
-    (set-text-max-length text-name max-length-small)
-    (set-text-max-length text-body max-length-large)
+    (utils/set-text-size text-name utils/default-text-size)
+    (utils/set-text-size text-body utils/default-text-size)
+    (utils/set-text-max-length text-name db/max-length-small)
+    (utils/set-text-max-length text-body db/max-length-large)
     ; set text content
-    (when (is-me? (:userhash content))
-      (.setHint text-name (get-string :name))
-      (.setHint text-body (get-string :about_me)))
+    (when (c/is-me? (:userhash content))
+      (.setHint text-name (r/get-string :name))
+      (.setHint text-body (r/get-string :about_me)))
     (.setText text-name (:title content))
-    (if (is-me? (:userhash content))
+    (if (c/is-me? (:userhash content))
       (.setText text-body (:body content))
       (->> (:body content)
-           (tags-encode :user)
-           (set-text-content context text-body)))
-    (.setText clear-btn (get-string :clear))
+           (f/tags-encode :user)
+           (utils/set-text-content context text-body)))
+    (.setText clear-btn (r/get-string :clear))
     ; set layout params for image view and clear button
     (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
           params (android.widget.RelativeLayout$LayoutParams. fill 0)]
@@ -476,22 +462,23 @@
     ; set image view and clear button parameters
     (.setTag image-view "profile-image")
     (.setScaleType image-view android.widget.ImageView$ScaleType/CENTER_CROP)
-    (.setBackgroundResource image-view (get-resource :drawable :profile))
+    (.setBackgroundResource image-view (r/get-resource :drawable :profile))
     (future
-      (let [bitmap (-> (get-pic-path (:userhash content)
-                                     (:pichash content))
-                       (path-to-bitmap full-size))]
-        (on-ui (.setImageBitmap image-view bitmap))))
+      (let [bitmap (-> (utils/get-pic-path (:userhash content)
+                                           (:pichash content))
+                       (utils/path-to-bitmap utils/full-size))]
+        (thread/on-ui (.setImageBitmap image-view bitmap))))
     (.addView relative-layout image-view)
-    (when (is-me? (:userhash content))
+    (when (c/is-me? (:userhash content))
       (.setOnClickListener
         image-view
         (proxy [android.view.View$OnClickListener] []
           (onClick [v]
-            (request-files context
+            (actions/request-files context
                            "image/*"
                            (fn [uri]
-                             (let [pic (uri-to-bitmap context (.toString uri))]
+                             (let [pic (utils/uri-to-bitmap context
+                                                            (.toString uri))]
                                (.setImageBitmap image-view pic)))))))
       (.setOnClickListener clear-btn
                            (proxy [android.view.View$OnClickListener] []
@@ -506,12 +493,12 @@
   (show-dialog context
                nil
                (get-profile-view context content)
-               (if (is-me? (:userhash content))
-                 {:positive-name (get-string :save)
-                  :positive-func do-save-profile
-                  :neutral-name (get-string :export_start)
+               (if (c/is-me? (:userhash content))
+                 {:positive-name (r/get-string :save)
+                  :positive-func actions/save-profile
+                  :neutral-name (r/get-string :export_start)
                   :neutral-func show-export-dialog
-                  :negative-name (get-string :cancel)
-                  :negative-func cancel}
-                 {:positive-name (get-string :ok)
-                  :positive-func cancel})))
+                  :negative-name (r/get-string :cancel)
+                  :negative-func actions/cancel}
+                 {:positive-name (r/get-string :ok)
+                  :positive-func actions/cancel})))

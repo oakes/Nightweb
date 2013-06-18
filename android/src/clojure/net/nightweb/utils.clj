@@ -1,12 +1,9 @@
 (ns net.nightweb.utils
-  (:use [markdown.core :only [md-to-html-string]]
-        [clojure.java.io :only [input-stream file copy]]
-        [neko.resource :only [get-resource]]
-        [neko.threading :only [on-ui]]
-        [nightweb.formats :only [base32-encode
-                                 url-decode]]
-        [nightweb.constants :only [slash
-                                   get-pic-dir]]))
+  (:require [markdown.core :as markdown]
+            [clojure.java.io :as java.io]
+            [neko.resource :as r]
+            [nightweb.constants :as c]
+            [nightweb.formats :as f]))
 
 (def ^:const full-size 1024)
 (def ^:const thumb-size 256)
@@ -51,9 +48,9 @@
   "Reads from a file path into a bitmap, resizing if necessary."
   [path max-length]
   (try
-    (when-let [ratio (with-open [is (input-stream path)]
+    (when-let [ratio (with-open [is (java.io/input-stream path)]
                        (get-resample-ratio is max-length))]
-      (with-open [is (input-stream path)]
+      (with-open [is (java.io/input-stream path)]
         (input-stream-to-bitmap is ratio)))
     (catch Exception e nil)))
 
@@ -73,28 +70,28 @@
     (let [cr (.getContentResolver context)
           uri (android.net.Uri/parse uri-str)]
       (with-open [is (.openInputStream cr uri)]
-        (copy is (file path))))
+        (java.io/copy is (java.io/file path))))
     (catch Exception e nil)))
 
 (defn get-pic-path
   "Gets the full path for the given user and image hash combination."
   [user-hash-bytes image-hash-bytes]
   (when (and user-hash-bytes image-hash-bytes)
-    (str (get-pic-dir (base32-encode user-hash-bytes))
-         slash
-         (base32-encode image-hash-bytes))))
+    (str (c/get-pic-dir (f/base32-encode user-hash-bytes))
+         c/slash
+         (f/base32-encode image-hash-bytes))))
 
 (defn create-highlight
   "Creates a Drawable that highlights when pressed."
   ([context] (create-highlight context nil))
   ([context drawable]
    (let [states (android.graphics.drawable.StateListDrawable.)
-         blue (->> (get-resource :color :android/holo_blue_light)
+         blue (->> (r/get-resource :color :android/holo_blue_light)
                    (.getDrawable (.getResources context)))
-         transparent (->> (get-resource :color :android/transparent)
+         transparent (->> (r/get-resource :color :android/transparent)
                           (.getDrawable (.getResources context)))
-         pressed (get-resource :attr :android/state_pressed)
-         selected (get-resource :attr :android/state_selected)]
+         pressed (r/get-resource :attr :android/state_pressed)
+         selected (r/get-resource :attr :android/state_selected)]
      (.addState states (int-array [pressed]) blue)
      (.addState states (int-array [selected]) transparent)
      (when drawable (.addState states (int-array []) drawable))
@@ -189,7 +186,7 @@
 (defn set-text-content
   "Sets the content of a TextView and formats it if necessary."
   [context view content]
-  (let [html-text (md-to-html-string content)
+  (let [html-text (markdown/md-to-html-string content)
         markdown-text (try
                         (android.text.Html/fromHtml html-text)
                         (catch Exception e ""))
@@ -202,7 +199,7 @@
             end (.getSpanEnd text old-span)
             new-span (proxy [android.text.style.ClickableSpan] []
                        (onClick [widget]
-                         (when-let [params (url-decode (.getURL old-span))]
+                         (when-let [params (f/url-decode (.getURL old-span))]
                            (show-basic context params))))]
         (.removeSpan text old-span)
         (.setSpan text new-span start end 0)))))

@@ -1,25 +1,7 @@
 (ns nightweb.db
-  (:use [clojure.java.jdbc :only [with-connection
-                                  create-table
-                                  drop-table
-                                  update-or-insert-values
-                                  update-values
-                                  with-query-results
-                                  delete-rows
-                                  do-commands]]
-        [nightweb.formats :only [base32-decode
-                                 long-decode
-                                 b-encode
-                                 b-decode
-                                 b-decode-bytes
-                                 b-decode-string
-                                 b-decode-long
-                                 b-decode-list
-                                 b-decode-byte-list
-                                 tags-decode]]
-        [nightweb.constants :only [db-file
-                                   my-hash-bytes
-                                   my-hash-list]]))
+  (:require [clojure.java.jdbc :as jdbc]
+            [nightweb.constants :as c]
+            [nightweb.formats :as f]))
 
 (def spec (atom nil))
 (def ^:const limit 24)
@@ -45,9 +27,9 @@
   ([table-name] (check-table table-name "*"))
   ([table-name column-name]
    (try
-     (with-connection
+     (jdbc/with-connection
        @spec
-       (with-query-results
+       (jdbc/with-query-results
          rs
          [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
          rs))
@@ -55,7 +37,7 @@
 
 (defn create-index
   [table-name columns]
-  (do-commands
+  (jdbc/do-commands
     "CREATE ALIAS IF NOT EXISTS FT_INIT FOR \"org.h2.fulltext.FullText.init\";"
     "CALL FT_INIT();"
     (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
@@ -63,7 +45,7 @@
 
 (defn create-generic-table
   [table-name]
-  (create-table
+  (jdbc/create-table
     table-name
     [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
     [:realuserhash "BINARY"]
@@ -81,25 +63,25 @@
 (defn create-tables
   []
   (when-not (check-table :user)
-    (with-connection
+    (jdbc/with-connection
       @spec
       (create-generic-table :user)
       (create-index "USER" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :post)
-    (with-connection
+    (jdbc/with-connection
       @spec
       (create-generic-table :post)
       (create-index "POST" ["ID" "TITLE" "BODY"])))
   (when-not (check-table :pic)
-    (with-connection
+    (jdbc/with-connection
       @spec
       (create-generic-table :pic)))
   (when-not (check-table :fav)
-    (with-connection
+    (jdbc/with-connection
       @spec
       (create-generic-table :fav)))
   (when-not (check-table :tag)
-    (with-connection
+    (jdbc/with-connection
       @spec
       (create-generic-table :tag))))
 
@@ -109,7 +91,7 @@
     (reset! spec
             {:classname "org.h2.Driver"
              :subprotocol "h2"
-             :subname (str base-dir db-file)})
+             :subname (str base-dir c/db-file)})
     (create-tables)))
 
 ; retrieval
@@ -117,9 +99,9 @@
 (defn get-single-user-data
   [params]
   (let [user-hash (:userhash params)]
-    (with-connection
+    (jdbc/with-connection
       @spec
-      (with-query-results
+      (jdbc/with-query-results
         rs
         ["SELECT * FROM user WHERE userhash = ?" user-hash]
         (if-let [user (first (prepare-results rs :user))]
@@ -130,9 +112,9 @@
   [params]
   (let [user-hash (:userhash params)
         create-time (:time params)]
-    (with-connection
+    (jdbc/with-connection
       @spec
-      (with-query-results
+      (jdbc/with-query-results
         rs
         ["SELECT * FROM post WHERE userhash = ? AND time = ? AND status = 1"
          user-hash create-time]
@@ -144,9 +126,9 @@
   [params]
   (let [user-hash (:userhash params)
         page (:page params)]
-    (with-connection
+    (jdbc/with-connection
       @spec
-      (with-query-results
+      (jdbc/with-query-results
         rs
         [(paginate page
                    "SELECT * FROM post 
@@ -155,25 +137,25 @@
         (prepare-results rs :post)))))
 
 (defn get-single-fav-data
-  ([params] (get-single-fav-data params @my-hash-bytes))
+  ([params] (get-single-fav-data params @c/my-hash-bytes))
   ([params my-user-hash]
    (let [ptr-hash (:userhash params)
          ptr-time (:time params)]
-     (with-connection
+     (jdbc/with-connection
        @spec
-       (with-query-results
+       (jdbc/with-query-results
          rs
          ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
           my-user-hash ptr-hash ptr-time]
          (first (prepare-results rs :fav)))))))
 
 (defn get-fav-data
-  ([params] (get-fav-data params @my-hash-bytes))
+  ([params] (get-fav-data params @c/my-hash-bytes))
   ([params my-user-hash]
    (let [ptr-hash (:ptrhash params)]
-     (with-connection
+     (jdbc/with-connection
        @spec
-       (with-query-results
+       (jdbc/with-query-results
          rs
          ["SELECT * FROM fav WHERE ptrhash = ? 
           AND status = 1 
@@ -267,9 +249,9 @@
                                   ORDER BY count DESC"]
                            nil))]
     (when statement
-      (with-connection
+      (jdbc/with-connection
         @spec
-        (with-query-results
+        (jdbc/with-query-results
           rs
           (vec (concat [(paginate (:page params) (first statement))]
                        (rest statement)))
@@ -293,9 +275,9 @@
                            LIMIT 1" tag]
                     nil)]
     (when statement
-      (with-connection
+      (jdbc/with-connection
         @spec
-        (with-query-results
+        (jdbc/with-query-results
           rs
           statement
           (first (prepare-results rs :tag)))))))
@@ -304,9 +286,9 @@
   ([params]
    (let [user-hash (:userhash params)
          pic-hash (:pichash params)]
-     (with-connection
+     (jdbc/with-connection
        @spec
-       (with-query-results
+       (jdbc/with-query-results
          rs
          ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
           user-hash pic-hash]
@@ -314,9 +296,9 @@
   ([params ptr-time paginate?]
    (let [user-hash (:userhash params)
          page (:page params)]
-     (with-connection
+     (jdbc/with-connection
        @spec
-       (with-query-results
+       (jdbc/with-query-results
          rs
          [(let [sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"]
             (if paginate? (paginate page sql) sql))
@@ -327,17 +309,17 @@
 
 (defn insert-tag-list
   [user-hash ptr-time edit-time args]
-  (let [tags (tags-decode (b-decode-string (get args "body")))
-        pics (b-decode-list (get args "pics"))
-        pic-hash (b-decode-bytes (get pics 0))]
-    (with-connection
+  (let [tags (f/tags-decode (f/b-decode-string (get args "body")))
+        pics (f/b-decode-list (get args "pics"))
+        pic-hash (f/b-decode-bytes (get pics 0))]
+    (jdbc/with-connection
       @spec
-      (delete-rows
+      (jdbc/delete-rows
         :tag
         ["userhash = ? AND ptrtime IS ? AND mtime < ?"
          user-hash ptr-time edit-time])
       (doseq [tag tags]
-        (update-or-insert-values
+        (jdbc/update-or-insert-values
           :tag
           ["title = ? AND userhash = ? AND ptrtime IS ?"
            tag user-hash ptr-time]
@@ -351,16 +333,16 @@
 
 (defn insert-pic-list
   [user-hash ptr-time edit-time args]
-  (let [pics (b-decode-list (get args "pics"))]
-    (with-connection
+  (let [pics (f/b-decode-list (get args "pics"))]
+    (jdbc/with-connection
       @spec
-      (delete-rows
+      (jdbc/delete-rows
         :pic
         ["userhash = ? AND ptrtime IS ? AND mtime < ?"
          user-hash ptr-time edit-time])
       (doseq [pic pics]
-        (when-let [pic-hash (b-decode-bytes pic)]
-          (update-or-insert-values
+        (when-let [pic-hash (f/b-decode-bytes pic)]
+          (jdbc/update-or-insert-values
             :pic
             ["pichash = ? AND userhash = ? AND ptrtime IS ?"
              pic-hash user-hash ptr-time]
@@ -373,66 +355,66 @@
 
 (defn insert-profile
   [user-hash args]
-  (let [edit-time (b-decode-long (get args "mtime"))
+  (let [edit-time (f/b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash nil edit-time args)
         tags (insert-tag-list user-hash nil edit-time args)]
     (when (and edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
+      (jdbc/with-connection
         @spec
-        (update-or-insert-values
+        (jdbc/update-or-insert-values
           :user
           ["userhash = ?" user-hash]
           {:realuserhash user-hash 
            :userhash user-hash 
-           :title (b-decode-string (get args "title"))
-           :body (b-decode-string (get args "body"))
+           :title (f/b-decode-string (get args "title"))
+           :body (f/b-decode-string (get args "body"))
            :mtime edit-time
-           :pichash (b-decode-bytes (get pics 0))
-           :status (b-decode-long (get args "status"))})
-        (update-values
+           :pichash (f/b-decode-bytes (get pics 0))
+           :status (f/b-decode-long (get args "status"))})
+        (jdbc/update-values
           :user
           ["userhash = ? AND time IS NULL" user-hash]
           {:time (.getTime (java.util.Date.))})))))
 
 (defn insert-post
   [user-hash post-time args]
-  (let [edit-time (b-decode-long (get args "mtime"))
+  (let [edit-time (f/b-decode-long (get args "mtime"))
         pics (insert-pic-list user-hash post-time edit-time args)
         tags (insert-tag-list user-hash post-time edit-time args)]
     (when (and post-time
                (<= post-time (.getTime (java.util.Date.)))
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
+      (jdbc/with-connection
         @spec
-        (update-or-insert-values
+        (jdbc/update-or-insert-values
           :post
           ["userhash = ? AND time = ?" user-hash post-time]
           {:realuserhash user-hash 
            :userhash user-hash
-           :body (b-decode-string (get args "body"))
+           :body (f/b-decode-string (get args "body"))
            :time post-time
            :mtime edit-time
-           :pichash (b-decode-bytes (get pics 0))
+           :pichash (f/b-decode-bytes (get pics 0))
            :count (count pics)
-           :ptrhash (b-decode-bytes (get args "ptrhash"))
-           :ptrtime (b-decode-long (get args "ptrtime"))
-           :status (b-decode-long (get args "status"))})))))
+           :ptrhash (f/b-decode-bytes (get args "ptrhash"))
+           :ptrtime (f/b-decode-long (get args "ptrtime"))
+           :status (f/b-decode-long (get args "status"))})))))
 
 (defn insert-fav
   [user-hash fav-time args]
-  (let [edit-time (b-decode-long (get args "mtime"))
-        ptr-hash (b-decode-bytes (get args "ptrhash"))
-        ptr-time (b-decode-long (get args "ptrtime"))]
+  (let [edit-time (f/b-decode-long (get args "mtime"))
+        ptr-hash (f/b-decode-bytes (get args "ptrhash"))
+        ptr-time (f/b-decode-long (get args "ptrtime"))]
     (when (and ptr-hash
                fav-time
                (<= fav-time (.getTime (java.util.Date.)))
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (with-connection
+      (jdbc/with-connection
         @spec
-        (update-or-insert-values
+        (jdbc/update-or-insert-values
           :fav
           ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
            user-hash ptr-hash ptr-time]
@@ -442,16 +424,16 @@
            :mtime edit-time
            :ptrhash ptr-hash
            :ptrtime ptr-time
-           :status (b-decode-long (get args "status"))})))))
+           :status (f/b-decode-long (get args "status"))})))))
 
 (defn insert-meta-data
   [user-hash data-map]
   (case (:dir-name data-map)
     "post" (insert-post user-hash
-                        (long-decode (:file-name data-map))
+                        (f/long-decode (:file-name data-map))
                         (:contents data-map))
     "fav" (insert-fav user-hash
-                      (long-decode (:file-name data-map))
+                      (f/long-decode (:file-name data-map))
                       (:contents data-map))
     "meta" (case (:file-name data-map)
              "user.profile" (insert-profile user-hash (:contents data-map))
@@ -460,10 +442,10 @@
 
 (defn delete-user
   [user-hash]
-  (with-connection
+  (jdbc/with-connection
     @spec
-    (delete-rows :user ["userhash = ?" user-hash])
-    (delete-rows :post ["userhash = ?" user-hash])
-    (delete-rows :pic ["userhash = ?" user-hash])
-    (delete-rows :fav ["userhash = ?" user-hash])
-    (delete-rows :tag ["userhash = ?" user-hash])))
+    (jdbc/delete-rows :user ["userhash = ?" user-hash])
+    (jdbc/delete-rows :post ["userhash = ?" user-hash])
+    (jdbc/delete-rows :pic ["userhash = ?" user-hash])
+    (jdbc/delete-rows :fav ["userhash = ?" user-hash])
+    (jdbc/delete-rows :tag ["userhash = ?" user-hash])))

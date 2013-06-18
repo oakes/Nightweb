@@ -1,17 +1,11 @@
 (ns nightweb-desktop.views
-  (:use [markdown.core :only [md-to-html-string]]
-        [nightweb.formats :only [url-encode
-                                 tags-encode]]
-        [nightweb.db :only [get-single-post-data
-                            get-single-user-data]]
-        [nightweb.db_tiles :only [get-post-tiles
-                                  get-user-tiles
-                                  get-category-tiles]]
-        [nightweb.constants :only [is-me?]]
-        [nightweb-desktop.utils :only [get-string
-                                       get-pic]]
-        [nightweb-desktop.dialogs :only [get-my-profile-dialog
-                                         get-their-profile-dialog]]))
+  (:require [markdown.core :as markdown]
+            [nightweb.constants :as c]
+            [nightweb.db :as db]
+            [nightweb.db_tiles :as tiles]
+            [nightweb.formats :as f]
+            [nightweb-desktop.dialogs :as dialogs]
+            [nightweb-desktop.utils :as utils]))
 
 (defn get-tab-view
   [params show-me-tab?]
@@ -21,25 +15,25 @@
     (when (or show-me-tab? (not= nil (:type button)))
       (let [active-tab (or (:subtype params) (:type params))]
         [:li {:class (when (= active-tab (:type button)) "active")}
-         [:a {:href (url-encode (if (:subtype params)
-                                  (assoc params :subtype (:type button))
-                                  button)
+         [:a {:href (f/url-encode (if (:subtype params)
+                                    (assoc params :subtype (:type button))
+                                    button)
                                 (if show-me-tab? "/?" "/c?"))}
           (:title button)]]))))
 
 (defn get-menu-view
   []
   (for [button [{:class "foundicon-search"
-                 :title (get-string :search)
+                 :title (utils/get-string :search)
                  :dialog "search-dialog"}
                 {:class "foundicon-plus"
-                 :title (get-string :new_post)
+                 :title (utils/get-string :new_post)
                  :dialog "new-post-dialog"}
                 {:class "foundicon-page"
-                 :title (get-string :share)
+                 :title (utils/get-string :share)
                  :dialog "link-dialog"}
                 {:class "foundicon-people"
-                 :title (get-string :switch_user)
+                 :title (utils/get-string :switch_user)
                  :dialog "switch-user-dialog"}]]
     [:li [:a {:href "#"
               :onclick (format "showDialog('%s')" (:dialog button))}
@@ -62,17 +56,17 @@
 (defn get-grid-view
   [content]
   (for [item content]
-    (let [background (or (get-pic (:userhash item) (:pichash item))
+    (let [background (or (utils/get-pic (:userhash item) (:pichash item))
                          (when-let [bg (:background item)]
                            (str "img/" (name bg) ".png")))
-          title (get-string (or (:title item)
-                                (:body item)
-                                (:tag item)))
+          title (utils/get-string (or (:title item)
+                                      (:body item)
+                                      (:tag item)))
           add-emphasis? (:add-emphasis? item)
           is-pic? (= :pic (:type item))]
       [(if is-pic? :li :div)
        [:a {:href (if is-pic? background "#")
-            :onclick (str "doAction('" (url-encode item "") "')")
+            :onclick (str "doAction('" (f/url-encode item "") "')")
             :class "grid-view-tile square-image"
             :style (format "background-image: url(%s); text-align: %s;"
                            (if is-pic? "" background)
@@ -83,10 +77,10 @@
 
 (defn get-post-view
   [params]
-  (let [post (get-single-post-data params)
-        tiles (get-post-tiles post)
-        text (tags-encode :post (:body post))
-        html-text (md-to-html-string text)
+  (let [post (db/get-single-post-data params)
+        tiles (tiles/get-post-tiles post)
+        text (f/tags-encode :post (:body post))
+        html-text (markdown/md-to-html-string text)
         html-tiles (get-grid-view tiles)]
     [:div {:id "post"}
      [:div {:class "post-body"} html-text]
@@ -96,15 +90,15 @@
 
 (defn get-user-view
   [params]
-  (let [user (get-single-user-data params)
-        tiles (get-user-tiles params user)]
+  (let [user (db/get-single-user-data params)
+        tiles (tiles/get-user-tiles params user)]
     [:div
      (get-grid-view tiles)
-     (if (is-me? (:userhash user))
-       (get-my-profile-dialog user)
-       (get-their-profile-dialog user))]))
+     (if (c/is-me? (:userhash user))
+       (dialogs/get-my-profile-dialog user)
+       (dialogs/get-their-profile-dialog user))]))
 
 (defn get-category-view
   [params]
-  (let [tiles (get-category-tiles params)]
+  (let [tiles (tiles/get-category-tiles params)]
     (get-grid-view tiles)))

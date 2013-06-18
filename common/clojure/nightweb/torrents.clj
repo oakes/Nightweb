@@ -1,8 +1,8 @@
 (ns nightweb.torrents
-  (:use [clojure.java.io :only [file input-stream]]
-        [nightweb.io :only [file-exists?]]
-        [nightweb.formats :only [base32-decode]]
-        [nightweb.constants :only [torrent-ext]]))
+  (:require [clojure.java.io :as java.io]
+            [nightweb.constants :as c]
+            [nightweb.formats :as f]
+            [nightweb.io :as io]))
 
 (def manager (atom nil))
 
@@ -47,14 +47,19 @@
                      (println "setWantedPieces"))
                    (addMessage [this message]
                      (println "addMessage" message)))
-        torrent-path (str path torrent-ext)
-        storage (if (file-exists? torrent-path)
+        torrent-path (str path c/torrent-ext)
+        storage (if (io/file-exists? torrent-path)
                   (org.klomp.snark.Storage.
                     (.util @manager)
-                    (org.klomp.snark.MetaInfo. (input-stream torrent-path))
+                    (org.klomp.snark.MetaInfo.
+                      (java.io/input-stream torrent-path))
                     listener)
-                  (org.klomp.snark.Storage.
-                    (.util @manager) (file path) nil nil false listener))]
+                  (org.klomp.snark.Storage. (.util @manager)
+                                            (java.io/file path)
+                                            nil
+                                            nil
+                                            false
+                                            listener))]
     (.close storage)
     storage))
 
@@ -97,7 +102,7 @@
     (try
       (.addMagnet @manager
                   info-hash-str
-                  (base32-decode info-hash-str)
+                  (f/base32-decode info-hash-str)
                   nil
                   false
                   true
@@ -113,9 +118,9 @@
   "Adds a torrent to download or seed."
   [path is-persistent? complete-callback]
   (try
-    (let [base-file (file path)
+    (let [base-file (java.io/file path)
           root-path (.getParent base-file)
-          torrent-file (file (str path torrent-ext))
+          torrent-file (java.io/file (str path c/torrent-ext))
           torrent-path (.getCanonicalPath torrent-file)
           storage (get-storage path)
           meta-info (.getMetaInfo storage)

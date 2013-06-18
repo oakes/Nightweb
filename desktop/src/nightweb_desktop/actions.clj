@@ -1,82 +1,71 @@
 (ns nightweb-desktop.actions
-  (:use [nightweb.router :only [create-user load-user delete-user]]
-        [nightweb.actions :only [save-profile
-                                 new-post
-                                 import-user
-                                 export-user
-                                 toggle-fav]]
-        [nightweb.io :only [write-file
-                            write-pic-file]]
-        [nightweb.formats :only [base32-decode]]
-        [nightweb.constants :only [base-dir
-                                   nw-dir
-                                   slash
-                                   user-zip-file]]
-        [nightweb-desktop.utils :only [get-string
-                                       decode-data-uri]])
-  (:require clojure.edn))
+  (:require [clojure.edn :as edn]
+            [nightweb.actions :as actions]
+            [nightweb.constants :as c]
+            [nightweb.formats :as f]
+            [nightweb.io :as io]
+            [nightweb.router :as router]
+            [nightweb-desktop.utils :as utils]))
 
 (defn do-action
   [params]
   (case (:type params)
     "save-profile" (-> (assoc params :pic-hash (-> (:pic-str params)
-                                                   decode-data-uri
-                                                   write-pic-file))
-                       save-profile
+                                                   utils/decode-data-uri
+                                                   io/write-pic-file))
+                       actions/save-profile
                        deref
                        (do nil))
-    "import-user" (let [path (str @base-dir nw-dir slash user-zip-file)
-                        file-barray (decode-data-uri (:file-str params))]
-                    (write-file path file-barray)
+    "import-user" (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)
+                        file-barray (utils/decode-data-uri (:file-str params))]
+                    (io/write-file path file-barray)
                     (-> (assoc params :source-str path)
-                        import-user
-                        get-string))
-    "export-user" (let [path (str @base-dir nw-dir slash user-zip-file)]
-                    (export-user (assoc params :dest-str path)))
+                        actions/import-user
+                        utils/get-string))
+    "export-user" (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)]
+                    (actions/export-user (assoc params :dest-str path)))
     "new-post" (-> (assoc params
                           :pic-hashes (for [pic (-> (:pics-str params)
-                                                    clojure.edn/read-string)]
+                                                    edn/read-string)]
                                         (-> pic
-                                            decode-data-uri
-                                            write-pic-file))
-                          :ptr-hash (base32-decode (:ptr-hash params))
-                          :ptr-time (clojure.edn/read-string (:ptr-time params))
+                                            utils/decode-data-uri
+                                            io/write-pic-file))
+                          :ptr-hash (f/base32-decode (:ptr-hash params))
+                          :ptr-time (edn/read-string (:ptr-time params))
                           :status 1)
-                   new-post
+                   actions/new-post
                    deref
                    (do nil))
     "edit-post" (-> (assoc params
                            :create-time (-> (:create-time params)
-                                            clojure.edn/read-string)
-                           :ptr-hash (base32-decode (:ptr-hash params))
-                           :ptr-time (-> (:ptr-time params)
-                                         clojure.edn/read-string)
+                                            edn/read-string)
+                           :ptr-hash (f/base32-decode (:ptr-hash params))
+                           :ptr-time (edn/read-string (:ptr-time params))
                            :pic-hashes (for [pic (-> (:pic-hashes params)
-                                                     clojure.edn/read-string)]
-                                         (base32-decode pic))
+                                                     edn/read-string)]
+                                         (f/base32-decode pic))
                            :status 1)
-                    new-post
+                    actions/new-post
                     deref
                     (do nil))
-    "delete-post" (-> {:create-time (-> (:create-time params)
-                                        clojure.edn/read-string)
+    "delete-post" (-> {:create-time (edn/read-string (:create-time params))
                        :status 0}
-                    new-post
+                    actions/new-post
                     deref
                     (do nil))
     "switch-user" (-> (:userhash params)
-                      base32-decode
-                      load-user)
+                      f/base32-decode
+                      router/load-user)
     "delete-user" (-> (:userhash params)
-                      base32-decode
-                      delete-user
+                      f/base32-decode
+                      router/delete-user
                       deref
                       (do nil))
-    "create-user" (load-user (create-user))
+    "create-user" (router/load-user (router/create-user))
     "toggle-fav" (-> (assoc params
-                            :ptr-hash (base32-decode (:userhash params))
-                            :ptr-time (clojure.edn/read-string (:time params)))
-                     toggle-fav
+                            :ptr-hash (f/base32-decode (:userhash params))
+                            :ptr-time (edn/read-string (:time params)))
+                     actions/toggle-fav
                      deref
                      (do nil))
     nil))

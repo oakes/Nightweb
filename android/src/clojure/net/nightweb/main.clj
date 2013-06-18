@@ -1,38 +1,35 @@
 (ns net.nightweb.main
-  (:use [neko.application :only [defapplication]]
-        [neko.notify :only [notification]]
-        [neko.resource :only [get-resource get-string]]
-        [net.clandroid.service :only [defservice
-                                      start-foreground
-                                      start-receiver
-                                      stop-receiver]]
-        [nightweb.router :only [start-router
-                                stop-router]]))
+  (:require [neko.application :as app]
+            [neko.notify :as notify]
+            [neko.resource :as r]
+            [net.clandroid.service :as s]
+            [nightweb.router :as router]))
 
-(defapplication net.nightweb.Application)
+(app/defapplication net.nightweb.Application)
 
 (def ^:const service-name "net.nightweb.MainService")
 (def ^:const shutdown-receiver-name "ACTION_CLOSE_APP")
 
-(defservice
+(s/defservice
   net.nightweb.MainService
   :def service
   :on-create
   (fn [this]
-    (start-foreground
-      this 1 (notification
-               :icon (get-resource :drawable :ic_launcher)
-               :content-title (get-string :shut_down_nightweb)
-               :content-text (get-string :nightweb_is_running)
+    (s/start-foreground
+      this 1 (notify/notification
+               :icon (r/get-resource :drawable :ic_launcher)
+               :content-title (r/get-string :shut_down_nightweb)
+               :content-text (r/get-string :nightweb_is_running)
                :action [:broadcast shutdown-receiver-name]))
-    (start-receiver this
-                    shutdown-receiver-name
-                    (fn [context intent]
-                      (try
-                        (.stopSelf service)
-                        (catch Exception e nil))))
-    (start-router (.getAbsolutePath (.getFilesDir this)) false))
+    (s/start-receiver
+      this
+      shutdown-receiver-name
+      (fn [context intent]
+        (try
+          (.stopSelf service)
+          (catch Exception e nil))))
+    (router/start-router (.getAbsolutePath (.getFilesDir this)) false))
   :on-destroy
   (fn [this]
-    (stop-receiver this shutdown-receiver-name)
-    (stop-router)))
+    (s/stop-receiver this shutdown-receiver-name)
+    (router/stop-router)))

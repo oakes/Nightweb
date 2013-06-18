@@ -1,8 +1,5 @@
 (ns net.clandroid.service
-  (:use [neko.-utils :only [simple-name
-                            unicaseize
-                            keyword->camelcase
-                            capitalize]]))
+  (:require [neko.-utils :as utils]))
 
 (defn bind-service
   [context class-name connected]
@@ -90,9 +87,9 @@
 (defmacro defservice
   [name & {:keys [extends prefix on-start-command def] :as options}]
   (let [options (or options {})
-        sname (simple-name name)
+        sname (utils/simple-name name)
         prefix (or prefix (str sname "-"))
-        def (or def (symbol (unicaseize sname)))]
+        def (or def (symbol (utils/unicaseize sname)))]
     `(do
        (gen-class
         :name ~name
@@ -120,10 +117,11 @@
              (~on-start-command ~'this ~'intent ~'flags ~'startId)
              android.app.Service/START_STICKY))
        ~@(map #(let [func (options %)
-                     event-name (keyword->camelcase %)]
+                     event-name (utils/keyword->camelcase %)]
                  (when func
                    `(defn ~(symbol (str prefix event-name))
                       [~(vary-meta 'this assoc :tag name)]
-                      (~(symbol (str ".super" (capitalize event-name))) ~'this)
+                      (~(symbol (str ".super" (utils/capitalize event-name)))
+                          ~'this)
                       (~func ~'this))))
               [:on-create :on-destroy]))))

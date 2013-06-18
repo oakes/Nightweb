@@ -1,6 +1,6 @@
 (ns nightweb.formats
-  (:use [nightweb.crypto :only [create-signature]]
-        [nightweb.constants :only [my-hash-bytes]]))
+  (:require [nightweb.constants :as c]
+            [nightweb.crypto :as crypto]))
 
 (defn remove-dupes-and-nils
   [the-list]
@@ -192,10 +192,10 @@
 
 (defn link-encode
   [link-hash]
-  (let [args {"user_hash" @my-hash-bytes
+  (let [args {"user_hash" @c/my-hash-bytes
               "link_hash" link-hash
               "mtime" (.getTime (java.util.Date.))}
         signed-data (b-encode args)
-        signature (create-signature signed-data)]
+        signature (crypto/create-signature signed-data)]
     (b-encode {"data" signed-data
                "sig" signature})))

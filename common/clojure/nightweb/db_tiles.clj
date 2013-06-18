@@ -1,17 +1,11 @@
 (ns nightweb.db_tiles
-  (:use [nightweb.db :only [limit
-                            get-pic-data
-                            get-post-data
-                            get-category-data
-                            get-single-user-data
-                            get-single-post-data
-                            get-single-fav-data]]
-        [nightweb.formats :only [remove-dupes-and-nils]]
-        [nightweb.constants :only [is-me?]]))
+  (:require [nightweb.constants :as c]
+            [nightweb.db :as db]
+            [nightweb.formats :as f]))
 
 (defn add-last-tile
   [content results]
-  (if (> (count results) limit)
+  (if (> (count results) db/limit)
     (let [next-page (-> (:page content)
                         (or 1)
                         (+ 1))]
@@ -28,18 +22,18 @@
   ([post] (get-post-tiles post nil))
   ([post edit-func]
    (let [; read values from the database
-         user (get-single-user-data post)
+         user (db/get-single-user-data post)
          user-pointer (when (and (:ptrhash post)
                                  (nil? (:ptrtime post)))
-                        (get-single-user-data
+                        (db/get-single-user-data
                           {:userhash (:ptrhash post)}))
          post-pointer (when (:ptrtime post) 
-                        (get-single-post-data
+                        (db/get-single-post-data
                           {:userhash (:ptrhash post)
                            :time (:ptrtime post)}))
-         pics (get-pic-data post (:time post) false)
-         fav (when-not (is-me? (:userhash post))
-               (get-single-fav-data post))
+         pics (db/get-pic-data post (:time post) false)
+         fav (when-not (c/is-me? (:userhash post))
+               (db/get-single-fav-data post))
          ; create tiles based on the values
          user-tile (assoc user
                           :background :profile
@@ -57,7 +51,7 @@
                                     :background :post
                                     :add-emphasis? true
                                     :title :in_reply_to))
-         action-tile (if (is-me? (:userhash post))
+         action-tile (if (c/is-me? (:userhash post))
                        {:title :edit
                         :add-emphasis? true
                         :background :edit_post
@@ -80,15 +74,15 @@
           user-pointer-tile
           post-pointer-tile
           action-tile]
-          (concat (get-pic-data post (:time post) true))
-          (remove-dupes-and-nils)
+          (concat (db/get-pic-data post (:time post) true))
+          (f/remove-dupes-and-nils)
           (vec)))))
 
 (defn get-user-tiles
   ([params user] (get-user-tiles params user nil))
   ([params user profile-func]
-   (let [fav (when-not (is-me? (:userhash user))
-               (get-single-fav-data {:userhash (:userhash user)}))
+   (let [fav (when-not (c/is-me? (:userhash user))
+               (db/get-single-fav-data {:userhash (:userhash user)}))
          first-tiles (when (nil? (:page params))
                        [{:title :profile
                          :add-emphasis? true
@@ -105,7 +99,7 @@
                          :background :favs
                          :type :fav
                          :subtype :user}
-                        (when-not (is-me? (:userhash user))
+                        (when-not (c/is-me? (:userhash user))
                           {:title (if (= 1 (:status fav))
                                     :remove_from_favorites
                                     :add_to_favorites)
@@ -117,13 +111,13 @@
                            :type :toggle-fav
                            :userhash (:userhash user)
                            :status (:status fav)})])
-         posts (->> (for [tile (get-post-data params)]
+         posts (->> (for [tile (db/get-post-data params)]
                       (assoc tile :background :post))
                     (into [])
                     (add-last-tile params))]
      (-> first-tiles
          (concat posts)
-         remove-dupes-and-nils
+         f/remove-dupes-and-nils
          vec))))
 
 (defn get-category-tiles
@@ -136,7 +130,7 @@
                         :title :tags
                         :add-emphasis? true
                         :background :tags})]
-        results (->> (for [tile (get-category-data params)]
+        results (->> (for [tile (db/get-category-data params)]
                        (case (:type tile)
                          :user (assoc tile :background :profile)
                          :post (assoc tile :background :post)
@@ -145,5 +139,5 @@
                      (add-last-tile params))]
     (-> first-tiles
         (concat results)
-        (remove-dupes-and-nils)
+        (f/remove-dupes-and-nils)
         (vec))))
