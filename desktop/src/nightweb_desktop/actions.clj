@@ -7,68 +7,105 @@
             [nightweb.users :as users]
             [nightweb-desktop.utils :as utils]))
 
+(defn save-profile
+  [params]
+  (-> (assoc params :pic-hash (-> (:pic-str params)
+                                  utils/decode-data-uri
+                                  io/write-pic-file))
+      actions/save-profile
+      deref)
+  nil)
+
+(defn import-user
+  [params]
+  (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)
+        file-barray (utils/decode-data-uri (:file-str params))]
+    (io/write-file path file-barray)
+    (-> (assoc params :source-str path)
+        actions/import-user
+        utils/get-string)))
+
+(defn export-user
+  [params]
+  (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)]
+    (actions/export-user (assoc params :dest-str path))))
+
+(defn new-post
+  [params]
+  (-> (assoc params
+             :pic-hashes (for [pic (edn/read-string (:pics-str params))]
+                           (-> (utils/decode-data-uri pic)
+                               io/write-pic-file))
+             :ptr-hash (f/base32-decode (:ptr-hash params))
+             :ptr-time (edn/read-string (:ptr-time params))
+             :status 1)
+      actions/new-post
+      deref)
+  nil)
+
+(defn edit-post
+  [params]
+  (-> (assoc params
+             :create-time (edn/read-string (:create-time params))
+             :ptr-hash (f/base32-decode (:ptr-hash params))
+             :ptr-time (edn/read-string (:ptr-time params))
+             :pic-hashes (for [pic (edn/read-string (:pic-hashes params))]
+                           (f/base32-decode pic))
+             :status 1)
+      actions/new-post
+      deref)
+  nil)
+
+(defn delete-post
+  [params]
+  (-> {:create-time (edn/read-string (:create-time params))
+       :status 0}
+      actions/new-post
+      deref)
+  nil)
+
+(defn switch-user
+  [params]
+  (-> (:userhash params)
+      f/base32-decode
+      users/load-user)
+  nil)
+
+(defn delete-user
+  [params]
+  (-> (:userhash params)
+      f/base32-decode
+      users/delete-user
+      deref)
+  nil)
+
+(defn create-user
+  [params]
+  (users/load-user (users/create-user))
+  (actions/fav-default-user)
+  nil)
+
+(defn toggle-fav
+  [params]
+  (-> (assoc params
+             :ptr-hash (f/base32-decode (:userhash params))
+             :ptr-time (edn/read-string (:time params)))
+      actions/toggle-fav
+      deref)
+  nil)
+
 (defn do-action
   [params]
-  (case (:type params)
-    "save-profile" (-> (assoc params :pic-hash (-> (:pic-str params)
-                                                   utils/decode-data-uri
-                                                   io/write-pic-file))
-                       actions/save-profile
-                       deref
-                       (do nil))
-    "import-user" (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)
-                        file-barray (utils/decode-data-uri (:file-str params))]
-                    (io/write-file path file-barray)
-                    (-> (assoc params :source-str path)
-                        actions/import-user
-                        utils/get-string))
-    "export-user" (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)]
-                    (actions/export-user (assoc params :dest-str path)))
-    "new-post" (-> (assoc params
-                          :pic-hashes (for [pic (-> (:pics-str params)
-                                                    edn/read-string)]
-                                        (-> pic
-                                            utils/decode-data-uri
-                                            io/write-pic-file))
-                          :ptr-hash (f/base32-decode (:ptr-hash params))
-                          :ptr-time (edn/read-string (:ptr-time params))
-                          :status 1)
-                   actions/new-post
-                   deref
-                   (do nil))
-    "edit-post" (-> (assoc params
-                           :create-time (-> (:create-time params)
-                                            edn/read-string)
-                           :ptr-hash (f/base32-decode (:ptr-hash params))
-                           :ptr-time (edn/read-string (:ptr-time params))
-                           :pic-hashes (for [pic (-> (:pic-hashes params)
-                                                     edn/read-string)]
-                                         (f/base32-decode pic))
-                           :status 1)
-                    actions/new-post
-                    deref
-                    (do nil))
-    "delete-post" (-> {:create-time (edn/read-string (:create-time params))
-                       :status 0}
-                    actions/new-post
-                    deref
-                    (do nil))
-    "switch-user" (-> (:userhash params)
-                      f/base32-decode
-                      users/load-user)
-    "delete-user" (-> (:userhash params)
-                      f/base32-decode
-                      users/delete-user
-                      deref
-                      (do nil))
-    "create-user" (do
-                    (users/load-user (users/create-user))
-                    (actions/fav-default-user)
-                    nil)
-    "toggle-fav" (-> (assoc params
-                            :ptr-hash (f/base32-decode (:userhash params))
-                            :ptr-time (edn/read-string (:time params)))
-                     actions/toggle-fav
-                     deref
-                     (do nil))
-    nil))
+  (when-let [action (case (:type params)
+                      "save-profile" save-profile
+                      "import-user" import-user
+                      "export-user" export-user
+                      "new-post" new-post
+                      "edit-post" edit-post
+                      "delete-post" delete-post
+                      "switch-user" switch-user
+                      "delete-user" delete-user
+                      "create-user" create-user
+                      "toggle-fav" toggle-fav
+                      nil)]
+    (action params)))
