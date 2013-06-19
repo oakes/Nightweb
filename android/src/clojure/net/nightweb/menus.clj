@@ -1,7 +1,6 @@
 (ns net.nightweb.menus
   (:require [neko.resource :as r]
             [net.nightweb.actions :as actions]
-            [net.nightweb.utils :as utils]
             [net.nightweb.dialogs :as dialogs]))
 
 (defn create-main-menu
@@ -20,10 +19,11 @@
         (onQueryTextChange [new-text]
           false)
         (onQueryTextSubmit [query]
-          (utils/show-categories context
-                                 {:title (str (r/get-string :search) ": " query)
-                                  :query query
-                                  :type :search})
+          (actions/show-categories
+            context
+            {:title (str (r/get-string :search) ": " query)
+             :query query
+             :type :search})
           true)))
     (.setActionView search-item search-view))
   ; create new post button

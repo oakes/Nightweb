@@ -115,34 +115,6 @@
       (* number)
       (int)))
 
-(defn show-page
-  "Shows a new activity of the specified type."
-  [context class-name params]
-  (let [class-symbol (Class/forName class-name)
-        intent (android.content.Intent. context class-symbol)]
-    (.putExtra intent "params" params)
-    (.startActivity context intent)))
-
-(defn show-categories
-  "Shows the Category page."
-  [context content]
-  (show-page context "net.nightweb.CategoryPage" content))
-
-(defn show-gallery
-  "Shows the Gallery page."
-  [context content]
-  (show-page context "net.nightweb.GalleryPage" content))
-
-(defn show-basic
-  "Shows the Basic page."
-  [context content]
-  (show-page context "net.nightweb.BasicPage" content))
-
-(defn show-home
-  "Shows the Main page."
-  [context content]
-  (show-page context "net.nightweb.MainPage" content))
-
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."
   [view size]
@@ -185,7 +157,7 @@
 
 (defn set-text-content
   "Sets the content of a TextView and formats it if necessary."
-  [context view content]
+  [context view on-tap content]
   (let [html-text (markdown/md-to-html-string content)
         markdown-text (try
                         (android.text.Html/fromHtml html-text)
@@ -200,7 +172,7 @@
             new-span (proxy [android.text.style.ClickableSpan] []
                        (onClick [widget]
                          (when-let [params (f/url-decode (.getURL old-span))]
-                           (show-basic context params))))]
+                           (on-tap context params))))]
         (.removeSpan text old-span)
         (.setSpan text new-span start end 0)))))
 

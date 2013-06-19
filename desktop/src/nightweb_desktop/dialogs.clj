@@ -115,7 +115,7 @@
                        pr-str)
         ptr-hash (f/base32-encode (:ptrhash post))
         ptr-time (:ptrtime post)]
-    [:form {:id "edit-dialog"
+    [:form {:id "edit-post-dialog"
             :class "reveal-modal dark"
             :action "/"
             :method "POST"

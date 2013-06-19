@@ -12,7 +12,21 @@
 
 (def ^:const default-tile-width 160)
 
+(defn do-action
+  "Provides a central place to associate types with the appropriate actions."
+  [context item]
+  (when-let [func (case (:type item)
+                    :fav actions/show-categories
+                    :toggle-fav actions/toggle-fav
+                    :search actions/show-categories
+                    :pic actions/show-gallery
+                    :edit-post dialogs/show-edit-post-dialog
+                    :profile dialogs/show-profile-dialog
+                    actions/show-basic)]
+    (func context item)))
+
 (defn create-grid-view-tile
+  "Creates a tile based on the given item map."
   [context item]
   (let [pad (utils/make-dip context 3)
         radius (utils/make-dip context 10)
@@ -79,10 +93,11 @@
       tile-view
       (proxy [android.view.View$OnClickListener] []
         (onClick [view]
-          (actions/do-action context item))))
+          (do-action context item))))
     tile-view))
 
 (defn add-grid-view-tiles
+  "Adds vector of tiles to the given view."
   [context content view]
   (future
     (let [num-columns (.getColumnCount view)
@@ -96,6 +111,7 @@
             (.addView view tile tile-view-width tile-view-width)))))))
 
 (defn get-grid-view
+  "Creates a GridLayout whose tile size is based on the screen size."
   [context]
   (let [tile-view-min (utils/make-dip context default-tile-width)
         view (proxy [android.widget.GridLayout] [context]
@@ -107,6 +123,7 @@
     view))
 
 (defn get-post-view
+  "Creates a view with a post at top and various tiles below it."
   [context params]
   (let [view (ui/make-ui context
                          [:scroll-view {}
@@ -129,12 +146,13 @@
       (r/get-string :loading)
       (fn []
         (let [post (db/get-single-post-data params)
-              tiles (tiles/get-post-tiles post dialogs/show-edit-post-dialog)]
+              tiles (tiles/get-post-tiles post)]
           (if (nil? (:body post))
             (thread/on-ui (notify/toast (r/get-string :lost_post)))
             (thread/on-ui 
               (utils/set-text-content context
                                       text-view
+                                      actions/show-basic
                                       (f/tags-encode :post (:body post)))
               (let [date-format (java.text.DateFormat/getDateTimeInstance
                                   java.text.DateFormat/MEDIUM
@@ -147,6 +165,7 @@
     view))
 
 (defn get-gallery-view
+  "Creates a view of photos that can be swiped left and right."
   [context params]
   (let [view (ui/make-ui context [:view-pager {}])]
     (actions/show-spinner
@@ -184,6 +203,7 @@
     view))
 
 (defn get-user-view
+  "Creates a special grid view for user pages."
   [context params]
   (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
@@ -193,14 +213,13 @@
       (r/get-string :loading)
       (fn []
         (let [user (db/get-single-user-data params)
-              tiles (tiles/get-user-tiles params
-                                          user
-                                          dialogs/show-profile-dialog)]
+              tiles (tiles/get-user-tiles params user)]
           (add-grid-view-tiles context tiles grid-view))
         false))
     view))
 
 (defn get-category-view
+  "Creates a special grid view for either users or posts."
   [context params]
   (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
@@ -215,6 +234,7 @@
     view))
 
 (defn create-tab
+  "Creates and adds a tab to the given action bar."
   [action-bar title create-view]
   (try
     (let [tab (.newTab action-bar)

@@ -30,8 +30,9 @@ var doAction = function(url) {
 	});
 
 	switch (params.type) {
-		case 'custom-func':
-			showDialog(params.subtype + '-dialog');
+		case 'edit-post':
+		case 'profile':
+			showDialog(params.type + '-dialog');
 			break;
 		case 'toggle-fav':
 			toggleFav(params);

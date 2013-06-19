@@ -2,10 +2,17 @@
   (:require [neko.application :as app]
             [neko.notify :as notify]
             [neko.resource :as r]
+            [neko.ui.mapping :as mapping]
             [net.clandroid.service :as service]
             [nightweb.router :as router]))
 
 (app/defapplication net.nightweb.Application)
+
+(mapping/defelement :scroll-view :classname android.widget.ScrollView)
+(mapping/defelement :frame-layout :classname android.widget.FrameLayout)
+(mapping/defelement :relative-layout :classname android.widget.RelativeLayout)
+(mapping/defelement :image-view :classname android.widget.ImageView)
+(mapping/defelement :view-pager :classname android.support.v4.view.ViewPager)
 
 (def ^:const service-name "net.nightweb.MainService")
 (def ^:const shutdown-receiver-name "ACTION_CLOSE_APP")

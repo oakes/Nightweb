@@ -10,6 +10,36 @@
             [nightweb.io :as io]
             [nightweb.formats :as f]))
 
+; creating a new activity
+
+(defn show-page
+  "Shows a new activity of the specified type."
+  [context class-name params]
+  (let [class-symbol (Class/forName class-name)
+        intent (android.content.Intent. context class-symbol)]
+    (.putExtra intent "params" params)
+    (.startActivity context intent)))
+
+(defn show-categories
+  "Shows the Category page."
+  [context content]
+  (show-page context "net.nightweb.CategoryPage" content))
+
+(defn show-gallery
+  "Shows the Gallery page."
+  [context content]
+  (show-page context "net.nightweb.GalleryPage" content))
+
+(defn show-basic
+  "Shows the Basic page."
+  [context content]
+  (show-page context "net.nightweb.BasicPage" content))
+
+(defn show-home
+  "Shows the Main page."
+  [context content]
+  (show-page context "net.nightweb.MainPage" content))
+
 (defn share-url
   "Displays an app chooser to share a link to the displayed content."
   [context]
@@ -38,6 +68,8 @@
     (.setType intent file-type)
     (.addCategory intent android.content.Intent/CATEGORY_OPENABLE)
     (.startActivityForResult context intent 1)))
+
+; receiving data from activities
 
 (defn receive-result
   "Runs after a request returns with a result."
@@ -69,6 +101,8 @@
   "Clears the list of selected attachments."
   [context]
   (activity/set-state context :attachments nil))
+
+; misc actions
 
 (defn show-spinner
   "Displays a spinner while the specified function runs in a thread."
@@ -111,7 +145,7 @@
                          :ptr-time (:ptrtime pointers)
                          :create-time create-time})
                       (if-not (nil? create-time)
-                        (utils/show-home context {})
+                        (show-home context {})
                         true))))
    true))
 
@@ -197,7 +231,7 @@
   "Provides an action for menu items in the action bar."
   [context item]
   (when (= (.getItemId item) (r/get-resource :id :android/home))
-    (utils/show-home context {})))
+    (show-home context {})))
 
 (defn toggle-fav
   "Toggles our favorite status for the specified content."
@@ -211,17 +245,5 @@
                     (a/toggle-fav {:ptr-hash (:userhash content)
                                    :ptr-time (:time content)})
                     (if go-home?
-                      (utils/show-home context {})
+                      (show-home context {})
                       true)))))
-
-(defn do-action
-  "Provides a central place to associate types with the appropriate actions."
-  [context item]
-  (when-let [func (case (:type item)
-                    :fav utils/show-categories
-                    :toggle-fav toggle-fav
-                    :search utils/show-categories
-                    :pic utils/show-gallery
-                    :custom-func (:func item)
-                    utils/show-basic)]
-    (func context item)))
