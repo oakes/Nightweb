@@ -66,7 +66,9 @@
           is-pic? (= :pic (:type item))]
       [(if is-pic? :li :div)
        [:a {:href (if is-pic? background "#")
-            :onclick (str "doAction('" (f/url-encode item "") "')")
+            :onclick (format "doAction(\"%s\", \"%s\")"
+                             (f/url-encode item "")
+                             (or (utils/get-string (:confirm item)) ""))
             :class "grid-view-tile square-image"
             :style (format "background-image: url(%s); text-align: %s;"
                            (if is-pic? "" background)

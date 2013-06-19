@@ -23,7 +23,9 @@
                     :edit-post dialogs/show-edit-post-dialog
                     :profile dialogs/show-profile-dialog
                     actions/show-basic)]
-    (func context item)))
+    (if (:confirm item)
+      (dialogs/show-confirm-dialog context item func)
+      (func context item))))
 
 (defn create-grid-view-tile
   "Creates a tile based on the given item map."

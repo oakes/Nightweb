@@ -20,7 +20,11 @@ var closeDialog = function(id) {
 	$('#' + id).foundation('reveal', 'close');
 };
 
-var doAction = function(url) {
+var doAction = function(url, confirmStr) {
+	if (confirmStr && confirmStr.length > 0 && !confirm(confirmStr)) {
+		return;
+	}
+
 	var params = {};
 	url.split('&').forEach(function(elem, i, arr) {
 		var param = elem.split('=');

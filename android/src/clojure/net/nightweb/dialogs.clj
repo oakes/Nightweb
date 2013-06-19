@@ -235,15 +235,15 @@
                   :negative-name (r/get-string :cancel)
                   :negative-func actions/cancel})))
 
-(defn show-remove-user-dialog
-  [context content]
+(defn show-confirm-dialog
+  [context content func]
   (show-dialog context
-               (r/get-string :confirm_unfav)
+               (utils/get-string-at-runtime context (:confirm content))
                nil
-               {:positive-name (r/get-string :unfav_user)
+               {:positive-name (r/get-string :ok)
                 :positive-func
                 (fn [context dialog-view button-view]
-                  (actions/toggle-fav context content true))
+                  (func context content true))
                 :negative-name (r/get-string :cancel)
                 :negative-func actions/cancel}))
 

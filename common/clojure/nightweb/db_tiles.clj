@@ -103,7 +103,9 @@
                                         :add_fav)
                           :type :toggle-fav
                           :userhash (:userhash user)
-                          :status (:status fav)})])
+                          :status (:status fav)
+                          :confirm (when (= 1 (:status fav))
+                                     :confirm_unfav)})])
         posts (->> (for [tile (db/get-post-data params)]
                      (assoc tile :background :post))
                    (into [])
