@@ -124,6 +124,15 @@
             :query query-val})
          url-map)))))
 
+(defn escape-html
+  [text]
+  (when text
+    (clojure.string/escape text
+                           {\& "&amp;"
+                            \< "&lt;"
+                            \> "&gt;"
+                            \" "&quot;"})))
+
 (def ^:const min-tag-length 2)
 (def ^:const max-tag-count 20)
 (def ^:const ignore-chars #"[?,:;.!\(\)\t\r\n ]")

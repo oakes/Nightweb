@@ -17,7 +17,10 @@
 (defn prepare-results
   [rs table]
   (->> (for [row rs]
-         (into {} (assoc row :type table)))
+         (into {} (assoc row
+                         :type table
+                         :title (f/escape-html (:title row))
+                         :body (f/escape-html (:body row)))))
        (doall)
        (vec)))
 
