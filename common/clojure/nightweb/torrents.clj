@@ -158,11 +158,12 @@
 
 (defn start-torrent-manager
   "Starts the I2PSnark manager."
-  []
-  (let [context (net.i2p.I2PAppContext/getGlobalContext)]
-    (reset! manager (org.klomp.snark.SnarkManager. context))
+  [dir]
+  (let [context (net.i2p.I2PAppContext/getGlobalContext)
+        snark-dir (.getCanonicalPath (java.io/file dir "i2psnark"))]
+    (reset! manager (org.klomp.snark.SnarkManager. context snark-dir snark-dir))
     (.updateConfig @manager
-                   nil ;dataDir
+                   dir ;dataDir
                    true ;filesPublic
                    true ;autoStart
                    nil ;refreshDelay
