@@ -31,4 +31,5 @@
 
 (defn start-server
   []
-  (future (jetty/run-jetty (multi/wrap-multipart-params handler) {:port port})))
+  (future (jetty/run-jetty (multi/wrap-multipart-params handler)
+                           {:port port :host "127.0.0.1"})))
