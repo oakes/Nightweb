@@ -20,18 +20,25 @@ var closeDialog = function(id) {
 	$('#' + id).foundation('reveal', 'close');
 };
 
-var doAction = function(url, confirmStr) {
-	if (confirmStr && confirmStr.length > 0 && !confirm(confirmStr)) {
-		return;
-	}
-
+var parseUrl = function(url) {
 	var params = {};
+
 	url.split('&').forEach(function(elem, i, arr) {
 		var param = elem.split('=');
 		if (param.length = 2) {
 			params[param[0]] = param[1];
 		}
 	});
+
+	return params;
+};
+
+var doAction = function(url, confirmStr) {
+	if (confirmStr && confirmStr.length > 0 && !confirm(confirmStr)) {
+		return;
+	}
+
+	var params = parseUrl(url);
 
 	switch (params.type) {
 		case 'edit-post':
@@ -327,6 +334,40 @@ var toggleFav = function(obj) {
 	});
 };
 
+var checkUserHasContent = function(userhash) {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			'type': 'check-user-has-content',
+			'userhash': userhash
+		},
+		success: function(response) {
+			if (response.length > 0) {
+				alert(response);
+			}
+		}
+	});
+};
+
+var checkUserExists = function(userhash) {
+	$.ajax({
+		type: 'POST',
+		url: '/',
+		data: {
+			'type': 'check-user-exists',
+			'userhash': userhash
+		},
+		success: function(response) {
+			if (response.length > 0 && confirm(response)) {
+				toggleFav({'userhash': userhash});
+			} else {
+				checkUserHasContent(userhash);
+			}
+		}
+	});
+};
+
 // initialize dialogs
 $('.reveal-modal').foundation('reveal', {
 	opened: function() {
@@ -385,7 +426,6 @@ $('.post-body a').each(function() {
 	WebP.src = 'data:image/webp;base64,UklGRjoAAABXRUJQVlA4IC4AAACyAgCdASoCAAIALmk0mk0iIiIiIgBoSygABc6WWgAA/veff/0PP8bA//LwYAAA';
 })();
 
-
 // show spinner
 var spinner = new Spinner({
 	lines: 7, // The number of lines to draw
@@ -415,3 +455,9 @@ $(document)
 		$('#lightbox').hide();
 		spinner.stop();
 	});
+
+// display dialog if this user doesn't exist or is still pending
+var currentParams = parseUrl(window.location.href);
+if (currentParams.userhash) {
+	checkUserExists(currentParams.userhash);
+}

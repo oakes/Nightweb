@@ -94,6 +94,16 @@
       deref)
   nil)
 
+(defn check-user-exists
+  [params]
+  (when-not (users/user-exists? (f/base32-decode (:userhash params)))
+    (utils/get-string :found_user)))
+
+(defn check-user-has-content
+  [params]
+  (when-not (users/user-has-content? (f/base32-decode (:userhash params)))
+    (utils/get-string :pending_user)))
+
 (defn do-action
   [params]
   (when-let [action (case (:type params)
@@ -107,5 +117,7 @@
                       "delete-user" delete-user
                       "create-user" create-user
                       "toggle-fav" toggle-fav
+                      "check-user-exists" check-user-exists
+                      "check-user-has-content" check-user-has-content
                       nil)]
     (action params)))
