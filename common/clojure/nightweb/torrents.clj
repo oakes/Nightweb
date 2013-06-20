@@ -163,7 +163,7 @@
         snark-dir (.getCanonicalPath (java.io/file dir "i2psnark"))]
     (reset! manager (org.klomp.snark.SnarkManager. context snark-dir snark-dir))
     (.updateConfig @manager
-                   dir ;dataDir
+                   nil ;dataDir
                    true ;filesPublic
                    true ;autoStart
                    nil ;refreshDelay
