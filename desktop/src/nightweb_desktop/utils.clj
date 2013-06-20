@@ -1,10 +1,10 @@
 (ns nightweb-desktop.utils
-  (:require [ring.util.codec :as codec]
-            [clojure.java.io :as java.io]
+  (:require [clojure.java.io :as java.io]
             [clojure.xml :as xml]
             [nightweb.constants :as c]
             [nightweb.formats :as f]
-            [nightweb.io :as io]))
+            [nightweb.io :as io]
+            [ring.util.codec :as codec]))
 
 (def strings (-> (java.io/resource "strings.xml")
                  (.toString)
@@ -24,13 +24,20 @@
         (clojure.string/replace "\\" ""))
     res-name))
 
+(defn get-relative-path
+  "Gets the path of a child relative to its parent."
+  [parent-path child-path]
+  (-> (.toURI (java.io/file parent-path))
+      (.relativize (.toURI (java.io/file child-path)))
+      (.getPath)))
+
 (defn get-pic
   "Returns the path to the pic"
   ([pic-hash] (get-pic @c/my-hash-bytes pic-hash))
   ([user-hash pic-hash]
    (when (and user-hash pic-hash)
-     (str (c/get-pic-dir (f/base32-encode user-hash))
-          c/slash
+     (str (->> (c/get-pic-dir (f/base32-encode user-hash))
+               (get-relative-path @c/base-dir))
           (f/base32-encode pic-hash)
           ; add a non-existent file-extension so WebPJS works
           ".webp"))))
@@ -63,6 +70,7 @@
              [k (codec/form-decode-str v)])))
 
 (defn decode-data-uri
+  "Gets the binary equivalent of a base64-encoded data URI."
   [uri-str]
   (when uri-str
     (->> (+ 1 (.indexOf uri-str ","))

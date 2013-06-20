@@ -359,8 +359,10 @@ var checkUserExists = function(userhash) {
 			'userhash': userhash
 		},
 		success: function(response) {
-			if (response.length > 0 && confirm(response)) {
-				toggleFav({'userhash': userhash});
+			if (response.length > 0) {
+				if (confirm(response)) {
+					toggleFav({'userhash': userhash});
+				}
 			} else {
 				checkUserHasContent(userhash);
 			}

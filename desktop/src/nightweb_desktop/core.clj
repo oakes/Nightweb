@@ -21,6 +21,7 @@
 
 (defn -main
   []
-  (router/start-router (get-data-dir))
-  (server/start-server)
-  (window/start-window))
+  (let [dir (get-data-dir)]
+    (router/start-router dir)
+    (server/start-server dir)
+    (window/start-window)))

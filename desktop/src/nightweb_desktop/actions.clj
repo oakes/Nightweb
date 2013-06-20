@@ -28,7 +28,8 @@
 (defn export-user
   [params]
   (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)]
-    (actions/export-user (assoc params :dest-str path))))
+    (when-let [dest-str (actions/export-user (assoc params :dest-str path))]
+      (utils/get-relative-path @c/base-dir dest-str))))
 
 (defn new-post
   [params]

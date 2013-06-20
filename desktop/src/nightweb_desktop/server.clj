@@ -11,7 +11,7 @@
 (def ^:const port 3000)
 
 (defn handler
-  [request]
+  [request dir]
   (if (= :post (:request-method request))
     (-> (slurp (:body request))
         (f/url-decode false)
@@ -24,12 +24,13 @@
         "/" (res/response (pages/get-main-page params))
         "/c" (res/response (pages/get-category-page params))
         "/b" (res/response (pages/get-basic-page params))
-        (if (> (.indexOf (:uri request) c/nw-dir) 0)
+        (if (>= (.indexOf (:uri request) c/nw-dir) 0)
           (res/file-response (clojure.string/replace (:uri request) ".webp" "")
-                             {:root "."})
-          (res/resource-response (:uri request) {:root "public"}))))))
+                             {:root dir})
+          (res/resource-response (:uri request)
+                                 {:root "public"}))))))
 
 (defn start-server
-  []
-  (future (jetty/run-jetty (multi/wrap-multipart-params handler)
+  [dir]
+  (future (jetty/run-jetty (multi/wrap-multipart-params #(handler % dir))
                            {:port port :host "127.0.0.1"})))
