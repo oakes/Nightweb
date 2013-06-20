@@ -18,10 +18,9 @@
                            :listen [:action (fn [e] (open-in-browser address))])
         remote-check (s/checkbox :text (utils/get-string :enable_remote)
                                  :listen [:action (fn [e])]
-                                 :border 10)
-        version-label (s/label :text (utils/get-version))]
-    (s/vertical-panel :items [open-btn remote-check version-label]
-                      :border 10)))
+                                 :border 10)]
+    (s/vertical-panel :items [open-btn]
+                      :border 40)))
 
 (defn start-window
   "Launches the main window."
@@ -30,7 +29,9 @@
   (org.pushingpixels.substance.api.SubstanceLookAndFeel/setSkin
     (org.pushingpixels.substance.api.skin.GraphiteSkin.))
   (s/invoke-later
-    (-> (s/frame :title (utils/get-string :app_name)
+    (-> (s/frame :title (str (utils/get-string :app_name)
+                             " "
+                             (utils/get-version))
                  :content (get-window-content)
                  :on-close :exit)
         s/pack!
