@@ -141,10 +141,10 @@
    [:input {:type "text"
             :id "link-text"
             :value (f/url-encode (if-not (:type params)
-                                 (assoc params
-                                        :type :user
-                                        :userhash @c/my-hash-bytes)
-                                 params))}]
+                                   (assoc params
+                                          :type :user
+                                          :userhash @c/my-hash-bytes)
+                                   params))}]
    [:div {:class "dialog-buttons"}
     [:a {:href "#" :class "button" :onclick "openLink()"} (utils/get-string :go)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])

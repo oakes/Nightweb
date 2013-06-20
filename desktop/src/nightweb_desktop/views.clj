@@ -29,7 +29,7 @@
                 {:class "foundicon-plus"
                  :title (utils/get-string :new_post)
                  :dialog "new-post-dialog"}
-                {:class "foundicon-page"
+                {:class "foundicon-flag"
                  :title (utils/get-string :share)
                  :dialog "link-dialog"}
                 {:class "foundicon-people"
@@ -44,11 +44,11 @@
   [:div {:class "sticky"}
    [:nav {:class "top-bar"}
     [:section {:class "top-bar-section"}
+     (when show-home-button?
+       [:a {:href "/" :class "home-button"}])
      [:ul {:class "left"}
-      (when show-home-button?
-        [:a {:href "/" :class "home-button"}])
       (when-let [title (or (:title params) (:tag params))]
-        [:div {:class "title"} title])
+        [:li [:div {:class "title"} title]])
       (when show-tabs? (get-tab-view params is-main?))]
      [:ul {:class "right"} (get-menu-view)]]]
    [:div {:class "clear"}]])
@@ -85,7 +85,7 @@
         html-text (markdown/md-to-html-string text)
         html-tiles (get-grid-view tiles)]
     [:div {:id "post"}
-     [:div {:class "post-body"} html-text]
+     [:div {:id "post-body"} html-text]
      (filter #(= :div (get % 0)) html-tiles)
      [:ul {:data-clearing true}
       (filter #(= :li (get % 0)) html-tiles)]]))

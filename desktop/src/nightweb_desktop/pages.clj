@@ -10,8 +10,8 @@
   `(hiccup/html [:head
                  [:title (utils/get-string :app_name)]
                  [:link {:rel "stylesheet" :href "foundation.min.css"}]
-                 [:link {:rel "stylesheet" :href "nw.css"}]
-                 [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]]
+                 [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]
+                 [:link {:rel "stylesheet" :href "nw.css"}]]
                 [:body {:class "dark-gradient"}
                  ~@body
                  (dialogs/get-search-dialog ~params)
