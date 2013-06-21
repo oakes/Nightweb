@@ -1,5 +1,6 @@
 (ns nightweb-desktop.dialogs
-  (:require [nightweb.constants :as c]
+  (:require [markdown.core :as markdown]
+            [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb.io :as io]
             [nightweb.db :as db]
@@ -56,7 +57,10 @@
                    (str "background-image: url(" pic ")"))}]
    [:div {:id "profile-inputs"}
     [:div {:id "profile-name"} (:title user)]
-    [:div {:id "profile-about"} (:body user)]]
+    [:div {:id "profile-about" :class "contains-links"}
+     (->> (:body user)
+          (f/tags-encode :post)
+          markdown/md-to-html-string)]]
    [:div {:class "dialog-buttons"}
     [:a {:href "#"
          :class "button"

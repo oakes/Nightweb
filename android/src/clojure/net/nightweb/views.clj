@@ -152,10 +152,9 @@
           (if (nil? (:body post))
             (thread/on-ui (notify/toast (r/get-string :lost_post)))
             (thread/on-ui 
-              (utils/set-text-content context
-                                      text-view
-                                      actions/show-basic
-                                      (f/tags-encode :post (:body post)))
+              (->> (:body post)
+                (f/tags-encode :post)
+                (utils/set-text-content context text-view actions/show-basic))
               (let [date-format (java.text.DateFormat/getDateTimeInstance
                                   java.text.DateFormat/MEDIUM
                                   java.text.DateFormat/SHORT)]

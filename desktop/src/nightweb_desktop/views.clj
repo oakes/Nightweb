@@ -81,11 +81,12 @@
   [params]
   (let [post (db/get-single-post-data params)
         tiles (tiles/get-post-tiles post)
-        text (f/tags-encode :post (:body post))
-        html-text (markdown/md-to-html-string text)
+        html-text (->> (:body post)
+                       (f/tags-encode :post)
+                       markdown/md-to-html-string)
         html-tiles (get-grid-view tiles)]
     [:div {:id "post"}
-     [:div {:id "post-body"} html-text]
+     [:div {:id "post-body" :class "contains-links"} html-text]
      (filter #(= :div (get % 0)) html-tiles)
      [:ul {:data-clearing true}
       (filter #(= :li (get % 0)) html-tiles)]]))
