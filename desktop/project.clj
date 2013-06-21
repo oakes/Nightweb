@@ -11,4 +11,6 @@
   :main nightweb-desktop.core
   :source-paths ["src" "../common/clojure"]
   :java-source-paths ["../common/java"]
-  :resource-paths ["resources" "../android/res/values"])
+  :resource-paths ["resources"
+                   "../android/res/values"
+                   "../android/res/drawable"])

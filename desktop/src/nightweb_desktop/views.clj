@@ -58,7 +58,7 @@
   (for [item content]
     (let [background (or (utils/get-pic (:userhash item) (:pichash item))
                          (when-let [bg (:background item)]
-                           (str "img/" (name bg) ".png")))
+                           (str (name bg) ".png")))
           title (utils/get-string (or (:title item)
                                       (:body item)
                                       (:tag item)))

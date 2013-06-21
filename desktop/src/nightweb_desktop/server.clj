@@ -27,8 +27,7 @@
         (if (>= (.indexOf (:uri request) c/nw-dir) 0)
           (res/file-response (clojure.string/replace (:uri request) ".webp" "")
                              {:root dir})
-          (res/resource-response (:uri request)
-                                 {:root "public"}))))))
+          (res/resource-response (:uri request) {:root "."}))))))
 
 (defn start-server
   [dir]

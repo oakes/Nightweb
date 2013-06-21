@@ -54,7 +54,7 @@
 
 .home-button {
 	float: left;
-	background-image: url('img/ic_launcher.png');
+	background-image: url('logo_launcher.png');
 	background-size: 45px 45px;
 	background-repeat: no-repeat;
 	width: 45px;
@@ -116,7 +116,7 @@
 }
 
 #profile-image {
-	background-image: url("img/profile.png");
+	background-image: url("profile.png");
 	width: 250px;
 	height: 250px;
 	margin: 10px auto 10px auto;
