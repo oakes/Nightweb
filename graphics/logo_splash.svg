@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="512"
+   height="512"
+   id="svg2"
+   version="1.1"
+   inkscape:version="0.48.4 r9939">
+  <defs
+     id="defs4" />
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#4f5a64"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="0.9899495"
+     inkscape:cx="286.26772"
+     inkscape:cy="273.6213"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="997"
+     inkscape:window-height="847"
+     inkscape:window-x="601"
+     inkscape:window-y="24"
+     inkscape:window-maximized="0" />
+  <metadata
+     id="metadata7">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title />
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1"
+     transform="translate(0,-540.36218)">
+    <rect
+       style="fill:#4f5a64;fill-opacity:1;stroke:none"
+       id="rect3816"
+       width="512"
+       height="512"
+       x="-5.7731597e-15"
+       y="540.36218" />
+    <g
+       id="g2992"
+       transform="translate(-18.096269,0)">
+      <path
+         id="path3839"
+         transform="translate(0,540.36218)"
+         d="m 214,46.90625 c -23.59636,0 -46.27897,3.888861 -67.4375,11.09375 82.40849,28.048666 141.6875,106.10241 141.6875,198 0,91.89759 -59.27901,169.95133 -141.6875,198 21.15853,7.20489 43.84114,11.09375 67.4375,11.09375 115.48361,0 209.09375,-93.61014 209.09375,-209.09375 C 423.09375,140.51639 329.48361,46.90625 214,46.90625 z"
+         style="fill:#c0c0c0;fill-opacity:1;stroke:none"
+         inkscape:connector-curvature="0" />
+      <flowRoot
+         transform="translate(62.751288,548.52468)"
+         style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#000000;fill-opacity:1;stroke:none;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+         id="flowRoot3877"
+         xml:space="preserve"><flowRegion
+           id="flowRegion3879"><rect
+             style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+             y="200.87302"
+             x="56.568542"
+             height="96.974648"
+             width="240.41631"
+             id="rect3881" /></flowRegion><flowPara
+           style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#c0c0c0;fill-opacity:1;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+           id="flowPara3883">night</flowPara></flowRoot>      <flowRoot
+         transform="translate(235.55001,548.38206)"
+         style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;line-height:125%;letter-spacing:0px;word-spacing:0px;fill:#4f5a64;fill-opacity:1;stroke:none;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+         id="flowRoot3877-4"
+         xml:space="preserve"><flowRegion
+           id="flowRegion3879-5"><rect
+             style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#4f5a64;fill-opacity:1;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+             y="200.87302"
+             x="56.568542"
+             height="96.974648"
+             width="240.41631"
+             id="rect3881-6" /></flowRegion><flowPara
+           style="font-size:65px;font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;fill:#4f5a64;fill-opacity:1;font-family:NanumGothic;-inkscape-font-specification:NanumGothic"
+           id="flowPara3883-8">web</flowPara></flowRoot>    </g>
+  </g>
+</svg>
