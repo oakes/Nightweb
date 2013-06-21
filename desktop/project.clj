@@ -1,4 +1,4 @@
-(defproject nightweb-desktop "0.0.1-SNAPSHOT"
+(defproject nightweb-desktop "0.0.1"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :dependencies [[org.clojure/clojure "1.5.1"]
@@ -11,5 +11,4 @@
   :main nightweb-desktop.core
   :source-paths ["src" "../common/clojure"]
   :java-source-paths ["../common/java"]
-  :resource-paths ["resources"
-                   "../android/res/values"])
+  :resource-paths ["resources" "../android/res/values"])

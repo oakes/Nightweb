@@ -399,7 +399,7 @@ $(window).resize(resizeGrid);
 resizeGrid();
 
 // make sure only internal links work
-$('.post-body a').each(function() {
+$('#post-body a').each(function() {
 	var href = $(this).attr('href');
 	if (href != '#') {
 		href = href.substr(href.indexOf('#') + 1);
