@@ -12,5 +12,6 @@
   :source-paths ["src" "../common/clojure"]
   :java-source-paths ["../common/java"]
   :resource-paths ["resources"
+                   "libs/jwrapper_utils.jar"
                    "../android/res/values"
                    "../android/res/drawable"])
