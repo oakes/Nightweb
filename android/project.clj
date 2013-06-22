@@ -3,7 +3,7 @@
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
 
-  :warn-on-reflection false
+  :warn-on-reflection true
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]

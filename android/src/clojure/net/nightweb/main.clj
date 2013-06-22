@@ -8,11 +8,21 @@
 
 (app/defapplication net.nightweb.Application)
 
-(mapping/defelement :scroll-view :classname android.widget.ScrollView)
-(mapping/defelement :frame-layout :classname android.widget.FrameLayout)
-(mapping/defelement :relative-layout :classname android.widget.RelativeLayout)
-(mapping/defelement :image-view :classname android.widget.ImageView)
-(mapping/defelement :view-pager :classname android.support.v4.view.ViewPager)
+(mapping/defelement :scroll-view
+                    :classname android.widget.ScrollView
+                    :inherits :view)
+(mapping/defelement :frame-layout
+                    :classname android.widget.FrameLayout
+                    :inherits :view)
+(mapping/defelement :relative-layout
+                    :classname android.widget.RelativeLayout
+                    :inherits :view)
+(mapping/defelement :image-view
+                    :classname android.widget.ImageView
+                    :inherits :view)
+(mapping/defelement :view-pager
+                    :classname android.support.v4.view.ViewPager
+                    :inherits :view)
 
 (def ^:const service-name "net.nightweb.MainService")
 (def ^:const shutdown-receiver-name "ACTION_CLOSE_APP")
