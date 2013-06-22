@@ -11,7 +11,7 @@
 	</App>
 
 	<JvmOptions>
-		<JvmOption>-Xmx1024m</JvmOption>
+		<JvmOption>-Xmx512m</JvmOption>
 	</JvmOptions>
 
 	<SupportedLanguages>en</SupportedLanguages>
