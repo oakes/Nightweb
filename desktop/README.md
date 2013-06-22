@@ -7,7 +7,7 @@
 	- I recommend the manual installation they describe in their README
 3. In this directory, type `lein uberjar`
 
-# Installer Instructions
+## Installer Instructions
 
 1. Download [JWrapper and JRE pack 1.7](http://www.jwrapper.com/download.html)
 2. Move the JWrapper file and the extracted JRE pack into the "installer" directory, so it contains three items:
