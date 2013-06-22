@@ -1,12 +1,12 @@
 (ns nightweb-desktop.server
-  (:require [ring.adapter.jetty :as jetty]
-            [ring.util.response :as res]
-            [ring.middleware.multipart-params :as multi]
-            [nightweb.constants :as c]
+  (:require [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb-desktop.actions :as actions]
             [nightweb-desktop.pages :as pages]
-            [nightweb-desktop.utils :as utils]))
+            [nightweb-desktop.utils :as utils]
+            [ring.adapter.jetty :as jetty]
+            [ring.util.response :as res]
+            [ring.middleware.multipart-params :as multi]))
 
 (def ^:const port 3000)
 
@@ -27,7 +27,7 @@
         (if (>= (.indexOf (:uri request) c/nw-dir) 0)
           (res/file-response (clojure.string/replace (:uri request) ".webp" "")
                              {:root dir})
-          (res/resource-response (:uri request) {:root "."}))))))
+          (res/resource-response (:uri request)))))))
 
 (defn start-server
   [dir]

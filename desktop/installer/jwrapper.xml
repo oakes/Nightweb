@@ -1,0 +1,38 @@
+<JWrapper>
+
+	<!-- The name of the app bundle -->
+	<BundleName>Nightweb</BundleName>
+
+	<!-- The specification for one app within the bundle -->
+	<App>
+		<Name>Nightweb</Name>
+		<LogoPNG>../resources/logo_launcher.png</LogoPNG>
+		<MainClass>nightweb_desktop.core</MainClass>
+	</App>
+
+	<JvmOptions>
+		<JvmOption>-Xmx1024m</JvmOption>
+	</JvmOptions>
+
+	<SupportedLanguages>en</SupportedLanguages>
+
+	<!-- App is a per-user app, it won't elevate and install for all users and the shared config folder will be per-user -->
+	<InstallType>CurrentUser</InstallType>
+
+	<!-- This is the optional update URL for the app, if the files here get updated the app will auto update -->
+	<UpdateURL>https://nightweb.net/build</UpdateURL>
+
+	<!-- Splash and Logo -->
+	<SplashPNG>../resources/logo_splash.png</SplashPNG>
+	<BundleLogoPNG>../resources/logo_launcher.png</BundleLogoPNG>
+
+	<!-- The JREs JWrapper should use for Windows, Linux32, Linux64... -->
+	<Windows32JRE>JRE-1.7/win32/jre1.7.0_05</Windows32JRE>
+	<Windows64JRE>JRE-1.7/win32/jre1.7.0_05</Windows64JRE>
+	<Linux32JRE>JRE-1.7/linux/jre1.7.0_13</Linux32JRE>
+	<Linux64JRE>JRE-1.7/linuxx64/jre1.7.0_13</Linux64JRE>
+
+	<!-- The files that the app wants to bundle -->
+	<File classpath='yes'>../target/nightweb-desktop-0.0.1-standalone.jar</File>
+
+</JWrapper>
