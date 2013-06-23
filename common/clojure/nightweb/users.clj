@@ -27,7 +27,8 @@
 (defn add-user-and-meta-torrents
   "Starts the user and meta torrent for this user."
   [their-hash-str]
-  (let [user-dir (c/get-user-dir their-hash-str)
+  (let [their-hash-bytes (f/base32-decode their-hash-str)
+        user-dir (c/get-user-dir their-hash-str)
         pub-path (c/get-user-pub-file their-hash-str)
         pub-torrent-path (str pub-path c/torrent-ext)
         meta-path (c/get-meta-dir their-hash-str)
@@ -39,7 +40,7 @@
                        (f/b-decode-map)
                        (dht/parse-meta-link)))]
     ; add user torrent
-    (if (or (= @c/my-hash-str their-hash-str)
+    (if (or (c/is-me? their-hash-bytes true)
             (io/file-exists? pub-torrent-path))
       (t/add-torrent pub-path true dht/send-meta-link)
       (t/add-hash user-dir their-hash-str true dht/send-meta-link))
