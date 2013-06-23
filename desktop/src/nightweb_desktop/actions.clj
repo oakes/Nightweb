@@ -1,5 +1,6 @@
 (ns nightweb-desktop.actions
   (:require [clojure.edn :as edn]
+            [clojure.java.io :as java.io]
             [nightweb.actions :as actions]
             [nightweb.constants :as c]
             [nightweb.formats :as f]
@@ -17,7 +18,8 @@
 
 (defn import-user
   [params]
-  (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)
+  (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
+                 .getCanonicalPath)
         file-barray (utils/decode-data-uri (:file-str params))]
     (io/write-file path file-barray)
     (-> (assoc params :source-str path)
@@ -26,7 +28,8 @@
 
 (defn export-user
   [params]
-  (let [path (str @c/base-dir c/nw-dir c/slash c/user-zip-file)]
+  (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
+                 .getCanonicalPath)]
     (when-let [dest-str (actions/export-user (assoc params :dest-str path))]
       (utils/get-relative-path @c/base-dir dest-str))))
 

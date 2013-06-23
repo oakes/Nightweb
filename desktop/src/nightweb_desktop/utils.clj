@@ -57,9 +57,9 @@
   ([pic-hash] (pic-to-data-uri @c/my-hash-bytes pic-hash))
   ([user-hash pic-hash]
    (when (and user-hash pic-hash)
-     (let [pic-dir (str (c/get-pic-dir (f/base32-encode user-hash))
-                        c/slash
-                        (f/base32-encode pic-hash))]
+     (let [pic-dir (-> (c/get-pic-dir (f/base32-encode user-hash))
+                       (java.io/file (f/base32-encode pic-hash))
+                       .getCanonicalPath)]
        (when-let [pic (io/read-file pic-dir)]
          (str "image/webp;base64," (codec/base64-encode pic)))))))
 

@@ -198,8 +198,8 @@
                 (r/get-string :zipping)
                 #(let [path (c/get-user-dir @c/my-hash-str)
                        dir (Environment/getExternalStorageDirectory)
-                       dest-path (-> (.getAbsolutePath dir)
-                                     (str c/slash c/user-zip-file))]
+                       dest-path (-> (java.io/file dir c/user-zip-file)
+                                     .getCanonicalPath)]
                    (if (a/export-user
                          {:dest-str dest-path
                           :pass-str password})
@@ -213,8 +213,8 @@
   (show-spinner context
                 (r/get-string :unzipping)
                 #(let [dir (Environment/getExternalStorageDirectory)
-                       temp-path (-> (.getAbsolutePath dir)
-                                     (str c/slash c/user-zip-file))
+                       temp-path (-> (java.io/file dir c/user-zip-file)
+                                     .getCanonicalPath)
                        ; if it's a content URI, copy to root of SD card
                        path (if (.startsWith uri-str "content://")
                               (do (utils/copy-uri-to-path context

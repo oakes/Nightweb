@@ -83,9 +83,9 @@
   "Gets the full path for the given user and image hash combination."
   [user-hash-bytes image-hash-bytes]
   (when (and user-hash-bytes image-hash-bytes)
-    (str (c/get-pic-dir (f/base32-encode user-hash-bytes))
-         c/slash
-         (f/base32-encode image-hash-bytes))))
+    (-> (c/get-pic-dir (f/base32-encode user-hash-bytes))
+        (java.io/file (f/base32-encode image-hash-bytes))
+        .getCanonicalPath)))
 
 (defn create-highlight
   "Creates a Drawable that highlights when pressed."

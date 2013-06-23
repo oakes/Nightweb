@@ -30,10 +30,10 @@
   (let [their-hash-bytes (f/base32-decode their-hash-str)
         user-dir (c/get-user-dir their-hash-str)
         pub-path (c/get-user-pub-file their-hash-str)
-        pub-torrent-path (str pub-path c/torrent-ext)
+        pub-torrent-path (c/get-user-pub-torrent-file their-hash-str)
         meta-path (c/get-meta-dir their-hash-str)
-        meta-torrent-path (str meta-path c/torrent-ext)
-        meta-link-path (str meta-path c/link-ext)
+        meta-torrent-path (c/get-meta-torrent-file their-hash-str)
+        meta-link-path (c/get-meta-link-file their-hash-str)
         link-map (when (io/file-exists? meta-link-path)
                    (-> (io/read-file meta-link-path)
                        (f/b-decode)
@@ -94,9 +94,8 @@
 
 (defn create-imported-user
   "Replaces current user with imported user."
-  [user-hash-str-list]
-  (let [imported-user-str (first user-hash-str-list)
-        imported-user (f/base32-decode imported-user-str)
+  [imported-user-str]
+  (let [imported-user (f/base32-decode imported-user-str)
         is-valid? (and imported-user-str
                        imported-user
                        (not (c/is-me? imported-user true)))]

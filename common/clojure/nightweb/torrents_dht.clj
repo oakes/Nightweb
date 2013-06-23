@@ -58,8 +58,7 @@
 (defn send-meta-link
   "Sends the relevant meta link to all peers in a given user torrent."
   ([]
-   (when-let [torrent (-> (c/get-user-pub-file @c/my-hash-str)
-                          (str c/torrent-ext)
+   (when-let [torrent (-> (c/get-user-pub-torrent-file @c/my-hash-str)
                           (t/get-torrent-by-path))]
      (send-meta-link torrent)))
   ([^Snark torrent]
@@ -156,7 +155,7 @@
     ; iterate over the files in this torrent
     (doseq [path-leaves paths]
       (on-recv-meta-file user-hash-bytes
-                             (io/read-meta-file parent-dir path-leaves)))
+                         (io/read-meta-file parent-dir path-leaves)))
     ; remove any files that the torrent no longer contains
     (when-not (c/is-me? user-hash-bytes)
       (io/delete-orphaned-files user-hash-bytes paths))))
@@ -205,7 +204,7 @@
   "Stops sharing a given meta torrent and begins downloading an updated one."
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (c/get-user-dir user-hash-str)
-        meta-torrent-path (str (c/get-meta-dir user-hash-str) c/torrent-ext)]
+        meta-torrent-path (c/get-meta-torrent-file user-hash-str)]
     (t/remove-torrent meta-torrent-path)
     (when-let [old-hash-str (:link-hash-str old-link-map)]
       (t/remove-torrent old-hash-str))

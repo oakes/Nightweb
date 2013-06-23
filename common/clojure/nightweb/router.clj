@@ -1,5 +1,6 @@
 (ns nightweb.router
-  (:require [nightweb.actions :as actions]
+  (:require [clojure.java.io :as java.io]
+            [nightweb.actions :as actions]
             [nightweb.constants :as c]
             [nightweb.db :as db]
             [nightweb.io :as io]
@@ -20,7 +21,8 @@
   ; start i2psnark
   (System/setProperty "i2p.dir.base" dir)
   (System/setProperty "i2p.dir.config" dir)
-  (System/setProperty "wrapper.logfile" (str dir c/slash "wrapper.log"))
+  (System/setProperty "wrapper.logfile" (-> (java.io/file dir "wrapper.log")
+                                            .getCanonicalPath))
   (t/start-torrent-manager dir)
   (dht/init-dht)
   ; create or load user

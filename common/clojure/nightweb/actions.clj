@@ -1,5 +1,6 @@
 (ns nightweb.actions
-  (:require [nightweb.constants :as c]
+  (:require [clojure.java.io :as java.io]
+            [nightweb.constants :as c]
             [nightweb.db :as db]
             [nightweb.formats :as f]
             [nightweb.io :as io]
@@ -11,7 +12,7 @@
 (defn create-meta-torrent
   []
   (let [path (c/get-meta-dir @c/my-hash-str)]
-    (t/remove-torrent (str path c/torrent-ext))
+    (t/remove-torrent (c/get-meta-torrent-file @c/my-hash-str))
     (io/write-link-file (t/add-torrent path false dht/on-recv-meta))
     (dht/send-meta-link)))
 
@@ -59,10 +60,9 @@
   [{:keys [source-str pass-str]}]
   (let [dest-str (c/get-user-dir)]
     (if (zip/unzip-dir source-str dest-str pass-str)
-      (let [paths (set (zip/get-zip-headers source-str))
-            new-dirs (-> (fn [d] (contains? paths (str d c/slash)))
-                         (filter (io/list-dir dest-str)))]
-        (if (users/create-imported-user new-dirs)
+      (let [paths (zip/get-zip-headers source-str)
+            user-dir (java.io/file (last paths))]
+        (if (users/create-imported-user (.getName user-dir))
           nil
           :import_error))
       :unzip_error)))

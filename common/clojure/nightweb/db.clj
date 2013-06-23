@@ -1,5 +1,6 @@
 (ns nightweb.db
-  (:require [clojure.java.jdbc :as jdbc]
+  (:require [clojure.java.io :as java.io]
+            [clojure.java.jdbc :as jdbc]
             [nightweb.constants :as c]
             [nightweb.formats :as f]))
 
@@ -94,7 +95,8 @@
     (reset! spec
             {:classname "org.h2.Driver"
              :subprotocol "h2"
-             :subname (str base-dir c/db-file)})
+             :subname (-> (java.io/file base-dir c/nw-dir c/db-file)
+                          .getCanonicalPath)})
     (create-tables)))
 
 ; retrieval

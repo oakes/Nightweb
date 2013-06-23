@@ -34,7 +34,7 @@
 
 (defn get-storage
   "Creates a Storage object with a listener for each storage-related event."
-  [path]
+  [path torrent-path]
   (let [listener (reify StorageListener
                    (storageCreateFile [this storage file-name length]
                      (println "storageCreateFile" file-name))
@@ -50,7 +50,6 @@
                      (println "setWantedPieces"))
                    (addMessage [this message]
                      (println "addMessage" message)))
-        torrent-path (str path c/torrent-ext)
         storage (if (io/file-exists? torrent-path)
                   (Storage.
                     (.util ^SnarkManager @manager)
@@ -122,9 +121,10 @@
   (try
     (let [base-file (java.io/file path)
           root-path (.getParent base-file)
-          torrent-file (java.io/file (str path c/torrent-ext))
+          torrent-file (java.io/file (.getParentFile base-file)
+                                     (str (.getName base-file) c/torrent-ext))
           torrent-path (.getCanonicalPath torrent-file)
-          ^Storage storage (get-storage path)
+          ^Storage storage (get-storage path torrent-path)
           meta-info (.getMetaInfo storage)
           bit-field (.getBitField storage)
           listener (get-complete-listener root-path complete-callback)]
@@ -152,7 +152,11 @@
 (defn get-info-hash
   "Gets the info hash for a given path."
   [path]
-  (let [^Storage storage (get-storage path)
+  (let [base-file (java.io/file path)
+        torrent-file (java.io/file (.getParentFile base-file)
+                                   (str (.getName base-file) c/torrent-ext))
+        torrent-path (.getCanonicalPath torrent-file)
+        ^Storage storage (get-storage path torrent-path)
         meta-info (.getMetaInfo storage)]
     (.getInfoHash meta-info)))
 

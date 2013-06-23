@@ -66,6 +66,13 @@
                   (.getCanonicalPath uri-file)))]
     (f/remove-dupes-and-nils files)))
 
+(defn join-path
+  [path path-leaves]
+  (if (> (count path-leaves) 0)
+    (join-path (.getCanonicalPath (java.io/file path (first path-leaves)))
+               (rest path-leaves))
+    path))
+
 ; read/write specific files
 
 (defn write-key-file
@@ -80,25 +87,26 @@
 
 (defn write-priv-node-key-file
   [priv-node]
-  (let [priv-node-file (PrivateKeyFile.
-                         (java.io/file (str @c/base-dir c/priv-node-key-file))
-                         priv-node)]
-    (.write priv-node-file)))
+  (let [priv-node-file (java.io/file @c/base-dir c/nw-dir c/priv-node-key-file)]
+    (.write (PrivateKeyFile. priv-node-file priv-node))))
 
 (defn read-priv-node-key-file
   []
-  (let [path (str @c/base-dir c/priv-node-key-file)]
+  (let [path (-> (java.io/file @c/base-dir c/nw-dir c/priv-node-key-file)
+                 .getCanonicalPath)]
     (when (file-exists? path)
       (java.io/input-stream (java.io/file path)))))
 
 (defn write-pub-node-key-file
   [pub-node]
-  (write-file (str @c/base-dir c/pub-node-key-file)
+  (write-file (-> (java.io/file @c/base-dir c/nw-dir c/pub-node-key-file)
+                  .getCanonicalPath)
               (.getBytes pub-node)))
 
 (defn read-pub-node-key-file
   []
-  (let [path (str @c/base-dir c/pub-node-key-file)]
+  (let [path (-> (java.io/file @c/base-dir c/nw-dir c/pub-node-key-file)
+                 .getCanonicalPath)]
     (when (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
@@ -106,30 +114,31 @@
   [data-barray]
   (when data-barray
     (let [image-hash (crypto/create-hash data-barray)
-          file-name (f/base32-encode image-hash)]
-      (write-file (str (c/get-pic-dir @c/my-hash-str) c/slash file-name)
-                  data-barray)
+          file-path (-> (c/get-pic-dir @c/my-hash-str)
+                        (java.io/file (f/base32-encode image-hash))
+                        .getCanonicalPath)]
+      (write-file file-path data-barray)
       image-hash)))
 
 (defn write-post-file
   [create-time encoded-args]
-  (write-file (str (c/get-post-dir @c/my-hash-str)
-                   c/slash
-                   create-time)
+  (write-file (-> (c/get-post-dir @c/my-hash-str)
+                  (java.io/file (str create-time))
+                  .getCanonicalPath)
               encoded-args))
 
 (defn write-profile-file
   [encoded-args]
-  (write-file (str (c/get-meta-dir @c/my-hash-str)
-                   c/slash
-                   c/profile)
+  (write-file (-> (c/get-meta-dir @c/my-hash-str)
+                  (java.io/file c/profile)
+                  .getCanonicalPath)
               encoded-args))
 
 (defn write-fav-file
   [create-time encoded-args]
-  (write-file (str (c/get-fav-dir @c/my-hash-str)
-                   c/slash
-                   create-time)
+  (write-file (-> (c/get-fav-dir @c/my-hash-str)
+                  (java.io/file (str create-time))
+                  .getCanonicalPath)
               encoded-args))
 
 (defn write-link-file
@@ -140,9 +149,9 @@
 (defn read-user-list-file
   []
   (-> (c/get-user-list-file)
-      (read-file)
-      (f/b-decode)
-      (f/b-decode-byte-list)))
+      read-file
+      f/b-decode
+      f/b-decode-byte-list))
 
 (defn write-user-list-file
   [user-list]
@@ -158,15 +167,14 @@
                                   (f/base32-decode user-hash-str)}))))))
 
 (defn read-meta-file
-  ([user-dir path-leaves]
-   (read-meta-file (->> (clojure.string/join c/slash path-leaves)
-                        (str c/slash)
-                        (str (.getAbsolutePath user-dir) c/meta-dir))))
+  ([path path-leaves]
+   (read-meta-file (-> (java.io/file path c/meta-dir)
+                       .getCanonicalPath
+                       (join-path path-leaves))))
   ([path]
-   (let [path-parts (reverse (clojure.string/split path (re-pattern c/slash)))]
-     {:file-name (nth path-parts 0 nil)
-      :dir-name (nth path-parts 1 nil)
-      :contents (f/b-decode-map (f/b-decode (read-file path)))})))
+   {:file-name (.getName (java.io/file path))
+    :dir-name (.getName (.getParentFile (java.io/file path)))
+    :contents (f/b-decode-map (f/b-decode (read-file path)))}))
 
 (defn delete-orphaned-pics
   [user-hash]
@@ -191,9 +199,7 @@
         (when (and (.isFile meta-file)
                    (->> file-list
                         (filter #(= (.getCanonicalPath meta-file)
-                                    (->> (clojure.string/join c/slash %)
-                                         (java.io/file meta-dir)
-                                         .getCanonicalPath)))
+                                    (join-path meta-dir %)))
                         (count)
                         (= 0)))
           (.delete meta-file))))))
