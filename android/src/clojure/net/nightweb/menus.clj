@@ -10,7 +10,7 @@
   ; create search button
   (let [search-item (.add menu (r/get-string :search))
         search-view (SearchView. context)]
-    (.setIcon search-item (r/get-resource :drawable :android/ic_menu_search))
+    (.setIcon search-item (r/get-resource :drawable :action_search))
     (.setShowAsAction
       search-item
       (bit-or MenuItem/SHOW_AS_ACTION_IF_ROOM
@@ -30,7 +30,7 @@
     (.setActionView search-item search-view))
   ; create new post button
   (let [new-post-item (.add menu (r/get-string :new_post))]
-    (.setIcon new-post-item (r/get-resource :drawable :android/ic_menu_add))
+    (.setIcon new-post-item (r/get-resource :drawable :content_new))
     (.setShowAsAction new-post-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
     (.setOnMenuItemClickListener
       new-post-item
@@ -41,7 +41,7 @@
   ; create share button
   (when show-share-button?
     (let [share-item (.add menu (r/get-string :share))]
-      (.setIcon share-item (r/get-resource :drawable :android/ic_menu_share))
+      (.setIcon share-item (r/get-resource :drawable :social_share))
       (.setShowAsAction share-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
       (.setOnMenuItemClickListener
         share-item
@@ -52,7 +52,7 @@
   ; create switch user button
   (when show-switch-button?
     (let [switch-user-item (.add menu (r/get-string :switch_user))]
-      (.setIcon switch-user-item (r/get-resource :drawable :profile_small))
+      (.setIcon switch-user-item (r/get-resource :drawable :social_group))
       (.setShowAsAction switch-user-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
       (.setOnMenuItemClickListener
         switch-user-item

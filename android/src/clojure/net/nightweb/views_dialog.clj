@@ -173,15 +173,13 @@
                               :tag "profile-text"}]]
                 [:linear-layout {:orientation 0}
                  [:image-view {:image-resource
-                               (r/get-resource :drawable
-                                             :android/ic_menu_add)
+                               (r/get-resource :drawable :content_new)
                                :tag "post-image"}]
                  [:text-view {:text (r/get-string :welcome_post)
                               :tag "post-text"}]]
                 [:linear-layout {:orientation 0}
                  [:image-view {:image-resource
-                               (r/get-resource :drawable
-                                             :android/ic_menu_share)
+                               (r/get-resource :drawable :social_share)
                                :tag "share-image"}]
                  [:text-view {:text (r/get-string :welcome_share)
                               :tag "share-text"}]]])
