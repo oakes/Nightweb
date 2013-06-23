@@ -12,8 +12,7 @@
   (-> (assoc params :pic-hash (-> (:pic-str params)
                                   utils/decode-data-uri
                                   io/write-pic-file))
-      actions/save-profile
-      deref)
+      actions/save-profile)
   nil)
 
 (defn import-user
@@ -40,8 +39,7 @@
              :ptr-hash (f/base32-decode (:ptr-hash params))
              :ptr-time (edn/read-string (:ptr-time params))
              :status 1)
-      actions/new-post
-      deref)
+      actions/new-post)
   nil)
 
 (defn edit-post
@@ -53,16 +51,14 @@
              :pic-hashes (for [pic (edn/read-string (:pic-hashes params))]
                            (f/base32-decode pic))
              :status 1)
-      actions/new-post
-      deref)
+      actions/new-post)
   nil)
 
 (defn delete-post
   [params]
   (-> {:create-time (edn/read-string (:create-time params))
        :status 0}
-      actions/new-post
-      deref)
+      actions/new-post)
   nil)
 
 (defn switch-user
@@ -76,8 +72,7 @@
   [params]
   (-> (:userhash params)
       f/base32-decode
-      users/delete-user
-      deref)
+      users/delete-user)
   nil)
 
 (defn create-user
@@ -91,8 +86,7 @@
   (-> (assoc params
              :ptr-hash (f/base32-decode (:userhash params))
              :ptr-time (edn/read-string (:time params)))
-      actions/toggle-fav
-      deref)
+      actions/toggle-fav)
   nil)
 
 (defn check-user-exists
