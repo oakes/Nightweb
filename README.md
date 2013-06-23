@@ -1,6 +1,6 @@
 ## Introduction
 
-Nightweb is an app for Android and PCs that connects you to an anonymous, peer-to-peer social network. It is written in Clojure and uses I2P and BitTorrent on the backend. Please see [the website](http://nightweb.net) for a general overview, and the [protocol page](http://nightweb.net/protocol.html) for a more in-depth explanation of how it works.
+Nightweb is an app for Android devices and PCs that connects you to an anonymous, peer-to-peer social network. It is written in Clojure and uses I2P and BitTorrent on the backend. Please see [the website](http://nightweb.net) for a general overview, and the [protocol page](http://nightweb.net/protocol.html) for a more in-depth explanation of how it works.
 
 ## Contents
 
