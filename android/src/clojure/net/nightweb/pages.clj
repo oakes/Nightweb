@@ -15,13 +15,12 @@
             [nightweb.formats :as f]
             [nightweb.router :as router]
             [nightweb.users :as users])
-  (:import [android.app ActionBar]
-           [android.content Context]))
+  (:import [android.app ActionBar]))
 
 (def show-welcome-message? (atom true))
 
 (defn shutdown-receiver-func
-  [^Context context intent]
+  [context intent]
   (.finish context))
 
 (defn get-params

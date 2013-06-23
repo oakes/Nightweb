@@ -2,11 +2,11 @@
   (:require [neko.resource :as r]
             [net.nightweb.actions :as actions]
             [net.nightweb.dialogs :as dialogs])
-  (:import [android.view MenuItem]
+  (:import [android.view Menu MenuItem]
            [android.widget SearchView]))
 
 (defn create-main-menu
-  [context menu show-share-button? show-switch-button?]
+  [context ^Menu menu show-share-button? show-switch-button?]
   ; create search button
   (let [search-item (.add menu (r/get-string :search))
         search-view (SearchView. context)]

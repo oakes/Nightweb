@@ -10,7 +10,8 @@
             [nightweb.formats :as f])
   (:import [android.graphics Typeface]
            [android.view Gravity View]
-           [android.widget Button ImageButton RelativeLayout]))
+           [android.widget Button EditText ImageButton ImageView LinearLayout
+                           RelativeLayout ScrollView TextView]))
 
 (defn get-new-post-view
   [context content]
@@ -27,6 +28,7 @@
                                (:time page-content))}
                    {:ptrhash (:ptrhash post)
                     :ptrtime (:ptrtime post)})
+        ^LinearLayout
         view (ui/make-ui
                context
                [:linear-layout {:orientation 1}
@@ -39,10 +41,10 @@
                               :tag "user-name"}]]
                 [:edit-text {:min-lines 10
                              :tag "post-body"}]])
-        user-info (.findViewWithTag view "user-info")
-        user-img (.findViewWithTag view "user-img")
-        user-name (.findViewWithTag view "user-name")
-        post-body (.findViewWithTag view "post-body")
+        ^LinearLayout user-info (.findViewWithTag view "user-info")
+        ^ImageView user-img (.findViewWithTag view "user-img")
+        ^TextView user-name (.findViewWithTag view "user-name")
+        ^EditText post-body (.findViewWithTag view "post-body")
         pad (utils/make-dip context 10)
         s 80]
     (.setTag view pointers)
@@ -56,18 +58,19 @@
       (future (let [user (db/get-single-user-data {:userhash ptr-hash})
                     path (utils/get-pic-path (:userhash user) (:pichash user))
                     bitmap (utils/path-to-bitmap path utils/thumb-size)]
-                (thread/on-ui (.setText user-name (:title user))
+                (thread/on-ui (.setText user-name ^String (:title user))
                               (.setImageBitmap user-img bitmap))))
       (.setVisibility user-info View/GONE))
     (utils/set-text-size post-body utils/default-text-size)
     (utils/set-text-max-length post-body db/max-length-large)
-    (.setText post-body (:body post))
+    (.setText post-body ^String (:body post))
     (actions/clear-attachments context)
     view))
 
 (defn get-profile-view
   [context content]
   (let [user (:user content)
+        ^ScrollView
         view (if (c/is-me? (:userhash user))
                (ui/make-ui context
                            [:scroll-view {}
@@ -88,10 +91,10 @@
                              [:text-view {:layout-width :fill
                                           :text-is-selectable true}]
                              [:relative-layout {}]]]))
-        linear-layout (.getChildAt view 0)
-        text-name (.getChildAt linear-layout 0)
-        text-body (.getChildAt linear-layout 1)
-        relative-layout (.getChildAt linear-layout 2)
+        ^LinearLayout linear-layout (.getChildAt view 0)
+        ^TextView text-name (.getChildAt linear-layout 0)
+        ^TextView text-body (.getChildAt linear-layout 1)
+        ^RelativeLayout relative-layout (.getChildAt linear-layout 2)
         image-view (proxy [ImageButton] [context]
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
@@ -107,9 +110,9 @@
     (when (c/is-me? (:userhash user))
       (.setHint text-name (r/get-string :name))
       (.setHint text-body (r/get-string :about_me)))
-    (.setText text-name (:title user))
+    (.setText text-name ^String (:title user))
     (if (c/is-me? (:userhash user))
-      (.setText text-body (:body user))
+      (.setText text-body ^String (:body user))
       (->> (:body user)
            (f/tags-encode :user)
            (utils/set-text-content context text-body actions/show-basic)))
@@ -153,7 +156,8 @@
 
 (defn get-welcome-view
   [context]
-  (let [view (ui/make-ui
+  (let [^LinearLayout
+        view (ui/make-ui
                context
                [:linear-layout {:orientation 1}
                 [:text-view {:text (r/get-string :welcome_title)
@@ -181,24 +185,24 @@
                                :tag "share-image"}]
                  [:text-view {:text (r/get-string :welcome_share)
                               :tag "share-text"}]]])
-        title-text (.findViewWithTag view "title-text")
-        subtitle-text (.findViewWithTag view "subtitle-text")
-        profile-text (.findViewWithTag view "profile-text")
-        post-text (.findViewWithTag view "post-text")
-        share-text (.findViewWithTag view "share-text")
-        profile-image (.findViewWithTag view "profile-image")
-        post-image (.findViewWithTag view "post-image")
-        share-image (.findViewWithTag view "share-image")
+        ^TextView title-text (.findViewWithTag view "title-text")
+        ^TextView subtitle-text (.findViewWithTag view "subtitle-text")
+        ^TextView profile-text (.findViewWithTag view "profile-text")
+        ^TextView post-text (.findViewWithTag view "post-text")
+        ^TextView share-text (.findViewWithTag view "share-text")
+        ^ImageView profile-image (.findViewWithTag view "profile-image")
+        ^ImageView post-image (.findViewWithTag view "post-image")
+        ^ImageView share-image (.findViewWithTag view "share-image")
         pad (utils/make-dip context 10)
         s 80]
     (utils/set-text-size title-text utils/large-text-size)
     (utils/set-text-size subtitle-text utils/default-text-size)
     (.setGravity title-text Gravity/CENTER_HORIZONTAL)
-    (doseq [txt [profile-text post-text share-text]]
+    (doseq [^TextView txt [profile-text post-text share-text]]
       (utils/set-text-size txt utils/default-text-size)
       (.setMinHeight txt s)
       (.setGravity txt Gravity/CENTER_VERTICAL))
-    (doseq [img [profile-image post-image share-image]]
+    (doseq [^ImageView img [profile-image post-image share-image]]
       (.setLayoutParams img (android.widget.LinearLayout$LayoutParams. s s)))
     (.setPadding view pad pad pad pad)
     view))
