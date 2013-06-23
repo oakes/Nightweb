@@ -16,6 +16,8 @@
 
 	<SupportedLanguages>en</SupportedLanguages>
 
+	<MustFork>true</MustFork>
+
 	<!-- App is a per-user app, it won't elevate and install for all users and the shared config folder will be per-user -->
 	<InstallType>CurrentUser</InstallType>
 
