@@ -9,7 +9,9 @@
             [nightweb.constants :as c]
             [nightweb.db :as db]
             [nightweb.io :as io]
-            [nightweb.users :as users]))
+            [nightweb.users :as users])
+  (:import [android.app AlertDialog DialogFragment]
+           [android.text InputType]))
 
 (defn create-dialog
   [context message view buttons]
@@ -23,9 +25,6 @@
     (.setMessage builder message)
     (.setView builder view)
     (let [dialog (.create builder)
-          positive-type android.app.AlertDialog/BUTTON_POSITIVE
-          neutral-type android.app.AlertDialog/BUTTON_NEUTRAL
-          negative-type android.app.AlertDialog/BUTTON_NEGATIVE
           btn-action (fn [dialog button func]
                        (proxy [android.view.View$OnClickListener] []
                          (onClick [v]
@@ -37,21 +36,18 @@
         dialog
         (proxy [android.content.DialogInterface$OnShowListener] []
           (onShow [d]
-            (when-let [positive-btn (.getButton d positive-type)]
+            (when-let [positive-btn (.getButton d AlertDialog/BUTTON_POSITIVE)]
               (.setOnClickListener
-                positive-btn (btn-action d
-                                         positive-btn
-                                         (:positive-func buttons))))
-            (when-let [neutral-btn (.getButton d neutral-type)]
+                positive-btn
+                (btn-action d positive-btn (:positive-func buttons))))
+            (when-let [neutral-btn (.getButton d AlertDialog/BUTTON_NEUTRAL)]
               (.setOnClickListener
-                neutral-btn (btn-action d
-                                        neutral-btn
-                                        (:neutral-func buttons))))
-            (when-let [negative-btn (.getButton d negative-type)]
+                neutral-btn
+                (btn-action d neutral-btn (:neutral-func buttons))))
+            (when-let [negative-btn (.getButton d AlertDialog/BUTTON_NEGATIVE)]
               (.setOnClickListener
-                negative-btn (btn-action d
-                                         negative-btn
-                                         (:negative-func buttons)))))))
+                negative-btn
+                (btn-action d negative-btn (:negative-func buttons)))))))
       (.setCanceledOnTouchOutside dialog false)
       dialog)))
 
@@ -67,7 +63,7 @@
          (.show dialog)
          (catch Exception e nil)))))
   ([context message view buttons]
-   (let [dialog-fragment (proxy [android.app.DialogFragment] []
+   (let [dialog-fragment (proxy [DialogFragment] []
                            (onCreate [bundle]
                              (proxy-super onCreate bundle)
                              (.setRetainInstance this true))
@@ -151,8 +147,8 @@
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
                                               :hint (r/get-string :password)}])
-        input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
-                           android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
+        input-type (bit-or InputType/TYPE_CLASS_TEXT
+                           InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
     (show-dialog context
                  (r/get-string :export_desc)
@@ -171,8 +167,8 @@
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
                                               :hint (r/get-string :password)}])
-        input-type (bit-or android.text.InputType/TYPE_CLASS_TEXT
-                           android.text.InputType/TYPE_TEXT_VARIATION_PASSWORD)]
+        input-type (bit-or InputType/TYPE_CLASS_TEXT
+                           InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
     (show-dialog context
                  (r/get-string :import_desc)

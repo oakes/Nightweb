@@ -3,7 +3,13 @@
             [clojure.java.io :as java.io]
             [neko.resource :as r]
             [nightweb.constants :as c]
-            [nightweb.formats :as f]))
+            [nightweb.formats :as f])
+  (:import [android.graphics BitmapFactory]
+           [android.graphics.drawable BitmapDrawable StateListDrawable]
+           [android.net Uri]
+           [android.text Html InputFilter Selection]
+           [android.util TypedValue]
+           [android.view View]))
 
 (def ^:const full-size 1024)
 (def ^:const thumb-size 256)
@@ -15,7 +21,7 @@
   [is max-length]
   (let [options (android.graphics.BitmapFactory$Options.)
         _ (set! (. options inJustDecodeBounds) true)
-        _ (android.graphics.BitmapFactory/decodeStream is nil options)
+        _ (BitmapFactory/decodeStream is nil options)
         height-ratio (/ (. options outHeight) max-length)
         width-ratio (/ (. options outWidth) max-length)
         is-valid? (and (> height-ratio 0) (> width-ratio 0))
@@ -30,14 +36,14 @@
   [is ratio]
   (let [options (android.graphics.BitmapFactory$Options.)]
     (set! (. options inSampleSize) ratio)
-    (android.graphics.BitmapFactory/decodeStream is nil options)))
+    (BitmapFactory/decodeStream is nil options)))
 
 (defn uri-to-bitmap
   "Reads from a URI into a bitmap, resizing if necessary."
   [context uri-str]
   (try
     (let [cr (.getContentResolver context)
-          uri (android.net.Uri/parse uri-str)]
+          uri (Uri/parse uri-str)]
       (when-let [ratio (with-open [is (.openInputStream cr uri)]
                          (get-resample-ratio is full-size))]
         (with-open [is (.openInputStream cr uri)]
@@ -68,7 +74,7 @@
   "Copies the contents of a URI to a path."
   (try
     (let [cr (.getContentResolver context)
-          uri (android.net.Uri/parse uri-str)]
+          uri (Uri/parse uri-str)]
       (with-open [is (.openInputStream cr uri)]
         (java.io/copy is (java.io/file path))))
     (catch Exception e nil)))
@@ -85,7 +91,7 @@
   "Creates a Drawable that highlights when pressed."
   ([context] (create-highlight context nil))
   ([context drawable]
-   (let [states (android.graphics.drawable.StateListDrawable.)
+   (let [states (StateListDrawable.)
          blue (->> (r/get-resource :color :android/holo_blue_light)
                    (.getDrawable (.getResources context)))
          transparent (->> (r/get-resource :color :android/transparent)
@@ -104,27 +110,27 @@
                     (when pic-hash
                       (-> (get-pic-path user-hash pic-hash)
                           (path-to-bitmap thumb-size)
-                          (android.graphics.drawable.BitmapDrawable.)))))
+                          BitmapDrawable.))))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."
   [context number]
   (-> (.getResources context)
-      (.getDisplayMetrics)
-      (.density)
+      .getDisplayMetrics
+      .density
       (* number)
-      (int)))
+      int))
 
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."
   [view size]
-  (.setTextSize view android.util.TypedValue/COMPLEX_UNIT_DIP size))
+  (.setTextSize view TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn set-text-max-length
   "Limits the text length for the given TextView."
   [view max-length]
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
-       (into-array android.text.InputFilter)
+       (into-array InputFilter)
        (.setFilters view)))
 
 ; subclass LinkMovementMethod because it doesn't support text selection
@@ -143,24 +149,23 @@
   (defn movement-method-initialize
     [this widget text]
     (try
-      (android.text.Selection/setSelection text 0)
+      (Selection/setSelection text 0)
       (catch Exception e nil)))
   (defn movement-method-onTakeFocus
     [this view text dir]
-    (if (->> (bit-or android.view.View/FOCUS_FORWARD
-                     android.view.View/FOCUS_DOWN)
+    (if (->> (bit-or View/FOCUS_FORWARD View/FOCUS_DOWN)
              (bit-and dir)
              (not= 0))
       (when (nil? (.getLayout view))
-        (android.text.Selection/setSelection text (.length text)))
-      (android.text.Selection/setSelection text (.length text)))))
+        (Selection/setSelection text (.length text)))
+      (Selection/setSelection text (.length text)))))
 
 (defn set-text-content
   "Sets the content of a TextView and formats it if necessary."
   [context view on-tap content]
   (let [html-text (markdown/md-to-html-string content)
         markdown-text (try
-                        (android.text.Html/fromHtml html-text)
+                        (Html/fromHtml html-text)
                         (catch Exception e ""))
         spannable android.widget.TextView$BufferType/SPANNABLE]
     (.setText view markdown-text spannable)

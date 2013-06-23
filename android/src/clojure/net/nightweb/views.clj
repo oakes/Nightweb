@@ -10,10 +10,11 @@
             [nightweb.db_tiles :as tiles]
             [nightweb.formats :as f])
   (:import [android.app ActionBar Fragment FragmentTransaction]
-           [android.graphics Typeface Color]
-           [android.view View ViewGroup Gravity]
-           [android.widget FrameLayout LinearLayout TextView ImageView
-                           GridLayout ScrollView]))
+           [android.graphics Color Typeface]
+           [android.support.v4.view PagerAdapter]
+           [android.view Gravity View ViewGroup]
+           [android.widget FrameLayout GridLayout ImageView LinearLayout
+                           ScrollView TextView]))
 
 (def ^:const default-tile-width 160)
 
@@ -175,7 +176,7 @@
           (thread/on-ui
             (.setAdapter
               view
-              (proxy [android.support.v4.view.PagerAdapter] []
+              (proxy [PagerAdapter] []
                 (destroyItem [^ViewGroup container position object]
                   (.removeView container object))
                 (getCount [] (count pics))

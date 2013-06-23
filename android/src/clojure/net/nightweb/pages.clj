@@ -14,12 +14,14 @@
             [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb.router :as router]
-            [nightweb.users :as users]))
+            [nightweb.users :as users])
+  (:import [android.app ActionBar]
+           [android.content Context]))
 
 (def show-welcome-message? (atom true))
 
 (defn shutdown-receiver-func
-  [context intent]
+  [^Context context intent]
   (.finish context))
 
 (defn get-params
@@ -35,8 +37,7 @@
       main/service-name
       (fn [binder]
         (let [action-bar (.getActionBar this)]
-          (.setNavigationMode action-bar 
-                              android.app.ActionBar/NAVIGATION_MODE_TABS)
+          (.setNavigationMode action-bar  ActionBar/NAVIGATION_MODE_TABS)
           (.setDisplayShowTitleEnabled action-bar false)
           (.setDisplayShowHomeEnabled action-bar false)
           (views/create-tab action-bar
@@ -89,7 +90,7 @@
       this main/shutdown-receiver-name shutdown-receiver-func)
     (let [params (get-params this)
           action-bar (.getActionBar this)]
-      (.setNavigationMode action-bar android.app.ActionBar/NAVIGATION_MODE_TABS)
+      (.setNavigationMode action-bar ActionBar/NAVIGATION_MODE_TABS)
       (.setDisplayHomeAsUpEnabled action-bar true)
       (.setTitle action-bar (utils/get-string-at-runtime this (:title params)))
       (views/create-tab action-bar

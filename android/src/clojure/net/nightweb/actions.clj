@@ -8,7 +8,11 @@
             [nightweb.actions :as a]
             [nightweb.constants :as c]
             [nightweb.io :as io]
-            [nightweb.formats :as f]))
+            [nightweb.formats :as f])
+  (:import [android.app ProgressDialog]
+           [android.content Intent]
+           [android.net Uri]
+           [android.os Environment]))
 
 ; creating a new activity
 
@@ -16,7 +20,7 @@
   "Shows a new activity of the specified type."
   [context class-name params]
   (let [class-symbol (Class/forName class-name)
-        intent (android.content.Intent. context class-symbol)]
+        intent (Intent. context class-symbol)]
     (.putExtra intent "params" params)
     (.startActivity context intent)))
 
@@ -43,30 +47,29 @@
 (defn share-url
   "Displays an app chooser to share a link to the displayed content."
   [context]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
+  (let [intent (Intent. Intent/ACTION_SEND)
         url (f/url-encode (activity/get-state context :share))]
     (.setType intent "text/plain")
-    (.putExtra intent android.content.Intent/EXTRA_TEXT url)
+    (.putExtra intent Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
 
 (defn send-file
   "Displays an app chooser to send a file."
   [context file-type path]
-  (let [intent (android.content.Intent. android.content.Intent/ACTION_SEND)
-        uri (android.net.Uri/fromFile (java.io/file path))]
-    (.putExtra intent android.content.Intent/EXTRA_STREAM uri)
+  (let [intent (Intent. Intent/ACTION_SEND)
+        uri (Uri/fromFile (java.io/file path))]
+    (.putExtra intent Intent/EXTRA_STREAM uri)
     (.setType intent file-type)
-    (->> (android.content.Intent/createChooser intent (r/get-string :save))
+    (->> (Intent/createChooser intent (r/get-string :save))
          (.startActivity context))))
 
 (defn request-files
   "Displays an app chooser to select files of the specified file type."
   [context file-type callback]
   (activity/set-state context :file-request callback)
-  (let [intent (android.content.Intent.
-                 android.content.Intent/ACTION_GET_CONTENT)]
+  (let [intent (Intent. Intent/ACTION_GET_CONTENT)]
     (.setType intent file-type)
-    (.addCategory intent android.content.Intent/CATEGORY_OPENABLE)
+    (.addCategory intent Intent/CATEGORY_OPENABLE)
     (.startActivityForResult context intent 1)))
 
 ; receiving data from activities
@@ -108,7 +111,7 @@
   "Displays a spinner while the specified function runs in a thread."
   [context message func]
   (thread/on-ui
-    (let [spinner (android.app.ProgressDialog/show context nil message true)]
+    (let [spinner (ProgressDialog/show context nil message true)]
       (future
         (let [should-refresh? (func)]
           (thread/on-ui
@@ -194,7 +197,7 @@
   (show-spinner context
                 (r/get-string :zipping)
                 #(let [path (c/get-user-dir @c/my-hash-str)
-                       dir (android.os.Environment/getExternalStorageDirectory)
+                       dir (Environment/getExternalStorageDirectory)
                        dest-path (-> (.getAbsolutePath dir)
                                      (str c/slash c/user-zip-file))]
                    (if (a/export-user
@@ -209,7 +212,7 @@
   [context password uri-str]
   (show-spinner context
                 (r/get-string :unzipping)
-                #(let [dir (android.os.Environment/getExternalStorageDirectory)
+                #(let [dir (Environment/getExternalStorageDirectory)
                        temp-path (-> (.getAbsolutePath dir)
                                      (str c/slash c/user-zip-file))
                        ; if it's a content URI, copy to root of SD card

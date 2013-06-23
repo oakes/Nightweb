@@ -7,7 +7,10 @@
             [net.nightweb.utils :as utils]
             [nightweb.constants :as c]
             [nightweb.db :as db]
-            [nightweb.formats :as f]))
+            [nightweb.formats :as f])
+  (:import [android.graphics Typeface]
+           [android.view Gravity View]
+           [android.widget Button ImageButton RelativeLayout]))
 
 (defn get-new-post-view
   [context content]
@@ -45,7 +48,7 @@
     (.setTag view pointers)
     (utils/set-text-size user-name utils/default-text-size)
     (.setMinHeight user-name s)
-    (.setGravity user-name android.view.Gravity/CENTER_VERTICAL)
+    (.setGravity user-name Gravity/CENTER_VERTICAL)
     (.setPadding user-name pad 0 0 0)
     (.setLayoutParams user-img (android.widget.LinearLayout$LayoutParams. s s))
     (.setScaleType user-img android.widget.ImageView$ScaleType/CENTER_CROP)
@@ -55,7 +58,7 @@
                     bitmap (utils/path-to-bitmap path utils/thumb-size)]
                 (thread/on-ui (.setText user-name (:title user))
                               (.setImageBitmap user-img bitmap))))
-      (.setVisibility user-info android.view.View/GONE))
+      (.setVisibility user-info View/GONE))
     (utils/set-text-size post-body utils/default-text-size)
     (utils/set-text-max-length post-body db/max-length-large)
     (.setText post-body (:body post))
@@ -65,7 +68,6 @@
 (defn get-profile-view
   [context content]
   (let [user (:user content)
-        bold android.graphics.Typeface/DEFAULT_BOLD
         view (if (c/is-me? (:userhash user))
                (ui/make-ui context
                            [:scroll-view {}
@@ -82,7 +84,7 @@
                              [:text-view {:single-line true
                                           :layout-width :fill
                                           :text-is-selectable true
-                                          :typeface bold}]
+                                          :typeface Typeface/DEFAULT_BOLD}]
                              [:text-view {:layout-width :fill
                                           :text-is-selectable true}]
                              [:relative-layout {}]]]))
@@ -90,10 +92,10 @@
         text-name (.getChildAt linear-layout 0)
         text-body (.getChildAt linear-layout 1)
         relative-layout (.getChildAt linear-layout 2)
-        image-view (proxy [android.widget.ImageButton] [context]
+        image-view (proxy [ImageButton] [context]
                      (onMeasure [width height]
                        (proxy-super onMeasure width width)))
-        clear-btn (android.widget.Button. context)
+        clear-btn (Button. context)
         pad (utils/make-dip context 10)]
     ; set padding and text size
     (.setPadding linear-layout pad pad pad pad)
@@ -118,8 +120,8 @@
       (.setLayoutParams image-view params))
     (let [wrap android.widget.RelativeLayout$LayoutParams/WRAP_CONTENT
           params (android.widget.RelativeLayout$LayoutParams. wrap wrap)]
-      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_TOP)
-      (.addRule params android.widget.RelativeLayout/ALIGN_PARENT_RIGHT)
+      (.addRule params RelativeLayout/ALIGN_PARENT_TOP)
+      (.addRule params RelativeLayout/ALIGN_PARENT_RIGHT)
       (.setLayoutParams clear-btn params))
     ; set image view and clear button parameters
     (.setTag image-view "profile-image")
@@ -191,11 +193,11 @@
         s 80]
     (utils/set-text-size title-text utils/large-text-size)
     (utils/set-text-size subtitle-text utils/default-text-size)
-    (.setGravity title-text android.view.Gravity/CENTER_HORIZONTAL)
+    (.setGravity title-text Gravity/CENTER_HORIZONTAL)
     (doseq [txt [profile-text post-text share-text]]
       (utils/set-text-size txt utils/default-text-size)
       (.setMinHeight txt s)
-      (.setGravity txt android.view.Gravity/CENTER_VERTICAL))
+      (.setGravity txt Gravity/CENTER_VERTICAL))
     (doseq [img [profile-image post-image share-image]]
       (.setLayoutParams img (android.widget.LinearLayout$LayoutParams. s s)))
     (.setPadding view pad pad pad pad)
