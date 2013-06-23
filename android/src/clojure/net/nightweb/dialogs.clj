@@ -260,7 +260,8 @@
 
 (defn show-edit-post-dialog
   [context content]
-  (let [pics (db/get-pic-data content (:time content) false)]
+  (let [post (:post content)
+        pics (db/get-pic-data post (:time post) false)]
     (show-dialog context
                  nil
                  (views-dialog/get-new-post-view context content)
@@ -270,7 +271,7 @@
                     (actions/new-post context
                                       dialog-view
                                       button-view
-                                      (:time content)
+                                      (:time post)
                                       (for [pic pics] (:pichash pic))
                                       1))
                   :neutral-name (r/get-string :delete)
@@ -279,7 +280,7 @@
                     (show-delete-post-dialog context
                                              dialog-view
                                              button-view
-                                             (:time content)))
+                                             (:time post)))
                   :negative-name (r/get-string :cancel)
                   :negative-func actions/cancel})))
 
