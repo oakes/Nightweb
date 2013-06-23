@@ -1,6 +1,6 @@
 ## Introduction
 
-Nightweb is an Android app for anonymous, peer-to-peer social networking. It is written in Clojure and uses I2P and BitTorrent on the backend. Please see [the website](http://nightweb.net) for a general overview, and the [protocol page](http://nightweb.net/protocol.html) for a more in-depth explanation of how it works.
+Nightweb is an app for Android and PCs that connects you to an anonymous, peer-to-peer social network. It is written in Clojure and uses I2P and BitTorrent on the backend. Please see [the website](http://nightweb.net) for a general overview, and the [protocol page](http://nightweb.net/protocol.html) for a more in-depth explanation of how it works.
 
 ## Contents
 
@@ -12,4 +12,4 @@ Nightweb is an Android app for anonymous, peer-to-peer social networking. It is 
 
 ## Licensing
 
-All source files that originate from this project are dedicated to the public domain. That particularly includes the files in `android/src/clojure/net/nightweb` and `common/clojure/nightweb`, the UI code and backend code respectively. All third-party code in this project remains under their original licenses. I would love pull requests, and will assume that any Clojure contributions are also dedicated to the public domain.
+All source files that originate from this project are dedicated to the public domain. That particularly includes the files in `android/src/clojure/net/nightweb`, `desktop/src/nightweb_desktop`, and `common/clojure/nightweb` (the Android, desktop, and backend code respectively). All third-party code in this project remains under their original licenses. I would love pull requests, and will assume that any Clojure contributions are also dedicated to the public domain.
