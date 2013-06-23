@@ -1,6 +1,8 @@
 (ns nightweb.formats
   (:require [nightweb.constants :as c]
-            [nightweb.crypto :as crypto]))
+            [nightweb.crypto :as crypto])
+  (:import [java.io ByteArrayInputStream]
+           [org.klomp.snark.bencode BEncoder BDecoder BEValue]))
 
 (defn remove-dupes-and-nils
   [the-list]
@@ -18,54 +20,53 @@
 (defn b-encode
   [data-value]
   (try
-    (org.klomp.snark.bencode.BEncoder/bencode data-value)
+    (BEncoder/bencode data-value)
     (catch Exception e nil)))
 
 (defn b-decode
   [data-barray]
   (try
-    (org.klomp.snark.bencode.BDecoder/bdecode
-      (java.io.ByteArrayInputStream. data-barray))
+    (BDecoder/bdecode (ByteArrayInputStream. data-barray))
     (catch Exception e nil)))
 
 (defn b-decode-map
-  [be-value]
+  [^BEValue be-value]
   (try
     (.getMap be-value)
     (catch Exception e nil)))
 
 (defn b-decode-list
-  [be-value]
+  [^BEValue be-value]
   (try
     (vec (.getList be-value))
     (catch Exception e nil)))
 
 (defn b-decode-bytes
-  [be-value]
+  [^BEValue be-value]
   (try
     (.getBytes be-value)
     (catch Exception e nil)))
 
 (defn b-decode-long
-  [be-value]
+  [^BEValue be-value]
   (try
     (.getLong be-value)
     (catch Exception e nil)))
 
 (defn b-decode-string
-  [be-value]
+  [^BEValue be-value]
   (try
     (.getString be-value)
     (catch Exception e nil)))
 
 (defn b-decode-byte-list
-  [be-value]
+  [^BEValue be-value]
   (vec
     (for [list-item (b-decode-list be-value)]
       (b-decode-bytes list-item))))
 
 (defn base32-encode
-  [data-barray]
+  [^bytes data-barray]
   (try
     (net.i2p.data.Base32/encode data-barray)
     (catch Exception e nil)))
@@ -138,7 +139,7 @@
 (def ^:const ignore-chars #"[?,:;.!\(\)\t\r\n ]")
 
 (defn get-tag
-  [text-str]
+  [^String text-str]
   (when (and text-str (.startsWith text-str "#"))
     (let [tag (subs text-str 1)]
       (when (and (>= (count tag) min-tag-length)

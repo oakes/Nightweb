@@ -5,38 +5,41 @@
             [nightweb.db :as db]
             [nightweb.io :as io]
             [nightweb.formats :as f]
-            [nightweb.torrents :as t]))
+            [nightweb.torrents :as t])
+  (:import [net.i2p.data Destination]
+           [org.klomp.snark Peer Snark SnarkManager]
+           [org.klomp.snark.dht DHT NodeInfo CustomQueryHandler]))
 
 ; dht nodes
 
 (defn get-node-info-for-peer
-  [peer]
-  (let [dht (.getDHT (.util @t/manager))
-        destination (.getAddress (.getPeerID peer))]
+  [^Peer peer]
+  (let [^DHT dht (.getDHT (.util ^SnarkManager @t/manager))
+        ^Destination destination (.getAddress (.getPeerID peer))]
     (.getNodeInfo dht destination)))
 
 (defn get-public-node
   []
-  (if-let [dht (.getDHT (.util @t/manager))]
+  (if-let [^DHT dht (.getDHT (.util ^SnarkManager @t/manager))]
     (.toPersistentString (.getNodeInfo dht nil))
     (println "Failed to get public node")))
 
 (defn get-private-node
   []
-  (if-let [socket-manager (.getSocketManager (.util @t/manager))]
+  (if-let [socket-manager (.getSocketManager (.util ^SnarkManager @t/manager))]
     (.getSession socket-manager)
     (println "Failed to get private node")))
 
 (defn add-node
   [node-info-str]
-  (if-let [dht (.getDHT (.util @t/manager))]
-    (let [ninfo (.heardAbout dht (org.klomp.snark.dht.NodeInfo. node-info-str))]
+  (if-let [^DHT dht (.getDHT (.util ^SnarkManager @t/manager))]
+    (let [^NodeInfo ninfo (.heardAbout dht (NodeInfo. node-info-str))]
       (.setPermanent ninfo true))
     (println "Failed to add bootstrap node")))
 
 (defn is-connecting?
   []
-  (if-let [util (.util @t/manager)]
+  (if-let [util (.util ^SnarkManager @t/manager)]
     (.isConnecting util)
     true))
 
@@ -48,7 +51,9 @@
   (let [query (doto (java.util.HashMap.)
                 (.put "q" method)
                 (.put "a" args))]
-    (.sendQuery (.getDHT (.util @t/manager)) node-info query true)))
+    (-> (.util ^SnarkManager @t/manager)
+        .getDHT
+        (.sendQuery node-info query true))))
 
 (defn send-meta-link
   "Sends the relevant meta link to all peers in a given user torrent."
@@ -57,7 +62,7 @@
                           (str c/torrent-ext)
                           (t/get-torrent-by-path))]
      (send-meta-link torrent)))
-  ([torrent]
+  ([^Snark torrent]
    (let [info-hash-str (f/base32-encode (.getInfoHash torrent))
          args (io/read-link-file info-hash-str)]
      (t/iterate-peers torrent
@@ -71,7 +76,7 @@
   (future
     (while true
       (Thread/sleep (* seconds 1000))
-      (t/iterate-torrents (fn [torrent]
+      (t/iterate-torrents (fn [^Snark torrent]
                             (when (.getPersistent torrent)
                               (send-meta-link torrent)))))))
 
@@ -102,7 +107,7 @@
           user-dir (c/get-user-dir their-hash-str)]
       (println "Deleting user" their-hash-str)
       (t/iterate-torrents
-        (fn [torrent]
+        (fn [^Snark torrent]
           (when (>= (.indexOf (.getDataDir torrent) their-hash-str) 0)
             (t/remove-torrent (.getName torrent)))))
       (io/delete-file-recursively user-dir)
@@ -144,7 +149,7 @@
 
 (defn on-recv-meta
   "Ingests all files in a meta torrent."
-  [torrent]
+  [^Snark torrent]
   (let [parent-dir (.getParentFile (java.io/file (.getName torrent)))
         user-hash-bytes (f/base32-decode (.getName parent-dir))
         paths (.getFiles (.getMetaInfo torrent))]
@@ -240,11 +245,11 @@
   (let [priv-node (io/read-priv-node-key-file)
         pub-node (io/read-pub-node-key-file)]
     (when (and priv-node pub-node)
-      (.setDHTNode (.util @t/manager) priv-node pub-node)))
+      (.setDHTNode (.util ^SnarkManager @t/manager) priv-node pub-node)))
   ; set the custom query handler
   (.setDHTCustomQueryHandler
-    (.util @t/manager)
-    (reify org.klomp.snark.dht.CustomQueryHandler
+    (.util ^SnarkManager @t/manager)
+    (reify CustomQueryHandler
       (receiveQuery [this method args]
         (case method
           "announce_meta" (receive-meta-link args)
@@ -253,7 +258,7 @@
         (receive-meta-link args))))
   ; set the init callback
   (.setDHTInitCallback
-    (.util @t/manager)
+    (.util ^SnarkManager @t/manager)
     (fn []
       (let [priv-node (get-private-node)
             pub-node (get-public-node)]

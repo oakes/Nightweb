@@ -3,7 +3,9 @@
             [nightweb.constants :as c]
             [nightweb.crypto :as crypto]
             [nightweb.db :as db]
-            [nightweb.formats :as f]))
+            [nightweb.formats :as f])
+  (:import [java.io File]
+           [net.i2p.data PrivateKeyFile]))
 
 ; basic file operations
 
@@ -16,7 +18,7 @@
   (when-let [parent-dir (.getParentFile (java.io/file path))]
     (.mkdirs parent-dir))
   (with-open [bos (java.io/output-stream path)]
-    (.write bos data-barray 0 (alength data-barray))))
+    (.write bos data-barray 0 (alength ^bytes data-barray))))
 
 (defn read-file
   [path]
@@ -34,7 +36,7 @@
 
 (defn delete-file-recursively
   [path]
-  (let [f (java.io/file path)]
+  (let [^File f (java.io/file path)]
     (when (.isDirectory f)
       (doseq [child (.listFiles f)]
         (delete-file-recursively child)))
@@ -46,20 +48,20 @@
 
 (defn iterate-dir
   [path func]
-  (doseq [f (.listFiles (java.io/file path))]
+  (doseq [^File f (.listFiles (java.io/file path))]
     (when (.isDirectory f)
       (func (.getName f)))))
 
 (defn list-dir
   [path]
-  (for [f (.listFiles (java.io/file path))]
+  (for [^File f (.listFiles (java.io/file path))]
     (when (.isDirectory f)
       (.getName f))))
 
 (defn get-files-in-uri
   [uri-str]
   (let [java-uri (java.net.URI/create uri-str)
-        files (for [uri-file (file-seq (java.io/file java-uri))]
+        files (for [^File uri-file (file-seq (java.io/file java-uri))]
                 (when (.isFile uri-file)
                   (.getCanonicalPath uri-file)))]
     (f/remove-dupes-and-nils files)))
@@ -78,7 +80,7 @@
 
 (defn write-priv-node-key-file
   [priv-node]
-  (let [priv-node-file (net.i2p.data.PrivateKeyFile.
+  (let [priv-node-file (PrivateKeyFile.
                          (java.io/file (str @c/base-dir c/priv-node-key-file))
                          priv-node)]
     (.write priv-node-file)))
@@ -169,10 +171,10 @@
 (defn delete-orphaned-pics
   [user-hash]
   (when user-hash
-    (doseq [pic (-> (f/base32-encode user-hash)
-                    c/get-pic-dir
-                    java.io/file
-                    file-seq)]
+    (doseq [^File pic (-> (f/base32-encode user-hash)
+                          c/get-pic-dir
+                          java.io/file
+                          file-seq)]
       (when (and (.isFile pic)
                  (-> {:userhash user-hash
                       :pichash (f/base32-decode (.getName pic))}
@@ -185,7 +187,7 @@
   [user-hash file-list]
   (when user-hash
     (let [meta-dir (c/get-meta-dir (f/base32-encode user-hash))]
-      (doseq [meta-file (file-seq (java.io/file meta-dir))]
+      (doseq [^File meta-file (file-seq (java.io/file meta-dir))]
         (when (and (.isFile meta-file)
                    (->> file-list
                         (filter #(= (.getCanonicalPath meta-file)

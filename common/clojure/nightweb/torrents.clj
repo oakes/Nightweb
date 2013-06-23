@@ -2,7 +2,10 @@
   (:require [clojure.java.io :as java.io]
             [nightweb.constants :as c]
             [nightweb.formats :as f]
-            [nightweb.io :as io]))
+            [nightweb.io :as io])
+  (:import [net.i2p I2PAppContext]
+           [org.klomp.snark CompleteListener MetaInfo Snark SnarkManager
+                            Storage StorageListener]))
 
 (def manager (atom nil))
 
@@ -10,11 +13,11 @@
 
 (defn get-torrent-paths
   []
-  (.listTorrentFiles @manager))
+  (.listTorrentFiles ^SnarkManager @manager))
 
 (defn get-torrent-by-path
   [path]
-  (.getTorrent @manager path))
+  (.getTorrent ^SnarkManager @manager path))
 
 (defn iterate-torrents
   [func]
@@ -23,7 +26,7 @@
       (func torrent))))
 
 (defn iterate-peers
-  [torrent func]
+  [^Snark torrent func]
   (doseq [peer (.getPeerList torrent)]
     (func peer)))
 
@@ -32,7 +35,7 @@
 (defn get-storage
   "Creates a Storage object with a listener for each storage-related event."
   [path]
-  (let [listener (reify org.klomp.snark.StorageListener
+  (let [listener (reify StorageListener
                    (storageCreateFile [this storage file-name length]
                      (println "storageCreateFile" file-name))
                    (storageAllocated [this storage length]
@@ -49,50 +52,49 @@
                      (println "addMessage" message)))
         torrent-path (str path c/torrent-ext)
         storage (if (io/file-exists? torrent-path)
-                  (org.klomp.snark.Storage.
-                    (.util @manager)
-                    (org.klomp.snark.MetaInfo.
-                      (java.io/input-stream torrent-path))
+                  (Storage.
+                    (.util ^SnarkManager @manager)
+                    (MetaInfo. (java.io/input-stream torrent-path))
                     listener)
-                  (org.klomp.snark.Storage. (.util @manager)
-                                            (java.io/file path)
-                                            nil
-                                            nil
-                                            false
-                                            listener))]
+                  (Storage. (.util ^SnarkManager @manager)
+                            (java.io/file path)
+                            nil
+                            nil
+                            false
+                            listener))]
     (.close storage)
     storage))
 
 (defn get-complete-listener
   "Creates a listener for each event in a given torrent download."
   [path complete-callback]
-  (reify org.klomp.snark.CompleteListener
+  (reify CompleteListener
     (torrentComplete [this snark]
       (println "torrentComplete")
-      (.torrentComplete @manager snark)
+      (.torrentComplete ^SnarkManager @manager snark)
       (complete-callback snark))
     (updateStatus [this snark]
       (println "updateStatus")
-      (.updateStatus @manager snark))
+      (.updateStatus ^SnarkManager @manager snark))
     (gotMetaInfo [this snark]
       (println "gotMetaInfo")
-      (.gotMetaInfo @manager snark path))
+      (.gotMetaInfo ^SnarkManager @manager snark path))
     (fatal [this snark error]
       (println "fatal" error)
-      (.fatal @manager snark error))
+      (.fatal ^SnarkManager @manager snark error))
     (addMessage [this snark message]
       (println "addMessage" message)
-      (.addMessage @manager snark message))
+      (.addMessage ^SnarkManager @manager snark message))
     (gotPiece [this snark]
       (println "gotPiece")
-      (.gotPiece @manager snark))
+      (.gotPiece ^SnarkManager @manager snark))
     (getSavedTorrentTime [this snark]
       (println "getSavedTorrentTime")
-      ;(.getSavedTorrentTime @manager snark)
+      ;(.getSavedTorrentTime ^SnarkManager @manager snark)
       0)
     (getSavedTorrentBitField [this snark]
       (println "getSavedTorrentBitField")
-      ;(.getSavedTorrentBitField @manager snark)
+      ;(.getSavedTorrentBitField ^SnarkManager @manager snark)
       nil)))
 
 (defn add-hash
@@ -100,7 +102,7 @@
   [path info-hash-str is-persistent? complete-callback]
   (future
     (try
-      (.addMagnet @manager
+      (.addMagnet ^SnarkManager @manager
                   info-hash-str
                   (f/base32-decode info-hash-str)
                   nil
@@ -108,7 +110,7 @@
                   true
                   (get-complete-listener path complete-callback)
                   path)
-      (when-let [torrent (get-torrent-by-path info-hash-str)]
+      (when-let [^Snark torrent (get-torrent-by-path info-hash-str)]
         (.setPersistent torrent is-persistent?))
       (println "Hash added to" path)
       (catch IllegalArgumentException iae
@@ -122,19 +124,19 @@
           root-path (.getParent base-file)
           torrent-file (java.io/file (str path c/torrent-ext))
           torrent-path (.getCanonicalPath torrent-file)
-          storage (get-storage path)
+          ^Storage storage (get-storage path)
           meta-info (.getMetaInfo storage)
           bit-field (.getBitField storage)
           listener (get-complete-listener root-path complete-callback)]
       (future
-        (.addTorrent @manager
+        (.addTorrent ^SnarkManager @manager
                      meta-info
                      bit-field
                      torrent-path
                      false
                      listener
                      root-path)
-        (when-let [torrent (get-torrent-by-path torrent-path)]
+        (when-let [^Snark torrent (get-torrent-by-path torrent-path)]
           (.setPersistent torrent is-persistent?))
         (println "Torrent added to" torrent-path))
       (.getInfoHash meta-info))
@@ -145,12 +147,12 @@
 (defn remove-torrent
   "Stops and deletes a torrent."
   [path]
-  (.removeTorrent @manager path))
+  (.removeTorrent ^SnarkManager @manager path))
 
 (defn get-info-hash
   "Gets the info hash for a given path."
   [path]
-  (let [storage (get-storage path)
+  (let [^Storage storage (get-storage path)
         meta-info (.getMetaInfo storage)]
     (.getInfoHash meta-info)))
 
@@ -159,10 +161,10 @@
 (defn start-torrent-manager
   "Starts the I2PSnark manager."
   [dir]
-  (let [context (net.i2p.I2PAppContext/getGlobalContext)
+  (let [context (I2PAppContext/getGlobalContext)
         snark-dir (.getCanonicalPath (java.io/file dir "i2psnark"))]
-    (reset! manager (org.klomp.snark.SnarkManager. context snark-dir snark-dir))
-    (.updateConfig @manager
+    (reset! manager (SnarkManager. context snark-dir snark-dir))
+    (.updateConfig ^SnarkManager @manager
                    nil ;dataDir
                    true ;filesPublic
                    true ;autoStart
@@ -180,4 +182,4 @@
                    false ;useOpenTrackers
                    true ;useDHT
                    nil) ;theme
-    (.start @manager false)))
+    (.start ^SnarkManager @manager false)))

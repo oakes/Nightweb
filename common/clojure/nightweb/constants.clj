@@ -31,11 +31,11 @@
    (is-me? user-hash false))
   ([user-hash all-my-users?]
    (if all-my-users?
-     (-> (filter #(java.util.Arrays/equals user-hash %)
+     (-> (filter #(java.util.Arrays/equals ^bytes user-hash ^bytes %)
                  @my-hash-list)
          (count)
          (> 0))
-     (java.util.Arrays/equals user-hash @my-hash-bytes))))
+     (java.util.Arrays/equals ^bytes user-hash ^bytes @my-hash-bytes))))
 
 (defn get-user-list-file
   []
