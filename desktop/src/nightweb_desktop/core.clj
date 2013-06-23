@@ -1,15 +1,15 @@
 (ns nightweb-desktop.core
   (:gen-class)
-  (:require [clojure.java.io :as java.io]
-            [nightweb.router :as router]
+  (:require [nightweb.router :as router]
             [nightweb-desktop.server :as server]
-            [nightweb-desktop.utils :as utils]
             [nightweb-desktop.window :as window]))
 
 (defn -main
-  []
-  (let [dir (-> (jwrapper.jwutils.JWSystem/getAllAppVersionsSharedFolder)
-                .getCanonicalPath)]
+  [& args]
+  (let [dir (if (> (count args) 0)
+              (-> (jwrapper.jwutils.JWSystem/getAllAppVersionsSharedFolder)
+                  .getCanonicalPath)
+              "nightweb")]
     (router/start-router dir)
     (server/start-server dir)
     (window/start-window)))

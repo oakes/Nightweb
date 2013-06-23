@@ -8,6 +8,7 @@
 		<Name>Nightweb</Name>
 		<LogoPNG>../resources/logo_launcher.png</LogoPNG>
 		<MainClass>nightweb_desktop.core</MainClass>
+		<Param>--use-jwrapper</Param>
 	</App>
 
 	<JvmOptions>
@@ -35,6 +36,6 @@
 	<Linux64JRE>JRE-1.7/linuxx64/jre1.7.0_13</Linux64JRE>
 
 	<!-- The files that the app wants to bundle -->
-	<File classpath='yes'>../target/nightweb-desktop-0.0.1-standalone.jar</File>
+	<File classpath='yes'>../target/nightweb-desktop-0.0.17-standalone.jar</File>
 
 </JWrapper>
