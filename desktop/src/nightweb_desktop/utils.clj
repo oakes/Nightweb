@@ -10,6 +10,7 @@
                  (.toString)
                  (xml/parse)
                  (:content)))
+(def update-url (atom nil))
 
 (defn get-string
   "Returns the localized string for the given keyword."
@@ -51,6 +52,16 @@
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
       nil)))
+
+(defn check-update-periodically
+  []
+  (future
+    (when-let [version (get-version)]
+      (while true
+        (when-let [url (try (slurp "https://nightweb.net/desktop.txt")
+                         (catch Exception e nil))]
+          (reset! update-url (if (< (.indexOf version url) 0) url nil)))
+        (Thread/sleep (* 24 60 60 1000))))))
 
 (defn pic-to-data-uri
   "Converts the pic from the given pic hash to a data url."

@@ -22,6 +22,7 @@
 (defn -main
   []
   (let [dir (get-data-dir)]
+    (utils/check-update-periodically)
     (router/start-router dir)
     (server/start-server dir)
     (window/start-window)))

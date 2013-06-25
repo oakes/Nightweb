@@ -49,7 +49,11 @@
      [:ul {:class "left"}
       (when-let [title (or (:title params) (:tag params))]
         [:li [:div {:class "title"} title]])
-      (when show-tabs? (get-tab-view params is-main?))]
+      (when show-tabs?
+        (get-tab-view params is-main?))
+      (when @utils/update-url
+        [:li [:a {:href @utils/update-url :class "button alert"}
+              (utils/get-string :download_update)]])]
      [:ul {:class "right"} (get-menu-view)]]]
    [:div {:class "clear"}]])
 
