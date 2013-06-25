@@ -247,8 +247,8 @@ var editPost = function() {
 	});
 };
 
-var deletePost = function(confirmText) {
-	if (confirm(confirmText)) {
+var deletePost = function(confirmStr) {
+	if (confirm(confirmStr)) {
 		$.ajax({
 			type: 'POST',
 			url: '/',
@@ -294,8 +294,8 @@ var switchUser = function(userhash) {
 	});
 };
 
-var deleteUser = function(userhash, confirmText) {
-	if (confirm(confirmText)) {
+var deleteUser = function(userhash, confirmStr) {
+	if (confirm(confirmStr)) {
 		$.ajax({
 			type: 'POST',
 			url: '/',
@@ -368,6 +368,23 @@ var checkUserExists = function(userhash) {
 			}
 		}
 	});
+};
+
+var shutDown = function(confirmStr) {
+	var shouldDownload = confirm(confirmStr);
+
+	if (shouldDownload) {
+		$.ajax({
+			type: 'POST',
+			url: '/',
+			data: {
+				'type': 'shut-down'
+			},
+			success: function() {}
+		});
+	}
+
+	return shouldDownload;
 };
 
 // initialize dialogs

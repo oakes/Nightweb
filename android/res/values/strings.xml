@@ -78,4 +78,5 @@
   <string name="open_in_browser">Open in browser</string>
   <string name="enable_remote">Enable remote access</string>
   <string name="download_update">Download update</string>
+  <string name="confirm_download_update">Shut down Nightweb and download update?</string>
 </resources>

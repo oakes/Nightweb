@@ -5,6 +5,7 @@
             [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb.io :as io]
+            [nightweb.router :as router]
             [nightweb.users :as users]
             [nightweb-desktop.utils :as utils]))
 
@@ -102,6 +103,11 @@
   (when-not (users/user-has-content? (f/base32-decode (:userhash params)))
     (utils/get-string :pending_user)))
 
+(defn shut-down
+  [params]
+  (router/stop-router)
+  (System/exit 0))
+
 (defn do-action
   [params]
   (when-let [action (case (:type params)
@@ -117,5 +123,6 @@
                       "toggle-fav" toggle-fav
                       "check-user-exists" check-user-exists
                       "check-user-has-content" check-user-has-content
+                      "shut-down" shut-down
                       nil)]
     (action params)))
