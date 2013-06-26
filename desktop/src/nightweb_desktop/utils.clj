@@ -56,12 +56,12 @@
 (defn check-update-periodically
   []
   (future
-    (when-let [version (get-version)]
+    (let [version (or (get-version) "beta")]
       (while true
         (when-let [url (try (slurp "https://nightweb.net/desktop.txt")
                          (catch Exception e nil))]
           (reset! update-url (if (< (.indexOf version url) 0) url nil)))
-        (Thread/sleep (* 24 60 60 1000))))))
+        (Thread/sleep (* 6 60 60 1000))))))
 
 (defn pic-to-data-uri
   "Converts the pic from the given pic hash to a data url."
