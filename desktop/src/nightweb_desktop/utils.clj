@@ -60,7 +60,8 @@
       (while true
         (when-let [url (try (slurp "https://nightweb.net/desktop.txt")
                          (catch Exception e nil))]
-          (reset! update-url (if (< (.indexOf version url) 0) url nil)))
+          (when (< (.indexOf url (str \- version \-)) 0)
+            (reset! update-url url)))
         (Thread/sleep (* 6 60 60 1000))))))
 
 (defn pic-to-data-uri
