@@ -26,9 +26,11 @@
     [:input {:id "profile-name"
              :placeholder (utils/get-string :name)
              :type "text"
-             :value (:title user)}]
+             :value (:title user)
+             :maxlength db/max-length-small}]
     [:textarea {:id "profile-about"
-                :placeholder (utils/get-string :about_me)}
+                :placeholder (utils/get-string :about_me)
+                :maxlength db/max-length-large}
      (:body user)]
     [:input {:id "profile-image-hidden"
              :type "hidden"
@@ -95,7 +97,8 @@
      [:input {:type "hidden" :id "new-post-ptr-hash" :value ptr-hash}]
      [:input {:type "hidden" :id "new-post-ptr-time" :value ptr-time}]
      [:br]
-     [:textarea {:id "new-post-body"}]
+     [:textarea {:id "new-post-body"
+                 :maxlength db/max-length-large}]
      [:div {:class "dialog-buttons"}
       [:span {:id "attach-count"}]
       [:input {:type "file"

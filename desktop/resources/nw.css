@@ -127,12 +127,16 @@
 	margin-right: 270px;
 }
 
+#profile-about {
+	height: 150px;
+}
+
 @media (max-width: 600px) {
 	#profile-image {
 		float: none;
 	}
 
-	#profile-text {
+	#profile-inputs {
 		margin-right: 0px;
 		width: 100%;
 	}
@@ -148,7 +152,7 @@
 
 #new-post-body {
 	width: 100%;
-	height: 100px;
+	height: 200px;
 }
 
 #post-body {
