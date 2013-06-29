@@ -8,7 +8,7 @@
             [ring.util.response :as res]
             [ring.middleware.multipart-params :as multi]))
 
-(def port (atom (or (utils/read-pref :port) 3000)))
+(def port (atom (or (utils/read-pref :port) 4707)))
 (def server (atom nil))
 
 (defn handler

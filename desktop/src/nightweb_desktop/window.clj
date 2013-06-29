@@ -1,6 +1,5 @@
 (ns nightweb-desktop.window
-  (:require [seesaw.chooser :as chooser]
-            [seesaw.core :as s]
+  (:require [seesaw.core :as s]
             [nightweb.router :as router]
             [nightweb-desktop.server :as server]
             [nightweb-desktop.utils :as utils]))
