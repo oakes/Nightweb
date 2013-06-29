@@ -8,6 +8,9 @@
 (defmacro get-page
   [params & body]
   `(hiccup/html [:head
+                 [:meta {:content
+                         "width=device-width, initial-scale=1, maximum-scale=1"
+                         :name "viewport"}]
                  [:title (utils/get-string :app_name)]
                  [:link {:rel "stylesheet" :href "foundation.min.css"}]
                  [:link {:rel "stylesheet" :href "fonts/general_foundicons.css"}]

@@ -16,13 +16,12 @@
       (cond
         (.exists osx-dir) (java.io/file osx-dir app-name)
         (.exists win-dir) (java.io/file win-dir app-name)
-        :else (java.io/file home-dir
-                            (str "." (clojure.string/lower-case app-name)))))))
+        :else (->> (str "." (clojure.string/lower-case app-name))
+                   (java.io/file home-dir))))))
 
 (defn -main
   []
-  (let [dir (get-data-dir)]
-    (utils/check-update-periodically)
-    (router/start-router dir)
-    (server/start-server dir)
-    (window/start-window)))
+  (utils/check-update-periodically)
+  (router/start-router (get-data-dir))
+  (server/start-server)
+  (window/start-window))

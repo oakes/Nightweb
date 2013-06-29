@@ -6,11 +6,21 @@
             [nightweb.io :as io]
             [ring.util.codec :as codec]))
 
+(def prefs (.node (java.util.prefs.Preferences/userRoot) "nightweb"))
 (def strings (-> (java.io/resource "strings.xml")
                  (.toString)
                  (xml/parse)
                  (:content)))
 (def update-url (atom nil))
+
+(defn write-pref
+  [k v]
+  (.put prefs (name k) (pr-str v)))
+
+(defn read-pref
+  [k]
+  (when-let [string (.get prefs (name k) nil)]
+    (read-string string)))
 
 (defn get-string
   "Returns the localized string for the given keyword."

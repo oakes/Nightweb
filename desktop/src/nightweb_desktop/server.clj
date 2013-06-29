@@ -8,10 +8,11 @@
             [ring.util.response :as res]
             [ring.middleware.multipart-params :as multi]))
 
-(def ^:const port 3000)
+(def port (atom (or (utils/read-pref :port) 3000)))
+(def server (atom nil))
 
 (defn handler
-  [request dir]
+  [request]
   (if (= :post (:request-method request))
     (-> (slurp (:body request))
         (f/url-decode false)
@@ -26,10 +27,25 @@
         "/b" (res/response (pages/get-basic-page params))
         (if (>= (.indexOf (:uri request) c/nw-dir) 0)
           (res/file-response (clojure.string/replace (:uri request) ".webp" "")
-                             {:root dir})
+                             {:root @c/base-dir})
           (res/resource-response (:uri request)))))))
 
 (defn start-server
-  [dir]
-  (future (jetty/run-jetty (multi/wrap-multipart-params #(handler % dir))
-                           {:port port :host "127.0.0.1"})))
+  []
+  (when @server (.stop @server))
+  (reset! server (jetty/run-jetty (multi/wrap-multipart-params handler)
+                                  {:port @port
+                                   :host (if (utils/read-pref :remote)
+                                           nil
+                                           "127.0.0.1")
+                                   :join? false})))
+
+(defn set-port
+  [port-str]
+  (try
+    (let [port-num (Integer/parseInt port-str)]
+      (when (and (>= port-num 1024) (not= port-num @port))
+        (utils/write-pref :port port-num)
+        (reset! port port-num)
+        (start-server)))
+    (catch Exception e nil)))
