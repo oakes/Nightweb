@@ -195,8 +195,8 @@
                              (->> pics
                                   (filter (fn [pic]
                                             (java.util.Arrays/equals
-                                              (:pichash pic)
-                                              (:pichash params))))
+                                              ^bytes (:pichash pic)
+                                              ^bytes (:pichash params))))
                                   (first)
                                   (.indexOf pics)))))
         false))

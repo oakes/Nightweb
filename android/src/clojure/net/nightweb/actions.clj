@@ -9,16 +9,19 @@
             [nightweb.constants :as c]
             [nightweb.io :as io]
             [nightweb.formats :as f])
-  (:import [android.app ProgressDialog]
+  (:import [android.app Activity ProgressDialog]
            [android.content Intent]
            [android.net Uri]
-           [android.os Environment]))
+           [android.os Environment]
+           [android.widget Button]
+           [android.view View]
+           [java.io Serializable]))
 
 ; creating a new activity
 
 (defn show-page
   "Shows a new activity of the specified type."
-  [context class-name params]
+  [^Activity context ^String class-name ^Serializable params]
   (let [class-symbol (Class/forName class-name)
         intent (Intent. context class-symbol)]
     (.putExtra intent "params" params)
@@ -46,7 +49,7 @@
 
 (defn share-url
   "Displays an app chooser to share a link to the displayed content."
-  [context]
+  [^Activity context]
   (let [intent (Intent. Intent/ACTION_SEND)
         url (f/url-encode (activity/get-state context :share))]
     (.setType intent "text/plain")
@@ -55,7 +58,7 @@
 
 (defn send-file
   "Displays an app chooser to send a file."
-  [context file-type path]
+  [^Activity context file-type path]
   (let [intent (Intent. Intent/ACTION_SEND)
         uri (Uri/fromFile (java.io/file path))]
     (.putExtra intent Intent/EXTRA_STREAM uri)
@@ -65,7 +68,7 @@
 
 (defn request-files
   "Displays an app chooser to select files of the specified file type."
-  [context file-type callback]
+  [^Activity context file-type callback]
   (activity/set-state context :file-request callback)
   (let [intent (Intent. Intent/ACTION_GET_CONTENT)]
     (.setType intent file-type)
@@ -76,7 +79,7 @@
 
 (defn receive-result
   "Runs after a request returns with a result."
-  [context request-code result-code intent]
+  [^Activity context ^long request-code ^long result-code ^Intent intent]
   (case request-code
     1 (let [callback (activity/get-state context :file-request)
             data-result (when intent (.getData intent))]
@@ -86,7 +89,7 @@
 
 (defn receive-attachments
   "Stores a list of selected attachments."
-  [context uri]
+  [^Activity context ^Uri uri]
   (let [uri-str (.toString uri)
         attachments (activity/get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
@@ -102,29 +105,33 @@
 
 (defn clear-attachments
   "Clears the list of selected attachments."
-  [context]
+  [^Activity context]
   (activity/set-state context :attachments nil))
 
 ; misc actions
 
 (defn show-spinner
   "Displays a spinner while the specified function runs in a thread."
-  [context message func]
+  [^Activity context message func]
   (thread/on-ui
     (let [spinner (ProgressDialog/show context nil message true)]
       (future
         (let [should-refresh? (func)]
           (thread/on-ui
-            (try
-              (.dismiss spinner)
+            (try (.dismiss spinner)
               (when should-refresh? (.recreate context))
               (catch Exception e nil))))))))
 
 (defn new-post
   "Saves a post to the disk and creates a new meta torrent to share it."
-  ([context dialog-view button-view]
+  ([^Activity context ^View dialog-view ^Button button-view]
    (new-post context dialog-view button-view nil nil 1))
-  ([context dialog-view button-view create-time pic-hashes status]
+  ([^Activity context
+    ^View dialog-view
+    ^Button button-view
+    create-time
+    pic-hashes
+    status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
          attachments (activity/get-state context :attachments)
@@ -154,7 +161,7 @@
 
 (defn attach-to-post
   "Initiates the action to select images to attach to a post."
-  [context dialog-view button-view]
+  [^Activity context ^View dialog-view ^Button button-view]
   (request-files context
                  "image/*"
                  (fn [uri]
@@ -166,12 +173,12 @@
 
 (defn cancel
   "Used by dialogs to perform no action other than closing themselves."
-  [context dialog-view button-view]
+  [^Activity context ^View dialog-view ^Button button-view]
   true)
 
 (defn save-profile
   "Saves the profile to the disk and creates a new meta torrent to share it."
-  [context dialog-view button-view]
+  [^Activity context ^View dialog-view ^Button button-view]
   (let [name-field (.findViewWithTag dialog-view "profile-title")
         body-field (.findViewWithTag dialog-view "profile-body")
         image-view (.findViewWithTag dialog-view "profile-image")
@@ -193,7 +200,7 @@
 
 (defn zip-and-send
   "Creates an encrypted zip file with our content and sends it somewhere."
-  [context password]
+  [^Activity context password]
   (show-spinner context
                 (r/get-string :zipping)
                 #(let [path (c/get-user-dir @c/my-hash-str)
@@ -209,7 +216,7 @@
 
 (defn unzip-and-save
   "Unzips an encrypted zip file and replaces the current user with it."
-  [context password uri-str]
+  [^Activity context password uri-str]
   (show-spinner context
                 (r/get-string :unzipping)
                 #(let [dir (Environment/getExternalStorageDirectory)
@@ -232,14 +239,15 @@
 
 (defn menu-action
   "Provides an action for menu items in the action bar."
-  [context item]
+  [^Activity context item]
   (when (= (.getItemId item) (r/get-resource :id :android/home))
     (show-home context {})))
 
 (defn toggle-fav
   "Toggles our favorite status for the specified content."
-  ([context content] (toggle-fav context content false))
-  ([context content go-home?]
+  ([^Activity context content]
+   (toggle-fav context content false))
+  ([^Activity context content go-home?]
    (show-spinner context
                  (if (= 1 (:status content))
                    (r/get-string :removing)

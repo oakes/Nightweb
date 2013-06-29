@@ -5,7 +5,9 @@
             [nightweb.io :as io]
             [nightweb.formats :as f]
             [nightweb.torrents :as t]
-            [nightweb.torrents-dht :as dht]))
+            [nightweb.torrents-dht :as dht])
+  (:import [java.io File]
+           [java.util Arrays]))
 
 (defn user-exists?
   "Checks if we are following this user."
@@ -84,7 +86,7 @@
 (defn delete-user
   "Removes user permanently."
   [user-hash-bytes]
-  (let [user-list (remove #(java.util.Arrays/equals user-hash-bytes %)
+  (let [user-list (remove #(Arrays/equals ^bytes user-hash-bytes ^bytes %)
                           @c/my-hash-list)]
     (io/write-user-list-file (if (= 0 (count user-list))
                              (cons (create-user) user-list)
@@ -102,9 +104,11 @@
     (when is-valid?
       (io/write-user-list-file (cons imported-user @c/my-hash-list))
       (load-user imported-user)
-      (doseq [f (file-seq (java.io/file (c/get-meta-dir imported-user-str)))]
+      (doseq [^File f (-> (c/get-meta-dir imported-user-str)
+                          java.io/file
+                          file-seq)]
         (when (.isFile f)
           (dht/on-recv-meta-file imported-user
-                                 (io/read-meta-file (.getAbsolutePath f)))))
+                                 (io/read-meta-file (.getCanonicalPath f)))))
       (add-user-and-meta-torrents imported-user-str))
     is-valid?))

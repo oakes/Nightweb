@@ -1,5 +1,6 @@
 (ns nightweb.constants
-  (:require [clojure.java.io :as java.io]))
+  (:require [clojure.java.io :as java.io])
+  (:import [java.util Arrays]))
 
 (def base-dir (atom nil))
 (def my-hash-bytes (atom nil))
@@ -31,11 +32,11 @@
    (is-me? user-hash false))
   ([user-hash all-my-users?]
    (if all-my-users?
-     (-> (filter #(java.util.Arrays/equals ^bytes user-hash ^bytes %)
+     (-> (filter #(Arrays/equals ^bytes user-hash ^bytes %)
                  @my-hash-list)
          (count)
          (> 0))
-     (java.util.Arrays/equals ^bytes user-hash ^bytes @my-hash-bytes))))
+     (Arrays/equals ^bytes user-hash ^bytes @my-hash-bytes))))
 
 (defn get-user-list-file
   []

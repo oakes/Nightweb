@@ -1,8 +1,9 @@
 (ns net.clandroid.service
-  (:require [neko.-utils :as utils]))
+  (:require [neko.-utils :as utils])
+  (:import [android.app Activity]))
 
 (defn bind-service
-  [context class-name connected]
+  [^Activity context class-name connected]
   (let [intent (android.content.Intent.)
         connection (proxy [android.content.ServiceConnection] []
                      (onServiceConnected [component-name binder]
@@ -14,22 +15,23 @@
     connection))
 
 (defn unbind-service
-  [context connection]
+  [^Activity context connection]
   (.unbindService context connection))
 
 (defn start-service
-  ([context service-name] (start-service context service-name (fn [binder])))
-  ([context service-name on-connected]
+  ([^Activity context service-name]
+   (start-service context service-name (fn [binder])))
+  ([^Activity context service-name on-connected]
    (let [service (bind-service context service-name on-connected)]
      (swap! (.state context) assoc :service service))))
 
 (defn stop-service
-  [context]
+  [^Activity context]
   (when-let [service (get @(.state context) :service)]
     (unbind-service context service)))
 
 (defn start-receiver
-  [context receiver-name func]
+  [^Activity context receiver-name func]
   (let [receiver (proxy [android.content.BroadcastReceiver] []
                    (onReceive [context intent]
                      (func context intent)))]
@@ -39,29 +41,29 @@
     (swap! (.state context) assoc receiver-name receiver)))
 
 (defn start-local-receiver
-  [context receiver-name func]
+  [^Activity context receiver-name func]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
       (start-receiver receiver-name func)))
 
 (defn stop-receiver
-  [context receiver-name]
+  [^Activity context receiver-name]
   (when-let [receiver (get @(.state context) receiver-name)]
     (.unregisterReceiver context receiver)))
 
 (defn stop-local-receiver
-  [context receiver-name]
+  [^Activity context receiver-name]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
       (stop-receiver receiver-name)))
 
 (defn send-broadcast
-  [context params action-name]
+  [^Activity context params action-name]
   (let [intent (android.content.Intent.)]
     (.putExtra intent "params" params)
     (.setAction intent action-name)
     (.sendBroadcast context intent)))
 
 (defn send-local-broadcast
-  [context params action-name]
+  [^Activity context params action-name]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
       (send-broadcast params action-name)))
 

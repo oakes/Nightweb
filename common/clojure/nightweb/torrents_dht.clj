@@ -102,7 +102,7 @@
                  (flatten)
                  (count)
                  (= 0)))
-    (let [their-hash-str (f/base32-encode their-hash-bytes)
+    (let [^String their-hash-str (f/base32-encode their-hash-bytes)
           user-dir (c/get-user-dir their-hash-str)]
       (println "Deleting user" their-hash-str)
       (t/iterate-torrents

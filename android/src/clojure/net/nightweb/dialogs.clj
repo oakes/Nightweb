@@ -10,11 +10,14 @@
             [nightweb.db :as db]
             [nightweb.io :as io]
             [nightweb.users :as users])
-  (:import [android.app AlertDialog DialogFragment]
-           [android.text InputType]))
+  (:import [android.app Activity AlertDialog DialogFragment]
+           [android.content DialogInterface]
+           [android.text InputType]
+           [android.view View]
+           [android.widget Button]))
 
 (defn create-dialog
-  [context message view buttons]
+  [^Activity context ^String message ^View view buttons]
   (let [builder (android.app.AlertDialog$Builder. context)]
     (when-let [positive-name (:positive-name buttons)]
       (.setPositiveButton builder positive-name nil))
@@ -24,71 +27,64 @@
       (.setNegativeButton builder negative-name nil))
     (.setMessage builder message)
     (.setView builder view)
-    (let [dialog (.create builder)
+    (let [^AlertDialog dialog (.create builder)
           btn-action (fn [dialog button func]
                        (proxy [android.view.View$OnClickListener] []
                          (onClick [v]
                            (when (func context view button)
-                             (try
-                               (.dismiss dialog)
+                             (try (.dismiss dialog)
                                (catch Exception e nil))))))]
       (.setOnShowListener
         dialog
         (proxy [android.content.DialogInterface$OnShowListener] []
           (onShow [d]
             (when-let [positive-btn (.getButton d AlertDialog/BUTTON_POSITIVE)]
-              (.setOnClickListener
-                positive-btn
-                (btn-action d positive-btn (:positive-func buttons))))
+              (->> (btn-action d positive-btn (:positive-func buttons))
+                   (.setOnClickListener positive-btn)))
             (when-let [neutral-btn (.getButton d AlertDialog/BUTTON_NEUTRAL)]
-              (.setOnClickListener
-                neutral-btn
-                (btn-action d neutral-btn (:neutral-func buttons))))
+              (->> (btn-action d neutral-btn (:neutral-func buttons))
+                   (.setOnClickListener neutral-btn)))
             (when-let [negative-btn (.getButton d AlertDialog/BUTTON_NEGATIVE)]
-              (.setOnClickListener
-                negative-btn
-                (btn-action d negative-btn (:negative-func buttons)))))))
+              (->> (btn-action d negative-btn (:negative-func buttons))
+                   (.setOnClickListener negative-btn))))))
       (.setCanceledOnTouchOutside dialog false)
       dialog)))
 
 (defn show-dialog
-  ([context title message]
+  ([^Activity context ^String title ^String message]
    (let [builder (android.app.AlertDialog$Builder. context)]
      (.setPositiveButton builder (r/get-string :ok) nil)
-     (let [dialog (.create builder)]
+     (let [^AlertDialog dialog (.create builder)]
        (.setTitle dialog title)
        (.setMessage dialog message)
        (.setCanceledOnTouchOutside dialog false)
-       (try
-         (.show dialog)
+       (try (.show dialog)
          (catch Exception e nil)))))
-  ([context message view buttons]
-   (let [dialog-fragment (proxy [DialogFragment] []
-                           (onCreate [bundle]
-                             (proxy-super onCreate bundle)
-                             (.setRetainInstance this true))
-                           (onDetach []
-                             (proxy-super onDetach)
-                             (when view
-                               (.removeView (.getParent view) view)))
-                           (onDestroyView []
-                             (when (and (.getDialog this)
-                                        (.getRetainInstance this))
-                               (.setDismissMessage (.getDialog this) nil))
-                             (proxy-super onDestroyView))
-                           (onCreateDialog [bundle]
-                             (proxy-super onCreateDialog bundle)
-                             (create-dialog context message view buttons)))]
-     (try
-       (.show dialog-fragment (.getFragmentManager context) "dialog")
-       (catch Exception e nil)))))
+  ([^Activity context ^String message ^View view buttons]
+   (-> (proxy [DialogFragment] []
+         (onCreate [bundle]
+           (proxy-super onCreate bundle)
+           (.setRetainInstance ^DialogFragment this true))
+         (onDetach []
+           (proxy-super onDetach)
+           (when view (.removeView (.getParent view) view)))
+         (onDestroyView []
+           (when (and (.getDialog ^DialogFragment this)
+                      (.getRetainInstance ^DialogFragment this))
+             (.setDismissMessage (.getDialog ^DialogFragment this) nil))
+           (proxy-super onDestroyView))
+         (onCreateDialog [bundle]
+           (proxy-super onCreateDialog bundle)
+           (create-dialog context message view buttons)))
+       (.show (.getFragmentManager context) "dialog")
+       (try (catch Exception e nil)))))
 
 (defn show-pending-user-dialog
-  [context]
+  [^Activity context]
   (show-dialog context nil (r/get-string :pending_user)))
 
 (defn show-welcome-dialog
-  [context]
+  [^Activity context]
   (show-dialog context
                nil
                (views-dialog/get-welcome-view context)
@@ -96,7 +92,7 @@
                 :positive-func actions/cancel}))
 
 (defn show-new-user-dialog
-  [context content]
+  [^Activity context content]
   (show-dialog context
                (r/get-string :found_user)
                nil
@@ -110,27 +106,27 @@
                   (.finish context))}))
 
 (defn show-delete-post-dialog
-  [context dialog-view button-view create-time]
-    (show-dialog context
-                 (r/get-string :confirm_delete)
-                 nil
-                 {:positive-name (r/get-string :delete)
-                  :positive-func
-                  (fn [c d b]
-                    (let [text-view (.findViewWithTag dialog-view "post-body")]
-                      (.setText text-view "")
-                      (actions/new-post context
-                                        dialog-view
-                                        button-view
-                                        create-time
-                                        nil
-                                        0)))
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel})
+  [^Activity context ^View dialog-view ^Button button-view create-time]
+  (show-dialog context
+               (r/get-string :confirm_delete)
+               nil
+               {:positive-name (r/get-string :delete)
+                :positive-func
+                (fn [c d b]
+                  (let [text-view (.findViewWithTag dialog-view "post-body")]
+                    (.setText text-view "")
+                    (actions/new-post context
+                                      dialog-view
+                                      button-view
+                                      create-time
+                                      nil
+                                      0)))
+                :negative-name (r/get-string :cancel)
+                :negative-func actions/cancel})
   false)
 
 (defn show-delete-user-dialog
-  [context user-hash]
+  [^Activity context user-hash]
   (show-dialog context
                (r/get-string :confirm_delete)
                nil
@@ -143,7 +139,7 @@
                 :negative-func actions/cancel}))
 
 (defn show-export-dialog
-  [context dialog-view button-view]
+  [^Activity context ^View dialog-view ^Button button-view]
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
                                               :hint (r/get-string :password)}])
@@ -163,7 +159,7 @@
   true)
 
 (defn show-import-dialog
-  [context uri-str]
+  [^Activity context ^String uri-str]
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
                                               :hint (r/get-string :password)}])
@@ -183,7 +179,7 @@
                   :negative-func actions/cancel})))
 
 (defn show-switch-user-dialog
-  [context content]
+  [^Activity context content]
   (let [view (ui/make-ui context [:scroll-view {}
                                   [:linear-layout {:orientation 1}]])]
     ; add each user to the list
@@ -232,7 +228,7 @@
                   :negative-func actions/cancel})))
 
 (defn show-confirm-dialog
-  [context content func]
+  [^Activity context content func]
   (show-dialog context
                (utils/get-string-at-runtime context (:confirm content))
                nil
@@ -244,7 +240,7 @@
                 :negative-func actions/cancel}))
 
 (defn show-new-post-dialog
-  [context content]
+  [^Activity context content]
   (let [view (views-dialog/get-new-post-view context content)]
     (show-dialog context
                  nil
@@ -259,7 +255,7 @@
                   :negative-func actions/cancel})))
 
 (defn show-edit-post-dialog
-  [context content]
+  [^Activity context content]
   (let [post (:post content)
         pics (db/get-pic-data post (:time post) false)]
     (show-dialog context
@@ -285,7 +281,7 @@
                   :negative-func actions/cancel})))
 
 (defn show-profile-dialog
-  [context content]
+  [^Activity context content]
   (show-dialog context
                nil
                (views-dialog/get-profile-view context content)

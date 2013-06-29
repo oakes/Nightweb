@@ -15,22 +15,22 @@
             [nightweb.formats :as f]
             [nightweb.router :as router]
             [nightweb.users :as users])
-  (:import [android.app ActionBar]))
+  (:import [android.app ActionBar Activity]))
 
 (def show-welcome-message? (atom true))
 
 (defn shutdown-receiver-func
-  [context intent]
+  [^Activity context intent]
   (.finish context))
 
 (defn get-params
-  [context]
+  [^Activity context]
   (into {} (.getSerializableExtra (.getIntent context) "params")))
 
 (activity/defactivity
   net.nightweb.MainPage
   :on-create
-  (fn [this bundle]
+  (fn [^Activity this bundle]
     (service/start-service
       this
       main/service-name
@@ -61,22 +61,22 @@
     (service/start-receiver
       this main/shutdown-receiver-name shutdown-receiver-func))
   :on-new-intent
-  (fn [this intent]
+  (fn [^Activity this intent]
     (.setIntent this intent)
     (when-let [action-bar (.getActionBar this)]
       (when-let [tab (.getSelectedTab action-bar)]
         (.select tab))))
   :on-resume
-  (fn [this]
+  (fn [^Activity this]
     (when-let [uri-str (.getDataString (.getIntent this))]
       (dialogs/show-import-dialog this uri-str)
       (.setData (.getIntent this) nil)))
   :on-destroy
-  (fn [this]
+  (fn [^Activity this]
     (service/stop-receiver this main/shutdown-receiver-name)
     (service/stop-service this))
   :on-create-options-menu
-  (fn [this menu]
+  (fn [^Activity this menu]
     (menus/create-main-menu this menu true true))
   :on-activity-result
   actions/receive-result)
@@ -84,7 +84,7 @@
 (activity/defactivity
   net.nightweb.CategoryPage
   :on-create
-  (fn [this bundle]
+  (fn [^Activity this bundle]
     (service/start-receiver
       this main/shutdown-receiver-name shutdown-receiver-func)
     (let [params (get-params this)
@@ -101,13 +101,13 @@
                         #(views/get-category-view
                            this (assoc params :subtype :post)))))
   :on-destroy
-  (fn [this]
+  (fn [^Activity this]
     (service/stop-receiver this main/shutdown-receiver-name))
   :on-create-options-menu
-  (fn [this menu]
+  (fn [^Activity this menu]
     (menus/create-main-menu this menu false false))
   :on-options-item-selected
-  (fn [this item]
+  (fn [^Activity this item]
     (actions/menu-action this item))
   :on-activity-result
   actions/receive-result)
@@ -116,7 +116,7 @@
   net.nightweb.GalleryPage
   :def gallery-page
   :on-create
-  (fn [this bundle]
+  (fn [^Activity this bundle]
     (service/start-receiver
       this main/shutdown-receiver-name shutdown-receiver-func)
     (let [params (get-params this)
@@ -125,7 +125,7 @@
       (.hide action-bar)
       (a/set-content-view! gallery-page view)))
   :on-destroy
-  (fn [this]
+  (fn [^Activity this]
     (service/stop-receiver this main/shutdown-receiver-name))
   :on-activity-result
   actions/receive-result)
@@ -134,7 +134,7 @@
   net.nightweb.BasicPage
   :def basic-page
   :on-create
-  (fn [this bundle]
+  (fn [^Activity this bundle]
     (service/start-service
       this
       main/service-name
@@ -154,8 +154,7 @@
               action-bar (.getActionBar this)]
           (activity/set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
-          (if-let [title (or (:title params)
-                             (:tag params))]
+          (if-let [title (or (:title params) (:tag params))]
             (.setTitle action-bar (utils/get-string-at-runtime this title))
             (.setDisplayShowTitleEnabled action-bar false))
           (if view
@@ -169,14 +168,14 @@
     (service/start-receiver
       this main/shutdown-receiver-name shutdown-receiver-func))
   :on-destroy
-  (fn [this]
+  (fn [^Activity this]
     (service/stop-receiver this main/shutdown-receiver-name)
     (service/stop-service this))
   :on-create-options-menu
-  (fn [this menu]
+  (fn [^Activity this menu]
     (menus/create-main-menu this menu true false))
   :on-options-item-selected
-  (fn [this item]
+  (fn [^Activity this item]
     (actions/menu-action this item))
   :on-activity-result
   actions/receive-result)

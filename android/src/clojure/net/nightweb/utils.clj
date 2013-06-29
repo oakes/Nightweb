@@ -4,12 +4,14 @@
             [neko.resource :as r]
             [nightweb.constants :as c]
             [nightweb.formats :as f])
-  (:import [android.graphics BitmapFactory]
+  (:import [android.app Activity]
+           [android.graphics Bitmap BitmapFactory]
            [android.graphics.drawable BitmapDrawable StateListDrawable]
            [android.net Uri]
            [android.text Html InputFilter Selection]
            [android.util TypedValue]
-           [android.view View]))
+           [android.view View]
+           [android.widget TextView]))
 
 (def ^:const full-size 1024)
 (def ^:const thumb-size 256)
@@ -40,7 +42,7 @@
 
 (defn uri-to-bitmap
   "Reads from a URI into a bitmap, resizing if necessary."
-  [context uri-str]
+  [^Activity context uri-str]
   (try
     (let [cr (.getContentResolver context)
           uri (Uri/parse uri-str)]
@@ -62,7 +64,7 @@
 
 (defn bitmap-to-byte-array
   "Compresses a bitmap into a specific image format as a byte array."
-  [image-bitmap]
+  [^Bitmap image-bitmap]
   (when image-bitmap
     (let [out (java.io.ByteArrayOutputStream.)
           image-format android.graphics.Bitmap$CompressFormat/WEBP]
@@ -70,7 +72,7 @@
       (.toByteArray out))))
 
 (defn copy-uri-to-path
-  [context uri-str path]
+  [^Activity context uri-str path]
   "Copies the contents of a URI to a path."
   (try
     (let [cr (.getContentResolver context)
@@ -89,8 +91,9 @@
 
 (defn create-highlight
   "Creates a Drawable that highlights when pressed."
-  ([context] (create-highlight context nil))
-  ([context drawable]
+  ([^Activity context]
+   (create-highlight context nil))
+  ([^Activity context drawable]
    (let [states (StateListDrawable.)
          blue (->> (r/get-resource :color :android/holo_blue_light)
                    (.getDrawable (.getResources context)))
@@ -105,16 +108,16 @@
 
 (defn create-tile-image
   "Creates a Drawable ready to set in a tile."
-  [context user-hash pic-hash]
+  [^Activity context user-hash pic-hash]
   (create-highlight context
                     (when pic-hash
                       (-> (get-pic-path user-hash pic-hash)
-                          (path-to-bitmap thumb-size)
+                          ^Bitmap (path-to-bitmap thumb-size)
                           BitmapDrawable.))))
 
 (defn make-dip
   "Converts the given number into density-independent pixels."
-  [context number]
+  [^Activity context number]
   (-> (.getResources context)
       .getDisplayMetrics
       .density
@@ -123,12 +126,12 @@
 
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."
-  [view size]
+  [^TextView view ^double size]
   (.setTextSize view TypedValue/COMPLEX_UNIT_DIP size))
 
 (defn set-text-max-length
   "Limits the text length for the given TextView."
-  [view max-length]
+  [^TextView view max-length]
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
        (into-array InputFilter)
        (.setFilters view)))
@@ -162,10 +165,9 @@
 
 (defn set-text-content
   "Sets the content of a TextView and formats it if necessary."
-  [context view on-tap content]
+  [^Activity context ^TextView view on-tap content]
   (let [html-text (markdown/md-to-html-string content)
-        markdown-text (try
-                        (Html/fromHtml html-text)
+        markdown-text (try (Html/fromHtml html-text)
                         (catch Exception e ""))
         spannable android.widget.TextView$BufferType/SPANNABLE]
     (.setText view markdown-text spannable)
@@ -182,18 +184,18 @@
         (.setSpan text new-span start end 0)))))
 
 (defn get-resource-at-runtime
-  [context res-type res-name]
+  [^Activity context res-type res-name]
   (.getIdentifier (.getResources context)
                   (name res-name)
                   (name res-type)
                   (.getPackageName context)))
 
 (defn get-drawable-at-runtime
-  [context res-name]
+  [^Activity context res-name]
   (get-resource-at-runtime context :drawable res-name))
 
 (defn get-string-at-runtime
-  [context res-name]
+  [^Activity context res-name]
   (if (keyword? res-name)
     (.getString context (get-resource-at-runtime context :string res-name))
     res-name))
