@@ -4,7 +4,8 @@
             [nightweb-desktop.server :as server]
             [nightweb-desktop.utils :as utils]))
 
-(def external-ip (delay (try (slurp "http://checkip.amazonaws.com/")
+(def external-ip (delay (try (-> (slurp "http://checkip.amazonaws.com/")
+                                 (clojure.string/replace "\n" ""))
                           (catch Exception e nil))))
 
 (declare update-window-content)
@@ -25,22 +26,24 @@
 (defn get-main-items
   "Returns items to always display in the window."
   [ui-root]
-  (let [update? (utils/read-pref :update)
-        remote? (utils/read-pref :remote)]
-    [(s/button :text (utils/get-string :open_in_browser)
+  [(s/button :text (utils/get-string :open_in_browser)
+             :listen [:action (fn [e]
+                                (-> (str "http://localhost:" @server/port)
+                                    open-in-browser))])
+   (s/checkbox :text (utils/get-string :check_for_updates)
+               :selected? @utils/update?
                :listen [:action (fn [e]
-                                  (-> (str "http://localhost:" @server/port)
-                                      open-in-browser))])
-     (s/checkbox :text (utils/get-string :check_for_updates)
-                 :selected? update?
-                 :listen [:action (fn [e]
-                                    (utils/write-pref :update (not update?)))])
-     (s/checkbox :text (utils/get-string :enable_remote)
-                 :selected? remote?
-                 :listen [:action (fn [e]
-                                    (utils/write-pref :remote (not remote?))
-                                    (server/start-server)
-                                    (update-window-content ui-root))])]))
+                                  (->> (not @utils/update?)
+                                       (reset! utils/update?)
+                                       (utils/write-pref :update)))])
+   (s/checkbox :text (utils/get-string :enable_remote)
+               :selected? @utils/remote?
+               :listen [:action (fn [e]
+                                  (->> (not @utils/remote?)
+                                       (reset! utils/remote?)
+                                       (utils/write-pref :remote))
+                                  (server/start-server)
+                                  (update-window-content ui-root))])])
 
 (defn get-remote-items
   "Returns items to only display when remote access is enabled."
@@ -60,7 +63,7 @@
   "Updates the items in the window."
   [ui-root]
   (let [main-items (get-main-items ui-root)
-        items (if (utils/read-pref :remote)
+        items (if @utils/remote?
                 (concat main-items (get-remote-items ui-root))
                 main-items)]
     (s/config! (s/select ui-root [:#grid])
@@ -72,14 +75,9 @@
 (defn start-window
   "Launches the main window."
   []
-  ; set the look-and-feel
   (s/native!)
   (org.pushingpixels.substance.api.SubstanceLookAndFeel/setSkin
     (org.pushingpixels.substance.api.skin.GraphiteSkin.))
-  ; default update checking to true
-  (when (nil? (utils/read-pref :update))
-    (utils/write-pref :update true))
-  ; display the window
   (s/invoke-later
     (-> (s/frame :title (str (utils/get-string :app_name)
                              " "

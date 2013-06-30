@@ -7,10 +7,6 @@
             [ring.util.codec :as codec]))
 
 (def prefs (.node (java.util.prefs.Preferences/userRoot) "nightweb"))
-(def strings (-> (java.io/resource "strings.xml")
-                 (.toString)
-                 (xml/parse)
-                 (:content)))
 
 (defn write-pref
   [k v]
@@ -20,6 +16,17 @@
   [k]
   (when-let [string (.get prefs (name k) nil)]
     (read-string string)))
+
+(def update? (atom (read-pref :update)))
+(def remote? (atom (read-pref :remote)))
+
+(when (nil? @update?)
+  (write-pref :update true))
+
+(def strings (-> (java.io/resource "strings.xml")
+                 (.toString)
+                 (xml/parse)
+                 (:content)))
 
 (defn get-string
   "Returns the localized string for the given keyword."

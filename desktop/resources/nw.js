@@ -482,7 +482,7 @@ if (currentParams.userhash) {
 }
 
 // display the update button if necessary
-if (latest && latest.indexOf(version) < 0) {
+if (latest && latest.indexOf(current) < 0) {
 	$('#update-button').attr('href', latest);
 	$('#update-button').show();
 }

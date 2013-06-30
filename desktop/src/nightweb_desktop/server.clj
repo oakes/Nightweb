@@ -35,9 +35,7 @@
   (when @server (.stop @server))
   (reset! server (jetty/run-jetty (multi/wrap-multipart-params handler)
                                   {:port @port
-                                   :host (if (utils/read-pref :remote)
-                                           nil
-                                           "127.0.0.1")
+                                   :host (if @utils/remote? nil "127.0.0.1")
                                    :join? false})))
 
 (defn set-port

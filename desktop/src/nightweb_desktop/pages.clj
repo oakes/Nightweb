@@ -32,7 +32,7 @@
                  [:script {:src "spin.min.js"}]
                  [:script (format "var latest = null;\nvar current = '%s';"
                                   (utils/get-version))]
-                 (when (utils/read-pref :update)
+                 (when @utils/update?
                    [:script {:src "https://nightweb.net/latest.js"}])
                  [:script {:src "nw.js"}]]))
 
