@@ -76,6 +76,7 @@
   <string name="import_desc">When you import a user, your current user will still exist.</string>
 
   <string name="open_in_browser">Open in browser</string>
+  <string name="check_for_updates">Check for updates</string>
   <string name="enable_remote">Enable remote access</string>
   <string name="download_update">Download update</string>
   <string name="confirm_download_update">Shut down Nightweb and download update?</string>

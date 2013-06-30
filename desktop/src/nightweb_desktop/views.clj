@@ -51,12 +51,12 @@
         [:li [:div {:class "title"} title]])
       (when show-tabs?
         (get-tab-view params is-main?))
-      (when @utils/update-url
-        [:li [:a {:href @utils/update-url
-                  :class "button alert"
-                  :onclick (format "return shutDown(\"%s\")"
-                                   (utils/get-string :confirm_download_update))}
-              (utils/get-string :download_update)]])]
+      [:li [:a {:href "#"
+                :id "update-button"
+                :class "button alert"
+                :onclick (format "return shutDown(\"%s\")"
+                                 (utils/get-string :confirm_download_update))}
+            (utils/get-string :download_update)]]]
      [:ul {:class "right"} (get-menu-view)]]]
    [:div {:class "clear"}]])
 

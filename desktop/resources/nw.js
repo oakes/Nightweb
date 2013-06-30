@@ -480,3 +480,9 @@ var currentParams = parseUrl(window.location.href);
 if (currentParams.userhash) {
 	checkUserExists(currentParams.userhash);
 }
+
+// display the update button if necessary
+if (update && update.indexOf(version) < 0) {
+	$('#update-button').attr('href', update);
+	$('#update-button').show();
+}

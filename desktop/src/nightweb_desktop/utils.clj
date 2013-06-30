@@ -11,7 +11,6 @@
                  (.toString)
                  (xml/parse)
                  (:content)))
-(def update-url (atom nil))
 
 (defn write-pref
   [k v]
@@ -61,18 +60,7 @@
                         (read-string))]
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
-      nil)))
-
-(defn check-update-periodically
-  []
-  (future
-    (let [version (or (get-version) "beta")]
-      (while true
-        (when-let [url (try (slurp "https://nightweb.net/desktop.txt")
-                         (catch Exception e nil))]
-          (when (< (.indexOf url (str \- version \-)) 0)
-            (reset! update-url url)))
-        (Thread/sleep (* 6 60 60 1000))))))
+      "beta")))
 
 (defn pic-to-data-uri
   "Converts the pic from the given pic hash to a data url."

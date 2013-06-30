@@ -1,7 +1,6 @@
 (ns nightweb-desktop.core
   (:gen-class)
   (:require [clojure.java.io :as java.io]
-            [clojure.string :as string]
             [nightweb.router :as router]
             [nightweb-desktop.server :as server]
             [nightweb-desktop.utils :as utils]
@@ -11,7 +10,7 @@
   []
   (let [home-dir (System/getProperty "user.home")
         app-name "Nightweb"
-        app-name-lower (string/lower-case app-name)
+        app-name-lower (clojure.string/lower-case app-name)
         osx-dir (java.io/file home-dir "Library" "Application Support" app-name)
         win-dir (java.io/file home-dir "AppData" "Roaming" app-name)
         lin-dir (java.io/file home-dir (str "." app-name-lower))]
@@ -26,7 +25,6 @@
 
 (defn -main
   []
-  (utils/check-update-periodically)
   (router/start-router (get-data-dir))
   (server/start-server)
   (window/start-window))

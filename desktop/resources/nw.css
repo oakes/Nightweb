@@ -183,3 +183,7 @@
 #search-text {
 	width: 100%;
 }
+
+#update-button {
+	display: none;
+}

@@ -3,7 +3,8 @@
             [nightweb.constants :as c]
             [nightweb-desktop.views :as views]
             [nightweb-desktop.dialogs :as dialogs]
-            [nightweb-desktop.utils :as utils]))
+            [nightweb-desktop.utils :as utils])
+  (:import [java.util Date]))
 
 (defmacro get-page
   [params & body]
@@ -29,6 +30,10 @@
                  [:script {:src "foundation.min.js"}]
                  [:script {:src "custom.modernizr.js"}]
                  [:script {:src "spin.min.js"}]
+                 [:script (format "var update = null;\nvar current = '%s';"
+                                  (utils/get-version))]
+                 (when (utils/read-pref :update)
+                   [:script {:src "https://nightweb.net/update.js"}])
                  [:script {:src "nw.js"}]]))
 
 (defn get-view

@@ -19,22 +19,28 @@
   "Returns the address you'll use for remote access."
   []
   (if @external-ip
-    (str "https://" @external-ip ":" @server/port)
-    (str "https://EXTERNAL_IP:" @server/port)))
+    (str "http://" @external-ip ":" @server/port)
+    (str "http://EXTERNAL_IP:" @server/port)))
 
 (defn get-main-items
   "Returns items to always display in the window."
-  [ui-root remote?]
-  [(s/button :text (utils/get-string :open_in_browser)
-             :listen [:action (fn [e]
-                                (-> (str "http://localhost:" @server/port)
-                                    open-in-browser))])
-   (s/checkbox :text (utils/get-string :enable_remote)
-               :selected? remote?
+  [ui-root]
+  (let [update? (utils/read-pref :update)
+        remote? (utils/read-pref :remote)]
+    [(s/button :text (utils/get-string :open_in_browser)
                :listen [:action (fn [e]
-                                  (utils/write-pref :remote (not remote?))
-                                  (server/start-server)
-                                  (update-window-content ui-root))])])
+                                  (-> (str "http://localhost:" @server/port)
+                                      open-in-browser))])
+     (s/checkbox :text (utils/get-string :check_for_updates)
+                 :selected? update?
+                 :listen [:action (fn [e]
+                                    (utils/write-pref :update (not update?)))])
+     (s/checkbox :text (utils/get-string :enable_remote)
+                 :selected? remote?
+                 :listen [:action (fn [e]
+                                    (utils/write-pref :remote (not remote?))
+                                    (server/start-server)
+                                    (update-window-content ui-root))])]))
 
 (defn get-remote-items
   "Returns items to only display when remote access is enabled."
@@ -53,9 +59,8 @@
 (defn update-window-content
   "Updates the items in the window."
   [ui-root]
-  (let [remote? (utils/read-pref :remote)
-        main-items (get-main-items ui-root remote?)
-        items (if remote?
+  (let [main-items (get-main-items ui-root)
+        items (if (utils/read-pref :remote)
                 (concat main-items (get-remote-items ui-root))
                 main-items)]
     (s/config! (s/select ui-root [:#grid])
@@ -67,9 +72,14 @@
 (defn start-window
   "Launches the main window."
   []
+  ; set the look-and-feel
   (s/native!)
   (org.pushingpixels.substance.api.SubstanceLookAndFeel/setSkin
     (org.pushingpixels.substance.api.skin.GraphiteSkin.))
+  ; default update checking to true
+  (when (nil? (utils/read-pref :update))
+    (utils/write-pref :update true))
+  ; display the window
   (s/invoke-later
     (-> (s/frame :title (str (utils/get-string :app_name)
                              " "
