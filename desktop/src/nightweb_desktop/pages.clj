@@ -33,7 +33,7 @@
                  [:script (format "var latest = null;\nvar current = '%s';"
                                   (utils/get-version))]
                  (when (utils/read-pref :update)
-                   [:script {:src "https://nightweb.net/update.js"}])
+                   [:script {:src "https://nightweb.net/latest.js"}])
                  [:script {:src "nw.js"}]]))
 
 (defn get-view
