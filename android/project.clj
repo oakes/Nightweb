@@ -1,9 +1,7 @@
-(defproject nightweb-android/Nightweb "0.0.17"
+(defproject nightweb-android/Nightweb "0.0.18"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
-
-  :warn-on-reflection true
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
