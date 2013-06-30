@@ -1,6 +1,7 @@
 (ns nightweb-desktop.core
   (:gen-class)
   (:require [clojure.java.io :as java.io]
+            [clojure.string :as string]
             [nightweb.router :as router]
             [nightweb-desktop.server :as server]
             [nightweb-desktop.utils :as utils]
@@ -9,15 +10,19 @@
 (defn get-data-dir
   []
   (let [home-dir (System/getProperty "user.home")
-        osx-dir (java.io/file home-dir "Library" "Application Support")
-        win-dir (java.io/file home-dir "AppData" "Roaming")
-        app-name (utils/get-string :app_name)]
+        app-name "Nightweb"
+        app-name-lower (string/lower-case app-name)
+        osx-dir (java.io/file home-dir "Library" "Application Support" app-name)
+        win-dir (java.io/file home-dir "AppData" "Roaming" app-name)
+        lin-dir (java.io/file home-dir (str "." app-name-lower))]
     (.getCanonicalPath
       (cond
-        (.exists osx-dir) (java.io/file osx-dir app-name)
-        (.exists win-dir) (java.io/file win-dir app-name)
-        :else (->> (str "." (clojure.string/lower-case app-name))
-                   (java.io/file home-dir))))))
+        (.exists (.getParentFile osx-dir)) osx-dir
+        (.exists (.getParentFile win-dir)) win-dir
+        (.exists lin-dir) lin-dir
+        :else (if-let [config-dir (System/getenv "XDG_CONFIG_HOME")]
+                (java.io/file config-dir app-name-lower)
+                (java.io/file home-dir ".config" app-name-lower))))))
 
 (defn -main
   []
