@@ -30,7 +30,7 @@
                  [:script {:src "foundation.min.js"}]
                  [:script {:src "custom.modernizr.js"}]
                  [:script {:src "spin.min.js"}]
-                 [:script (format "var update = null;\nvar current = '%s';"
+                 [:script (format "var latest = null;\nvar current = '%s';"
                                   (utils/get-version))]
                  (when (utils/read-pref :update)
                    [:script {:src "https://nightweb.net/update.js"}])
