@@ -11,6 +11,13 @@
 (def port (atom (or (utils/read-pref :port) 4707)))
 (def server (atom nil))
 
+(defn return-html
+  [html]
+  (-> html
+      res/response
+      (res/content-type "text/html")
+      (res/charset "UTF-8")))
+
 (defn handler
   [request]
   (if (= :post (:request-method request))
@@ -22,9 +29,9 @@
         res/response)
     (let [params (f/url-decode (:query-string request))]
       (case (:uri request)
-        "/" (res/response (pages/get-main-page params))
-        "/c" (res/response (pages/get-category-page params))
-        "/b" (res/response (pages/get-basic-page params))
+        "/" (return-html (pages/get-main-page params))
+        "/c" (return-html (pages/get-category-page params))
+        "/b" (return-html (pages/get-basic-page params))
         (if (>= (.indexOf (:uri request) c/nw-dir) 0)
           (res/file-response (clojure.string/replace (:uri request) ".webp" "")
                              {:root @c/base-dir})
