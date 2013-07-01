@@ -6,4 +6,4 @@
 	- The version in your package manager may be out of date
 	- I recommend the manual installation they describe in their README
 3. In this directory, type `lein uberjar`
-4. To run it in the background, type `java -jar target/Nightweb-{VERSION}-SNAPSHOT-standalone.jar &`
+4. To run it in the background, type `java -jar target/Nightweb-{VERSION}-standalone.jar &`

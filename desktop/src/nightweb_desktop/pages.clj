@@ -3,8 +3,7 @@
             [nightweb.constants :as c]
             [nightweb-desktop.views :as views]
             [nightweb-desktop.dialogs :as dialogs]
-            [nightweb-desktop.utils :as utils])
-  (:import [java.util Date]))
+            [nightweb-desktop.utils :as utils]))
 
 (defmacro get-page
   [params & body]

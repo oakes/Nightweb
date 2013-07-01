@@ -16,4 +16,4 @@
     }}
 5. In this directory, run `lein droid build && lein droid apk && lein droid install`
 	- Make sure your Android device is plugged in
-	- Read the [lein-droid tutorial](https://github.com/alexander-yakushev/lein-droid/wiki/Tutorial) for more commands
+	- Read the [lein-droid tutorial](https://github.com/clojure-android/lein-droid/wiki/Tutorial) for more commands
