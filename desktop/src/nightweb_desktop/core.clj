@@ -24,7 +24,8 @@
                 (java.io/file home-dir ".config" app-name-lower))))))
 
 (defn -main
-  []
+  [& args]
   (router/start-router (get-data-dir))
   (server/start-server)
-  (window/start-window))
+  (when-not (contains? (set args) "-nw")
+    (window/start-window)))
