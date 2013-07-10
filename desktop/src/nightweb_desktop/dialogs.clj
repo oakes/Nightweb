@@ -210,3 +210,24 @@
     [:a {:href "#" :class "button" :onclick "createUser()"}
      (utils/get-string :create_user)]]
    [:a {:class "close-reveal-modal"} "&#215;"]])
+
+(defn get-welcome-dialog
+  [params]
+  [:div {:id "welcome-dialog" :class "reveal-modal dark"}
+   [:center
+    [:h2 (utils/get-string :welcome_title)]
+    [:h5 (utils/get-string :welcome_subtitle)]]
+   [:div {:class "welcome"}
+    [:img {:src "profile_small.png"
+           :style "float: left; opacity: 0.5;"}]
+    [:div {:class "welcome-text"}
+     (utils/get-string :welcome_profile)]
+    [:br]
+    [:i {:class "foundicon-plus welcome-icon"}]
+    [:div {:class "welcome-text"}
+     (utils/get-string :welcome_post)]
+    [:br]
+    [:i {:class "foundicon-flag welcome-icon"}]
+    [:div {:class "welcome-text"}
+     (utils/get-string :welcome_share)]]
+   [:a {:class "close-reveal-modal"} "&#215;"]])

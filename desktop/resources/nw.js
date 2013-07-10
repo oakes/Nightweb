@@ -486,3 +486,6 @@ if (latest && latest.indexOf(current) < 0) {
 	$('#update-button').attr('href', latest);
 	$('#update-button').show();
 }
+
+// display welcome dialog if it exists
+$('#welcome-dialog').foundation('reveal', 'open');

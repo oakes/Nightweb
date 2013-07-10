@@ -1,9 +1,12 @@
 (ns nightweb-desktop.pages
   (:require [hiccup.core :as hiccup]
             [nightweb.constants :as c]
+            [nightweb.router :as router]
             [nightweb-desktop.views :as views]
             [nightweb-desktop.dialogs :as dialogs]
             [nightweb-desktop.utils :as utils]))
+
+(def show-welcome-message? (atom true))
 
 (defmacro get-page
   [params & body]
@@ -24,13 +27,17 @@
                  (dialogs/get-export-dialog ~params)
                  (dialogs/get-import-dialog ~params)
                  (dialogs/get-switch-user-dialog ~params)
+                 (when (and @router/is-first-boot? @show-welcome-message?)
+                   (reset! show-welcome-message? false)
+                   (dialogs/get-welcome-dialog ~params))
                  [:div {:id "lightbox"}]
                  [:script {:src "zepto.js"}]
                  [:script {:src "foundation.min.js"}]
                  [:script {:src "custom.modernizr.js"}]
                  [:script {:src "spin.min.js"}]
-                 [:script (format "var latest = null;\nvar current = '%s';"
-                                  (utils/get-version))]
+                 [:script
+                  "var latest = null;"
+                  (format "var current = '%s';" (utils/get-version))]
                  (when @utils/update?
                    [:script {:src "https://nightweb.net/latest.js"}])
                  [:script {:src "nw.js"}]]))
