@@ -202,3 +202,8 @@
 #update-button {
 	display: none;
 }
+
+#webp-warning {
+	display: none;
+	color: red;
+}

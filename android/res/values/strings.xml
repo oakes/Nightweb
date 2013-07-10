@@ -82,4 +82,6 @@
   <string name="confirm_download_update">Shut down Nightweb and download update?</string>
   <string name="forward_port">Forward this TCP port:</string>
   <string name="open_address">Open this address:</string>
+
+  <string name="webp_warning">Warning: Your browser does not support WEBP, so you won't be able to share pictures. Try using Chrome instead.</string>
 </resources>

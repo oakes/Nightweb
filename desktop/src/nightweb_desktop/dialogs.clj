@@ -216,6 +216,7 @@
   [:div {:id "welcome-dialog" :class "reveal-modal dark"}
    [:center
     [:h2 (utils/get-string :welcome_title)]
+    [:h5 {:id "webp-warning"} (utils/get-string :webp_warning)]
     [:h5 (utils/get-string :welcome_subtitle)]]
    [:div {:class "welcome"}
     [:img {:src "profile_small.png"
