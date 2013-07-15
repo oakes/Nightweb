@@ -12,7 +12,7 @@
 (defn user-exists?
   "Checks if we are following this user."
   [user-hash-bytes]
-  (let [user-hash-str (f/base32-encode user-hash-bytes)]
+  (when-let [user-hash-str (f/base32-encode user-hash-bytes)]
     (or (io/file-exists? (c/get-user-dir user-hash-str))
         (c/is-me? user-hash-bytes true))))
 
