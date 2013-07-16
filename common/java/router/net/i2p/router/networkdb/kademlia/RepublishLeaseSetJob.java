@@ -47,14 +47,14 @@ public class RepublishLeaseSetJob extends JobImpl {
             if (getContext().clientManager().isLocal(_dest)) {
                 LeaseSet ls = _facade.lookupLeaseSetLocally(_dest);
                 if (ls != null) {
-                    if (_log.shouldLog(Log.INFO))
-                        _log.info("Client " + _dest + " is local, so we're republishing it");
                     if (!ls.isCurrent(Router.CLOCK_FUDGE_FACTOR)) {
                         if (_log.shouldLog(Log.WARN))
                             _log.warn("Not publishing a LOCAL lease that isn't current - " + _dest, new Exception("Publish expired LOCAL lease?"));
                     } else {
+                        if (_log.shouldLog(Log.INFO))
+                            _log.info("Publishing " + ls);
                         getContext().statManager().addRateData("netDb.republishLeaseSetCount", 1, 0);
-                        _facade.sendStore(_dest, ls, new OnRepublishSuccess(getContext()), new OnRepublishFailure(getContext(), this), REPUBLISH_LEASESET_TIMEOUT, null);
+                        _facade.sendStore(_dest, ls, null, new OnRepublishFailure(getContext(), this), REPUBLISH_LEASESET_TIMEOUT, null);
                         _lastPublished = getContext().clock().now();
                         //getContext().jobQueue().addJob(new StoreJob(getContext(), _facade, _dest, ls, new OnSuccess(getContext()), new OnFailure(getContext()), REPUBLISH_LEASESET_TIMEOUT));
                     }
@@ -92,6 +92,7 @@ public class RepublishLeaseSetJob extends JobImpl {
     }
 
     /** TODO - does nothing, remove */
+/****
     private static class OnRepublishSuccess extends JobImpl {
         public OnRepublishSuccess(RouterContext ctx) { super(ctx); }
         public String getName() { return "Publish leaseSet successful"; }
@@ -100,7 +101,9 @@ public class RepublishLeaseSetJob extends JobImpl {
             //    _log.debug("successful publishing of the leaseSet for " + _dest.toBase64());
         }
     }
+****/
 
+    /** requeue */
     private static class OnRepublishFailure extends JobImpl {
         private RepublishLeaseSetJob _job;
         public OnRepublishFailure(RouterContext ctx, RepublishLeaseSetJob job) { 

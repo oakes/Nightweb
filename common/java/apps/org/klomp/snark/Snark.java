@@ -665,10 +665,6 @@ public class Snark
         return storage;
     }
 
-    public String getDataDir() {
-        return rootDataDir;
-    }
-
     /**
      *  @since 0.8.4
      */
@@ -1195,18 +1191,6 @@ public class Snark
         completeListener.torrentComplete(this);
   }
 
-  public void setPersistent(boolean isPersistent) {
-    if (coordinator != null)
-      coordinator.setPersistent(isPersistent);
-  }
-
-  public boolean getPersistent() {
-    if (coordinator != null)
-      return coordinator.getPersistent();
-
-    return false;
-  }
-
   public void setWantedPieces(Storage storage)
   {
     coordinator.setWantedPieces();
@@ -1242,8 +1226,7 @@ public class Snark
     if (_peerCoordinatorSet == null || uploaders <= 0)
       return false;
     int totalUploaders = 0;
-    for (Iterator<PeerCoordinator> iter = _peerCoordinatorSet.iterator(); iter.hasNext(); ) {
-      PeerCoordinator c = iter.next();
+    for (PeerCoordinator c : _peerCoordinatorSet) {
       if (!c.halted())
         totalUploaders += c.uploaders;
     }
@@ -1256,8 +1239,7 @@ public class Snark
     if (_peerCoordinatorSet == null)
       return false;
     long total = 0;
-    for (Iterator<PeerCoordinator> iter = _peerCoordinatorSet.iterator(); iter.hasNext(); ) {
-      PeerCoordinator c = iter.next();
+    for (PeerCoordinator c : _peerCoordinatorSet) {
       if (!c.halted())
         total += c.getCurrentUploadRate();
     }

@@ -93,6 +93,9 @@ public class LeaseSet extends DatabaseEntry {
         _firstExpiration = Long.MAX_VALUE;
     }
 
+    /**
+     * Same as getEarliestLeaseDate()
+     */
     public long getDate() {
         return getEarliestLeaseDate();
     }
@@ -109,7 +112,12 @@ public class LeaseSet extends DatabaseEntry {
         return _destination;
     }
 
+    /**
+     * @throws IllegalStateException if already signed
+     */
     public void setDestination(Destination dest) {
+        if (_signature != null)
+            throw new IllegalStateException();
         _destination = dest;
     }
 
@@ -117,7 +125,12 @@ public class LeaseSet extends DatabaseEntry {
         return _encryptionKey;
     }
 
+    /**
+     * @throws IllegalStateException if already signed
+     */
     public void setEncryptionKey(PublicKey encryptionKey) {
+        if (_signature != null)
+            throw new IllegalStateException();
         _encryptionKey = encryptionKey;
     }
 
@@ -136,6 +149,7 @@ public class LeaseSet extends DatabaseEntry {
      * Default false.
      */
     public boolean getReceivedAsPublished() { return _receivedAsPublished; }
+
     /** Default false */
     public void setReceivedAsPublished(boolean received) { _receivedAsPublished = received; }
 
@@ -145,14 +159,20 @@ public class LeaseSet extends DatabaseEntry {
      * @since 0.7.14
      */
     public boolean getReceivedAsReply() { return _receivedAsReply; }
+
     /** set to true @since 0.7.14 */
     public void setReceivedAsReply() { _receivedAsReply = true; }
 
+    /**
+     * @throws IllegalStateException if already signed
+     */
     public void addLease(Lease lease) {
         if (lease == null) throw new IllegalArgumentException("erm, null lease");
         if (lease.getGateway() == null) throw new IllegalArgumentException("erm, lease has no gateway");
         if (lease.getTunnelId() == null) throw new IllegalArgumentException("erm, lease has no tunnel");
-        if (_leases.size() > MAX_LEASES)
+        if (_signature != null)
+            throw new IllegalStateException();
+        if (_leases.size() >= MAX_LEASES)
             throw new IllegalArgumentException("Too many leases - max is " + MAX_LEASES);
         _leases.add(lease);
         long expire = lease.getEndDate().getTime();
@@ -163,7 +183,7 @@ public class LeaseSet extends DatabaseEntry {
     }
 
     /**
-     *  @return 0-6
+     *  @return 0-16
      *  A LeaseSet with no leases is revoked.
      */
     public int getLeaseCount() {
@@ -181,7 +201,7 @@ public class LeaseSet extends DatabaseEntry {
     }
 
     /**
-     * Retrieve the end date of the earliest lease include in this leaseSet.
+     * Retrieve the end date of the earliest lease included in this leaseSet.
      * This is the date that should be used in comparisons for leaseSet age - to
      * determine which LeaseSet was published more recently (later earliestLeaseSetDate
      * means it was published later)
@@ -192,6 +212,17 @@ public class LeaseSet extends DatabaseEntry {
         if (_leases.isEmpty())
             return -1;
         return _firstExpiration;
+    }
+
+    /**
+     * Retrieve the end date of the latest lease included in this leaseSet.
+     * This is the date used in isCurrent().
+     *
+     * @return latest end date of any lease in the set, or 0 if there are no leases
+     * @since 0.9.7
+     */
+    public long getLatestLeaseDate() {
+        return _lastExpiration;
     }
 
     /**
@@ -270,8 +301,12 @@ public class LeaseSet extends DatabaseEntry {
     
     /**
      *  This does NOT validate the signature
+     *
+     *  @throws IllegalStateException if called more than once or Destination already set
      */
     public void readBytes(InputStream in) throws DataFormatException, IOException {
+        if (_destination != null)
+            throw new IllegalStateException();
         _destination = new Destination();
         _destination.readBytes(in);
         _encryptionKey = PublicKey.create(in);
@@ -280,7 +315,6 @@ public class LeaseSet extends DatabaseEntry {
         if (numLeases > MAX_LEASES)
             throw new DataFormatException("Too many leases - max is " + MAX_LEASES);
         //_version = DataHelper.readLong(in, 4);
-        _leases.clear();
         for (int i = 0; i < numLeases; i++) {
             Lease lease = new Lease();
             lease.readBytes(in);
@@ -327,9 +361,10 @@ public class LeaseSet extends DatabaseEntry {
         if (object == this) return true;
         if ((object == null) || !(object instanceof LeaseSet)) return false;
         LeaseSet ls = (LeaseSet) object;
-        return DataHelper.eq(getEncryptionKey(), ls.getEncryptionKey()) &&
-        //DataHelper.eq(getVersion(), ls.getVersion()) &&
-               DataHelper.eq(_leases, ls._leases) && DataHelper.eq(_signature, ls.getSignature())
+        return
+               DataHelper.eq(_signature, ls.getSignature())
+               && DataHelper.eq(_leases, ls._leases)
+               && DataHelper.eq(getEncryptionKey(), ls.getEncryptionKey())
                && DataHelper.eq(_signingKey, ls.getSigningKey())
                && DataHelper.eq(_destination, ls.getDestination());
 
@@ -354,7 +389,7 @@ public class LeaseSet extends DatabaseEntry {
         buf.append("\n\tSignature: ").append(_signature);
         buf.append("\n\tLeases: #").append(getLeaseCount());
         for (int i = 0; i < getLeaseCount(); i++)
-            buf.append("\n\t\tLease (").append(i).append("): ").append(getLease(i));
+            buf.append("\n\t\t").append(getLease(i));
         buf.append("]");
         return buf.toString();
     }

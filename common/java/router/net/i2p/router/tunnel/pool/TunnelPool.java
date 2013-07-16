@@ -18,6 +18,7 @@ import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelInfo;
 import net.i2p.router.TunnelPoolSettings;
 import net.i2p.router.tunnel.HopConfig;
+import net.i2p.router.tunnel.TunnelCreatorConfig;
 import net.i2p.stat.Rate;
 import net.i2p.stat.RateAverages;
 import net.i2p.stat.RateStat;
@@ -725,7 +726,13 @@ public class TunnelPool {
                 continue;
             }
             Lease lease = new Lease();
-            lease.setEndDate(new Date(tunnel.getExpiration()));
+            // bugfix
+            // ExpireJob reduces the expiration, which causes a 2nd leaseset with the same lease
+            // to have an earlier expiration, so it isn't stored.
+            // Get the "real" expiration from the gateway hop config,
+            // HopConfig expirations are the same as the "real" expiration and don't change
+            // see configureNewTunnel()
+            lease.setEndDate(new Date(((TunnelCreatorConfig)tunnel).getConfig(0).getExpiration()));
             lease.setTunnelId(inId);
             lease.setGateway(gw);
             leases.add(lease);
@@ -1077,7 +1084,7 @@ public class TunnelPool {
             int len = settings.getLengthOverride();
             if (len < 0)
                 len = settings.getLength();
-            if (len > 0 && _context.random().nextBoolean()) {
+            if (len > 0 && (!settings.isExploratory()) && _context.random().nextBoolean()) {
                 // look for a tunnel to reuse, if the right length and expiring soon
                 // ignore variance for now.
                 len++;   // us
@@ -1114,8 +1121,7 @@ public class TunnelPool {
                 return null;
             }
         } else {
-            peers = new ArrayList(1);
-            peers.add(_context.routerHash());
+            peers = Collections.singletonList(_context.routerHash());
         }
 
         PooledTunnelCreatorConfig cfg = new PooledTunnelCreatorConfig(_context, peers.size(), settings.isInbound(), settings.getDestination());
@@ -1132,6 +1138,7 @@ public class TunnelPool {
             // tunnelIds will be updated during building, and as the creator, we
             // don't need to worry about prev/next hop
         }
+        // note that this will be adjusted by expire job
         cfg.setExpiration(expiration);
         if (!settings.isInbound())
             cfg.setPriority(settings.getPriority());

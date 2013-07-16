@@ -4,6 +4,7 @@ import java.util.List;
 
 import net.i2p.data.Hash;
 import net.i2p.data.RouterAddress;
+import net.i2p.data.RouterInfo;
 import net.i2p.router.JobImpl;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
@@ -12,7 +13,7 @@ import net.i2p.util.Log;
 
 /**
  * Simple job to monitor the floodfill pool.
- * If we are class O, and meet some other criteria,
+ * If we are class N or O, and meet some other criteria,
  * we will automatically become floodfill if there aren't enough.
  * But only change ff status every few hours to minimize ff churn.
  *
@@ -25,7 +26,7 @@ class FloodfillMonitorJob extends JobImpl {
     private static final int REQUEUE_DELAY = 60*60*1000;
     private static final long MIN_UPTIME = 2*60*60*1000;
     private static final long MIN_CHANGE_DELAY = 6*60*60*1000;
-    private static final int MIN_FF = 1000;
+    private static final int MIN_FF = 5000;
     private static final int MAX_FF = 999999;
     private static final String PROP_FLOODFILL_PARTICIPANT = "router.floodfillParticipant";
     
@@ -49,7 +50,7 @@ class FloodfillMonitorJob extends JobImpl {
         // there's a lot of eligible non-floodfills, keep them from all jumping in at once
         // To do: somehow assess the size of the network to make this adaptive?
         if (!ff)
-            delay *= 7;
+            delay *= 4; // this was 7, reduced for moar FFs --zab
         requeue(delay);
     }
 
@@ -74,8 +75,12 @@ class FloodfillMonitorJob extends JobImpl {
         if (getContext().router().getUptime() < MIN_UPTIME)
             return false;
 
-        // Only if class O...
-        if (getContext().router().getRouterInfo().getCapabilities().indexOf("O") < 0)
+        RouterInfo ri = getContext().router().getRouterInfo();
+        if (ri == null)
+            return false;
+        char bw = ri.getBandwidthTier().charAt(0);
+        // Only if class N or O...
+        if (bw < Router.CAPABILITY_BW128 || bw > Router.CAPABILITY_BW256)
             return false;
 
         // This list will not include ourselves...
@@ -135,6 +140,23 @@ class FloodfillMonitorJob extends JobImpl {
                 if (ra.getOption("ihost0") != null)
                    happy = false;
             }
+        }
+        
+        if (_log.shouldLog(Log.DEBUG)) {
+            final RouterContext rc = getContext();
+            final String log = String.format(
+                    "FF criteria breakdown: happy=%b, capabilities=%s, maxLag=%d, known=%d, " +
+                    "active=%d, participating=%d, offset=%d, ssuAddr=%b",
+                    happy, 
+                    rc.router().getRouterInfo().getCapabilities(),
+                    rc.jobQueue().getMaxLag(),
+                    _facade.getKnownRouters(),
+                    rc.commSystem().countActivePeers(),
+                    rc.tunnelManager().getParticipatingCount(),
+                    Math.abs(rc.clock().getOffset()),
+                    rc.router().getRouterInfo().getTargetAddress("SSU")
+                    );
+            _log.debug(log);
         }
 
 
