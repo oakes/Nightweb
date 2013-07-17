@@ -1,4 +1,4 @@
-(defproject nightweb-android/Nightweb "0.0.18"
+(defproject nightweb-android/Nightweb "0.0.19"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
