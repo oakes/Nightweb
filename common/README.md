@@ -1,9 +1,9 @@
 ## I2P Update Instructions
 
 1. Delete existing I2P codebase
-	- `rm -r common/apps`
-	- `rm -r common/core`
-	- `rm -r common/router`
+	- `rm -r common/java/apps`
+	- `rm -r common/java/core`
+	- `rm -r common/java/router`
 2. Download the tarball and extract it
 3. Copy the required code into the `common` directory
 	- `cp -r i2p-X.X.X/apps/i2psnark/java/src/ common/java/apps/`
