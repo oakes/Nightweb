@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Nightweb</string>
+
+  <string name="shut_down_nightweb">Nightwebを終了する</string>
+  <string name="nightweb_is_running">Nightwebをバックグラウンドで実行中です</string>
+
+  <string name="new_post">新規投稿</string>
+  <string name="search">検索</string>
+  <string name="share">共有</string>
+
+  <string name="all">全て</string>
+  <string name="me">自分</string>
+  <string name="users">ユーザ</string>
+  <string name="posts">メッセージ</string>
+
+  <string name="profile">プロフィール</string>
+  <string name="favorites">お気に入り</string>
+  <string name="add_to_favorites">お気に入りに追加</string>
+  <string name="remove_from_favorites">お気に入りから削除</string>
+  <string name="edit">編集</string>
+  <string name="tags">タグ</string>
+
+  <string name="name">名前</string>
+  <string name="about_me">自己紹介</string>
+
+  <string name="cancel">キャンセル</string>
+  <string name="attach">添付...</string>
+  <string name="attach_pics">画像を添付...</string>
+  <string name="delete">削除</string>
+  <string name="save">保存</string>
+  <string name="send">送信</string>
+  <string name="send_reply">返信</string>
+  <string name="ok">OK</string>
+  <string name="download_user">ユーザをダウンロード</string>
+  <string name="clear">消去</string>
+  <string name="go">開く</string>
+
+  <string name="import_start">書き出し...</string>
+  <string name="export_start">読み込み...</string>
+  <string name="zipping">梱包中...</string>
+  <string name="unzipping">開梱中...</string>
+  <string name="zip_error">ファイルを梱包できませんでした</string>
+  <string name="unzip_error">ファイルを開梱できませんでした — パスワードは間違っていませんか?</string>
+  <string name="import_error">ユーザを読み込めませんでした — 不正なZIPファイル?</string>
+  <string name="password">パスワード</string>
+  <string name="import_user">ユーザの読み込み</string>
+  <string name="switch_user">ユーザの切り替え</string>
+  <string name="create_user">新規ユーザの作成</string>
+  <string name="no_name">名前無し</string>
+
+  <string name="saving">保存中...</string>
+  <string name="sending">送信中...</string>
+  <string name="adding">追加中...</string>
+  <string name="removing">削除中...</string>
+  <string name="loading">読み込み中...</string>
+
+  <string name="page">ページ</string>
+  <string name="author">投稿者</string>
+  <string name="mentioned">言及先</string>
+  <string name="in_reply_to">返信先...</string>
+
+  <string name="welcome_title">Nightwebにようこそ</string>
+  <string name="welcome_subtitle">少々お待ち下さい。コンテンツが他のタブに表示されます。それまでの間……</string>
+  <string name="welcome_profile">プロフィールを入力しましょう</string>
+  <string name="welcome_post">なにか投稿してみましょう</string>
+  <string name="welcome_share">他のユーザがあなたを登録できるようリンクを共有しましょう</string>
+
+  <string name="found_user">新しいユーザのようです。お気に入りに追加してダウンロードを開始しますか?</string>
+  <string name="pending_user">このユーザからは何も受信していません。後で再確認してください。</string>
+  <string name="lost_post">このメッセージが見つかりません。</string>
+  <string name="nothing_here">ここには何もないようです。</string>
+  <string name="confirm_unfav">このユーザをお気に入りから削除しますか? このユーザは見えなくなります。</string>
+  <string name="confirm_delete">削除しますか?</string>
+  <string name="export_desc">あなたの全てのユーザデータを含むファイルをパスワードで保護して保存できます。ファイルはNightwebがインストールされた他の機器で開けます。</string>
+  <string name="import_desc">ユーザを読み込んでも現在のユーザは残ります。</string>
+
+  <string name="open_in_browser">ブラウザで開く</string>
+  <string name="check_for_updates">更新を確認</string>
+  <string name="enable_remote">外部からのアクセスを許可</string>
+  <string name="download_update">最新版をダウンロード</string>
+  <string name="confirm_download_update">Nightwebを終了して最新版をダウンロードしますか?</string>
+  <string name="forward_port">転送するTCPポート:</string>
+  <string name="open_address">開放するアドレス:</string>
+
+  <string name="webp_warning">警告: このブラウザではWEBPが利用できないため、画像を共有できません。代わりにChromeを利用してみてください。</string>
+</resources>
