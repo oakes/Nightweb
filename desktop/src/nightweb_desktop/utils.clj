@@ -28,15 +28,15 @@
   (write-pref :update true))
 
 (defn change-lang
-  [lang-name]
-  (reset! lang lang-name)
-  (reset! lang-strings (-> (or (get lang-files lang-name)
-                               (get lang-files "English"))
-                           java.io/resource
-                           .toString
-                           xml/parse
-                           :content))
-  (write-pref :lang lang-name))
+  [lang-pref]
+  (let [lang-name (if (contains? lang-files lang-pref) lang-pref "English")]
+    (reset! lang lang-name)
+    (reset! lang-strings (-> (get lang-files lang-name)
+                             java.io/resource
+                             .toString
+                             xml/parse
+                             :content))
+    (write-pref :lang lang-name)))
 
 (change-lang @lang)
 
