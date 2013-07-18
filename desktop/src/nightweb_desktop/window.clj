@@ -30,6 +30,12 @@
              :listen [:action (fn [e]
                                 (-> (str "http://localhost:" @server/port)
                                     open-in-browser))])
+   (-> (s/combobox :model (keys utils/lang-files)
+                   :listen [:action (fn [e]
+                                      (when (not= (s/selection e) @utils/lang)
+                                        (utils/change-lang (s/selection e))
+                                        (update-window-content ui-root)))])
+       (s/selection! @utils/lang))
    (s/checkbox :text (utils/get-string :check_for_updates)
                :selected? @utils/update?
                :listen [:action (fn [e]

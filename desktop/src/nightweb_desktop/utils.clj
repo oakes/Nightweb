@@ -19,21 +19,33 @@
 
 (def update? (atom (read-pref :update)))
 (def remote? (atom (read-pref :remote)))
+(def lang (atom (read-pref :lang)))
+(def lang-files {"English" "values/strings.xml"
+                 "日本語" "values-ja/strings.xml"})
+(def lang-strings (atom nil))
 
 (when (nil? @update?)
   (write-pref :update true))
 
-(def strings (-> (java.io/resource "strings.xml")
-                 (.toString)
-                 (xml/parse)
-                 (:content)))
+(defn change-lang
+  [lang-name]
+  (reset! lang lang-name)
+  (reset! lang-strings (-> (or (get lang-files lang-name)
+                               (get lang-files "English"))
+                           java.io/resource
+                           .toString
+                           xml/parse
+                           :content))
+  (write-pref :lang lang-name))
+
+(change-lang @lang)
 
 (defn get-string
   "Returns the localized string for the given keyword."
   [res-name]
   (if (keyword? res-name)
     (-> (filter #(= (get-in % [:attrs :name]) (name res-name))
-                strings)
+                @lang-strings)
         first
         :content
         first
