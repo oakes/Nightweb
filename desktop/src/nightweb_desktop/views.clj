@@ -9,9 +9,9 @@
 
 (defn get-tab-view
   [params show-me-tab?]
-  (for [button [{:type nil :title "Me"}
-                {:type :user :title "Users"}
-                {:type :post :title "Posts"}]]
+  (for [button [{:type nil :title (utils/get-string :me)}
+                {:type :user :title (utils/get-string :users)}
+                {:type :post :title (utils/get-string :posts)}]]
     (when (or show-me-tab? (not= nil (:type button)))
       (let [active-tab (or (:subtype params) (:type params))]
         [:li {:class (when (= active-tab (:type button)) "active")}
