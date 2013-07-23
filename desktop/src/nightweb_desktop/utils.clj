@@ -4,7 +4,8 @@
             [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb.io :as io]
-            [ring.util.codec :as codec]))
+            [ring.util.codec :as codec])
+  (:import [java.util Locale]))
 
 (def prefs (.node (java.util.prefs.Preferences/userRoot) "nightweb"))
 
@@ -19,33 +20,24 @@
 
 (def update? (atom (read-pref :update)))
 (def remote? (atom (read-pref :remote)))
-(def lang (atom (read-pref :lang)))
-(def lang-files {"English" "values/strings.xml"
-                 "日本語" "values-ja/strings.xml"})
-(def lang-strings (atom nil))
+(def lang-files {"en" "values/strings.xml"
+                 "ja" "values-ja/strings.xml"})
+(def lang-strings (-> (get lang-files (.getLanguage (Locale/getDefault)))
+                      (or (get lang-files "en"))
+                      java.io/resource
+                      .toString
+                      xml/parse
+                      :content))
 
 (when (nil? @update?)
   (write-pref :update true))
-
-(defn change-lang
-  [lang-pref]
-  (let [lang-name (if (contains? lang-files lang-pref) lang-pref "English")]
-    (reset! lang lang-name)
-    (reset! lang-strings (-> (get lang-files lang-name)
-                             java.io/resource
-                             .toString
-                             xml/parse
-                             :content))
-    (write-pref :lang lang-name)))
-
-(change-lang @lang)
 
 (defn get-string
   "Returns the localized string for the given keyword."
   [res-name]
   (if (keyword? res-name)
     (-> (filter #(= (get-in % [:attrs :name]) (name res-name))
-                @lang-strings)
+                lang-strings)
         first
         :content
         first
