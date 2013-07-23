@@ -7,6 +7,8 @@
             [ring.util.codec :as codec])
   (:import [java.util Locale]))
 
+; preferences
+
 (def prefs (.node (java.util.prefs.Preferences/userRoot) "nightweb"))
 
 (defn write-pref
@@ -20,6 +22,12 @@
 
 (def update? (atom (read-pref :update)))
 (def remote? (atom (read-pref :remote)))
+
+(when (nil? @update?)
+  (write-pref :update true))
+
+; language
+
 (def lang-files {"en" "values/strings.xml"
                  "ja" "values-ja/strings.xml"})
 (def lang-strings (-> (get lang-files (.getLanguage (Locale/getDefault)))
@@ -28,9 +36,6 @@
                       .toString
                       xml/parse
                       :content))
-
-(when (nil? @update?)
-  (write-pref :update true))
 
 (defn get-string
   "Returns the localized string for the given keyword."
@@ -44,6 +49,8 @@
         (or "")
         (clojure.string/replace "\\" ""))
     res-name))
+
+; paths and encodings
 
 (defn get-relative-path
   "Gets the path of a child relative to its parent."
