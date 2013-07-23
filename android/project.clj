@@ -3,15 +3,17 @@
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
 
+  :warn-on-reflection true
+
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
-  :resource-paths ["libs/android-support-v13.jar" "libs/jsr166y.jar"]
+  :resource-paths ["libs/android-support-v13.jar"]
   ;; The following two definitions are optional. The default
   ;; target-path is "target", but you can change it to whatever you like.
   ;; :target-path "bin"
   ;; :compile-path "bin/classes"
 
-  :dependencies [[android/clojure "1.5.0"]
+  :dependencies [[org.clojure-android/clojure "1.5.1-SNAPSHOT"]
                  [neko/neko "2.0.0-beta3"]
                  [com.h2database/h2 "1.3.170"]
                  [markdown-clj "0.9.19"]]
@@ -29,5 +31,5 @@
             ;; here or in your ~/.lein/profiles.clj file.
             ;; :sdk-path "/home/user/path/to/android-sdk/"
             :target-version "15"
-            :aot-exclude-ns ["clojure.parallel"]
+            :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
             :dex-opts ["-JXmx2048M"]})
