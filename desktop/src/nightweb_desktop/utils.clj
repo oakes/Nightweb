@@ -29,6 +29,7 @@
 ; language
 
 (def lang-files {"en" "values/strings.xml"
+                 "fr" "values-fr/strings.xml"
                  "ja" "values-ja/strings.xml"})
 (def lang-strings (-> (get lang-files (.getLanguage (Locale/getDefault)))
                       (or (get lang-files "en"))
