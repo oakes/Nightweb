@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Nightweb</string>
+
+  <string name="shut_down_nightweb">Nightweb beenden</string>
+  <string name="nightweb_is_running">Nightweb läuft im Hintergrund</string>
+
+  <string name="new_post">Neuer Beitrag</string>
+  <string name="search">Suchen</string>
+  <string name="share">Teilen</string>
+
+  <string name="all">Alle</string>
+  <string name="me">Ich</string>
+  <string name="users">Benutzer</string>
+  <string name="posts">Beiträge</string>
+
+  <string name="profile">Profil</string>
+  <string name="favorites">Favoriten</string>
+  <string name="add_to_favorites">Zu Favoriten hinzufügen</string>
+  <string name="remove_from_favorites">Aus Favoriten entfernen</string>
+  <string name="edit">Bearbeiten</string>
+  <string name="tags">Schlagwörter</string>
+
+  <string name="name">Name</string>
+  <string name="about_me">Über mich</string>
+
+  <string name="cancel">Abbrechen</string>
+  <string name="attach">Hinzufügen...</string>
+  <string name="attach_pics">Bilder hinzufügen...</string>
+  <string name="delete">Löschen</string>
+  <string name="save">Speichern</string>
+  <string name="send">Senden</string>
+  <string name="send_reply">Antwort senden</string>
+  <string name="ok">OK</string>
+  <string name="download_user">Benutzer herunterladen</string>
+  <string name="clear">Entfernen</string>
+  <string name="go">Los</string>
+
+  <string name="import_start">Importieren...</string>
+  <string name="export_start">Exportieren...</string>
+  <string name="zipping">Packen...</string>
+  <string name="unzipping">Entpacken...</string>
+  <string name="zip_error">Fehler beim Packen der Datei</string>
+  <string name="unzip_error">Fehler beim Entpacken der Datei -- falsches Passwort?</string>
+  <string name="import_error">Fehler beim Importieren des Benutzers -- ungültige zip Datei?</string>
+  <string name="password">Passwort</string>
+  <string name="import_user">Benutzer importieren</string>
+  <string name="switch_user">Benutzer wechseln</string>
+  <string name="create_user">Neuen Benutzer erstellen</string>
+  <string name="no_name">Namenlos</string>
+
+  <string name="saving">Speichern...</string>
+  <string name="sending">Senden...</string>
+  <string name="adding">Hinzufügen...</string>
+  <string name="removing">Löschen...</string>
+  <string name="loading">Laden...</string>
+
+  <string name="page">Seite</string>
+  <string name="author">Autor</string>
+  <string name="mentioned">Erwähnt</string>
+  <string name="in_reply_to">Als Antwort auf...</string>
+
+  <string name="welcome_title">Willkommen bei Nightweb</string>
+  <string name="welcome_subtitle">Bitte warte einen Augenblick bis in den anderen Tabs Inhalt erscheint. Währenddessen...</string>
+  <string name="welcome_profile">Fülle dein Profil aus</string>
+  <string name="welcome_post">Schreibe ein paar Beiträge</string>
+  <string name="welcome_share">Teile deinen Link sodass andere dich hinzufügen können</string>
+
+  <string name="found_user">Das sieht nach einem neuen Benutzer aus. Willst du ihn zu den Favoriten hinzufügen und ihn herunterladen?</string>
+  <string name="pending_user">Wir haben bisher nichts von diesem Benutzer erhalten. Schaue später nochmal nach.</string>
+  <string name="lost_post">Dieser Beitrag kann nicht gefunden werden.</string>
+  <string name="nothing_here">Es scheint nichts hier zu sein.</string>
+  <string name="confirm_unfav">Bist du sicher, dass du diesen Benutzer von den Favoriten entfernen willst? Du wirst von ihm keine Beiträge mehr sehen können.</string>
+  <string name="confirm_delete">Bist du sicher, dass du dies löschen willst?</string>
+  <string name="export_desc">Dies wird eine passwortgeschützte Datei von deinen Benutzerdaten erstellen. Du kannst sie auf einem anderen Gerät mit Nightweb öffnen.</string>
+  <string name="import_desc">Wenn du einen Benutzer importierst, bleibt dein aktueller Benutzer bestehen.</string>
+
+  <string name="open_in_browser">Im Browser öffnen</string>
+  <string name="check_for_updates">Nach Updates suchen</string>
+  <string name="enable_remote">Fernzugriff aktivieren</string>
+  <string name="download_update">Update herunterladen</string>
+  <string name="confirm_download_update">Nightweb beenden und Update herunterladen?</string>
+  <string name="forward_port">Diesen TCP Port weiterleiten:</string>
+  <string name="open_address">Diese Adresse öffnen:</string>
+
+  <string name="webp_warning">Warnung: Dein Browser unterstützt kein WEBP. Du kannst somit keine Bilder teilen. Benutze stattdessen Chrome.</string>
+</resources>
