@@ -30,6 +30,7 @@
 ; language
 
 (def lang-files {"en" "values/strings.xml"
+                 "es" "values-es/strings.xml"
                  "de" "values-de/strings.xml"
                  "fr" "values-fr/strings.xml"
                  "ja" "values-ja/strings.xml"})
