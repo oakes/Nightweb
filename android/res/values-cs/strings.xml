@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Nightweb</string>
+
+  <string name="shut_down_nightweb">Vypnout Nightweb</string>
+  <string name="nightweb_is_running">Nightweb běží na pozadí</string>
+
+  <string name="new_post">Nový Příspěvek</string>
+  <string name="search">Hledat</string>
+  <string name="share">Sdílet</string>
+
+  <string name="all">Vše</string>
+  <string name="me">Já</string>
+  <string name="users">Uživatelé</string>
+  <string name="posts">Příspěvky</string>
+
+  <string name="profile">Profil</string>
+  <string name="favorites">Oblíbené</string>
+  <string name="add_to_favorites">Přidat do oblibených</string>
+  <string name="remove_from_favorites">Odebrat z oblíbených</string>
+  <string name="edit">Upravit</string>
+  <string name="tags">Záložky</string>
+
+  <string name="name">Jméno</string>
+  <string name="about_me">O mně</string>
+
+  <string name="cancel">Zrušit</string>
+  <string name="attach">Připojit...</string>
+  <string name="attach_pics">Připojit obrázky...</string>
+  <string name="delete">Smazat</string>
+  <string name="save">Uložit</string>
+  <string name="send">Odeslat</string>
+  <string name="send_reply">Odeslat Odpověď</string>
+  <string name="ok">OK</string>
+  <string name="download_user">Stáhnout Uživatele</string>
+  <string name="clear">Vymazat</string>
+  <string name="go">Jdi</string>
+
+  <string name="import_start">Importovat...</string>
+  <string name="export_start">Exportovat...</string>
+  <string name="zipping">Zabalování...</string>
+  <string name="unzipping">Vybalování...</string>
+  <string name="zip_error">Chyba zabalování</string>
+  <string name="unzip_error">Chyba vybalování souboru -- nesprávné heslo?</string>
+  <string name="import_error">Chyba importování uživatele -- neplatný zip soubor?</string>
+  <string name="password">Heslo</string>
+  <string name="import_user">Importovat Uživatele</string>
+  <string name="switch_user">Přepnout Uživatele</string>
+  <string name="create_user">Vytvořit Nového Uživatele</string>
+  <string name="no_name">Bezejména</string>
+
+  <string name="saving">Ukládání...</string>
+  <string name="sending">Odesílání...</string>
+  <string name="adding">Přidávání...</string>
+  <string name="removing">Odebírání...</string>
+  <string name="loading">Načítání...</string>
+
+  <string name="page">Strana</string>
+  <string name="author">Autor</string>
+  <string name="mentioned">Zmíněno</string>
+  <string name="in_reply_to">V Odpovědi Na...</string>
+
+  <string name="welcome_title">Vítejte na Nightweb</string>
+  <string name="welcome_subtitle">Vyčkejte moment a v ostatních záložkách by se měl objevit obsah. Do té doby...</string>
+  <string name="welcome_profile">Vyplňte svůj profil</string>
+  <string name="welcome_post">Napiště nějaké příspěvky</string>
+  <string name="welcome_share">Sdílejte svůj odkaz, aby si Vás mohli ostatní přidat</string>
+
+  <string name="found_user">Toto vypadá na nového uživatele. Chtěli byste ho přidat do oblíbených a začít stahovat?</string>
+  <string name="pending_user">Zatím jsme od tohoto uživatele nic neobdrželi. Přijďte později.</string>
+  <string name="lost_post">Tento příspěvek není k nalezení.</string>
+  <string name="nothing_here">Zdá se, že tady nic není.</string>
+  <string name="confirm_unfav">Jste si jistí, že chcete odebrat uživatele z oblíbených? Nemusíte ho už pak vidět.</string>
+  <string name="confirm_delete">Určitě to chcete odstranit??</string>
+  <string name="export_desc">Toto uloží heslem chránění soubor s všekerými Vašemi uživatelskými daty. Soubor lze otevřít na jiném zařízení, na kterém je Nightweb instalován.</string>
+  <string name="import_desc">Když importujete uživatele, Váš současný uživatel bude i nadále existovat.</string>
+
+  <string name="open_in_browser">Otevřít v prohlížeči</string>
+  <string name="check_for_updates">Zkontrolovat aktualizace</string>
+  <string name="enable_remote">Umožnit vzdálený přístup</string>
+  <string name="download_update">Stáhnout aktualizaci</string>
+  <string name="confirm_download_update">Vypnout Nightweb a stáhnout aktualizaci?</string>
+  <string name="forward_port">Otevřít tento TCP port:</string>
+  <string name="open_address">Otevřít tuto adresu:</string>
+
+  <string name="webp_warning">Varování: Váš prohlížeč nepodporuje WEBP, takže nebudete moci sdílet obrázky. Vyzkoušejte Chrome.</string>
+</resources>
