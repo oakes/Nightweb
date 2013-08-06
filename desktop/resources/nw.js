@@ -82,10 +82,12 @@ var resizeImage = function(src, crop, callback) {
 			var width = Math.min(img.width, maxSize);
 			var height = Math.min(img.height, maxSize);
 
-			if (img.width > img.height) {
-				height *= (img.height / img.width);
-			} else {
-				width *= (img.width / img.height);
+			if (width != img.width || height != img.height) {
+				if (img.width > img.height) {
+					height *= (img.height / img.width);
+				} else {
+					width *= (img.width / img.height);
+				}
 			}
 		}
 
