@@ -79,9 +79,10 @@
 (defn get-version
   "Returns version number from project.clj."
   []
-  (let [project-clj (-> (java.io/resource "project.clj")
-                        slurp
-                        read-string)]
+  (let [project-clj (->> (java.io/resource "project.clj")
+                         slurp
+                         read-string
+                         (binding [*read-eval* false]))]
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
       "beta")))
