@@ -1,5 +1,6 @@
 (ns nightweb-desktop.utils
-  (:require [clojure.java.io :as java.io]
+  (:require [clojure.edn :as edn]
+            [clojure.java.io :as java.io]
             [clojure.xml :as xml]
             [nightweb.constants :as c]
             [nightweb.formats :as f]
@@ -18,7 +19,7 @@
 (defn read-pref
   [k]
   (when-let [string (.get prefs (name k) nil)]
-    (read-string string)))
+    (edn/read-string string)))
 
 (def update? (atom (read-pref :update)))
 (def remote? (atom (read-pref :remote)))
@@ -79,8 +80,8 @@
   "Returns version number from project.clj."
   []
   (let [project-clj (-> (java.io/resource "project.clj")
-                        (slurp)
-                        (read-string))]
+                        slurp
+                        edn/read-string)]
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
       "beta")))
