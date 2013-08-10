@@ -81,7 +81,7 @@
   []
   (let [project-clj (-> (java.io/resource "project.clj")
                         slurp
-                        edn/read-string)]
+                        read-string)]
     (if (= (name (nth project-clj 1)) "nightweb-desktop")
       (nth project-clj 2)
       "beta")))
