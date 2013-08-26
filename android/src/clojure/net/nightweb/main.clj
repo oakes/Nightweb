@@ -1,12 +1,9 @@
 (ns net.nightweb.main
-  (:require [neko.application :as app]
-            [neko.notify :as notify]
+  (:require [neko.notify :as notify]
             [neko.resource :as r]
             [neko.ui.mapping :as mapping]
             [net.clandroid.service :as service]
             [nightweb.router :as router]))
-
-(app/defapplication net.nightweb.Application)
 
 (mapping/defelement :scroll-view
                     :classname android.widget.ScrollView
