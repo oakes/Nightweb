@@ -7,15 +7,11 @@
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
-  ;; The following two definitions are optional. The default
-  ;; target-path is "target", but you can change it to whatever you like.
-  ;; :target-path "bin"
-  ;; :compile-path "bin/classes"
-
-  :dependencies [[org.clojure-android/clojure "1.5.1-SNAPSHOT"]
-                 [neko/neko "3.0.0-beta5"]
-                 [com.h2database/h2 "1.3.170"]
-                 [markdown-clj "0.9.19"]]
+  
+  :dependencies [[org.clojure-android/clojure "1.5.1-jb"]
+                 [neko/neko "3.0.0-beta6"]
+                 [com.h2database/h2 "1.3.173"]
+                 [markdown-clj "0.9.31"]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
              :release {:android
@@ -26,10 +22,7 @@
                         ;; :key-alias "mykeyalias"
                         :aot :all}}}
 
-  :android {;; Specify the path to the Android SDK directory either
-            ;; here or in your ~/.lein/profiles.clj file.
-            ;; :sdk-path "/home/user/path/to/android-sdk/"
-            :external-classes-paths ["libs/android-support-v13.jar"]
+  :android {:external-classes-paths ["libs/android-support-v13.jar"]
             :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
             :dex-opts ["-JXmx2048M"]})
