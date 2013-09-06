@@ -22,7 +22,7 @@
                         ;; :key-alias "mykeyalias"
                         :aot :all}}}
 
-  :android {:external-classes-paths ["libs/android-support-v13.jar"]
+  :android {:support-libraries ["v13"]
             :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
             :dex-opts ["-JXmx2048M"]})
