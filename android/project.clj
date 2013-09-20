@@ -7,10 +7,10 @@
 
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
-  
+
   :dependencies [[org.clojure-android/clojure "1.5.1-jb"
                   :use-resources true]
-                 [neko/neko "3.0.0-beta6"]
+                 [neko/neko "3.0.0-SNAPSHOT"]
                  [com.h2database/h2 "1.3.173"]
                  [markdown-clj "0.9.31"]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]

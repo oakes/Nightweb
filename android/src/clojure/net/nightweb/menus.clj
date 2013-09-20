@@ -1,62 +1,42 @@
 (ns net.nightweb.menus
   (:require [neko.resource :as r]
+            [neko.ui.menu :as ui.menu]
             [net.nightweb.actions :as actions]
-            [net.nightweb.dialogs :as dialogs])
-  (:import [android.view Menu MenuItem]
+            [net.nightweb.dialogs :as d])
+  (:import [android.view Menu]
            [android.widget SearchView]))
 
 (defn create-main-menu
   [context ^Menu menu show-share-button? show-switch-button?]
-  ; create search button
-  (let [search-item (.add menu (r/get-string :search))
-        search-view (SearchView. context)]
-    (.setIcon search-item (r/get-resource :drawable :action_search))
-    (.setShowAsAction
-      search-item
-      (bit-or MenuItem/SHOW_AS_ACTION_IF_ROOM
-              MenuItem/SHOW_AS_ACTION_COLLAPSE_ACTION_VIEW))
-    (.setOnQueryTextListener
-      search-view
-      (proxy [android.widget.SearchView$OnQueryTextListener] []
-        (onQueryTextChange [new-text]
-          false)
-        (onQueryTextSubmit [query]
-          (actions/show-categories
-            context
-            {:title (str (r/get-string :search) ": " query)
-             :query query
-             :type :search})
-          true)))
-    (.setActionView search-item search-view))
-  ; create new post button
-  (let [new-post-item (.add menu (r/get-string :new_post))]
-    (.setIcon new-post-item (r/get-resource :drawable :content_new))
-    (.setShowAsAction new-post-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
-    (.setOnMenuItemClickListener
-      new-post-item
-      (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-        (onMenuItemClick [menu-item]
-          (dialogs/show-new-post-dialog context {})
-          true))))
-  ; create share button
-  (when show-share-button?
-    (let [share-item (.add menu (r/get-string :share))]
-      (.setIcon share-item (r/get-resource :drawable :social_share))
-      (.setShowAsAction share-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
-      (.setOnMenuItemClickListener
-        share-item
-        (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-          (onMenuItemClick [menu-item]
-            (actions/share-url context)
-            true)))))
-  ; create switch user button
-  (when show-switch-button?
-    (let [switch-user-item (.add menu (r/get-string :switch_user))]
-      (.setIcon switch-user-item (r/get-resource :drawable :social_group))
-      (.setShowAsAction switch-user-item MenuItem/SHOW_AS_ACTION_IF_ROOM)
-      (.setOnMenuItemClickListener
-        switch-user-item
-        (proxy [android.view.MenuItem$OnMenuItemClickListener] []
-          (onMenuItemClick [menu-item]
-            (dialogs/show-switch-user-dialog context {})
-            true))))))
+  (->> [[:item {:title (r/get-string :search)
+                :icon (r/get-resource :drawable :action_search)
+                :show-as-action [:if-room :collapse-action-view]
+                :action-view
+                (doto (SearchView. context)
+                  (.setOnQueryTextListener
+                    (proxy [android.widget.SearchView$OnQueryTextListener] []
+                      (onQueryTextChange [new-text]
+                        false)
+                      (onQueryTextSubmit [query]
+                        (actions/show-categories
+                          context
+                          {:title (str (r/get-string :search) ": " query)
+                           :query query
+                           :type :search})
+                        true))))}]
+        [:item {:title (r/get-string :new_post)
+                :icon (r/get-resource :drawable :content_new)
+                :show-as-action :if-room
+                :on-click (fn [_] (d/show-new-post-dialog context {}))}]
+        (when show-share-button?
+          [:item {:title (r/get-string :share)
+                  :icon (r/get-resource :drawable :social_share)
+                  :show-as-action :if-room
+                  :on-click (fn [_] (actions/share-url context))}])
+        (when show-switch-button?
+          [:item {:title (r/get-string :switch_user)
+                  :icon (r/get-resource :drawable :social_group)
+                  :show-as-action :if-room
+                  :on-click (fn [_] (d/show-switch-user-dialog context {}))}])]
+       (remove nil?)
+       (ui.menu/make-menu menu)))
