@@ -3,8 +3,7 @@
             [neko.ui.menu :as ui.menu]
             [net.nightweb.actions :as actions]
             [net.nightweb.dialogs :as d])
-  (:import [android.view Menu]
-           [android.widget SearchView]))
+  (:import [android.view Menu]))
 
 (defn create-main-menu
   [context ^Menu menu show-share-button? show-switch-button?]
@@ -12,18 +11,15 @@
                 :icon (r/get-resource :drawable :action_search)
                 :show-as-action [:if-room :collapse-action-view]
                 :action-view
-                (doto (SearchView. context)
-                  (.setOnQueryTextListener
-                    (proxy [android.widget.SearchView$OnQueryTextListener] []
-                      (onQueryTextChange [new-text]
-                        false)
-                      (onQueryTextSubmit [query]
-                        (actions/show-categories
-                          context
-                          {:title (str (r/get-string :search) ": " query)
-                           :query query
-                           :type :search})
-                        true))))}]
+                [:search-view
+                 {:on-query-text-change (fn [query menu-item] false)
+                  :on-query-text-submit
+                  (fn [query menu-item]
+                    (actions/show-categories
+                      context {:title (str (r/get-string :search) ": " query)
+                               :query query
+                               :type :search})
+                    true)}]}]
         [:item {:title (r/get-string :new_post)
                 :icon (r/get-resource :drawable :content_new)
                 :show-as-action :if-room
