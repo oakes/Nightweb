@@ -8,7 +8,7 @@
 3. Install [Leiningen](https://github.com/technomancy/leiningen)
 	- The version in your package manager may be out of date
 	- I recommend the manual installation they describe in their README
-4. Edit your `~/.lein/profiles.clj` to enable [lein-droid](https://github.com/alexander-yakushev/lein-droid) and point it to the Android SDK path
+4. Edit your `~/.lein/profiles.clj` to enable [lein-droid](https://github.com/clojure-android/lein-droid) and point it to the Android SDK path
 	- Here's what mine looks like:
     {:user {
         :plugins [[lein-droid "0.2.0-preview1"]]
