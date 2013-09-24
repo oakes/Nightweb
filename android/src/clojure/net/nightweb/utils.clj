@@ -136,8 +136,8 @@
        (into-array InputFilter)
        (.setFilters view)))
 
-; subclass LinkMovementMethod because it doesn't support text selection
 (do
+  ; subclass LinkMovementMethod because it doesn't support text selection
   (gen-class
     :name "net.nightweb.utils.MovementMethod"
     :extends android.text.method.LinkMovementMethod
@@ -184,6 +184,7 @@
         (.setSpan text new-span start end 0)))))
 
 (defn get-resource-at-runtime
+  "Gets the specified resource at runtime."
   [^Activity context res-type res-name]
   (.getIdentifier (.getResources context)
                   (name res-name)
@@ -191,11 +192,23 @@
                   (.getPackageName context)))
 
 (defn get-drawable-at-runtime
+  "Gets the specified drawable at runtime."
   [^Activity context res-name]
   (get-resource-at-runtime context :drawable res-name))
 
 (defn get-string-at-runtime
+  "Gets the specified string at runtime."
   [^Activity context res-name]
   (if (keyword? res-name)
     (.getString context (get-resource-at-runtime context :string res-name))
     res-name))
+
+(defn set-state
+  "Sets the given key/value pair to the given activity's state."
+  [context content-key content-val]
+  (swap! (.state context) assoc content-key content-val))
+
+(defn get-state
+  "Gets the value for the given key in the given activity's state."
+  [context content-key]
+  (get @(.state context) content-key))

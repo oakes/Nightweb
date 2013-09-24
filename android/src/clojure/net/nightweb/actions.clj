@@ -3,7 +3,6 @@
             [neko.resource :as r]
             [neko.threading :as thread]
             [neko.notify :as notify]
-            [net.clandroid.activity :as activity]
             [net.nightweb.utils :as utils]
             [nightweb.actions :as a]
             [nightweb.constants :as c]
@@ -51,7 +50,7 @@
   "Displays an app chooser to share a link to the displayed content."
   [^Activity context]
   (let [intent (Intent. Intent/ACTION_SEND)
-        url (f/url-encode (activity/get-state context :share))]
+        url (f/url-encode (utils/get-state context :share))]
     (.setType intent "text/plain")
     (.putExtra intent Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
@@ -69,7 +68,7 @@
 (defn request-files
   "Displays an app chooser to select files of the specified file type."
   [^Activity context file-type callback]
-  (activity/set-state context :file-request callback)
+  (utils/set-state context :file-request callback)
   (let [intent (Intent. Intent/ACTION_GET_CONTENT)]
     (.setType intent file-type)
     (.addCategory intent Intent/CATEGORY_OPENABLE)
@@ -81,7 +80,7 @@
   "Runs after a request returns with a result."
   [^Activity context ^long request-code ^long result-code ^Intent intent]
   (case request-code
-    1 (let [callback (activity/get-state context :file-request)
+    1 (let [callback (utils/get-state context :file-request)
             data-result (when intent (.getData intent))]
         (when (and callback data-result)
           (callback data-result)))
@@ -91,7 +90,7 @@
   "Stores a list of selected attachments."
   [^Activity context ^Uri uri]
   (let [uri-str (.toString uri)
-        attachments (activity/get-state context :attachments)
+        attachments (utils/get-state context :attachments)
         new-attachments (if (.startsWith uri-str "file://")
                           (for [path (io/get-files-in-uri uri-str)]
                             (when (utils/path-to-bitmap path utils/thumb-size)
@@ -100,13 +99,13 @@
                             [uri-str]))
         total-attachments (f/remove-dupes-and-nils
                             (concat attachments new-attachments))]
-    (activity/set-state context :attachments total-attachments)
+    (utils/set-state context :attachments total-attachments)
     total-attachments))
 
 (defn clear-attachments
   "Clears the list of selected attachments."
   [^Activity context]
-  (activity/set-state context :attachments nil))
+  (utils/set-state context :attachments nil))
 
 ; misc actions
 
@@ -134,7 +133,7 @@
     status]
    (let [text-view (.findViewWithTag dialog-view "post-body")
          text (.toString (.getText text-view))
-         attachments (activity/get-state context :attachments)
+         attachments (utils/get-state context :attachments)
          pointers (.getTag dialog-view)]
      (show-spinner context
                    (r/get-string :sending)

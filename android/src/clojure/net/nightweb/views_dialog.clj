@@ -2,7 +2,6 @@
   (:require [neko.resource :as r]
             [neko.threading :as thread]
             [neko.ui :as ui]
-            [net.clandroid.activity :as activity]
             [net.nightweb.actions :as actions]
             [net.nightweb.utils :as utils]
             [nightweb.constants :as c]
@@ -16,7 +15,7 @@
 (defn get-new-post-view
   [context content]
   (let [post (:post content)
-        page-content (activity/get-state context :share)
+        page-content (utils/get-state context :share)
         pointers (if (empty? post)
                    {:ptrhash (when (and (:userhash page-content)
                                         (or (= :post (:type page-content))

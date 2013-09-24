@@ -3,7 +3,6 @@
             [neko.notify :as notify]
             [neko.resource :as r]
             [neko.threading :as thread]
-            [net.clandroid.activity :as activity]
             [net.clandroid.service :as service]
             [net.nightweb.actions :as actions]
             [net.nightweb.dialogs :as dialogs]
@@ -27,8 +26,9 @@
   [^Activity context]
   (into {} (.getSerializableExtra (.getIntent context) "params")))
 
-(activity/defactivity
+(a/defactivity
   net.nightweb.MainPage
+  :state (atom {})
   :on-create
   (fn [^Activity this bundle]
     (service/start-service
@@ -43,17 +43,17 @@
                             (r/get-string :me)
                             #(let [content {:type :user
                                             :userhash @c/my-hash-bytes}]
-                               (activity/set-state this :share content)
+                               (utils/set-state this :share content)
                                (views/get-user-view this content)))
           (views/create-tab action-bar
                             (r/get-string :users)
                             #(let [content {:type :user}]
-                               (activity/set-state this :share content)
+                               (utils/set-state this :share content)
                                (views/get-category-view this content)))
           (views/create-tab action-bar
                             (r/get-string :posts)
                             #(let [content {:type :post}]
-                               (activity/set-state this :share content)
+                               (utils/set-state this :share content)
                                (views/get-category-view this content)))
           (when (and @router/is-first-boot? @show-welcome-message?)
             (reset! show-welcome-message? false)
@@ -81,8 +81,9 @@
   :on-activity-result
   actions/receive-result)
 
-(activity/defactivity
+(a/defactivity
   net.nightweb.CategoryPage
+  :state (atom {})
   :on-create
   (fn [^Activity this bundle]
     (service/start-receiver
@@ -112,9 +113,10 @@
   :on-activity-result
   actions/receive-result)
 
-(activity/defactivity
+(a/defactivity
   net.nightweb.GalleryPage
   :def gallery-page
+  :state (atom {})
   :on-create
   (fn [^Activity this bundle]
     (service/start-receiver
@@ -130,9 +132,10 @@
   :on-activity-result
   actions/receive-result)
 
-(activity/defactivity
+(a/defactivity
   net.nightweb.BasicPage
   :def basic-page
+  :state (atom {})
   :on-create
   (fn [^Activity this bundle]
     (service/start-service
@@ -152,7 +155,7 @@
                      :tag (views/get-category-view this params)
                      nil)
               action-bar (.getActionBar this)]
-          (activity/set-state this :share params)
+          (utils/set-state this :share params)
           (.setDisplayHomeAsUpEnabled action-bar true)
           (if-let [title (or (:title params) (:tag params))]
             (.setTitle action-bar (utils/get-string-at-runtime this title))
