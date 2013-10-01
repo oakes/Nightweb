@@ -1,4 +1,4 @@
-(defproject nightweb-desktop "0.0.20"
+(defproject nightweb-desktop "0.0.21"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :dependencies [[com.github.insubstantial/substance "7.2.1"]
