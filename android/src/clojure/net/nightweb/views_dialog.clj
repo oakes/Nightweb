@@ -39,6 +39,7 @@
                  [:text-view {:single-line true
                               :tag "user-name"}]]
                 [:edit-text {:min-lines 10
+                             :layout-width :fill
                              :tag "post-body"}]])
         ^LinearLayout user-info (.findViewWithTag view "user-info")
         ^ImageView user-img (.findViewWithTag view "user-img")

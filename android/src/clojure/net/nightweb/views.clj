@@ -45,16 +45,21 @@
                     [:frame-layout {}
                      [:image-view {:layout-width :fill
                                    :layout-height :fill}]
-                     [:linear-layout {:orientation 1}
+                     [:linear-layout {:orientation 1
+                                      :layout-width :fill
+                                      :layout-height :fill}
                       [:text-view {:text-color Color/WHITE
                                    :layout-width :fill
                                    :layout-weight 1}]
                       [:linear-layout {:orientation 0}
                        [:text-view {:text-color Color/WHITE
                                     :single-line true
+                                    :layout-width :fill
+                                    :layout-height :fill
                                     :layout-weight 1
                                     :ellipsize end}]
-                       [:text-view {:text-color Color/WHITE}]]]])
+                       [:text-view {:text-color Color/WHITE
+                                    :layout-width :fill}]]]])
         ^ImageView image (.getChildAt tile-view 0)
         ^LinearLayout linear-layout (.getChildAt tile-view 1)
         ^TextView text-top (.getChildAt linear-layout 0)
