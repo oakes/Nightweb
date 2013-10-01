@@ -133,7 +133,6 @@
 
 (a/defactivity
   net.nightweb.BasicPage
-  :def basic-page
   :state (atom {})
   :on-create
   (fn [^Activity this bundle]
@@ -160,7 +159,7 @@
             (.setTitle action-bar (utils/get-string-at-runtime this title))
             (.setDisplayShowTitleEnabled action-bar false))
           (if view
-            (a/set-content-view! basic-page view)
+            (a/set-content-view! this view)
             (thread/on-ui (notify/toast (r/get-string :nothing_here))))
           (when (:userhash params)
             (if-not (users/user-exists? (:userhash params))
