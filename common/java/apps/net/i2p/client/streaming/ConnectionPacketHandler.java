@@ -37,6 +37,8 @@ class ConnectionPacketHandler {
         _context.statManager().createRateStat("stream.trend", "What direction the RTT is trending in (with period = windowsize)", "Stream", new long[] { 60*1000, 60*60*1000 });
         _context.statManager().createRateStat("stream.con.initialRTT.in", "What is the actual RTT for the first packet of an inbound conn?", "Stream", new long[] { 10*60*1000, 60*60*1000 });
         _context.statManager().createRateStat("stream.con.initialRTT.out", "What is the actual RTT for the first packet of an outbound conn?", "Stream", new long[] { 10*60*1000, 60*60*1000 });
+        _context.statManager().createFrequencyStat("stream.ack.dup.immediate","How often duplicate packets get acked immediately","Stream",new long[] { 10*60*1000, 60*60*1000 });
+        _context.statManager().createRateStat("stream.ack.dup.sent","Whether the ack for a duplicate packet was sent as scheduled","Stream",new long[] { 10*60*1000, 60*60*1000 });
     }
     
     /** distribute a packet to the connection specified */
@@ -184,11 +186,28 @@ class ConnectionPacketHandler {
                 con.incrementDupMessagesReceived(1);
         
                 // take note of congestion
+                
+                final long now = _context.clock().now();
+                final int ackDelay = con.getOptions().getSendAckDelay();
+                final long lastSendTime = con.getLastSendTime();
+                
                 if (_log.shouldLog(Log.WARN))
-                    _log.warn("congestion.. dup " + packet);
-                _context.simpleScheduler().addEvent(new AckDup(con), con.getOptions().getSendAckDelay());
-                //con.setNextSendTime(_context.clock().now() + con.getOptions().getSendAckDelay());
-                //fastAck = true;
+                    _log.warn(String.format("%s congestion.. dup packet %s now %d ackDelay %d lastSend %d",
+                                    con, packet, now, ackDelay, lastSendTime));
+                
+                final long nextSendTime = lastSendTime + ackDelay;
+                if (nextSendTime <= now) {
+                    if (_log.shouldLog(Log.DEBUG)) 
+                        _log.debug("immediate ack");
+                    con.ackImmediately();
+                    _context.statManager().updateFrequency("stream.ack.dup.immediate");
+                } else {
+                    final long delay = nextSendTime - now;
+                    if (_log.shouldLog(Log.DEBUG)) 
+                        _log.debug("scheduling ack in "+delay);
+                    _context.simpleScheduler().addEvent(new AckDup(con), delay);
+                }
+
             } else {
                 if (packet.isFlagSet(Packet.FLAG_SYNCHRONIZE)) {
                     //con.incrementUnackedPacketsReceived();
@@ -271,17 +290,21 @@ class ConnectionPacketHandler {
                 _log.debug(acked.size() + " of our packets acked with " + packet);
             // use the highest RTT, since these would likely be bunched together,
             // and the highest rtt lets us set our resend delay properly
+            // RFC 6298 part 3 dictates only use packets that haven't been re-sent.
             int highestRTT = -1;
             for (int i = 0; i < acked.size(); i++) {
                 PacketLocal p = acked.get(i);
-                if (p.getAckTime() > highestRTT) {
-                    //if (p.getNumSends() <= 1)
-                    highestRTT = p.getAckTime();
-                }
-                _context.statManager().addRateData("stream.sendsBeforeAck", p.getNumSends(), p.getAckTime());
                 
-                if (p.getNumSends() > 1)
+                final int numSends = p.getNumSends();
+                final int ackTime = p.getAckTime();
+                
+                if (numSends > 1)
                     numResends++;
+                else if (ackTime > highestRTT) 
+                    highestRTT = ackTime;
+                
+                _context.statManager().addRateData("stream.sendsBeforeAck", numSends, ackTime);
+                
                 
                 // ACK the tags we delivered so we can use them
                 //if ( (p.getKeyUsed() != null) && (p.getTagsSent() != null) 
@@ -291,7 +314,7 @@ class ConnectionPacketHandler {
                 //                                               p.getTagsSent());
                 //}
                 if (_log.shouldLog(Log.DEBUG))
-                    _log.debug("Packet acked after " + p.getAckTime() + "ms: " + p);
+                    _log.debug("Packet acked after " + ackTime + "ms: " + p);
             }
             if (highestRTT > 0) {
                 int oldrtt = con.getOptions().getRTT();
@@ -542,6 +565,7 @@ class ConnectionPacketHandler {
         }
 
         public void timeReached() {
+            boolean sent = false;
             if (_con.getLastSendTime() <= _created) {
                 if (_con.getResetReceived() || _con.getResetSent()) {
                     if (_log.shouldLog(Log.DEBUG))
@@ -554,10 +578,12 @@ class ConnectionPacketHandler {
                 // we haven't done anything since receiving the dup, send an
                 // ack now
                 _con.ackImmediately();
+                sent = true;
             } else {                
                 if (_log.shouldLog(Log.DEBUG))
                     _log.debug("Ack dup on " + _con + ", but we have sent (" + (_con.getLastSendTime()-_created) + ")");
             }
+            _context.statManager().addRateData("stream.ack.dup.sent", sent ? 1 : 0);
         }
     }
 }

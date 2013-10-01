@@ -10,7 +10,9 @@ import net.i2p.I2PAppContext;
 import net.i2p.data.DataHelper;
 import net.i2p.data.SessionKey;
 import net.i2p.router.util.CDQEntry;
+import net.i2p.util.Addresses;
 import net.i2p.util.Log;
+import net.i2p.util.SystemVersion;
 
 /**
  * Basic delivery unit containing the datagram.  This also maintains a cache
@@ -47,9 +49,7 @@ class UDPPacket implements CDQEntry {
     private static final int MAX_CACHE_SIZE = 256;
     static {
         if (CACHE) {
-            long maxMemory = Runtime.getRuntime().maxMemory();
-            if (maxMemory == Long.MAX_VALUE)
-                maxMemory = 96*1024*1024l;
+            long maxMemory = SystemVersion.getMaxMemory();
             int csize = (int) Math.max(MIN_CACHE_SIZE, Math.min(MAX_CACHE_SIZE, maxMemory / (1024*1024)));
             _packetCache = new LinkedBlockingQueue(csize);
         } else {
@@ -300,8 +300,7 @@ class UDPPacket implements CDQEntry {
         StringBuilder buf = new StringBuilder(256);
         buf.append(_packet.getLength());
         buf.append(" byte pkt with ");
-        buf.append(_packet.getAddress().getHostAddress()).append(":");
-        buf.append(_packet.getPort());
+        buf.append(Addresses.toString(_packet.getAddress().getAddress(), _packet.getPort()));
         //buf.append(" id=").append(System.identityHashCode(this));
         if (_messageType >= 0)
             buf.append(" msgType=").append(_messageType);

@@ -30,7 +30,7 @@ class Connection {
     private Destination _remotePeer;
     private long _sendStreamId;
     private long _receiveStreamId;
-    private long _lastSendTime;
+    private volatile long _lastSendTime;
     private final AtomicLong _lastSendId;
     private boolean _resetReceived;
     private boolean _resetSent;
@@ -777,7 +777,7 @@ class Connection {
      *  this may make the next time sooner but will not make it later.
      *  If the next send time is currently < 0 (i.e. "never"),
      *  this will set it to the time specified, but not later than
-     *  options.getSendAckDelay() from now (2000 ms)
+     *  options.getSendAckDelay() from now (1000 ms)
      */
     public void setNextSendTime(long when) { 
         if (_nextSendTime >= 0) {

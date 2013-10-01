@@ -13,6 +13,7 @@ import net.i2p.router.RouterContext;
 import net.i2p.util.I2PThread;
 import net.i2p.util.SimpleScheduler;
 import net.i2p.util.SimpleTimer;
+import net.i2p.util.SystemVersion;
 
 /**
  * Run through the tunnel gateways that have had messages added to them and push
@@ -42,10 +43,12 @@ class TunnelGatewayPumper implements Runnable {
         _context = ctx;
         _wantsPumping = new LinkedHashSet(16);
         _backlogged = new HashSet(16);
-        long maxMemory = Runtime.getRuntime().maxMemory();
-        if (maxMemory == Long.MAX_VALUE)
-            maxMemory = 96*1024*1024l;
-        _pumpers = (int) Math.max(MIN_PUMPERS, Math.min(MAX_PUMPERS, 1 + (maxMemory / (32*1024*1024))));
+        if (ctx.getBooleanProperty("i2p.dummyTunnelManager")) {
+            _pumpers = 1;
+        } else {
+            long maxMemory = SystemVersion.getMaxMemory();
+            _pumpers = (int) Math.max(MIN_PUMPERS, Math.min(MAX_PUMPERS, 1 + (maxMemory / (32*1024*1024))));
+        }
         for (int i = 0; i < _pumpers; i++)
             new I2PThread(this, "Tunnel GW pumper " + (i+1) + '/' + _pumpers, true).start();
     }

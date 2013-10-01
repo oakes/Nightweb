@@ -15,6 +15,7 @@ public abstract class SystemVersion {
 
     private static final boolean _isWin = System.getProperty("os.name").startsWith("Win");
     private static final boolean _isMac = System.getProperty("os.name").startsWith("Mac");
+    private static final boolean _isArm = System.getProperty("os.arch").startsWith("arm");
     private static final boolean _isAndroid;
     private static final boolean _isApache;
     private static final boolean _isGNU;
@@ -87,6 +88,13 @@ public abstract class SystemVersion {
     }
 
     /**
+     *  @since 0.9.8
+     */
+    public static boolean isARM() {
+        return _isArm;
+    }
+
+    /**
      *  Better than (new VersionComparator()).compare(System.getProperty("java.version"), "1.6") >= 0
      *  as it handles Android also, where java.version = "0".
      *
@@ -125,5 +133,17 @@ public abstract class SystemVersion {
      */
     public static boolean hasWrapper() {
         return _hasWrapper;
+    }
+
+    /**
+     *  Runtime.getRuntime().maxMemory() but check for
+     *  bogus values
+     *  @since 0.9.8
+     */
+    public static long getMaxMemory() {
+        long maxMemory = Runtime.getRuntime().maxMemory();
+        if (maxMemory >= Long.MAX_VALUE / 2)
+            maxMemory = 96*1024*1024l;
+        return maxMemory;
     }
 }

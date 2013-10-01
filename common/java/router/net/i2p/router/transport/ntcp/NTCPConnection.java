@@ -1,6 +1,7 @@
 package net.i2p.router.transport.ntcp;
 
 import java.io.IOException;
+import java.net.Inet6Address;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
@@ -11,11 +12,13 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.Adler32;
 
 import net.i2p.data.Base64;
 import net.i2p.data.ByteArray;
 import net.i2p.data.DataHelper;
+import net.i2p.data.RouterAddress;
 import net.i2p.data.RouterIdentity;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.SessionKey;
@@ -33,6 +36,7 @@ import net.i2p.util.ByteCache;
 import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.HexDump;
 import net.i2p.util.Log;
+import net.i2p.util.SystemVersion;
 
 /**
  * Coordinate the connection to a single peer.
@@ -80,13 +84,12 @@ class NTCPConnection {
     /** Requests that were not granted immediately */
     private final Set<FIFOBandwidthLimiter.Request> _bwInRequests;
     private final Set<FIFOBandwidthLimiter.Request> _bwOutRequests;
-    private boolean _established;
     private long _establishedOn;
-    private EstablishState _establishState;
+    private volatile EstablishState _establishState;
     private final NTCPTransport _transport;
     private final boolean _isInbound;
-    private volatile boolean _closed;
-    private NTCPAddress _remAddr;
+    private final AtomicBoolean _closed = new AtomicBoolean();
+    private final RouterAddress _remAddr;
     private RouterIdentity _remotePeer;
     private long _clockSkew; // in seconds
     /**
@@ -165,6 +168,7 @@ class NTCPConnection {
         _log = ctx.logManager().getLog(getClass());
         _created = System.currentTimeMillis();
         _transport = transport;
+        _remAddr = null;
         _chan = chan;
         _readBufs = new ConcurrentLinkedQueue();
         _writeBufs = new ConcurrentLinkedQueue();
@@ -187,7 +191,7 @@ class NTCPConnection {
      * Create an outbound unconnected NTCP connection
      *
      */
-    public NTCPConnection(RouterContext ctx, NTCPTransport transport, RouterIdentity remotePeer, NTCPAddress remAddr) {
+    public NTCPConnection(RouterContext ctx, NTCPTransport transport, RouterIdentity remotePeer, RouterAddress remAddr) {
         _context = ctx;
         _log = ctx.logManager().getLog(getClass());
         _created = System.currentTimeMillis();
@@ -201,6 +205,7 @@ class NTCPConnection {
         //_outbound = new CoDelPriorityBlockingQueue(ctx, "NTCP-Connection", 32);
         _outbound = new PriBlockingQueue(ctx, "NTCP-Connection", 32);
         _isInbound = false;
+        _establishState = new EstablishState(ctx, transport, this);
         _decryptBlockBuf = new byte[BLOCK_SIZE];
         _curReadState = new ReadState();
         _inboundListener = new InboundListener();
@@ -216,15 +221,42 @@ class NTCPConnection {
         _prevReadBlock = new byte[BLOCK_SIZE];
         _transport.establishing(this);
     }
-    
+
+    /**
+     *  Valid for inbound; valid for outbound shortly after creation
+     */
     public SocketChannel getChannel() { return _chan; }
+
+    /**
+     *  Valid for inbound; valid for outbound shortly after creation
+     */
     public SelectionKey getKey() { return _conKey; }
     public void setChannel(SocketChannel chan) { _chan = chan; }
     public void setKey(SelectionKey key) { _conKey = key; }
     public boolean isInbound() { return _isInbound; }
-    public boolean isEstablished() { return _established; }
+    public boolean isEstablished() { return _establishState.isComplete(); }
+
+    /**
+     *  @since IPv6
+     */
+    public boolean isIPv6() {
+        return _chan != null &&
+               _chan.socket().getInetAddress() instanceof Inet6Address;
+    }
+
+    /**
+     *  Only valid during establishment; null later
+     */
     public EstablishState getEstablishState() { return _establishState; }
-    public NTCPAddress getRemoteAddress() { return _remAddr; }
+
+    /**
+     *  Only valid for outbound; null for inbound
+     */
+    public RouterAddress getRemoteAddress() { return _remAddr; }
+
+    /**
+     *  Valid for outbound; valid for inbound after handshake
+     */
     public RouterIdentity getRemotePeer() { return _remotePeer; }
     public void setRemotePeer(RouterIdentity ident) { _remotePeer = ident; }
 
@@ -232,19 +264,30 @@ class NTCPConnection {
      * @param clockSkew alice's clock minus bob's clock in seconds (may be negative, obviously, but |val| should
      *                  be under 1 minute)
      */
-    public synchronized void finishInboundEstablishment(SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
+    public void finishInboundEstablishment(SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
+        NTCPConnection toClose = locked_finishInboundEstablishment(key, clockSkew, prevWriteEnd, prevReadEnd);
+        if (toClose != null) {
+            if (_log.shouldLog(Log.DEBUG))
+                _log.debug("Old connection closed: " + toClose + " replaced by " + this);
+            _context.statManager().addRateData("ntcp.inboundEstablishedDuplicate", toClose.getUptime());
+            toClose.close();
+        }
+    }
+    
+    private synchronized NTCPConnection locked_finishInboundEstablishment(
+            SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
         _sessionKey = key;
         _clockSkew = clockSkew;
         _prevWriteEnd = prevWriteEnd;
         System.arraycopy(prevReadEnd, prevReadEnd.length - BLOCK_SIZE, _prevReadBlock, 0, BLOCK_SIZE);
         //if (_log.shouldLog(Log.DEBUG))
         //    _log.debug("Inbound established, prevWriteEnd: " + Base64.encode(prevWriteEnd) + " prevReadEnd: " + Base64.encode(prevReadEnd));
-        _established = true;
         _establishedOn = System.currentTimeMillis();
-        _transport.inboundEstablished(this);
-        _establishState = null;
+        NTCPConnection rv = _transport.inboundEstablished(this);
         _nextMetaTime = System.currentTimeMillis() + (META_FREQUENCY / 2) + _context.random().nextInt(META_FREQUENCY);
         _nextInfoTime = System.currentTimeMillis() + (INFO_FREQUENCY / 2) + _context.random().nextInt(INFO_FREQUENCY);
+        _establishState = EstablishState.VERIFIED;
+        return rv;
     }
 
     /** @return seconds */
@@ -252,7 +295,7 @@ class NTCPConnection {
 
     /** @return milliseconds */
     public long getUptime() { 
-        if (!_established)
+        if (!isEstablished())
             return getTimeSinceCreated();
         else
             return System.currentTimeMillis()-_establishedOn; 
@@ -293,18 +336,31 @@ class NTCPConnection {
         return ++_consecutiveZeroReads;
     }
 
-    public boolean isClosed() { return _closed; }
+    public boolean isClosed() { return _closed.get(); }
 
     public void close() { close(false); }
 
-    public synchronized void close(boolean allowRequeue) {
+    public void close(boolean allowRequeue) {
+        if (!_closed.compareAndSet(false,true)) {
+            _log.logCloseLoop("NTCPConnection", this);
+            return;
+        }
         if (_log.shouldLog(Log.INFO))
             _log.info("Closing connection " + toString(), new Exception("cause"));
-        _closed = true;
+        NTCPConnection toClose = locked_close(allowRequeue);
+        if (toClose != null && toClose != this) {
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Multiple connections on remove, closing " + toClose + " (already closed " + this + ")");
+            _context.statManager().addRateData("ntcp.multipleCloseOnRemove", toClose.getUptime());
+            toClose.close();
+        }
+    }
+    
+    private synchronized NTCPConnection locked_close(boolean allowRequeue) {
         if (_chan != null) try { _chan.close(); } catch (IOException ioe) { }
         if (_conKey != null) _conKey.cancel();
-        _establishState = null;
-        _transport.removeCon(this);
+        _establishState = EstablishState.VERIFIED;
+        NTCPConnection old = _transport.removeCon(this);
         _transport.getReader().connectionClosed(this);
         _transport.getWriter().connectionClosed(this);
 
@@ -342,6 +398,8 @@ class NTCPConnection {
                 releaseBuf((PrepBuffer)buf);
             _transport.afterSend(msg, false, allowRequeue, msg.getLifetime());
         }
+        
+        return old;
     }
     
     /**
@@ -379,7 +437,7 @@ class NTCPConnection {
         //_context.statManager().addRateData("ntcp.sendQueueSize", enqueued);
         boolean noOutbound = (_currentOutbound == null);
         //if (_log.shouldLog(Log.DEBUG)) _log.debug("messages enqueued on " + toString() + ": " + enqueued + " new one: " + msg.getMessageId() + " of " + msg.getMessageType());
-        if (_established && noOutbound)
+        if (isEstablished() && noOutbound)
             _transport.getWriter().wantsWrite(this, "enqueued");
     }
 
@@ -511,9 +569,8 @@ class NTCPConnection {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("Outbound established, prevWriteEnd: " + Base64.encode(prevWriteEnd) + " prevReadEnd: " + Base64.encode(prevReadEnd));
 
-        _established = true;
         _establishedOn = System.currentTimeMillis();
-        _establishState = null;
+        _establishState = EstablishState.VERIFIED;
         _transport.markReachable(getRemotePeer().calculateHash(), false);
         //_context.banlist().unbanlistRouter(getRemotePeer().calculateHash(), NTCPTransport.STYLE);
         boolean msgs = !_outbound.isEmpty();
@@ -659,19 +716,11 @@ class NTCPConnection {
      *
      */
     private void prepareNextWriteFast() {
-        if (_closed)
+        if (_closed.get())
             return;
         //if (_log.shouldLog(Log.DEBUG))
         //    _log.debug("prepare next write w/ isInbound? " + _isInbound + " established? " + _established);
-        if (!_isInbound && !_established) {
-            if (_establishState == null) {
-                // shouldn't happen
-                _establishState = new EstablishState(_context, _transport, this);
-                _establishState.prepareOutbound();
-            } else {
-                if (_log.shouldLog(Log.DEBUG))
-                    _log.debug("prepare next write, but we have already prepared the first outbound and we are not yet established..." + toString());
-            }
+        if (!_isInbound && !isEstablished()) {
             return;
         }
         
@@ -820,9 +869,7 @@ class NTCPConnection {
     private static final int MAX_BUFS = 16;
     private static int NUM_PREP_BUFS;
     static {
-        long maxMemory = Runtime.getRuntime().maxMemory();
-        if (maxMemory == Long.MAX_VALUE)
-            maxMemory = 96*1024*1024l;
+        long maxMemory = SystemVersion.getMaxMemory();
         NUM_PREP_BUFS = (int) Math.max(MIN_BUFS, Math.min(MAX_BUFS, 1 + (maxMemory / (16*1024*1024))));
     }
 
@@ -885,7 +932,7 @@ class NTCPConnection {
         public void complete(FIFOBandwidthLimiter.Request req) {
             removeIBRequest(req);
             ByteBuffer buf = (ByteBuffer)req.attachment();
-            if (_closed) {
+            if (_closed.get()) {
                 EventPumper.releaseBuf(buf);
                 return;
             }
@@ -907,7 +954,7 @@ class NTCPConnection {
         public void complete(FIFOBandwidthLimiter.Request req) {
             removeOBRequest(req);
             ByteBuffer buf = (ByteBuffer)req.attachment();
-            if (!_closed) {
+            if (!_closed.get()) {
                 _context.statManager().addRateData("ntcp.throttledWriteComplete", (System.currentTimeMillis()-req.getRequestTime()));
                 write(buf);
             }
@@ -1118,7 +1165,7 @@ class NTCPConnection {
             }
         }
 
-        while (buf.hasRemaining() && !_closed) {
+        while (buf.hasRemaining() && !_closed.get()) {
             int want = Math.min(buf.remaining(), BLOCK_SIZE - _curReadBlockIndex);
             if (want > 0) {
                 buf.get(_curReadBlock, _curReadBlockIndex, want);
@@ -1166,7 +1213,7 @@ class NTCPConnection {
         int end = pos + buf.remaining();
         boolean first = true;
 
-        for ( ; pos < end && !_closed; pos += BLOCK_SIZE) {
+        for ( ; pos < end && !_closed.get(); pos += BLOCK_SIZE) {
             _context.aes().decryptBlock(array, pos, _sessionKey, _decryptBlockBuf, 0);
             if (first) {
                 // XOR with _prevReadBlock the first time...
@@ -1505,7 +1552,7 @@ class NTCPConnection {
         return "NTCP conn " +
                (_isInbound ? "from " : "to ") +
                (_remotePeer == null ? "unknown" : _remotePeer.calculateHash().toBase64().substring(0,6)) +
-               (_established ? "" : " not established") +
+               (isEstablished() ? "" : " not established") +
                " created " + DataHelper.formatDuration(getTimeSinceCreated()) + " ago";
     }
 }

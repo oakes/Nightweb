@@ -184,7 +184,7 @@ public class NativeBigInteger extends BigInteger {
     private static final boolean _isX86 = System.getProperty("os.arch").contains("86") ||
 	                                 System.getProperty("os.arch").equals("amd64");
 
-    private static final boolean _isArm = System.getProperty("os.arch").startsWith("arm");
+    private static final boolean _isArm = SystemVersion.isARM();
 
     private static final boolean _isPPC = System.getProperty("os.arch").contains("ppc");
 
@@ -317,11 +317,15 @@ public class NativeBigInteger extends BigInteger {
 
     @Override
     public BigInteger modPow(BigInteger exponent, BigInteger m) {
-        if (_nativeOk)
+        // jbigi.c convert_j2mp() and convert_mp2j() do NOT currently support negative numbers
+        // Where negative or zero values aren't legal in modPow() anyway, avoid native,
+        // as the Java code will throw an exception rather than silently fail
+        if (_nativeOk && signum() >= 0 && exponent.signum() >= 0 && m.signum() > 0)
             return new NativeBigInteger(nativeModPow(toByteArray(), exponent.toByteArray(), m.toByteArray()));
         else
             return super.modPow(exponent, m);
     }
+
     @Override
     public byte[] toByteArray(){
         if(cachedBa == null) //Since we are immutable it is safe to never update the cached ba after it has initially been generated

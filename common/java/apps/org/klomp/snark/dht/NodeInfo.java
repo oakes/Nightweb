@@ -24,13 +24,12 @@ import net.i2p.util.RandomSource;
  * @author zzz
  */
 
-public class NodeInfo extends SimpleDataStructure {
+class NodeInfo extends SimpleDataStructure {
 
     private final NID nID;
     private final Hash hash;
     private Destination dest;
     private final int port;
-    private boolean permanent = false;
 
     public static final int LENGTH = NID.HASH_LENGTH + Hash.HASH_LENGTH + 2;
 
@@ -205,14 +204,6 @@ public class NodeInfo extends SimpleDataStructure {
         if (!dest.calculateHash().equals(this.hash))
             throw new IllegalArgumentException("Hash mismatch, was: " + this.hash + " new: " + dest.calculateHash());
         this.dest = dest;
-    }
-
-    public void setPermanent(boolean isPermanent) {
-        permanent = isPermanent;
-    }
-
-    public boolean getPermanent() {
-        return permanent;
     }
 
     public int getPort() {

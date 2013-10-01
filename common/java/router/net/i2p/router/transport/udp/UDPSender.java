@@ -10,10 +10,14 @@ import net.i2p.router.transport.FIFOBandwidthLimiter;
 import net.i2p.router.util.CoDelBlockingQueue;
 import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
+import net.i2p.util.SystemVersion;
 
 /**
  * Lowest level packet sender, pushes anything on its queue ASAP.
  *
+ * There is a UDPSender for each UDPEndpoint.
+ * It contains a thread and a queue. Packet to be sent are queued
+ * by the PacketPusher.
  */
 class UDPSender {
     private final RouterContext _context;
@@ -23,17 +27,18 @@ class UDPSender {
     private final BlockingQueue<UDPPacket> _outboundQueue;
     private volatile boolean _keepRunning;
     private final Runner _runner;
+    private final boolean _dummy;
+
     private static final int TYPE_POISON = 99999;
-    
+
     private static final int MIN_QUEUE_SIZE = 64;
     private static final int MAX_QUEUE_SIZE = 384;
     
     public UDPSender(RouterContext ctx, DatagramSocket socket, String name) {
         _context = ctx;
+        _dummy = false; // ctx.commSystem().isDummy();
         _log = ctx.logManager().getLog(UDPSender.class);
-        long maxMemory = Runtime.getRuntime().maxMemory();
-        if (maxMemory == Long.MAX_VALUE)
-            maxMemory = 96*1024*1024l;
+        long maxMemory = SystemVersion.getMaxMemory();
         int qsize = (int) Math.max(MIN_QUEUE_SIZE, Math.min(MAX_QUEUE_SIZE, maxMemory / (1024*1024)));
         _outboundQueue = new CoDelBlockingQueue(ctx, "UDP-Sender", qsize);
         _socket = socket;
@@ -174,6 +179,12 @@ class UDPSender {
         int psz = packet.getPacket().getLength();
         if (psz > PeerState.LARGE_MTU) {
             _log.error("Dropping large UDP packet " + psz + " bytes: " + packet);
+            return;
+        }
+        if (_dummy) {
+            // testing
+            // back to the cache
+            packet.release();
             return;
         }
         try {
