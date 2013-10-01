@@ -5,7 +5,7 @@
             [nightweb.constants :as c]
             [nightweb.formats :as f])
   (:import [android.app Activity]
-           [android.graphics Bitmap BitmapFactory]
+           [android.graphics Bitmap BitmapFactory Point]
            [android.graphics.drawable BitmapDrawable StateListDrawable]
            [android.net Uri]
            [android.text Html InputFilter Selection]
@@ -123,6 +123,15 @@
       .density
       (* number)
       int))
+
+(defn get-screen-width
+  "Gets the width of the screen."
+  [^Activity context]
+  (let [point (Point.)]
+    (-> (.getWindowManager context)
+        .getDefaultDisplay
+        (.getSize point))
+    (. point x)))
 
 (defn set-text-size
   "Sets the given view's text size in density-independent pixels."

@@ -98,19 +98,22 @@
           (do-action context item))))
     tile-view))
 
+(defn get-column-count
+  "Gets the appropriate number of columns."
+  [context]
+  (int (/ (utils/get-screen-width context)
+          (utils/make-dip context default-tile-width))))
+
 (defn add-grid-view-tiles
   "Adds vector of tiles to the given view."
   [context content ^GridLayout view]
   (future
-    (let [num-columns (.getColumnCount view)
-          width (.getWidth view)
-          tile-view-width (if (and (> width 0) (> num-columns 0))
-                            (int (/ width num-columns))
-                            (utils/make-dip context default-tile-width))]
+    (let [width (utils/get-screen-width context)
+          num-columns (get-column-count context)
+          tile-width (int (/ width num-columns))]
       (doseq [position (range (count content))]
         (let [^View tile (create-grid-view-tile context (get content position))]
-          (thread/on-ui
-            (.addView view tile ^int tile-view-width ^int tile-view-width)))))))
+          (thread/on-ui (.addView view tile tile-width tile-width)))))))
 
 (defn get-grid-view
   "Creates a GridLayout whose tile size is based on the screen size."
@@ -118,9 +121,7 @@
   (let [tile-view-min (utils/make-dip context default-tile-width)]
     (proxy [GridLayout] [context]
       (onMeasure [width-spec height-spec]
-        (let [w (android.view.View$MeasureSpec/getSize width-spec)
-              num-columns (int (/ w tile-view-min))]
-          (.setColumnCount ^GridLayout this num-columns))
+        (.setColumnCount ^GridLayout this (get-column-count context))
         (proxy-super onMeasure width-spec height-spec)))))
 
 (defn get-post-view
@@ -197,7 +198,7 @@
                                             (java.util.Arrays/equals
                                               ^bytes (:pichash pic)
                                               ^bytes (:pichash params))))
-                                  (first)
+                                  first
                                   (.indexOf pics)))))
         false))
     view))
