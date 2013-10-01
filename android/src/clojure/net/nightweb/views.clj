@@ -43,7 +43,8 @@
         ^FrameLayout tile-view
         (ui/make-ui context
                     [:frame-layout {}
-                     [:image-view {}]
+                     [:image-view {:layout-width :fill
+                                   :layout-height :fill}]
                      [:linear-layout {:orientation 1}
                       [:text-view {:text-color Color/WHITE
                                    :layout-width :fill
@@ -192,14 +193,14 @@
                     image-view))
                 (isViewFromObject [view object] (= view object))
                 (setPrimaryItem [^ViewGroup container position object])))
-            (.setCurrentItem view
-                             (->> pics
-                                  (filter (fn [pic]
-                                            (java.util.Arrays/equals
-                                              ^bytes (:pichash pic)
-                                              ^bytes (:pichash params))))
-                                  first
-                                  (.indexOf pics)))))
+            (->> pics
+                 (filter (fn [pic]
+                           (java.util.Arrays/equals
+                             ^bytes (:pichash pic)
+                             ^bytes (:pichash params))))
+                 first
+                 (.indexOf pics)
+                 (.setCurrentItem view))))
         false))
     view))
 

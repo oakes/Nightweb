@@ -73,7 +73,7 @@
          action-tile]
          (concat pics)
          (f/remove-dupes-and-nils)
-         (vec))))
+         vec)))
 
 (defn get-user-tiles
   [params user]
@@ -135,4 +135,4 @@
     (-> first-tiles
         (concat results)
         (f/remove-dupes-and-nils)
-        (vec))))
+        vec)))

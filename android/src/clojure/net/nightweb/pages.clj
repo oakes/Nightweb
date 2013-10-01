@@ -115,7 +115,6 @@
 
 (a/defactivity
   net.nightweb.GalleryPage
-  :def gallery-page
   :state (atom {})
   :on-create
   (fn [^Activity this bundle]
@@ -125,7 +124,7 @@
           action-bar (.getActionBar this)
           view (views/get-gallery-view this params)]
       (.hide action-bar)
-      (a/set-content-view! gallery-page view)))
+      (a/set-content-view! this view)))
   :on-destroy
   (fn [^Activity this]
     (service/stop-receiver this main/shutdown-receiver-name))
