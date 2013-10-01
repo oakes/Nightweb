@@ -21,7 +21,7 @@
                         ;; key you want to sign APKs with.
                         ;; :keystore-path "/home/user/.android/private.keystore"
                         ;; :key-alias "mykeyalias"
-                        :aot :all}}}
+                        :aot :all-with-unused}}}
 
   :android {:support-libraries ["v13"]
             :target-version "15"

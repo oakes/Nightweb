@@ -1,11 +1,10 @@
-;;  Copyright (c) Sean Corfield, Stephen C. Gilardi. All rights reserved.
-;;  The use and distribution terms for this software are covered by
-;;  the Eclipse Public License 1.0
-;;  (http://opensource.org/licenses/eclipse-1.0.php) which can be
-;;  found in the file epl-v10.html at the root of this distribution.
-;;  By using this software in any fashion, you are agreeing to be
-;;  bound by the terms of this license.  You must not remove this
-;;  notice, or any other, from this software.
+;;  Copyright (c) Stephen C. Gilardi. All rights reserved.  The use and
+;;  distribution terms for this software are covered by the Eclipse Public
+;;  License 1.0 (http://opensource.org/licenses/eclipse-1.0.php) which can
+;;  be found in the file epl-v10.html at the root of this distribution.  By
+;;  using this software in any fashion, you are agreeing to be bound by the
+;;  terms of this license.  You must not remove this notice, or any other,
+;;  from this software.
 ;;
 ;;  jdbc.clj
 ;;
@@ -35,38 +34,15 @@ parameters can be represented as simple vectors where the first element
 is the SQL string, with ? for each parameter, and the remaining elements
 are the parameter values to be substituted. In general, operations return
 the number of rows affected, except for a single record insert where any
-generated keys are returned (as a map).
-
-For more documentation, see:
-
-http://clojure-doc.org/articles/ecosystem/java_jdbc/home.html
-
-As of release 0.3.0, the API has undergone a major overhaul and most of the
-original API has been deprecated in favor of a more idiomatic API, and a
-minimal DSL for generating SQL has been added as an option. The original
-API is still supported but will be deprecated before a 1.0.0 release is
-made at some future date." }
+generated keys are returned (as a map)." }
   clojure.java.jdbc
   (:import [java.net URI]
-           [java.sql BatchUpdateException DriverManager
-            PreparedStatement ResultSet SQLException Statement Types]
+           [java.sql BatchUpdateException DriverManager PreparedStatement ResultSet SQLException Statement]
            [java.util Hashtable Map Properties]
            [javax.sql DataSource])
   (:refer-clojure :exclude [resultset-seq])
   (:require [clojure.string :as str]
-            [clojure.java.jdbc.ddl :as ddl]
             [clojure.java.jdbc.sql :as sql]))
-
-;; feature testing macro from math.numeric-tower
-(defmacro when-available
-  [sym & body]
-  (try
-    (when (resolve sym)
-      (list* 'do body))
-    (catch ClassNotFoundException _#)))
-
-;; technically deprecated but still used as defaults in a couple of
-;; places for backward compatibility...
 
 (def ^{:private true :dynamic true
        :doc "The default entity naming strategy is to do nothing."}
@@ -78,44 +54,56 @@ made at some future date." }
   *as-key*
   str/lower-case)
 
-;; end of deprecated API artifacts...
+(defn as-str
+  "Given a naming strategy and a keyword, return the keyword as a
+   string per that naming strategy. Given (a naming strategy and)
+   a string, return it as-is.
+   A keyword of the form :x.y is treated as keywords :x and :y,
+   both are turned into strings via the naming strategy and then
+   joined back together so :x.y might become `x`.`y` if the naming
+   strategy quotes identifiers with `."
+  [f x]
+  (if (instance? clojure.lang.Named x)
+    (let [n (name x)
+          i (.indexOf n (int \.))]
+      (if (= -1 i)
+        (f n)
+        (str/join "." (map f (.split n "\\.")))))
+    (str x)))
+
+(defn as-key
+  "Given a naming strategy and a string, return the string as a
+   keyword per that naming strategy. Given (a naming strategy and)
+   a keyword, return it as-is."
+  [f x]
+  (if (instance? clojure.lang.Named x)
+    x
+    (keyword (f (str x)))))
+
+(defn as-identifier
+  "Given a keyword, convert it to a string using the current naming
+   strategy.
+   Given a string, return it as-is."
+  ([x] (as-identifier x *as-str*))
+  ([x f-entity] (as-str f-entity x)))
+
+(defn as-keyword
+  "Given an entity name (string), convert it to a keyword using the
+   current naming strategy.
+   Given a keyword, return it as-is."
+  ([x] (as-keyword x *as-key*))
+  ([x f-keyword] (as-key f-keyword x)))
 
 (defn- ^Properties as-properties
   "Convert any seq of pairs to a java.utils.Properties instance.
-   Uses sql/as-str to convert both keys and values into strings."
+   Uses as-str to convert both keys and values into strings."
   [m]
   (let [p (Properties.)]
     (doseq [[k v] m]
-      (.setProperty p (sql/as-str identity k) (sql/as-str identity v)))
+      (.setProperty p (as-str identity k) (as-str identity v)))
     p))
 
-(defprotocol Connectable
-  (add-connection [db connection])
-  (get-level [db]))
-
-(defn- inc-level
-  "Increment the nesting level for a transacted database connection.
-   If we are at the top level, also add in a rollback state."
-  [db]
-  (let [nested-db (update-in db [:level] (fnil inc 0))]
-    (if (= 1 (:level nested-db))
-      (assoc nested-db :rollback (atom false))
-      nested-db)))
-
-(extend-protocol Connectable
-  String
-  (add-connection [s connection] {:connection connection :level 0 :connection-string s})
-  (get-level [_] 0)
-
-  clojure.lang.Associative
-  (add-connection [m connection] (assoc m :connection connection))
-  (get-level [m] (or (:level m) 0))
-
-  nil
-  (add-connection [_ connection] {:connection connection :level 0 :legacy true})
-  (get-level [_] 0))
-
-(def ^{:private true :dynamic true} *db* (add-connection nil nil))
+(def ^{:private true :dynamic true} *db* {:connection nil :level 0})
 
 (def ^{:private true :doc "Map of classnames to subprotocols"} classnames
   {"postgresql"     "org.postgresql.Driver"
@@ -186,7 +174,6 @@ made at some future date." }
   String:
     subprotocol://user:password@host:post/subname
                  An optional prefix of jdbc: is allowed."
-  ^java.sql.Connection
   [{:keys [connection
            factory
            connection-uri
@@ -223,14 +210,6 @@ made at some future date." }
    datasource
    (.getConnection ^DataSource datasource)
    
-   name
-   (when-available
-     javax.naming.InitialContext
-     (let [env (and environment (Hashtable. ^Map environment))
-           context (javax.naming.InitialContext. env)
-           ^DataSource datasource (.lookup context ^String name)]
-       (.getConnection datasource)))
-   
    :else
    (let [^String msg (format "db-spec %s is missing a required parameter" db-spec)]
      (throw (IllegalArgumentException. msg)))))
@@ -251,62 +230,91 @@ made at some future date." }
   [cols]
   (if (or (empty? cols) (apply distinct? cols))
     cols
-    (reduce (fn [unique-cols col-name]
-              (conj unique-cols (make-name-unique unique-cols col-name 1))) []  cols)))
+    (reduce (fn [unique-cols col-name] (conj unique-cols (make-name-unique unique-cols col-name 1))) []  cols)))
 
-(defprotocol IResultSetReadColumn
-  "Protocol for reading objects from the java.sql.ResultSet. Default
-   implementations (for Object and nil) return the argument, but it can
-   be extended to provide custom behavior for special types."
-  (result-set-read-column [val rsmeta idx] "Function for transforming values after reading them
-                              from the database"))
-
-(extend-protocol IResultSetReadColumn
-  Object
-  (result-set-read-column [x _ _] x)
-
-  nil
-  (result-set-read-column [_ _ _] nil))
-
-(defn result-set-seq
-  "Creates and returns a lazy sequence of maps corresponding to the rows in the
-   java.sql.ResultSet rs. Loosely based on clojure.core/resultset-seq but it
-   respects the specified naming strategy. Duplicate column names are made unique
-   by appending _N before applying the naming strategy (where N is a unique integer)."
-  [^ResultSet rs & {:keys [identifiers as-arrays?]
-                    :or {identifiers str/lower-case}}]
-  (let [rsmeta (.getMetaData rs)
-        idxs (range 1 (inc (.getColumnCount rsmeta)))
-        keys (->> idxs
-                  (map (fn [^Integer i] (.getColumnLabel rsmeta i)))
-                  make-cols-unique
-                  (map (comp keyword identifiers)))
-        row-values (fn [] (map (fn [^Integer i] (result-set-read-column (.getObject rs i) rsmeta i)) idxs))
-        ;; This used to use create-struct (on keys) and then struct to populate each row.
-        ;; That had the side effect of preserving the order of columns in each row. As
-        ;; part of JDBC-15, this was changed because structmaps are deprecated. We don't
-        ;; want to switch to records so we're using regular maps instead. We no longer
-        ;; guarantee column order in rows but using into {} should preserve order for up
-        ;; to 16 columns (because it will use a PersistentArrayMap). If someone is relying
-        ;; on the order-preserving behavior of structmaps, we can reconsider...
-        records (fn thisfn []
-                  (when (.next rs)
-                    (cons (zipmap keys (row-values)) (lazy-seq (thisfn)))))
-        rows (fn thisfn []
-               (when (.next rs)
-                 (cons (vec (row-values)) (lazy-seq (thisfn)))))]
-    (if as-arrays?
-      (cons (vec keys) (rows))
-      (records))))
-
-(defn
-  ^{:doc "A deprecated version of result-set-seq that uses the
-          dynamic *as-key* variable."
-    :deprecated "0.3.0"}
-  resultset-seq
+(defn resultset-seq
+  "Creates and returns a lazy sequence of maps corresponding to
+   the rows in the java.sql.ResultSet rs. Based on clojure.core/resultset-seq
+   but it respects the current naming strategy. Duplicate column names are
+   made unique by appending _N before applying the naming strategy (where
+   N is a unique integer)."
   [^ResultSet rs & {:keys [identifiers]
                     :or {identifiers *as-key*}}]
-  (result-set-seq rs :identifiers identifiers))
+    (let [rsmeta (.getMetaData rs)
+          idxs (range 1 (inc (.getColumnCount rsmeta)))
+          keys (->> idxs
+                 (map (fn [^Integer i] (.getColumnLabel rsmeta i)))
+                 make-cols-unique
+                 (map (comp keyword identifiers)))
+          row-values (fn [] (map (fn [^Integer i] (.getObject rs i)) idxs))
+          ;; This used to use create-struct (on keys) and then struct to populate each row.
+          ;; That had the side effect of preserving the order of columns in each row. As
+          ;; part of JDBC-15, this was changed because structmaps are deprecated. We don't
+          ;; want to switch to records so we're using regular maps instead. We no longer
+          ;; guarantee column order in rows but using into {} should preserve order for up
+          ;; to 16 columns (because it will use a PersistentArrayMap). If someone is relying
+          ;; on the order-preserving behavior of structmaps, we can reconsider...
+          rows (fn thisfn []
+                 (when (.next rs)
+                   (cons (zipmap keys (row-values)) (lazy-seq (thisfn)))))]
+      (rows)))
+
+(defn as-quoted-str
+  "Given a quoting pattern - either a single character or a vector pair of
+   characters - and a string, return the quoted string:
+     (as-quoted-str X foo) will return XfooX
+     (as-quoted-str [A B] foo) will return AfooB"
+  [q x]
+  (if (vector? q)
+    (str (first q) x (last q))
+    (str q x q)))
+
+(defn as-named-identifier
+  "Given a naming strategy and a keyword, return the keyword as a string using the 
+   entity naming strategy.
+   Given a naming strategy and a string, return the string as-is.
+   The naming strategy should either be a function (the entity naming strategy) or 
+   a map containing :entity and/or :keyword keys which provide the entity naming
+   strategy and/or keyword naming strategy respectively."
+  [naming-strategy x]
+  (as-identifier x (if (map? naming-strategy) (or (:entity naming-strategy) identity) naming-strategy)))
+
+(defn as-named-keyword
+  "Given a naming strategy and a string, return the string as a keyword using the 
+   keyword naming strategy.
+   Given a naming strategy and a keyword, return the keyword as-is.
+   The naming strategy should either be a function (the entity naming strategy) or 
+   a map containing :entity and/or :keyword keys which provide the entity naming
+   strategy and/or keyword naming strategy respectively.
+   Note that providing a single function will cause the default keyword naming
+   strategy to be used!"
+  [naming-strategy x]
+  (as-keyword x (if (and (map? naming-strategy) (:keyword naming-strategy)) (:keyword naming-strategy) str/lower-case)))
+
+(defn as-quoted-identifier
+  "Given a quote pattern - either a single character or a pair of characters in
+   a vector - and a keyword, return the keyword as a string using a simple
+   quoting naming strategy.
+   Given a qote pattern and a string, return the string as-is.
+     (as-quoted-identifier X :name) will return XnameX as a string.
+     (as-quoted-identifier [A B] :name) will return AnameB as a string."
+  [q x]
+  (as-identifier x (partial as-quoted-str q)))
+
+(defmacro with-naming-strategy
+  "Evaluates body in the context of a naming strategy.
+   The naming strategy is either a function - the entity naming strategy - or
+   a map containing :entity and/or :keyword keys which provide the entity naming
+   strategy and/or the keyword naming strategy respectively. The default entity
+   naming strategy is identity; the default keyword naming strategy is lower-case."
+  [naming-strategy & body ]
+  `(binding [*as-str* (if (map? ~naming-strategy) (or (:entity ~naming-strategy) identity) ~naming-strategy)
+             *as-key* (if (map? ~naming-strategy) (or (:keyword ~naming-strategy) str/lower-case))] ~@body))
+
+(defmacro with-quoted-identifiers
+  "Evaluates body in the context of a simple quoting naming strategy."
+  [q & body ]
+  `(binding [*as-str* (partial as-quoted-str ~q)] ~@body))
 
 (defn- execute-batch
   "Executes a batch of SQL commands and returns a sequence of update counts.
@@ -345,31 +353,24 @@ made at some future date." }
      :return-keys true | false - default false
      :result-type :forward-only | :scroll-insensitive | :scroll-sensitive
      :concurrency :read-only | :updatable
-     :cursors
      :fetch-size n
      :max-rows n"
-  [^java.sql.Connection con ^String sql &
-   {:keys [return-keys result-type concurrency cursors fetch-size max-rows]}]
-  (let [^PreparedStatement
-        stmt (cond return-keys
-                   (try
-                     (.prepareStatement con sql java.sql.Statement/RETURN_GENERATED_KEYS)
-                     (catch Exception _
-                       ;; assume it is unsupported and try basic PreparedStatement:
-                       (.prepareStatement con sql)))
-                   
-                   (and result-type concurrency)
-                   (if cursors
-                     (.prepareStatement con sql 
-                                        (result-type result-set-type)
-                                        (concurrency result-set-concurrency)
-                                        (cursors result-set-holdability))
-                     (.prepareStatement con sql 
-                                        (result-type result-set-type)
-                                        (concurrency result-set-concurrency)))
-                   
-                   :else
-                   (.prepareStatement con sql))]
+  [^java.sql.Connection con ^String sql & {:keys [return-keys result-type concurrency cursors fetch-size max-rows]}]
+  (let [^PreparedStatement stmt (cond
+                                  return-keys (try
+                                                (.prepareStatement con sql java.sql.Statement/RETURN_GENERATED_KEYS)
+                                                (catch Exception _
+                                                  ;; assume it is unsupported and try basic PreparedStatement:
+                                                  (.prepareStatement con sql)))
+                                  (and result-type concurrency) (if cursors
+                                                                  (.prepareStatement con sql 
+                                                                                     (result-type result-set-type)
+                                                                                     (concurrency result-set-concurrency)
+                                                                                     (cursors result-set-holdability))
+                                                                  (.prepareStatement con sql 
+                                                                                     (result-type result-set-type)
+                                                                                     (concurrency result-set-concurrency)))
+                                  :else (.prepareStatement con sql))]
     (when fetch-size (.setFetchSize stmt fetch-size))
     (when max-rows (.setMaxRows stmt max-rows))
     stmt))
@@ -377,9 +378,30 @@ made at some future date." }
 (defn- set-parameters
   "Add the parameters to the given statement."
   [^PreparedStatement stmt params]
-  (dorun (map-indexed (fn [ix value]
-                        (.setObject stmt (inc ix) value))
-                      params)))
+  (dorun
+    (map-indexed
+      (fn [ix value]
+        (.setObject stmt (inc ix) value))
+      params)))
+
+(defn create-table-ddl
+  "Given a table name and column specs with an optional table-spec
+   return the DDL string for creating a table based on that."
+  [name & specs]
+  (let [split-specs (partition-by #(= :table-spec %) specs)
+        col-specs (first split-specs)
+        table-spec (first (second (rest split-specs)))
+        table-spec-str (or (and table-spec (str " " table-spec)) "")
+        specs-to-string (fn [specs]
+                          (apply str
+                                 (map as-identifier
+                                      (apply concat
+                                             (interpose [", "]
+                                                        (map (partial interpose " ") specs))))))]
+    (format "CREATE TABLE %s (%s)%s"
+            (as-identifier name)
+            (specs-to-string col-specs)
+            table-spec-str)))
 
 (defn print-sql-exception
   "Prints the contents of an SQLException to *out*"
@@ -424,14 +446,20 @@ made at some future date." }
 (defn db-find-connection
   "Returns the current database connection (or nil if there is none)"
   ^java.sql.Connection [db]
-  (and (map? db)
-       (:connection db)))
+  (:connection db))
 
 (defn db-connection
   "Returns the current database connection (or throws if there is none)"
   ^java.sql.Connection [db]
   (or (db-find-connection db)
       (throw (Exception. "no current database connection"))))
+
+(defn- db-rollback
+  "Accessor for the rollback flag on the current connection"
+  ([db]
+     (deref (:rollback db)))
+  ([db val]
+     (swap! (:rollback db) (fn [_] val))))
 
 (defn- throw-non-rte
   "This ugliness makes it easier to catch SQLException objects
@@ -443,22 +471,17 @@ made at some future date." }
         (and (instance? RuntimeException ex) (.getCause ex)) (throw-non-rte (.getCause ex))
         :else (throw ex)))
 
-(defn db-set-rollback-only!
+(defn db-set-rollback-only
   "Marks the outermost transaction such that it will rollback rather than
   commit when complete"
   [db]
-  (reset! (:rollback db) true))
-
-(defn db-unset-rollback-only!
-  "Marks the outermost transaction such that it will not rollback when complete"
-  [db]
-  (reset! (:rollback db) false))
+  (db-rollback db true))
 
 (defn db-is-rollback-only
   "Returns true if the outermost transaction will rollback rather than
   commit when complete"
   [db]
-  (deref (:rollback db)))
+  (db-rollback db))
 
 (defn db-transaction*
   "Evaluates func as a transaction on the open database connection. Any
@@ -469,15 +492,16 @@ made at some future date." }
   the entire transaction will be rolled back rather than committed when
   complete."
   [db func]
-  (if (zero? (get-level db))
-    (if-let [^java.sql.Connection con (db-find-connection db)]
-      (let [nested-db (inc-level db)
+  (let [nested-db (update-in db [:level] inc)]
+    (if (= (:level nested-db) 1)
+      (let [^java.sql.Connection con (get-connection nested-db)
+            nested-db (assoc nested-db :connection con)
             auto-commit (.getAutoCommit con)]
         (io!
          (.setAutoCommit con false)
          (try
            (let [result (func nested-db)]
-             (if (db-is-rollback-only nested-db)
+             (if (db-rollback nested-db)
                (.rollback con)
                (.commit con))
              result)
@@ -485,121 +509,100 @@ made at some future date." }
              (.rollback con)
              (throw-non-rte t))
            (finally
-             (db-unset-rollback-only! nested-db)
-             (.setAutoCommit con auto-commit)))))
-      (with-open [^java.sql.Connection con (get-connection db)]
-        (db-transaction* (add-connection db con) func)))
-    (try
-      (func (inc-level db))
-      (catch Exception e
-        (throw-non-rte e)))))
+            (db-rollback nested-db false)
+            (.setAutoCommit con auto-commit)))))
+      (try
+        (func nested-db)
+        (catch Exception e
+          (throw-non-rte e))))))
 
 (defmacro db-transaction
   "Evaluates body in the context of a transaction on the specified database connection.
-  The binding provides the database connection for the transaction and the name to which
+  The binding provides the dataabase connection for the transaction and the name to which
   that is bound for evaluation of the body.
   See db-transaction* for more details."
   [binding & body]
-  `(db-transaction* ~(second binding)
-                    (^{:once true} fn* [~(first binding)] ~@body)))
+  `(db-transaction* (let [db# ~(second binding)]
+                      (assoc db# :level (or (:level db#) 0) :rollback (or (:rollback db#) (atom false))))
+                    (fn [~(first binding)]
+                      ~@body)))
 
 (defn db-do-commands
   "Executes SQL commands on the specified database connection. Wraps the commands
-  in a transaction if transaction? is true. transaction? can be ommitted and it
-  defaults to true."
+  in a transaction if transaction? is true."
   [db transaction? & commands]
-  (if (string? transaction?)
-    (apply db-do-commands db true transaction? commands)
-    (if-let [^java.sql.Connection con (db-find-connection db)]
-      (with-open [^Statement stmt (.createStatement con)]
-        (doseq [^String cmd commands]
-          (.addBatch stmt cmd))
-        (if transaction?
-          (db-transaction [t-db (add-connection db (.getConnection stmt))]
-                          (execute-batch stmt))
-          (try
-            (execute-batch stmt)
-            (catch Exception e
-              (throw-non-rte e)))))
-      (with-open [^java.sql.Connection con (get-connection db)]
-        (apply db-do-commands (add-connection db con) transaction? commands)))))
+  (with-open [^Statement stmt (let [^java.sql.Connection con (get-connection db)] (.createStatement con))]
+    (doseq [^String cmd commands]
+      (.addBatch stmt cmd))
+    (if transaction?
+      (db-transaction [db (assoc db :connection (.getConnection stmt))] (execute-batch stmt))
+      (try
+        (execute-batch stmt)
+        (catch Exception e
+          (throw-non-rte e))))))
 
 (defn db-do-prepared-return-keys
   "Executes an (optionally parameterized) SQL prepared statement on the
   open database connection. The param-group is a seq of values for all of
-  the parameters. transaction? can be ommitted and will default to true.
+  the parameters.
   Return the generated keys for the (single) update/insert."
-  ([db sql param-group]
-     (db-do-prepared-return-keys db true sql param-group))
-  ([db transaction? sql param-group]
-     (if-let [^java.sql.Connection con (db-find-connection db)]
-       (with-open [^PreparedStatement stmt (prepare-statement con sql :return-keys true)]
-         (set-parameters stmt param-group)
-         (let [exec-and-return-keys
-               (^{:once true} fn* []
-                (let [counts (.executeUpdate stmt)]
-                  (try
-                    (let [rs (.getGeneratedKeys stmt)
-                          result (first (result-set-seq rs))]
-                      ;; sqlite (and maybe others?) requires
-                      ;; record set to be closed
-                      (.close rs)
-                      result)
-                    (catch Exception _
-                      ;; assume generated keys is unsupported and return counts instead: 
-                      counts))))]
-           (if transaction?
-             (db-transaction [t-db (add-connection db (.getConnection stmt))]
-                             (exec-and-return-keys))
-             (try
-               (exec-and-return-keys)
-               (catch Exception e
-                 (throw-non-rte e))))))
-       (with-open [^java.sql.Connection con (get-connection db)]
-         (db-do-prepared-return-keys (add-connection db con) transaction? sql param-group)))))
+  [db transaction? sql param-group]
+  (with-open [^PreparedStatement stmt (prepare-statement (get-connection db) sql :return-keys true)]
+    (set-parameters stmt param-group)
+    (letfn [(exec-and-return-keys []
+              (let [counts (.executeUpdate stmt)]
+                (try
+                  (let [rs (.getGeneratedKeys stmt)
+                        result (first (resultset-seq rs))]
+                    ;; sqlite (and maybe others?) requires
+                    ;; record set to be closed
+                    (.close rs)
+                    result)
+                  (catch Exception _
+                    ;; assume generated keys is unsupported and return counts instead: 
+                    counts))))]
+      (if transaction?
+        (db-transaction [db (assoc db :connection (.getConnection stmt))] (exec-and-return-keys))
+        (try
+          (exec-and-return-keys)
+          (catch Exception e
+            (throw-non-rte e)))))))
 
 (defn db-do-prepared
   "Executes an (optionally parameterized) SQL prepared statement on the
   open database connection. Each param-group is a seq of values for all of
-  the parameters. transaction? can be omitted and defaults to true.
+  the parameters.
   Return a seq of update counts (one count for each param-group)."
-  [db transaction? & [sql & param-groups :as opts]]
-  (if (string? transaction?)
-    (apply db-do-prepared db true transaction? opts)
-    (if-let [^java.sql.Connection con (db-find-connection db)]
-      (with-open [^PreparedStatement stmt (prepare-statement con sql)]
-        (if (empty? param-groups)
-          (if transaction?
-            (db-transaction [t-db (add-connection db (.getConnection stmt))]
-                            (vector (.executeUpdate stmt)))
-            (try
-              (vector (.executeUpdate stmt))
-              (catch Exception e
-                (throw-non-rte e))))
-          (do
-            (doseq [param-group param-groups]
-              (set-parameters stmt param-group)
-              (.addBatch stmt))
-            (if transaction?
-              (db-transaction [t-db (add-connection db (.getConnection stmt))]
-                              (execute-batch stmt))
-              (try
-                (execute-batch stmt)
-                (catch Exception e
-                  (throw-non-rte e)))))))
-      (with-open [^java.sql.Connection con (get-connection db)]
-        (apply db-do-prepared (add-connection db con) transaction? sql param-groups)))))
+  [db transaction? sql & param-groups]
+  (with-open [^PreparedStatement stmt (prepare-statement (get-connection db) sql)]
+    (if (empty? param-groups)
+      (if transaction?
+        (db-transaction [db (assoc db :connection (.getConnection stmt))] (vector (.executeUpdate stmt)))
+        (try
+          (vector (.executeUpdate stmt))
+          (catch Exception e
+            (throw-non-rte e))))
+      (do
+        (doseq [param-group param-groups]
+          (set-parameters stmt param-group)
+          (.addBatch stmt))
+        (if transaction?
+          (db-transaction [db (assoc db :connection (.getConnection stmt))] (execute-batch stmt))
+          (try
+            (execute-batch stmt)
+            (catch Exception e
+              (throw-non-rte e))))))))
 
-(defn- db-with-query-results*
+(defn db-with-query-results*
   "Executes a query, then evaluates func passing in a seq of the results as
   an argument. The first argument is a vector containing either:
     [sql & params] - a SQL query, followed by any parameters it needs
     [stmt & params] - a PreparedStatement, followed by any parameters it needs
                       (the PreparedStatement already contains the SQL query)
     [options sql & params] - options and a SQL query for creating a
-                      PreparedStatement, followed by any parameters it needs
+                      PreparedStatement, follwed by any parameters it needs
   See prepare-statement for supported options."
-  [db sql-params func identifiers as-arrays?]
+  [db sql-params func identifiers]
   (when-not (vector? sql-params)
     (let [^Class sql-params-class (class sql-params)
           ^String msg (format "\"%s\" expected %s %s, found %s %s"
@@ -617,22 +620,13 @@ made at some future date." }
         params (vec (cond sql-is-first (rest sql-params)
                           options-are-first (rest (rest sql-params))
                           :else (rest sql-params)))
-        prepare-args (when (map? special) (flatten (seq special)))
-        run-query-with-params (^{:once true} fn* [^PreparedStatement stmt]
-                               (set-parameters stmt params)
-                               (with-open [rset (.executeQuery stmt)]
-                                 (func (result-set-seq rset
-                                                       :identifiers identifiers
-                                                       :as-arrays? as-arrays?))))]
-    (if (instance? PreparedStatement special)
-      (let [^PreparedStatement stmt special]
-        (run-query-with-params stmt))
-      (if-let [^java.sql.Connection con (db-find-connection db)]
-        (with-open [^PreparedStatement stmt (apply prepare-statement con sql prepare-args)]
-          (run-query-with-params stmt))
-        (with-open [^java.sql.Connection con (get-connection db)]
-          (with-open [^PreparedStatement stmt (apply prepare-statement con sql prepare-args)]
-            (run-query-with-params stmt)))))))
+        prepare-args (when (map? special) (flatten (seq special)))]
+    (with-open [^PreparedStatement stmt (if (instance? PreparedStatement special)
+                                          special
+                                          (apply prepare-statement (get-connection db) sql prepare-args))]
+      (set-parameters stmt params)
+      (with-open [rset (.executeQuery stmt)]
+        (func (resultset-seq rset :identifiers identifiers))))))
 
 ;; top-level API for actual SQL operations
 
@@ -642,36 +636,40 @@ made at some future date." }
   construct the result set:
     :result-set-fn - applied to the entire result set, default doall
     :row-fn - applied to each row as the result set is constructed, default identity
-    :identifiers - applied to each column name in the result set, default lower-case
-    :as-arrays? - return the results as a set of arrays, default false."
-  [db sql-params & {:keys [result-set-fn row-fn identifiers as-arrays?]
-                    :or {result-set-fn doall
-                         row-fn identity
-                         identifiers sql/lower-case}}]
-  (db-with-query-results* db (vec sql-params)
-    (^{:once true} fn* [rs]
-     (result-set-fn (if as-arrays?
-                      (cons (first rs)
-                            (vec (map row-fn (rest rs))))
-                      (map row-fn rs))))
-    identifiers
-    as-arrays?))
+    :identifiers - applied to each column name in the result set, default lower-case"
+  [db sql-params & {:keys [result-set-fn row-fn identifiers]
+                    :or {result-set-fn doall row-fn identity identifiers sql/lower-case}}]
+  (if-let [con (:connection db)]
+    (db-with-query-results*
+      db
+      (vec sql-params)
+      (fn [rs]
+        (result-set-fn (map row-fn rs)))
+      identifiers)
+    (with-open [con (get-connection db)]
+      (db-with-query-results*
+        (assoc db :connection con)
+        (vec sql-params)
+        (fn [rs]
+          (result-set-fn (map row-fn rs)))
+        identifiers))))
 
 (defn execute!
   "Given a database connection and a vector containing SQL and optional parameters,
   perform a general (non-select) SQL operation. The optional keyword argument specifies
   whether to run the operation in a transaction or not (default true)."
-  [db sql-params & {:keys [transaction? multi?]
-                    :or {transaction? true multi? false}}]
-  (let [execute-helper
-        (^{:once true} fn* [db]
-         (if multi?
-           (apply db-do-prepared db transaction? (first sql-params) (rest sql-params))
-           (db-do-prepared db transaction? (first sql-params) (rest sql-params))))]
-    (if-let [con (db-find-connection db)]
-      (execute-helper db)
-      (with-open [^java.sql.Connection con (get-connection db)]
-        (execute-helper (add-connection db con))))))
+  [db sql-params & {:keys [transaction?]
+                    :or {transaction? true}}]
+  (if-let [con (:connection db)]
+    (db-do-prepared db
+                    transaction?
+                    (first sql-params)
+                    (rest sql-params))
+    (with-open [con (get-connection db)]
+      (db-do-prepared (assoc db :connection con)
+                      transaction?
+                      (first sql-params)
+                      (rest sql-params)))))
 
 (defn delete!
   "Given a database connection, a table name and a where clause of columns to match,
@@ -679,7 +677,7 @@ made at some future date." }
   column names in the map (default 'as-is') and whether to run the delete in
   a transaction (default true).
   Example:
-    (delete! db :person (where {:zip 94546}))
+    (delete! db :person {:zip 94546})
   is equivalent to:
     (execute! db [\"DELETE FROM person WHERE zip = ?\" 94546])"
   [db table where-clause & {:keys [entities transaction?]
@@ -688,47 +686,45 @@ made at some future date." }
             (sql/delete table where-clause :entities entities)
             :transaction? transaction?))
 
-(defn- multi-insert-helper
-  "Given a (connected) database connection and some SQL statements (for multiple
-   inserts), run a prepared statement on each and return any generated keys.
-   Note: we are eager so an unrealized lazy-seq cannot escape from the connection."
-  [db stmts]
-  (doall (map (fn [row]
-                (db-do-prepared-return-keys db false (first row) (rest row)))
-              stmts)))
-
-(defn- insert-helper
-  "Given a (connected) database connection, a transaction flag and some SQL statements
-   (for one or more inserts), run a prepared statement or a sequence of them."
-  [db transaction? stmts]
-  (if (string? (first stmts))
-    (apply db-do-prepared db transaction? (first stmts) (rest stmts))
-    (if transaction?
-      (db-transaction [t-db db] (multi-insert-helper t-db stmts))
-      (multi-insert-helper db stmts))))
-
-(defn- extract-transaction?
-  "Given a sequence of data, look for :transaction? arg in it and return a pair of
-   the transaction? value (defaulting to true) and the data without the option."
-  [data]
-  (let [before (take-while (partial not= :transaction?) data)
-        after  (drop-while (partial not= :transaction?) data)]
-    (if (seq after)
-      [(second after) (concat before (nnext after))]
-      [true data])))
-
 (defn insert!
   "Given a database connection, a table name and either maps representing rows or
-   a list of column names followed by lists of column values, perform an insert.
-   Use :transaction? argument to specify whether to run in a transaction or not.
-   The default is true (use a transaction)."
-  [db table & options]
-  (let [[transaction? maps-or-cols-and-values-etc] (extract-transaction? options)
-        stmts (apply sql/insert table maps-or-cols-and-values-etc)]
-    (if-let [con (db-find-connection db)]
-      (insert-helper db transaction? stmts)
-      (with-open [^java.sql.Connection con (get-connection db)]
-        (insert-helper (add-connection db con) transaction? stmts)))))
+  a list of column names followed by lists of column values, perform an insert.
+  Currently the insert is always run in a transaction."
+  [db table & maps-or-cols-and-values-etc]
+  (let [stmts (apply sql/insert table maps-or-cols-and-values-etc)
+        transaction? true]
+    (if-let [con (:connection db)]
+      (if (string? (first stmts))
+          (apply db-do-prepared
+                 db
+                 transaction?
+                 (first stmts)
+                 (rest stmts))
+          (doall (map (fn [row]
+                        (let [result (db-do-prepared-return-keys
+                                      db
+                                      ;; bad idea - this is nested 
+                                      transaction?
+                                      (first row)
+                                      (rest row))]
+                          result))
+                      stmts)))
+      (with-open [con (get-connection db)]
+        (if (string? (first stmts))
+          (apply db-do-prepared
+                 (assoc db :connection con)
+                 transaction?
+                 (first stmts)
+                 (rest stmts))
+          (doall (map (fn [row]
+                        (let [result (db-do-prepared-return-keys
+                                      (assoc db :connection con)
+                                      ;; bad idea - this is nested
+                                      transaction?
+                                      (first row)
+                                      (rest row))]
+                          result))
+                      stmts)))))))
 
 (defn update!
   "Given a database connection, a table name, a map of column values to set and a
@@ -773,9 +769,9 @@ made at some future date." }
             :deprecated "0.3.0"}
   with-connection
   [db-spec & body]
-  `(with-connection* ~db-spec (^{:once true} fn* [] ~@body)))
+  `(with-connection* ~db-spec (fn [] ~@body)))
 
-(defn
+(defn transaction*
   ^{:doc "Evaluates func as a transaction on the open database connection. Any
           nested transactions are absorbed into the outermost transaction. By
           default, all database updates are committed together as a group after
@@ -784,7 +780,6 @@ made at some future date." }
           the entire transaction will be rolled back rather than committed when
           complete."
     :deprecated "0.3.0"}
-  transaction*
   [func]
   (binding [*db* (update-in *db* [:level] inc)]
     (if (= (:level *db*) 1)
@@ -794,7 +789,7 @@ made at some future date." }
          (.setAutoCommit con false)
          (try
            (let [result (func)]
-             (if (db-is-rollback-only *db*)
+             (if (db-rollback *db*)
                (.rollback con)
                (.commit con))
              result)
@@ -802,7 +797,7 @@ made at some future date." }
              (.rollback con)
              (throw-non-rte t))
            (finally
-            (db-unset-rollback-only! *db*)
+            (db-rollback *db* false)
             (.setAutoCommit con auto-commit)))))
       (try
         (func)
@@ -820,7 +815,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   transaction
   [& body]
-  `(transaction* (^{:once true} fn* [] ~@body)))
+  `(transaction* (fn [] ~@body)))
 
 (defn
   ^{:doc "Marks the outermost transaction such that it will rollback rather than
@@ -828,7 +823,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   set-rollback-only
   []
-  (db-set-rollback-only! *db*))
+  (db-set-rollback-only *db*))
 
 (defn
   ^{:doc "Returns true if the outermost transaction will rollback rather than
@@ -843,7 +838,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   do-commands
   [& commands]
-  (apply db-do-commands *db* commands))
+  (apply db-do-commands *db* true commands))
 
 (defn
   ^{:doc "Executes an (optionally parameterized) SQL prepared statement on the
@@ -853,35 +848,27 @@ made at some future date." }
     :deprecated "0.3.0"}
   do-prepared
   [sql & param-groups]
-  (apply db-do-prepared *db* sql param-groups))
+  (apply db-do-prepared *db* true sql param-groups))
 
-(defn ^{:doc "See clojure.java.jdbc.ddl/create-table for details.
-              This version is deprecated in favor of the version in the DDL namespace."
-        :deprecated "0.3.0"}
-  create-table-ddl
+(defn create-table
+  "Creates a table on the open database connection given a table name and
+  specs. Each spec is either a column spec: a vector containing a column
+  name and optionally a type and other constraints, or a table-level
+  constraint: a vector containing words that express the constraint. An
+  optional suffix to the CREATE TABLE DDL describing table attributes may
+  by provided as :table-spec {table-attributes-string}. All words used to
+  describe the table may be supplied as strings or keywords."
+  ;; technically deprecated but we don't yet have a replacement
   [name & specs]
-  (apply ddl/create-table name specs))
+  (do-commands (apply create-table-ddl name specs)))
 
-(defn
-  ^{:doc "Creates a table on the open database connection given a table name and
-          specs. Each spec is either a column spec: a vector containing a column
-          name and optionally a type and other constraints, or a table-level
-          constraint: a vector containing words that express the constraint. An
-          optional suffix to the CREATE TABLE DDL describing table attributes may
-          by provided as :table-spec {table-attributes-string}. All words used to
-          describe the table may be supplied as strings or keywords."
-    :deprecated "0.3.0"}
-  create-table
-  [name & specs]
-  (db-do-commands *db* (apply ddl/create-table name specs)))
-
-(defn
-  ^{:doc "Drops a table on the open database connection given its name, a string
-          or keyword"
-    :deprecated "0.3.0"}
-  drop-table
+(defn drop-table
+  "Drops a table on the open database connection given its name, a string
+  or keyword"
+  ;; technically deprecated but we don't yet have a replacement
   [name]
-  (db-do-commands *db* (ddl/drop-table name)))
+  (do-commands
+    (format "DROP TABLE %s" (as-identifier name))))
 
 (defn
   ^{:doc "Executes an (optionally parameterized) SQL prepared statement on the
@@ -891,7 +878,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   do-prepared-return-keys
   [sql param-group]
-  (db-do-prepared-return-keys *db* sql param-group))
+  (db-do-prepared-return-keys *db* true sql param-group))
 
 (defn
   ^{:doc "Inserts rows into a table with values for specified columns only.
@@ -901,18 +888,30 @@ made at some future date." }
           insert-rows instead.
           If a single set of values is inserted, returns a map of the generated keys."
     :deprecated "0.3.0"}
+  ;; technically not fully deprecated since the nil column-names case
+  ;; is not (yet) supported in the new API... JDBC-45
   insert-values
   [table column-names & value-groups]
-  (apply insert! *db* table column-names (concat value-groups [:entities *as-str*])))
+  (let [column-strs (map as-identifier column-names)
+        n (count (first value-groups))
+        return-keys (= 1 (count value-groups))
+        prepared-statement (if return-keys do-prepared-return-keys do-prepared)
+        template (apply str (interpose "," (repeat n "?")))
+        columns (if (seq column-names)
+                  (format "(%s)" (apply str (interpose "," column-strs)))
+                  "")]
+    (apply prepared-statement
+           (format "INSERT INTO %s %s VALUES (%s)"
+                   (as-identifier table) columns template)
+           value-groups)))
 
-(defn
-  ^{:doc "Inserts complete rows into a table. Each row is a vector of values for
-          each of the table's columns in order.
-          If a single row is inserted, returns a map of the generated keys."
-    :deprecated "0.3.0"}
-  insert-rows
+(defn insert-rows
+  "Inserts complete rows into a table. Each row is a vector of values for
+  each of the table's columns in order.
+  If a single row is inserted, returns a map of the generated keys."
   [table & rows]
-  (apply insert! *db* table nil (concat rows [:entities *as-str*])))
+  ;; will be deprecated after JDBC-45 is implemented
+  (apply insert-values table nil rows))
 
 (defn
   ^{:doc "Inserts records into a table. records are maps from strings or keywords
@@ -921,7 +920,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   insert-records
   [table & records]
-  (apply insert! *db* table (concat records [:entities *as-str*])))
+  (apply insert! *db* table records))
 
 (defn
   ^{:doc "Inserts a single record into a table. A record is a map from strings or
@@ -930,7 +929,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   insert-record
   [table record]
-  (first (insert-records table record)))
+  (first (insert! *db* table record)))
 
 (defn
   ^{:doc "Deletes rows from a table. where-params is a vector containing a string
@@ -939,7 +938,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   delete-rows
   [table where-params]
-  (apply delete! *db* table where-params [:entities *as-str*]))
+  (delete! *db* table where-params))
 
 (defn
   ^{:doc "Updates values on selected rows in a table. where-params is a vector
@@ -949,7 +948,7 @@ made at some future date." }
     :deprecated "0.3.0"}
   update-values
   [table where-params record]
-  (apply update! *db* table record where-params [:entities *as-str*]))
+  (update! *db* table record where-params))
 
 (defn update-or-insert-values
   "Updates values on selected rows in a table, or inserts a new row when no
@@ -971,7 +970,7 @@ made at some future date." }
             [stmt & params] - a PreparedStatement, followed by any parameters it needs
                              (the PreparedStatement already contains the SQL query)
             [options sql & params] - options and a SQL query for creating a
-                             PreparedStatement, followed by any parameters it needs
+                             PreparedStatement, follwed by any parameters it needs
           See prepare-statement for supported options."
     :deprecated "0.3.0"}
   with-query-results*
@@ -1007,119 +1006,9 @@ made at some future date." }
             [stmt & params] - a PreparedStatement, followed by any parameters it needs
                               (the PreparedStatement already contains the SQL query)
             [options sql & params] - options and a SQL query for creating a
-                              PreparedStatement, followed by any parameters it needs
+                              PreparedStatement, follwed by any parameters it needs
           See prepare-statement for supported options."
     :deprecated "0.3.0"}
   with-query-results
   [results sql-params & body]
-  `(with-query-results* ~sql-params (^{:once true} fn* [~results] ~@body)))
-
-(defn
-  ^{:doc "Given a naming strategy and a string, return the string as a
-          keyword per that naming strategy. Given (a naming strategy and)
-          a keyword, return it as-is."
-    :deprecated "0.3.0"}
-  as-key
-  [f x]
-  (if (instance? clojure.lang.Named x)
-    x
-    (keyword (f (str x)))))
-
-(defn
-  ^{:doc "Given an entity name (string), convert it to a keyword using the
-          current naming strategy.
-          Given a keyword, return it as-is."
-    :deprecated "0.3.0"}
-  as-keyword
-  ([x] (as-keyword x *as-key*))
-  ([x f-keyword] (as-key f-keyword x)))
-
-(defn
-  ^{:doc "Given a naming strategy and a string, return the string as a keyword using
-          the keyword naming strategy.
-          Given a naming strategy and a keyword, return the keyword as-is.
-          The naming strategy should either be a function (the entity naming strategy)
-          or a map containing :entity and/or :keyword keys which provide the entity
-          naming strategy and/or keyword naming strategy respectively.
-          Note that providing a single function will cause the default keyword naming
-          strategy to be used!"
-    :deprecated "0.3.0"}
-  as-named-keyword
-  [naming-strategy x]
-  (as-keyword x (if (and (map? naming-strategy) (:keyword naming-strategy)) (:keyword naming-strategy) str/lower-case)))
-
-(defn
-  ^{:doc "Given a naming strategy and a keyword, return the keyword as a
-          string per that naming strategy. Given (a naming strategy and)
-          a string, return it as-is.
-          A keyword of the form :x.y is treated as keywords :x and :y,
-          both are turned into strings via the naming strategy and then
-          joined back together so :x.y might become `x`.`y` if the naming
-          strategy quotes identifiers with `."
-    :deprecated "0.3.0"}
-  as-str
-  [f x]
-  (sql/as-str f x))
-
-(defn
-  ^{:doc "Given a keyword, convert it to a string using the current naming
-          strategy.
-          Given a string, return it as-is."
-    :deprecated "0.3.0"}
-  as-identifier
-  ([x] (as-identifier x *as-str*))
-  ([x f-entity] (as-str f-entity x)))
-
-(defn
-  ^{:doc "Given a quoting pattern - either a single character or a vector pair of
-          characters - and a string, return the quoted string:
-            (as-quoted-str X foo) will return XfooX
-            (as-quoted-str [A B] foo) will return AfooB"
-    :deprecated "0.3.0"}
-  as-quoted-str
-  [q x]
-  (sql/as-quoted-str q x))
-
-(defn
-  ^{:doc "Given a naming strategy and a keyword, return the keyword as a string using
-          the entity naming strategy.
-          Given a naming strategy and a string, return the string as-is.
-          The naming strategy should either be a function (the entity naming strategy)
-          or a map containing :entity and/or :keyword keys which provide the entity
-          naming strategy and/or keyword naming strategy respectively."
-    :deprecated "0.3.0"}
-  as-named-identifier
-  [naming-strategy x]
-  (as-identifier x (if (map? naming-strategy) (or (:entity naming-strategy) identity) naming-strategy)))
-
-(defn
-  ^{:doc "Given a quote pattern - either a single character or a pair of characters in
-          a vector - and a keyword, return the keyword as a string using a simple
-          quoting naming strategy.
-          Given a quote pattern and a string, return the string as-is.
-            (as-quoted-identifier X :name) will return XnameX as a string.
-            (as-quoted-identifier [A B] :name) will return AnameB as a string."
-    :deprecated "0.3.0"}
-  as-quoted-identifier
-  [q x]
-  (as-identifier x (sql/as-quoted-str q)))
-
-(defmacro
-  ^{:doc "Evaluates body in the context of a simple quoting naming strategy."
-    :deprecated "0.3.0"}
-  with-quoted-identifiers
-  [q & body ]
-  `(binding [*as-str* (sql/as-quoted-str ~q)] ~@body))
-
-(defmacro
-  ^{:doc "Evaluates body in the context of a naming strategy.
-          The naming strategy is either a function - the entity naming strategy - or
-          a map containing :entity and/or :keyword keys which provide the entity naming
-          strategy and/or the keyword naming strategy respectively. The default entity
-          naming strategy is identity; the default keyword naming strategy is
-          lower-case."
-    :deprecated "0.3.0"}
-  with-naming-strategy
-  [naming-strategy & body ]
-  `(binding [*as-str* (if (map? ~naming-strategy) (or (:entity ~naming-strategy) identity) ~naming-strategy)
-             *as-key* (if (map? ~naming-strategy) (or (:keyword ~naming-strategy) str/lower-case))] ~@body))
+  `(with-query-results* ~sql-params (fn [~results] ~@body)))
