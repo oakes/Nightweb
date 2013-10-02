@@ -8,11 +8,10 @@
   :source-paths ["src/clojure" "../common/clojure"]
   :java-source-paths ["src/java" "../common/java" "gen"]
 
-  :dependencies [[org.clojure-android/clojure "1.5.1-jb"
-                  :use-resources true]
+  :dependencies [[com.h2database/h2 "1.3.173"]
                  [neko/neko "3.0.0-preview1"]
-                 [com.h2database/h2 "1.3.173"]
-                 [markdown-clj "0.9.31"]]
+                 [markdown-clj "0.9.31"]
+                 [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
              :release {:android
@@ -21,7 +20,7 @@
                         ;; key you want to sign APKs with.
                         ;; :keystore-path "/home/user/.android/private.keystore"
                         ;; :key-alias "mykeyalias"
-                        :aot :all-with-unused}}}
+                        :aot :all}}}
 
   :android {:support-libraries ["v13"]
             :target-version "15"

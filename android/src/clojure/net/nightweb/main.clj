@@ -1,5 +1,6 @@
 (ns net.nightweb.main
-  (:require [neko.notify :as notify]
+  (:require [neko.application]
+            [neko.notify :as notify]
             [neko.resource :as r]
             [neko.ui.mapping :as mapping]
             [net.clandroid.service :as service]
