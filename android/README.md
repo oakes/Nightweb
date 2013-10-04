@@ -1,8 +1,7 @@
 ## Build Instructions
 
-1. Install JDK 6
-	- Do not try JDK 7, as the Android SDK doesn't support it
-	- If you use apt-get, just type `sudo apt-get install openjdk-6-jdk`
+1. Install JDK 7
+	- If you use apt-get, just type `sudo apt-get install openjdk-7-jdk`
 2. Download the [Android SDK](http://developer.android.com/sdk/index.html)
 	- Just the SDK Tools; you don't need the bundle
 3. Install [Leiningen](https://github.com/technomancy/leiningen)
