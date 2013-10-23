@@ -15,15 +15,9 @@
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
-             :release {:android
-                       {;; Specify the path to your private
-                        ;; keystore and the the alias of the
-                        ;; key you want to sign APKs with.
-                        ;; :keystore-path "/home/user/.android/private.keystore"
-                        ;; :key-alias "mykeyalias"
-                        :aot :all}}}
+             :release {:android {:aot :all}}}
 
   :android {:support-libraries ["v13"]
             :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
-            :dex-opts ["-JXmx2048M"]})
+            :dex-opts ["-JXmx4096M" "--no-optimize"]})

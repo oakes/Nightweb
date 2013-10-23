@@ -29,7 +29,7 @@ and update! high-level operations within clojure.java.jdbc directly." }
 
 ;; implementation utilities
 
-(defn- as-str
+(defn as-str
   "Given a naming strategy and a keyword, return the keyword as a
    string per that naming strategy. Given (a naming strategy and)
    a string, return it as-is.
@@ -37,31 +37,30 @@ and update! high-level operations within clojure.java.jdbc directly." }
    both are turned into strings via the naming strategy and then
    joined back together so :x.y might become `x`.`y` if the naming
    strategy quotes identifiers with `."
-  [f x]
-  (if (instance? clojure.lang.Named x)
-    (let [n (name x)
-          i (.indexOf n (int \.))]
-      (if (= -1 i)
-        (f n)
-        (str/join "." (map f (.split n "\\.")))))
-    (str x)))
+  ([f]
+     (fn [x]
+       (as-str f x)))
+  ([f x]
+     (if (instance? clojure.lang.Named x)
+       (let [n (name x)
+             i (.indexOf n (int \.))]
+         (if (= -1 i)
+           (f n)
+           (str/join "." (map f (.split n "\\.")))))
+       (str x))))
 
-(defn- as-identifier
-  "Given a keyword, convert it to a string using the current naming
-   strategy.
-   Given a string, return it as-is."
-  [x f-entity]
-  (as-str f-entity x))
-
-(defn- as-quoted-str
+(defn as-quoted-str
   "Given a quoting pattern - either a single character or a vector pair of
    characters - and a string, return the quoted string:
      (as-quoted-str X foo) will return XfooX
      (as-quoted-str [A B] foo) will return AfooB"
-  [q x]
-  (if (vector? q)
-    (str (first q) x (last q))
-    (str q x q)))
+  ([q]
+     (fn [x]
+       (as-quoted-str q x)))
+  ([q x]
+     (if (vector? q)
+       (str (first q) x (last q))
+       (str q x q))))
 
 (defn- col-str
   "Transform a column spec to an entity name for SQL. The column spec may be a
@@ -69,8 +68,8 @@ and update! high-level operations within clojure.java.jdbc directly." }
   [col entities]
   (if (map? col)
     (let [[k v] (first col)]
-      (str (as-identifier k entities) " AS " (as-identifier v entities)))
-    (as-identifier col entities)))
+      (str (as-str entities k) " AS " (as-str entities v)))
+    (as-str entities col)))
 
 (defn- table-str
   "Transform a table spec to an entity name for SQL. The table spec may be a
@@ -78,8 +77,8 @@ and update! high-level operations within clojure.java.jdbc directly." }
   [table entities]
   (if (map? table)
     (let [[k v] (first table)]
-      (str (as-identifier k entities) " " (as-identifier v entities)))
-    (as-identifier table entities)))
+      (str (as-str entities k) " " (as-str entities v)))
+    (as-str entities table)))
 
 (def ^{:private true
        :doc "Symbols that need to be processed for entities within their forms."}
@@ -87,7 +86,8 @@ and update! high-level operations within clojure.java.jdbc directly." }
   #{"delete" "delete!"
     "insert" "insert!"
     "select" "join" "where" "order-by"
-    "update" "update!"})
+    "update" "update!"
+    "create-table" "drop-table" "create-index" "drop-index"})
 
 (def ^{:private true
        :doc "Symbols that need to be processed for identifiers within their forms."}
@@ -100,11 +100,11 @@ and update! high-level operations within clojure.java.jdbc directly." }
   spec is not a map, the default direction is ascending."
   [col entities]
   (if (map? col)
-    (str (as-identifier (first (keys col)) entities)
+    (str (as-str entities (first (keys col)))
          " "
          (let [dir (first (vals col))]
            (get {:asc "ASC" :desc "DESC"} dir dir)))
-    (str (as-identifier col entities) " ASC")))
+    (str (as-str entities col) " ASC")))
 
 (defn- insert-multi-row
   "Given a table and a list of columns, followed by a list of column value sequences,
@@ -113,12 +113,15 @@ and update! high-level operations within clojure.java.jdbc directly." }
   [table columns values entities]
   (let [nc (count columns)
         vcs (map count values)]
-    (if (not (apply = nc vcs))
+    (if (not (and (or (zero? nc) (= nc (first vcs))) (apply = vcs)))
       (throw (IllegalArgumentException. "insert called with inconsistent number of columns / values"))
-      (into [(str "INSERT INTO " (table-str table entities) " ( "
-                  (str/join ", " (map (fn [col] (col-str col entities)) columns))
-                  " ) VALUES ( "
-                  (str/join ", " (repeat nc "?"))
+      (into [(str "INSERT INTO " (table-str table entities)
+                  (when (seq columns)
+                    (str " ( "
+                         (str/join ", " (map (fn [col] (col-str col entities)) columns))
+                         " )"))
+                  " VALUES ( "
+                  (str/join ", " (repeat (first vcs) "?"))
                   " )")]
             values))))
 
@@ -161,11 +164,11 @@ and update! high-level operations within clojure.java.jdbc directly." }
                      (concat form [:identifiers identifiers])
                      form)) sql))
 
-;; some common quoting strategies
+;; some common entity/identifier strategies
 
 (def as-is identity)
 (def lower-case str/lower-case)
-(defn quoted [q] (partial as-quoted-str q))
+(defn quoted [q] (as-quoted-str q))
 
 ;; SQL generation functions
 
@@ -209,17 +212,20 @@ and update! high-level operations within clojure.java.jdbc directly." }
   (str "JOIN " (table-str table entities) " ON "
        (str/join
         " AND "
-        (map (fn [[k v]] (str (as-identifier k entities) " = " (as-identifier v entities))) on-map))))
+        (map (fn [[k v]] (str (as-str entities k) " = " (as-str entities v))) on-map))))
 
 (defn order-by
   "Given a sequence of column order specs, and an optional entities spec, return the
   SQL string for the ORDER BY clause. A column order spec may be a column name or a
   map of the column name to the desired order."
   [cols & {:keys [entities] :or {entities as-is}}]
-  (str "ORDER BY "
-       (if (or (string? cols) (keyword? cols) (map? cols))
-         (order-direction cols entities)
-         (str/join "," (map #(order-direction % entities) cols)))))
+  (let [singleton (or (string? cols) (keyword? cols) (map? cols))]
+    (if (or singleton (seq cols))
+      (str "ORDER BY "
+           (if singleton
+             (order-direction cols entities)
+             (str/join "," (map #(order-direction % entities) cols))))
+      "")))
 
 (defn select
   "Given a sequence of column names (or *) and a table name, followed by optional SQL
@@ -276,7 +282,7 @@ and update! high-level operations within clojure.java.jdbc directly." }
                " SET " (str/join
                         ","
                         (map (fn [k v]
-                               (str (as-identifier k entities)
+                               (str (as-str entities k)
                                     " = "
                                     (if (nil? v) "NULL" "?")))
                              ks vs))
@@ -296,7 +302,7 @@ and update! high-level operations within clojure.java.jdbc directly." }
     (cons (str/join
            " AND "
            (map (fn [k v]
-                  (str (as-identifier k entities)
+                  (str (as-str entities k)
                        (if (nil? v) " IS NULL" " = ?")))
                 ks vs))
           (remove nil? vs))))
