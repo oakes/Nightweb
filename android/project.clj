@@ -10,8 +10,8 @@
   :javac-options ["-target" "1.6" "-source" "1.6" "-Xlint:-options"]
 
   :dependencies [[com.h2database/h2 "1.3.173"]
-                 [neko/neko "3.0.0-preview1"]
-                 [markdown-clj "0.9.31"]
+                 [neko/neko "3.0.0-preview3"]
+                 [markdown-clj "0.9.33"]
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
