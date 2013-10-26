@@ -32,10 +32,11 @@
 
 (def lang-files {"en" "values/strings.xml"
                  "es" "values-es/strings.xml"
+                 "cs" "values-cs/strings.xml"
                  "de" "values-de/strings.xml"
                  "fr" "values-fr/strings.xml"
-                 "cs" "values-cs/strings.xml"
-                 "ja" "values-ja/strings.xml"})
+                 "ja" "values-ja/strings.xml"
+                 "ru" "values-ru/strings.xml"})
 (def lang-strings (-> (get lang-files (.getLanguage (Locale/getDefault)))
                       (or (get lang-files "en"))
                       java.io/resource
