@@ -53,8 +53,10 @@
         storage (if (io/file-exists? torrent-path)
                   (Storage.
                     (.util ^SnarkManager @manager)
+                    (java.io/file path)
                     (MetaInfo. (java.io/input-stream torrent-path))
-                    listener)
+                    listener
+                    true)
                   (Storage. (.util ^SnarkManager @manager)
                             (java.io/file path)
                             nil
@@ -107,8 +109,8 @@
                   nil
                   false
                   true
-                  (get-complete-listener path complete-callback)
-                  path)
+                  (java.io/file path)
+                  (get-complete-listener path complete-callback))
       (when-let [^Snark torrent (get-torrent-by-path info-hash-str)]
         (.setPersistent torrent is-persistent?))
       (println "Hash added to" path)
@@ -133,9 +135,10 @@
                      meta-info
                      bit-field
                      torrent-path
+                     nil
                      false
                      listener
-                     root-path)
+                     (java.io/file root-path))
         (when-let [^Snark torrent (get-torrent-by-path torrent-path)]
           (.setPersistent torrent is-persistent?))
         (println "Torrent added to" torrent-path))

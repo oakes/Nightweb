@@ -88,6 +88,7 @@ public class TrackerClient implements Runnable {
   private static final int DHT_ANNOUNCE_PEERS = 4;
   public static final int PORT = 6881;
   private static final int MAX_TRACKERS = 12;
+  public static final boolean DHT_ONLY = true;
 
   private final I2PSnarkUtil _util;
   private final MetaInfo meta;
@@ -469,6 +470,10 @@ public class TrackerClient implements Runnable {
    *  @return max peers seen
    */
   private int getPeersFromTrackers(List<TCTracker> trckrs) {
+            if (DHT_ONLY) {
+                return 0;
+            }
+
             long left = coordinator.getLeft();   // -1 in magnet mode
             
             // First time we got a complete download?
@@ -618,6 +623,10 @@ public class TrackerClient implements Runnable {
    *  @return max peers seen
    */
   private int getPeersFromPEX() {
+            if (DHT_ONLY) {
+                return 0;
+            }
+
             // Get peers from PEX
             int rv = 0;
             if (coordinator.needOutboundPeers() && (meta == null || !meta.isPrivate()) && !stop) {
