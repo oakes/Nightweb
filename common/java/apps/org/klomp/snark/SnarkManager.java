@@ -180,7 +180,7 @@ public class SnarkManager implements CompleteListener {
             _context.simpleScheduler().addEvent(new Register(), 4*60*1000);
         // Not required, Jetty has a shutdown hook
         //_context.addShutdownTask(new SnarkManagerShutdown());
-        _idleChecker = new IdleChecker(_util, _peerCoordinatorSet);
+        _idleChecker = new IdleChecker(this, _peerCoordinatorSet);
         _idleChecker.schedule(5*60*1000);
     }
 
@@ -193,6 +193,7 @@ public class SnarkManager implements CompleteListener {
             if (_umgr != null) {
                 _uhandler = new UpdateHandler(_context, _umgr, SnarkManager.this);
                 _umgr.register(_uhandler, UpdateType.ROUTER_SIGNED, UpdateMethod.TORRENT, 10);
+                _umgr.register(_uhandler, UpdateType.ROUTER_SIGNED_SU3, UpdateMethod.TORRENT, 10);
                 _log.warn("Registering with update manager");
             } else {
                 _log.warn("No update manager to register with");
@@ -210,6 +211,7 @@ public class SnarkManager implements CompleteListener {
         if (_umgr != null && _uhandler != null) {
             //_uhandler.shutdown();
             _umgr.unregister(_uhandler, UpdateType.ROUTER_SIGNED, UpdateMethod.TORRENT);
+            _umgr.unregister(_uhandler, UpdateType.ROUTER_SIGNED_SU3, UpdateMethod.TORRENT);
         }
         _running = false;
         _monitor.interrupt();
@@ -902,7 +904,7 @@ public class SnarkManager implements CompleteListener {
             filename = sfile.getCanonicalPath();
         } catch (IOException ioe) {
             _log.error("Unable to add the torrent " + filename, ioe);
-            addMessage(_("Error: Could not add the torrent {0}", filename) + ": " + ioe.getMessage());
+            addMessage(_("Error: Could not add the torrent {0}", filename) + ": " + ioe);
             return;
         }
         File dataDir = getDataDir();
@@ -1666,8 +1668,8 @@ public class SnarkManager implements CompleteListener {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("DirMon found: " + DataHelper.toString(foundNames) + " existing: " + DataHelper.toString(existingNames));
         // lets find new ones first...
-        for (int i = 0; i < foundNames.size(); i++) {
-            if (existingNames.contains(foundNames.get(i))) {
+        for (String name : foundNames) {
+            if (existingNames.contains(name)) {
                 // already known.  noop
             } else {
                 if (shouldAutoStart() && !_util.connect())
@@ -1675,9 +1677,10 @@ public class SnarkManager implements CompleteListener {
                 try {
                     // Snark.fatal() throws a RuntimeException
                     // don't let one bad torrent kill the whole loop
-                    addTorrent(foundNames.get(i), !shouldAutoStart());
+                    addTorrent(name, !shouldAutoStart());
                 } catch (Exception e) {
-                    addMessage(_("Unable to add {0}", foundNames.get(i)) + ": " + e);
+                    addMessage(_("Error: Could not add the torrent {0}", name) + ": " + e);
+                    _log.error("Unable to add the torrent " + name, e);
                 }
             }
         }

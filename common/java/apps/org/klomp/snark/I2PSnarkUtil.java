@@ -324,6 +324,8 @@ public class I2PSnarkUtil {
         if (_banlist.contains(dest))
             throw new IOException("Not trying to contact " + dest.toBase64() + ", as they are banlisted");
         try {
+            // TODO opts.setPort(xxx); connect(addr, opts)
+            // DHT moved above 6881 in 0.9.9
             I2PSocket rv = _manager.connect(addr);
             if (rv != null)
                 _banlist.remove(dest);
@@ -331,7 +333,9 @@ public class I2PSnarkUtil {
         } catch (I2PException ie) {
             _banlist.add(dest);
             _context.simpleScheduler().addEvent(new Unbanlist(dest), 10*60*1000);
-            throw new IOException("Unable to reach the peer " + peer + ": " + ie.getMessage());
+            IOException ioe = new IOException("Unable to reach the peer " + peer);
+            ioe.initCause(ie);
+            throw ioe;
         }
     }
     
@@ -513,7 +517,7 @@ public class I2PSnarkUtil {
                             if (_log.shouldLog(Log.INFO))
                                 _log.info("Using existing session for lookup of " + ip);
                             try {
-                                return sess.lookupDest(h);
+                                return sess.lookupDest(h, 15*1000);
                             } catch (I2PSessionException ise) {
                             }
                         }

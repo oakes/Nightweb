@@ -56,7 +56,7 @@ abstract class ExtensionHandler {
         }
         // include the map even if empty so the far-end doesn't NPE
         handshake.put("m", m);
-        handshake.put("p", Integer.valueOf(6881));
+        handshake.put("p", Integer.valueOf(TrackerClient.PORT));
         handshake.put("v", "I2PSnark");
         handshake.put("reqq", Integer.valueOf(5));
         return BEncoder.bencode(handshake);
@@ -110,7 +110,8 @@ abstract class ExtensionHandler {
                 // drop if we need metainfo and we haven't found anybody yet
                 synchronized(state) {
                     if (!state.isInitialized()) {
-                        log.debug("Dropping peer, we need metadata! " + peer);
+                        if (log.shouldLog(Log.DEBUG))
+                            log.debug("Dropping peer, we need metadata! " + peer);
                         peer.disconnect();
                     }
                 }
@@ -124,7 +125,8 @@ abstract class ExtensionHandler {
                 // drop if we need metainfo and we haven't found anybody yet
                 synchronized(state) {
                     if (!state.isInitialized()) {
-                        log.debug("Dropping peer, we need metadata! " + peer);
+                        if (log.shouldLog(Log.DEBUG))
+                            log.debug("Dropping peer, we need metadata! " + peer);
                         peer.disconnect();
                     }
                 }

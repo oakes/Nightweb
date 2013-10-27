@@ -86,6 +86,7 @@ public class TrackerClient implements Runnable {
   private final static int LONG_SLEEP = 30*60*1000; // sleep a while after lots of fails
   private final static long MIN_TRACKER_ANNOUNCE_INTERVAL = 15*60*1000;
   private final static long MIN_DHT_ANNOUNCE_INTERVAL = 10*60*1000;
+  public static final int PORT = 6881;
 
   private final I2PSnarkUtil _util;
   private final MetaInfo meta;
@@ -113,6 +114,7 @@ public class TrackerClient implements Runnable {
   private long lastDHTAnnounce;
   private final List<TCTracker> trackers;
   private final List<TCTracker> backupTrackers;
+  private long _startedOn;
 
   /**
    * Call start() to start it.
@@ -134,7 +136,7 @@ public class TrackerClient implements Runnable {
     this.coordinator = coordinator;
     this.snark = snark;
 
-    this.port = 6881; //(port == -1) ? 9 : port;
+    this.port = PORT; //(port == -1) ? 9 : port;
     this.infoHash = urlencode(snark.getInfoHash());
     this.peerID = urlencode(snark.getID());
     this.trackers = new ArrayList(2);
@@ -334,6 +336,7 @@ public class TrackerClient implements Runnable {
         }
     }
     this.completed = coordinator.getLeft() == 0;
+    _startedOn = _util.getContext().clock().now();
   }
 
   /**
@@ -377,15 +380,24 @@ public class TrackerClient implements Runnable {
             if (dht != null && (meta == null || !meta.isPrivate()))
                 dht.announce(snark.getInfoHash());
 
+            int oldSeenPeers = snark.getTrackerSeenPeers();
             int maxSeenPeers = 0;
-            if (!trackers.isEmpty())
+            if (!trackers.isEmpty()) {
                 maxSeenPeers = getPeersFromTrackers(trackers);
+                // fast update for UI at startup
+                if (maxSeenPeers > oldSeenPeers)
+                    snark.setTrackerSeenPeers(maxSeenPeers);
+            }
             int p = getPeersFromPEX();
             if (p > maxSeenPeers)
                 maxSeenPeers = p;
             p = getPeersFromDHT();
-            if (p > maxSeenPeers)
+            if (p > maxSeenPeers) {
                 maxSeenPeers = p;
+                // fast update for UI at startup
+                if (maxSeenPeers > oldSeenPeers)
+                    snark.setTrackerSeenPeers(maxSeenPeers);
+            }
             // backup if DHT needs bootstrapping
             if (trackers.isEmpty() && !backupTrackers.isEmpty() && dht != null && dht.size() < 16) {
                 p = getPeersFromTrackers(backupTrackers);
@@ -482,11 +494,29 @@ public class TrackerClient implements Runnable {
                         consecutiveFails = 0;
                     runStarted = true;
                     tr.started = true;
-
-                    Set<Peer> peers = info.getPeers();
                     tr.seenPeers = info.getPeerCount();
                     if (snark.getTrackerSeenPeers() < tr.seenPeers) // update rising number quickly
                         snark.setTrackerSeenPeers(tr.seenPeers);
+
+                    // auto stop
+                    // These are very high thresholds for now, not configurable,
+                    // just for update torrent
+                    if (completed &&
+                        tr.isPrimary &&
+                        snark.isAutoStoppable() &&
+                        !snark.isChecking() &&
+                        info.getSeedCount() > 100 &&
+                        coordinator.getPeerCount() <= 0 &&
+                        _util.getContext().clock().now() > _startedOn + 2*60*60*1000 &&
+                        uploaded >= 2 * snark.getTotalLength()) {
+                        if (_log.shouldLog(Log.WARN))
+                            _log.warn("Auto stopping " + snark.getBaseName());
+                        snark.setAutoStoppable(false);
+                        snark.stopTorrent();
+                        return tr.seenPeers;
+                    }
+
+                    Set<Peer> peers = info.getPeers();
 
                     // pass everybody over to our tracker
                     DHT dht = _util.getDHT();
@@ -596,29 +626,25 @@ public class TrackerClient implements Runnable {
             // FIXME this needs to be in its own thread
             int rv = 0;
             DHT dht = _util.getDHT();
-            if (dht != null && (meta == null || !meta.isPrivate()) && (!stop) &&
-                _util.getContext().clock().now() >  lastDHTAnnounce + MIN_DHT_ANNOUNCE_INTERVAL) {
+            if (dht != null &&
+                (meta == null || !meta.isPrivate()) &&
+                (!stop) &&
+                (meta == null || _util.getContext().clock().now() >  lastDHTAnnounce + MIN_DHT_ANNOUNCE_INTERVAL)) {
                 int numwant;
                 if (!coordinator.needOutboundPeers())
                     numwant = 1;
                 else
                     numwant = _util.getMaxConnections();
-                Collection<Hash> hashes = dht.getPeers(snark.getInfoHash(), numwant, 2*60*1000);
+                Collection<Hash> hashes = dht.getPeersAndAnnounce(snark.getInfoHash(), numwant, 5*60*1000, 1, 3*60*1000);
                 if (!hashes.isEmpty()) {
                     runStarted = true;
                     lastDHTAnnounce = _util.getContext().clock().now();
                     rv = hashes.size();
+                } else {
+                    lastDHTAnnounce = 0;
                 }
                 if (_log.shouldLog(Log.INFO))
                     _log.info("Got " + hashes + " from DHT");
-                // announce  ourselves while the token is still good
-                // FIXME this needs to be in its own thread
-                if (!stop) {
-                    // announce only to the 1 closest
-                    int good = dht.announce(snark.getInfoHash(), 1, 5*60*1000);
-                    if (_log.shouldLog(Log.INFO))
-                        _log.info("Sent " + good + " good announces to DHT");
-                }
 
                 // now try these peers
                 if ((!stop) && !hashes.isEmpty()) {

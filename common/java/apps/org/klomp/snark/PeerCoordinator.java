@@ -999,13 +999,13 @@ class PeerCoordinator implements PeerListener
           }
         catch (IOException ioe)
           {
-            snark.stopTorrent();
             String msg = "Error writing storage (piece " + piece + ") for " + metainfo.getName() + ": " + ioe;
             _log.error(msg, ioe);
             if (listener != null) {
                 listener.addMessage(msg);
                 listener.addMessage("Fatal storage error: Stopping torrent " + metainfo.getName());
             }
+            snark.stopTorrent();
             throw new RuntimeException(msg, ioe);
           }
         wantedPieces.remove(p);
@@ -1231,16 +1231,16 @@ class PeerCoordinator implements PeerListener
                          return pp;
                       }
                   }
-                  if (_log.shouldLog(Log.WARN)) {
+                  if (_log.shouldLog(Log.INFO)) {
                       if (skipped)
-                          _log.warn("Partial piece " + pp + " with multiple peers skipped for seeder");
+                          _log.info("Partial piece " + pp + " with multiple peers skipped for seeder");
                       else
-                          _log.warn("Partial piece " + pp + " NOT in wantedPieces??");
+                          _log.info("Partial piece " + pp + " NOT in wantedPieces??");
                   }
               }
           }
-          if (_log.shouldLog(Log.WARN) && !partialPieces.isEmpty())
-              _log.warn("Peer " + peer + " has none of our partials " + partialPieces);
+          if (_log.shouldLog(Log.INFO) && !partialPieces.isEmpty())
+              _log.info("Peer " + peer + " has none of our partials " + partialPieces);
       }
       // ...and this section turns this into the general move-requests-around code!
       // Temporary? So PeerState never calls wantPiece() directly for now...

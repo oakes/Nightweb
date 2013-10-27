@@ -22,34 +22,56 @@ import net.i2p.util.SimpleTimer2;
  */
 class IdleChecker extends SimpleTimer2.TimedEvent {
 
+    private final SnarkManager _mgr;
     private final I2PSnarkUtil _util;
     private final PeerCoordinatorSet _pcs;
     private final Log _log;
     private int _consec;
+    private int _consecNotRunning;
     private boolean _isIdle;
 
     private static final long CHECK_TIME = 63*1000;
     private static final int MAX_CONSEC_IDLE = 4;
+    private static final int MAX_CONSEC_NOT_RUNNING = 20;
 
     /**
      *  Caller must schedule
      */
-    public IdleChecker(I2PSnarkUtil util, PeerCoordinatorSet pcs) {
-        super(util.getContext().simpleTimer2());
-        _log = util.getContext().logManager().getLog(IdleChecker.class);
-        _util = util;
+    public IdleChecker(SnarkManager mgr, PeerCoordinatorSet pcs) {
+        super(mgr.util().getContext().simpleTimer2());
+        _util = mgr.util();
+        _log = _util.getContext().logManager().getLog(IdleChecker.class);
+        _mgr = mgr;
         _pcs = pcs;
     }
 
     public void timeReached() {
         if (_util.connected()) {
+            boolean torrentRunning = false;
             boolean hasPeers = false;
             for (PeerCoordinator pc : _pcs) {
-                if (pc.getPeers() > 0) {
-                    hasPeers = true;
-                    break;
+                if (!pc.halted()) {
+                    torrentRunning = true;
+                    if (pc.getPeers() > 0) {
+                        hasPeers = true;
+                        break;
+                    }
                 }
             }
+
+            if (torrentRunning) {
+                _consecNotRunning = 0;
+            } else {
+                if (_consecNotRunning++ >= MAX_CONSEC_NOT_RUNNING) {
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn("Closing tunnels on idle");
+                    _util.disconnect();
+                    _mgr.addMessage(_util.getString("I2P tunnel closed."));
+                    schedule(3 * CHECK_TIME);
+                    return;
+                }
+            }
+
             if (hasPeers) {
                 if (_isIdle)
                     restoreTunnels();
@@ -62,6 +84,7 @@ class IdleChecker extends SimpleTimer2.TimedEvent {
         } else {
             _isIdle = false;
             _consec = 0;
+            _consecNotRunning = 0;
         }
         schedule(CHECK_TIME);
     }

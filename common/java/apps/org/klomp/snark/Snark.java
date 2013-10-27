@@ -235,8 +235,9 @@ public class Snark
   private final I2PSnarkUtil _util;
   private final Log _log;
   private final PeerCoordinatorSet _peerCoordinatorSet;
-  private String trackerProblems;
-  private int trackerSeenPeers;
+  private volatile String trackerProblems;
+  private volatile int trackerSeenPeers;
+  private volatile boolean _autoStoppable;
 
 
   /** from main() via parseArguments() single torrent */
@@ -904,6 +905,16 @@ public class Snark
     public String getTrackerURL() {
         return additionalTrackerURL;
     }
+
+    /**
+     *  @since 0.9.9
+     */
+    public boolean isAutoStoppable() { return _autoStoppable; }
+
+    /**
+     *  @since 0.9.9
+     */
+    public void setAutoStoppable(boolean yes) { _autoStoppable = yes; }
 
   /**
    * Sets debug, ip and torrent variables then creates a Snark
