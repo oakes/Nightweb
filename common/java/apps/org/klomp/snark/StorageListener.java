@@ -23,7 +23,7 @@ package org.klomp.snark;
 /**
  * Callback used when Storage changes.
  */
-interface StorageListener
+public interface StorageListener
 {
   /**
    * Called when the storage creates a new file of a given length.
