@@ -98,9 +98,9 @@
              (not (c/is-me? their-hash-bytes true))
              (-> (for [my-user-hash @c/my-hash-list]
                    (db/get-fav-data {:ptrhash their-hash-bytes} my-user-hash))
-                 (doall)
-                 (flatten)
-                 (count)
+                 doall
+                 flatten
+                 count
                  (= 0)))
     (let [^String their-hash-str (f/base32-encode their-hash-bytes)
           user-dir (c/get-user-dir their-hash-str)]
@@ -121,11 +121,11 @@
   (when (or (c/is-me? user-hash true)
             (->> (for [my-user-hash @c/my-hash-list]
                    (db/get-single-fav-data {:userhash user-hash} my-user-hash))
-                 (doall)
+                 doall
                  (filter #(= 1 (:status %)))
-                 (count)
+                 count
                  (= 0)
-                 (not)))
+                 not))
     (case status
       ; if the fav has a status of 0, unfollow them if necessary
       0 (remove-user-hash ptr-hash)
