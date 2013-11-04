@@ -6,6 +6,7 @@
                  [hiccup "1.0.4"]
                  [markdown-clj "0.9.33"]
                  [org.clojure/clojure "1.5.1"]
+                 [org.clojure/java.jdbc "0.3.0-beta1"]
                  [ring "1.2.0"]
                  [seesaw "1.4.4"]]
   :source-paths ["src" "../common/clojure"]
