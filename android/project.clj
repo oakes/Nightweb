@@ -11,7 +11,7 @@
 
   :dependencies [[com.h2database/h2 "1.3.173"]
                  [markdown-clj "0.9.33"]
-                 [neko/neko "3.0.0-preview4"]
+                 [neko/neko "3.0.0"]
                  [org.clojure/java.jdbc "0.3.0-beta1"]
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
