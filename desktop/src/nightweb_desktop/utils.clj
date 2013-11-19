@@ -35,6 +35,7 @@
                  "cs" "values-cs/strings.xml"
                  "de" "values-de/strings.xml"
                  "fr" "values-fr/strings.xml"
+                 "hu" "values-hu/strings.xml"
                  "ja" "values-ja/strings.xml"
                  "ru" "values-ru/strings.xml"})
 (def lang-strings (-> (get lang-files (.getLanguage (Locale/getDefault)))

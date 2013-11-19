@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="app_name">Nightweb</string>
+
+  <string name="shut_down_nightweb">Nightweb leállítása</string>
+  <string name="nightweb_is_running">A Nightweb a háttérben fut</string>
+
+  <string name="new_post">Új bejegyzés</string>
+  <string name="search">Keresés</string>
+  <string name="share">Megosztás</string>
+
+  <string name="all">Mind</string>
+  <string name="me">Én</string>
+  <string name="users">Felhasználók</string>
+  <string name="posts">Bejegyzések</string>
+
+  <string name="profile">Profil</string>
+  <string name="favorites">Kedvencek</string>
+  <string name="add_to_favorites">Hozzáadás a kedvencekhez</string>
+  <string name="remove_from_favorites">Eltávolítás a kedvencek közül</string>
+  <string name="edit">Szerkesztés</string>
+  <string name="tags">Címkék</string>
+
+  <string name="name">Név</string>
+  <string name="about_me">Rólam</string>
+
+  <string name="cancel">Mégsem</string>
+  <string name="attach">Csatolás...</string>
+  <string name="attach_pics">Kép hozzáadása...</string>
+  <string name="delete">Törlés</string>
+  <string name="save">Mentés</string>
+  <string name="send">Küldés</string>
+  <string name="send_reply">Válasz küldése</string>
+  <string name="ok">OK</string>
+  <string name="download_user">Felhasználó letöltése</string>
+  <string name="clear">Törlés</string>
+  <string name="go">Mehet</string>
+
+  <string name="import_start">Import...</string>
+  <string name="export_start">Export...</string>
+  <string name="zipping">Tömörítés...</string>
+  <string name="unzipping">Kibontás...</string>
+  <string name="zip_error">Hiba a file tömörítésekor</string>
+  <string name="unzip_error">Hiba a file kibontásakor -- talán hibás a jelszó?</string>
+  <string name="import_error">Hiba a felhasználó importálásakor -- talán hibás a tömörített file?</string>
+  <string name="password">Jelszó</string>
+  <string name="import_user">Felhasználó importálása</string>
+  <string name="switch_user">Felhasználóváltás</string>
+  <string name="create_user">Új felhasználó létrehozása</string>
+  <string name="no_name">Nincs név megadva</string>
+
+  <string name="saving">Mentés...</string>
+  <string name="sending">Küldés...</string>
+  <string name="adding">Hozzáadás...</string>
+  <string name="removing">Eltávolítás...</string>
+  <string name="loading">Betöltés...</string>
+
+  <string name="page">Lap</string>
+  <string name="author">Szerző</string>
+  <string name="mentioned">Megszólítva</string>
+  <string name="in_reply_to">Válaszként...</string>
+
+  <string name="welcome_title">Üdvözöl a Nightweb</string>
+  <string name="welcome_subtitle">Néhány perc múlva megjelenik a tartalom a füleken. Addig is...</string>
+  <string name="welcome_profile">Töltsd ki a profilod</string>
+  <string name="welcome_post">Írj néhány bejegyzést</string>
+  <string name="welcome_share">Oszd meg a linked, hogy mások követhessenek</string>
+
+  <string name="found_user">Úgy tűnik, ez egy új felhasználó. Hozzáadod a kedvencekhez és letöltöd a tartalmait?</string>
+  <string name="pending_user">Ez a felhasználó még nem küldött be tartalmat. Nézz vissza később!</string>
+  <string name="lost_post">A bejegyzés nem található.</string>
+  <string name="nothing_here">Úgy tűnik, itt nincs semmi.</string>
+  <string name="confirm_unfav">Biztos, hogy eltávolítod a felhasználót a kedvenceid közül? Ezután nem fogod látni a tartalmait.</string>
+  <string name="confirm_delete">Biztos, hogy törölni szeretnéd?</string>
+  <string name="export_desc">Ezzel minden felhasználói adatot lementesz egy jelszóval védett fileba. Ezt később bármilyen, Nightwebet futtató eszközön megnyithatod.</string>
+  <string name="import_desc">Felhasználó importálása után a jelenlegi felhasználói fiókod nem törlődik.</string>
+
+  <string name="open_in_browser">Megnyitás böngészőben</string>
+  <string name="check_for_updates">Frissítések keresése</string>
+  <string name="enable_remote">Távoli hozzáférés engedélyezése</string>
+  <string name="download_update">Frissítés letöltése</string>
+  <string name="confirm_download_update">Nightweb leállítása és a frissítés letöltése?</string>
+  <string name="forward_port">A következő TCP port továbbítása:</string>
+  <string name="open_address">A következő cím megnyitása:</string>
+
+  <string name="webp_warning">Figyelem: a böngésződ nem támogatja a WEBP-t, így nem fogsz tudni képeket megosztani. Próbáld Chrome böngészővel.</string>
+</resources>
