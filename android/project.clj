@@ -12,7 +12,7 @@
   :dependencies [[com.h2database/h2 "1.3.173"]
                  [markdown-clj "0.9.33"]
                  [neko/neko "3.0.0"]
-                 ;[org.clojure/java.jdbc "0.3.0-beta1"]
+                 [org.clojure/java.jdbc "0.3.0-beta1"]
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
@@ -25,6 +25,6 @@
                         :aot :all}}}
 
   :android {:support-libraries ["v13"]
-            :target-version "15"
+            :target-version "16"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
-            :dex-opts ["-JXmx4096M"]})
+            :dex-opts ["-JXmx4096M" "--no-optimize"]})
