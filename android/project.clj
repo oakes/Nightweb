@@ -9,10 +9,10 @@
   :java-source-paths ["src/java" "../common/java" "gen"]
   :javac-options ["-target" "1.7" "-source" "1.7" "-Xlint:-options"]
 
-  :dependencies [[com.h2database/h2 "1.3.173"]
-                 [markdown-clj "0.9.33"]
+  :dependencies [[com.h2database/h2 "1.3.174"]
+                 [markdown-clj "0.9.35"]
                  [neko/neko "3.0.0"]
-                 [org.clojure/java.jdbc "0.3.0-beta1"]
+                 [org.clojure/java.jdbc "0.3.0-beta2"]
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}
