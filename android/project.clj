@@ -25,6 +25,6 @@
                         :aot :all}}}
 
   :android {:support-libraries ["v13"]
-            :target-version "16"
+            :target-version "15"
             :aot-exclude-ns ["clojure.parallel" "clojure.core.reducers"]
-            :dex-opts ["-JXmx4096M" "--no-optimize"]})
+            :dex-opts ["-JXmx4096M"]})
