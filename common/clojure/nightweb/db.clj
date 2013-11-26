@@ -1,6 +1,6 @@
 (ns nightweb.db
   (:require [clojure.java.io :as java.io]
-            [clojure.java.jdbc :as jdbc]
+            [clojure.java.jdbc.deprecated :as jdbc]
             [nightweb.constants :as c]
             [nightweb.formats :as f]))
 
