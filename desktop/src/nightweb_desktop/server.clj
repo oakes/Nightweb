@@ -1,5 +1,6 @@
 (ns nightweb-desktop.server
-  (:require [nightweb.constants :as c]
+  (:require [clojure.walk]
+            [nightweb.constants :as c]
             [nightweb.formats :as f]
             [nightweb-desktop.actions :as actions]
             [nightweb-desktop.pages :as pages]
