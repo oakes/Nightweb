@@ -145,7 +145,7 @@
          ptr-time (:time params)
          statement ["SELECT * FROM fav 
                      WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
-                    ptr-hash ptr-time]
+                    my-user-hash ptr-hash ptr-time]
          rs (jdbc/query @spec statement)]
      (first (prepare-results rs :fav)))))
 
@@ -425,8 +425,9 @@
 
 (defn delete-user
   [user-hash]
-  (jdbc/delete! @spec :user ["userhash = ?" user-hash])
-  (jdbc/delete! @spec :post ["userhash = ?" user-hash])
-  (jdbc/delete! @spec :pic ["userhash = ?" user-hash])
-  (jdbc/delete! @spec :fav ["userhash = ?" user-hash])
-  (jdbc/delete! @spec :tag ["userhash = ?" user-hash]))
+  (let [statement ["userhash = ?" user-hash]]
+    (jdbc/delete! @spec :user statement)
+    (jdbc/delete! @spec :post statement)
+    (jdbc/delete! @spec :pic statement)
+    (jdbc/delete! @spec :fav statement)
+    (jdbc/delete! @spec :tag statement)))
