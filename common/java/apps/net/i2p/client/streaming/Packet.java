@@ -1,5 +1,6 @@
 package net.i2p.client.streaming;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 
@@ -253,6 +254,7 @@ class Packet {
      * @return Delay before resending a packet in seconds.
      */
     public int getResendDelay() { return _resendDelay; }
+
     /**
      *  Unused.
      *  Broken before release 0.7.8
@@ -266,17 +268,22 @@ class Packet {
      * @return the payload of the message, null if none.
      */
     public ByteArray getPayload() { return _payload; }
+
     public void setPayload(ByteArray payload) { 
         _payload = payload; 
         if ( (payload != null) && (payload.getValid() > MAX_PAYLOAD_SIZE) )
             throw new IllegalArgumentException("Too large payload: " + payload.getValid());
     }
+
     public int getPayloadSize() {
         return (_payload == null ? 0 : _payload.getValid());
     }
+
+    /** does nothing right now */
     public void releasePayload() {
         //_payload = null;
     }
+
     public ByteArray acquirePayload() {
         _payload = new ByteArray(new byte[Packet.MAX_PAYLOAD_SIZE]);
         return _payload;
@@ -287,13 +294,16 @@ class Packet {
      * @return true if set, false if not.
      */
     public boolean isFlagSet(int flag) { return 0 != (_flags & flag); }
+
     public void setFlag(int flag) { _flags |= flag; }
+
     public void setFlag(int flag, boolean set) { 
         if (set)
             _flags |= flag; 
         else
             _flags &= ~flag;
     }
+
     public void setFlags(int flags) { _flags = flags; } 
 
     /** the signature on the packet (only included if the flag for it is set)
@@ -580,12 +590,15 @@ class Packet {
             cur += 2;
         }
         if (isFlagSet(FLAG_FROM_INCLUDED)) {
-            Destination optionFrom = new Destination();
+            ByteArrayInputStream bais = new ByteArrayInputStream(buffer, cur, length - cur);
             try {
-                cur += optionFrom.readBytes(buffer, cur);
+                Destination optionFrom = Destination.create(bais);
+                cur += optionFrom.size();
                 setOptionalFrom(optionFrom);
+            } catch (IOException ioe) {
+                throw new IllegalArgumentException("Bad from field", ioe);
             } catch (DataFormatException dfe) {
-                throw new IllegalArgumentException("Bad from field: " + dfe.getMessage());
+                throw new IllegalArgumentException("Bad from field", dfe);
             }
         }
         if (isFlagSet(FLAG_MAX_PACKET_SIZE_INCLUDED)) {
@@ -631,10 +644,10 @@ class Packet {
             Log l = ctx.logManager().getLog(Packet.class);
             if (l.shouldLog(Log.WARN))
                 l.warn("Signature failed on " + toString(), new Exception("moo"));
-            if (false) {
-                l.error(Base64.encode(buffer, 0, size));
-                l.error("Signature: " + Base64.encode(_optionSignature.getData()));
-            }
+            //if (false) {
+            //    l.error(Base64.encode(buffer, 0, size));
+            //    l.error("Signature: " + Base64.encode(_optionSignature.getData()));
+            //}
         }
         return ok;
     }
@@ -687,35 +700,36 @@ class Packet {
     protected StringBuilder formatAsString() {
         StringBuilder buf = new StringBuilder(64);
         buf.append(toId(_sendStreamId));
-        //buf.append("<-->");
-        buf.append(toId(_receiveStreamId)).append(": #").append(_sequenceNum);
+        buf.append('/');
+        buf.append(toId(_receiveStreamId)).append(':');
+        if (_sequenceNum != 0 || isFlagSet(FLAG_SYNCHRONIZE))
+            buf.append(" #").append(_sequenceNum);
+        // else an ack-only packet
         //if (_sequenceNum < 10) 
         //    buf.append(" \t"); // so the tab lines up right
         //else
         //    buf.append('\t');
-        buf.append(' ');
-        buf.append(toFlagString());
-        if (isFlagSet(FLAG_NO_ACK))
-            buf.append(" NO_ACK ");
-        else
-            buf.append(" ACK ").append(getAckThrough());
-        if (_nacks != null) {
-            buf.append(" NACK");
-            for (int i = 0; i < _nacks.length; i++) {
-                buf.append(" ").append(_nacks[i]);
-            }
-        }
+        toFlagString(buf);
         if ( (_payload != null) && (_payload.getValid() > 0) )
             buf.append(" data: ").append(_payload.getValid());
         return buf;
     }
     
     static final String toId(long id) {
-        return Base64.encode(DataHelper.toLong(4, id));
+        return Base64.encode(DataHelper.toLong(4, id)).replace("==", "");
     }
     
-    private final String toFlagString() {
-        StringBuilder buf = new StringBuilder(32);
+    private final void toFlagString(StringBuilder buf) {
+        if (isFlagSet(FLAG_NO_ACK))
+            buf.append(" NO_ACK");
+        else
+            buf.append(" ACK ").append(getAckThrough());
+        if (_nacks != null) {
+            buf.append(" NACK");
+            for (int i = 0; i < _nacks.length; i++) {
+                buf.append(' ').append(_nacks[i]);
+            }
+        }
         if (isFlagSet(FLAG_CLOSE)) buf.append(" CLOSE");
         if (isFlagSet(FLAG_DELAY_REQUESTED)) buf.append(" DELAY ").append(_optionDelay);
         if (isFlagSet(FLAG_ECHO)) buf.append(" ECHO");
@@ -726,7 +740,6 @@ class Packet {
         if (isFlagSet(FLAG_SIGNATURE_INCLUDED)) buf.append(" SIG");
         if (isFlagSet(FLAG_SIGNATURE_REQUESTED)) buf.append(" SIGREQ");
         if (isFlagSet(FLAG_SYNCHRONIZE)) buf.append(" SYN");
-        return buf.toString();
     }
 
     /** Generate a pcap/tcpdump-compatible format,

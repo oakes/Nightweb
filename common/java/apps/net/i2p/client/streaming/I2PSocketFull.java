@@ -21,7 +21,7 @@ class I2PSocketFull implements I2PSocket {
     private final Destination _remotePeer;
     private final Destination _localPeer;
     private volatile MessageChannel _channel;
-    private final AtomicBoolean _closed = new AtomicBoolean(false);
+    private final AtomicBoolean _closed = new AtomicBoolean();
     
     public I2PSocketFull(Connection con, I2PAppContext context) {
         log = context.logManager().getLog(I2PSocketFull.class);
@@ -33,6 +33,15 @@ class I2PSocketFull implements I2PSocket {
             _remotePeer = _localPeer = null;
     }
     
+    /**
+     *  Closes this socket.
+     *
+     *  Nonblocking as of 0.9.9:
+     *  Any thread currently blocked in an I/O operation upon this socket will throw an IOException.
+     *  Once a socket has been closed, it is not available for further networking use
+     *  (i.e. can't be reconnected or rebound). A new socket needs to be created.
+     *  Closing this socket will also close the socket's InputStream and OutputStream.
+     */
     public void close() throws IOException {
         if (!_closed.compareAndSet(false,true)) {
             // log a trace to find out why
@@ -42,16 +51,13 @@ class I2PSocketFull implements I2PSocket {
         Connection c = _connection;
         if (c == null) return;
         if (c.getIsConnected()) {
-            OutputStream out = c.getOutputStream();
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException ioe) {
-                    // ignore any write error, as we want to keep on and kill the
-                    // con (thanks Complication!)
-                }
-            }
-	    c.disconnect(true);
+            MessageInputStream in = c.getInputStream();
+            in.close();
+            MessageOutputStream out = c.getOutputStream();
+            out.closeInternal();
+            // this will cause any thread waiting in Connection.packetSendChoke()
+            // to throw an IOE
+            c.windowAdjusted();
         } else {
             //throw new IOException("Not connected");
         }
@@ -61,15 +67,15 @@ class I2PSocketFull implements I2PSocket {
     Connection getConnection() { return _connection; }
     
     /**
-     *  Warning, may return null instead of throwing IOE,
-     *  which is not what the interface says.
+     *  As of 0.9.9 will throw an IOE if socket is closed.
+     *  Prior to that would return null instead of throwing IOE.
+     *  @return non-null
      */
-    public InputStream getInputStream() {
+    public InputStream getInputStream() throws IOException {
         Connection c = _connection;
         if (c != null)
             return c.getInputStream();
-        else
-            return null;
+        throw new IOException("Socket closed");
     }
     
     public I2PSocketOptions getOptions() {
@@ -90,15 +96,15 @@ class I2PSocketFull implements I2PSocket {
     }
     
     /**
-     *  Warning, may return null instead of throwing IOE,
-     *  which is not what the interface says.
+     *  As of 0.9.9 will throw an IOE if socket is closed.
+     *  Prior to that would return null instead of throwing IOE.
+     *  @return non-null
      */
     public OutputStream getOutputStream() throws IOException {
         Connection c = _connection;
         if (c != null)
             return c.getOutputStream();
-        else
-            return null;
+        throw new IOException("Socket closed");
     }
     
     public Destination getPeerDestination() { return _remotePeer; }
@@ -143,10 +149,7 @@ class I2PSocketFull implements I2PSocket {
     }
     
     void destroy() { 
-        Connection c = _connection;
         destroy2();
-        if (c != null)
-            c.disconnectComplete();
     }
     
     /**

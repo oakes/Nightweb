@@ -21,8 +21,6 @@
 package org.klomp.snark;
 
 import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -38,7 +36,6 @@ import java.util.Locale;
 import java.util.Random;
 import java.util.Set;
 
-import net.i2p.I2PAppContext;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
 import net.i2p.util.ConvertToHash;
@@ -87,7 +84,6 @@ public class TrackerClient implements Runnable {
   private final static long MIN_TRACKER_ANNOUNCE_INTERVAL = 15*60*1000;
   private final static long MIN_DHT_ANNOUNCE_INTERVAL = 10*60*1000;
   public static final int PORT = 6881;
-  public static final boolean DHT_ONLY = true;
 
   private final I2PSnarkUtil _util;
   private final MetaInfo meta;
@@ -140,8 +136,8 @@ public class TrackerClient implements Runnable {
     this.port = PORT; //(port == -1) ? 9 : port;
     this.infoHash = urlencode(snark.getInfoHash());
     this.peerID = urlencode(snark.getID());
-    this.trackers = new ArrayList(2);
-    this.backupTrackers = new ArrayList(2);
+    this.trackers = new ArrayList<TCTracker>(2);
+    this.backupTrackers = new ArrayList<TCTracker>(2);
   }
 
   public synchronized void start() {
@@ -275,7 +271,7 @@ public class TrackerClient implements Runnable {
         primary = meta.getAnnounce();
     else if (additionalTrackerURL != null)
         primary = additionalTrackerURL;
-    Set<Hash> trackerHashes = new HashSet(8);
+    Set<Hash> trackerHashes = new HashSet<Hash>(8);
 
     // primary tracker
     if (primary != null) {
@@ -452,10 +448,6 @@ public class TrackerClient implements Runnable {
    *  @return max peers seen
    */
   private int getPeersFromTrackers(List<TCTracker> trckrs) {
-            if (DHT_ONLY) {
-                return 0;
-            }
-
             long left = coordinator.getLeft();   // -1 in magnet mode
             
             // First time we got a complete download?
@@ -478,6 +470,9 @@ public class TrackerClient implements Runnable {
                   {
                     long uploaded = coordinator.getUploaded();
                     long downloaded = coordinator.getDownloaded();
+                    long len = snark.getTotalLength();
+                    if (len > 0 && downloaded > len)
+                        downloaded = len;
                     left = coordinator.getLeft();
                     String event;
                     if (!tr.started) {
@@ -513,6 +508,7 @@ public class TrackerClient implements Runnable {
                         info.getSeedCount() > 100 &&
                         coordinator.getPeerCount() <= 0 &&
                         _util.getContext().clock().now() > _startedOn + 2*60*60*1000 &&
+                        snark.getTotalLength() > 0 &&
                         uploaded >= 2 * snark.getTotalLength()) {
                         if (_log.shouldLog(Log.WARN))
                             _log.warn("Auto stopping " + snark.getBaseName());
@@ -534,7 +530,7 @@ public class TrackerClient implements Runnable {
                     if (coordinator.needOutboundPeers()) {
                         // we only want to talk to new people if we need things
                         // from them (duh)
-                        List<Peer> ordered = new ArrayList(peers);
+                        List<Peer> ordered = new ArrayList<Peer>(peers);
                         Random r = _util.getContext().random();
                         Collections.shuffle(ordered, r);
                         Iterator<Peer> it = ordered.iterator();
@@ -592,10 +588,6 @@ public class TrackerClient implements Runnable {
    *  @return max peers seen
    */
   private int getPeersFromPEX() {
-            if (DHT_ONLY) {
-                return 0;
-            }
-
             // Get peers from PEX
             int rv = 0;
             if (coordinator.needOutboundPeers() && (meta == null || !meta.isPrivate()) && !stop) {
@@ -603,7 +595,7 @@ public class TrackerClient implements Runnable {
                 if (!pids.isEmpty()) {
                     if (_log.shouldLog(Log.INFO))
                         _log.info("Got " + pids.size() + " from PEX");
-                    List<Peer> peers = new ArrayList(pids.size());
+                    List<Peer> peers = new ArrayList<Peer>(pids.size());
                     for (PeerID pID : pids) {
                         peers.add(new Peer(pID, snark.getID(), snark.getInfoHash(), snark.getMetaInfo()));
                     }
@@ -657,7 +649,7 @@ public class TrackerClient implements Runnable {
 
                 // now try these peers
                 if ((!stop) && !hashes.isEmpty()) {
-                    List<Peer> peers = new ArrayList(hashes.size());
+                    List<Peer> peers = new ArrayList<Peer>(hashes.size());
                     for (Hash h : hashes) {
                         try {
                             PeerID pID = new PeerID(h.getData(), _util);
@@ -724,6 +716,9 @@ public class TrackerClient implements Runnable {
             _log.debug("Running unannounce " + _threadName + " to " + tr.announce);
         long uploaded = coordinator.getUploaded();
         long downloaded = coordinator.getDownloaded();
+        long len = snark.getTotalLength();
+        if (len > 0 && downloaded > len)
+            downloaded = len;
         long left = coordinator.getLeft();
         try
           {

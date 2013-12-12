@@ -11,25 +11,22 @@ package net.i2p.router;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.TimeZone;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.data.Certificate;
 import net.i2p.data.DataFormatException;
 import net.i2p.data.DataHelper;
+import net.i2p.data.Destination;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.SigningPrivateKey;
 import net.i2p.data.i2np.GarlicMessage;
@@ -52,8 +49,8 @@ import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SecureFileOutputStream;
 import net.i2p.util.SimpleByteCache;
-import net.i2p.util.SimpleScheduler;
 import net.i2p.util.SystemVersion;
+import net.i2p.util.Translate;
 
 /**
  * Main driver for the router.
@@ -145,7 +142,7 @@ public class Router implements RouterClock.ClockShiftListener {
 
     public Router(String configFilename, Properties envProps) {
         _gracefulExitCode = -1;
-        _config = new ConcurrentHashMap();
+        _config = new ConcurrentHashMap<String, String>();
 
         if (configFilename == null) {
             if (envProps != null) {
@@ -312,6 +309,8 @@ public class Router implements RouterClock.ClockShiftListener {
     public static final void clearCaches() {
         ByteCache.clearAll();
         SimpleByteCache.clearAll();
+        Destination.clearCache();
+        Translate.clearCache();
     }
 
     /**

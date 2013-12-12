@@ -73,10 +73,10 @@ public class PeerProfile {
      *  Only routers in these countries will use a same-country metric.
      *  Yes this is an arbitrary cutoff.
      */
-    private static final Set<String> _bigCountries = new HashSet();
+    private static final Set<String> _bigCountries = new HashSet<String>();
 
     static {
-        String[] big = new String[] {"ca", "fi", "fr", "de", "ru", "se", "ua", "gb", "us" };
+        String[] big = new String[] { "fr", "de", "ru", "ua", "us" };
         _bigCountries.addAll(Arrays.asList(big));
     }
 

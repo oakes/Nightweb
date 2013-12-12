@@ -629,6 +629,10 @@ class ConnectionOptions extends I2PSocketOptionsImpl {
         computeRTO();
     }
     
+    public synchronized boolean receivedAck() {
+        return _initState != AckInit.INIT;
+    }
+    
     /** How long after sending a packet will we wait before resending?
      * @return delay for a retransmission in ms
      */
@@ -750,27 +754,27 @@ class ConnectionOptions extends I2PSocketOptionsImpl {
     public Set<Hash> getBlacklist() { return _blackList; }
 
     private void initLists(ConnectionOptions opts) {
-        _accessListEnabled = opts.isAccessListEnabled();
-        _blackListEnabled = opts.isBlacklistEnabled();
         _accessList = opts.getAccessList();
         _blackList = opts.getBlacklist();
+        _accessListEnabled = opts.isAccessListEnabled();
+        _blackListEnabled = opts.isBlacklistEnabled();
     }
 
     private void initLists(Properties opts) {
-        _accessListEnabled = getBool(opts, PROP_ENABLE_ACCESS_LIST, false);
-        _blackListEnabled = getBool(opts, PROP_ENABLE_BLACKLIST, false);
+        boolean accessListEnabled = getBool(opts, PROP_ENABLE_ACCESS_LIST, false);
+        boolean blackListEnabled = getBool(opts, PROP_ENABLE_BLACKLIST, false);
         // Don't think these would ever be accessed simultaneously,
         // but avoid concurrent modification just in case
         Set<Hash> accessList, blackList;
-        if (_accessListEnabled)
+        if (accessListEnabled)
             accessList = new HashSet();
         else
             accessList = Collections.EMPTY_SET;
-        if (_blackListEnabled)
+        if (blackListEnabled)
             blackList = new HashSet();
         else
             blackList = Collections.EMPTY_SET;
-        if (_accessListEnabled || _blackListEnabled) {
+        if (accessListEnabled || blackListEnabled) {
             String hashes = opts.getProperty(PROP_ACCESS_LIST);
             if (hashes == null)
                 return;
@@ -780,7 +784,7 @@ class ConnectionOptions extends I2PSocketOptionsImpl {
                 Hash h = ConvertToHash.getHash(hashstr);
                 if (h == null)
                     error("bad list hash: " + hashstr);
-                else if (_blackListEnabled)
+                else if (blackListEnabled)
                     blackList.add(h);
                 else
                     accessList.add(h);
@@ -788,6 +792,8 @@ class ConnectionOptions extends I2PSocketOptionsImpl {
         }
         _accessList = accessList;
         _blackList = blackList;
+        _accessListEnabled = accessListEnabled;
+        _blackListEnabled = blackListEnabled;
         if (_accessListEnabled && _accessList.isEmpty())
             error("Connection access list enabled but no valid entries; no peers can connect");
         else if (_blackListEnabled && _blackList.isEmpty())

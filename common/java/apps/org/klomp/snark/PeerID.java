@@ -24,7 +24,6 @@ import java.io.IOException;
 import java.net.UnknownHostException;
 import java.util.Map;
 
-import net.i2p.I2PAppContext;
 import net.i2p.data.Base32;
 import net.i2p.data.Base64;
 import net.i2p.data.DataHelper;
@@ -43,7 +42,7 @@ import org.klomp.snark.bencode.InvalidBEncodingException;
  *  and the PeerID is not required.
  *  Equality is now determined solely by the dest hash.
  */
-public class PeerID implements Comparable
+class PeerID implements Comparable
 {
   private byte[] id;
   private Destination address;

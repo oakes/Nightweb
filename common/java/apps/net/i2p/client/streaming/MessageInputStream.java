@@ -2,6 +2,7 @@ package net.i2p.client.streaming;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -35,9 +36,9 @@ class MessageInputStream extends InputStream {
     private final List<ByteArray> _readyDataBlocks;
     private int _readyDataBlockIndex;
     /** highest message ID used in the readyDataBlocks */
-    private volatile long _highestReadyBlockId;
+    private long _highestReadyBlockId;
     /** highest overall message ID */
-    private volatile long _highestBlockId;
+    private long _highestBlockId;
     /** 
      * Message ID (Long) to ByteArray for blocks received
      * out of order when there are lower IDs not yet 
@@ -72,16 +73,21 @@ class MessageInputStream extends InputStream {
     }
     
     /** What is the highest block ID we've completely received through?
-     * @return highest data block ID completely received
+     * @return highest data block ID completely received or -1 for none
      */
     public long getHighestReadyBockId() { 
-        // not synchronized as it doesnt hurt to read a too-low value
-        return _highestReadyBlockId; 
+        synchronized (_dataLock) {
+            return _highestReadyBlockId; 
+        }
     }
     
+    /**
+     * @return highest data block ID received  or -1 for none
+     */
     public long getHighestBlockId() { 
-        // not synchronized as it doesnt hurt to read a too-low value
-        return _highestBlockId;
+        synchronized (_dataLock) {
+            return _highestBlockId;
+        }
     }
     
     /**
@@ -168,12 +174,18 @@ class MessageInputStream extends InputStream {
      * @return how long read calls should block, 0 or less indefinitely block
      */
     public int getReadTimeout() { return _readTimeout; }
+
     public void setReadTimeout(int timeout) {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("Changing read timeout from " + _readTimeout + " to " + timeout);
         _readTimeout = timeout; 
     }
     
+    /** 
+     *  There is no more data coming from the I2P side.
+     *  Does NOT clear pending data.
+     *  messageReceived() MUST have been called previously with the messageId of the CLOSE packet.
+     */
     public void closeReceived() {
         synchronized (_dataLock) {
             if (_log.shouldLog(Log.DEBUG)) {
@@ -211,9 +223,10 @@ class MessageInputStream extends InputStream {
     /**
      * A new message has arrived - toss it on the appropriate queue (moving 
      * previously pending messages to the ready queue if it fills the gap, etc).
+     * This does no limiting of pending data - it must be limited in ConnectionPacketHandler.
      *
      * @param messageId ID of the message
-     * @param payload message payload
+     * @param payload message payload, may be null or have null or zero-length data
      * @return true if this is a new packet, false if it is a dup
      */
     public boolean messageReceived(long messageId, ByteArray payload) {
@@ -221,8 +234,8 @@ class MessageInputStream extends InputStream {
             _log.debug("received " + messageId + " with " + (payload != null ? payload.getValid()+"" : "no payload"));
         synchronized (_dataLock) {
             if (messageId <= _highestReadyBlockId) {
-                if (_log.shouldLog(Log.DEBUG))
-                    _log.debug("ignoring dup message " + messageId);
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("ignoring dup message " + messageId);
                 _dataLock.notifyAll();
                 return false; // already received
             }
@@ -250,8 +263,9 @@ class MessageInputStream extends InputStream {
                     _highestReadyBlockId++;
                 }
             } else {
-                if (_log.shouldLog(Log.DEBUG))
-                    _log.debug("message is out of order: " + messageId);
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("Message is out of order: " + messageId);
+                // _notYetReadyBlocks size is limited in ConnectionPacketHandler.
                 if (_locallyClosed) // dont need the payload, just the msgId in order
                     _notYetReadyBlocks.put(Long.valueOf(messageId), new ByteArray(null));
                 else
@@ -269,19 +283,19 @@ class MessageInputStream extends InputStream {
         return _oneByte[0] & 0xff;
     }
     
-	@Override
+    @Override
     public int read(byte target[]) throws IOException {
         return read(target, 0, target.length);
     }
     
-	@Override
+    @Override
     public int read(byte target[], int offset, int length) throws IOException {
-        if (_locallyClosed) throw new IOException("Already locally closed");
-        throwAnyError();
         long expiration = -1;
         if (_readTimeout > 0)
             expiration = _readTimeout + System.currentTimeMillis();
         synchronized (_dataLock) {
+            if (_locallyClosed) throw new IOException("Already locally closed");
+            throwAnyError();
             for (int i = 0; i < length; i++) {
                 if ( (_readyDataBlocks.isEmpty()) && (i == 0) ) {
                     // ok, we havent found anything, so lets block until we get 
@@ -301,7 +315,13 @@ class MessageInputStream extends InputStream {
                                 if (_log.shouldLog(Log.DEBUG))
                                     _log.debug("read(...," + offset+", " + length+ ")[" + i 
                                                + ") with no timeout: " + toString());
-                                try { _dataLock.wait(); } catch (InterruptedException ie) { }
+                                try {
+                                    _dataLock.wait();
+                                } catch (InterruptedException ie) {
+                                    IOException ioe2 = new InterruptedIOException("Interrupted read");
+                                    ioe2.initCause(ie);
+                                    throw ioe2;
+                                }
                                 if (_log.shouldLog(Log.DEBUG))
                                     _log.debug("read(...," + offset+", " + length+ ")[" + i 
                                                + ") with no timeout complete: " + toString());
@@ -310,7 +330,13 @@ class MessageInputStream extends InputStream {
                                 if (_log.shouldLog(Log.DEBUG))
                                     _log.debug("read(...," + offset+", " + length+ ")[" + i 
                                                + ") with timeout: " + _readTimeout + ": " + toString());
-                                try { _dataLock.wait(_readTimeout); } catch (InterruptedException ie) { }
+                                try {
+                                    _dataLock.wait(_readTimeout);
+                                } catch (InterruptedException ie) {
+                                    IOException ioe2 = new InterruptedIOException("Interrupted read");
+                                    ioe2.initCause(ie);
+                                    throw ioe2;
+                                }
                                 if (_log.shouldLog(Log.DEBUG))
                                     _log.debug("read(...," + offset+", " + length+ ")[" + i 
                                                + ") with timeout complete: " + _readTimeout + ": " + toString());
@@ -369,12 +395,12 @@ class MessageInputStream extends InputStream {
         return length;
     }
     
-	@Override
+    @Override
     public int available() throws IOException {
-        if (_locallyClosed) throw new IOException("Already closed");
-        throwAnyError();
         int numBytes = 0;
         synchronized (_dataLock) {
+            if (_locallyClosed) throw new IOException("Already closed");
+            throwAnyError();
             for (int i = 0; i < _readyDataBlocks.size(); i++) {
                 ByteArray cur = _readyDataBlocks.get(i);
                 if (i == 0)
@@ -433,7 +459,7 @@ class MessageInputStream extends InputStream {
         }
     }
     
-	@Override
+    @Override
     public void close() {
         synchronized (_dataLock) {
             //while (_readyDataBlocks.size() > 0)
@@ -456,14 +482,15 @@ class MessageInputStream extends InputStream {
      *
      */
     void streamErrorOccurred(IOException ioe) {
-        if (_streamError == null)
-            _streamError = ioe;
-        _locallyClosed = true;
         synchronized (_dataLock) {
+            if (_streamError == null)
+                _streamError = ioe;
+            _locallyClosed = true;
             _dataLock.notifyAll();
         }
     }
     
+    /** Caller must lock _dataLock */
     private void throwAnyError() throws IOException {
         IOException ioe = _streamError;
         if (ioe != null) {

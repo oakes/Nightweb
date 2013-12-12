@@ -6,13 +6,14 @@ import java.util.Properties;
 
 import net.i2p.data.Hash;
 import net.i2p.util.RandomSource;
+import net.i2p.util.SystemVersion;
 
 /**
  * Wrap up the settings for a pool of tunnels.
  *
  */
 public class TunnelPoolSettings {
-    private Hash _destination;
+    private final Hash _destination;
     private String _destinationNickname;
     private int _quantity;
     private int _backupQuantity;
@@ -45,6 +46,7 @@ public class TunnelPoolSettings {
     public static final String  PROP_DURATION = "duration";
     public static final String  PROP_LENGTH = "length";
     public static final String  PROP_LENGTH_VARIANCE = "lengthVariance";
+    /** don't trust this, always true */
     public static final String  PROP_ALLOW_ZERO_HOP = "allowZeroHop";
     public static final String  PROP_IP_RESTRICTION = "IPRestriction";
     public static final String  PROP_PRIORITY = "priority";
@@ -53,6 +55,7 @@ public class TunnelPoolSettings {
     public static final int     DEFAULT_BACKUP_QUANTITY = 0;
     // public static final int     DEFAULT_REBUILD_PERIOD = 60*1000;
     public static final int     DEFAULT_DURATION = 10*60*1000;
+    //public static final int     DEFAULT_LENGTH = SystemVersion.isAndroid() ? 2 : 3;
     public static final int     DEFAULT_LENGTH = 2;
     public static final int     DEFAULT_LENGTH_VARIANCE = 0;
     public static final boolean DEFAULT_ALLOW_ZERO_HOP = true;
@@ -61,7 +64,8 @@ public class TunnelPoolSettings {
     private static final int MAX_PRIORITY = 25;
     private static final int EXPLORATORY_PRIORITY = 30;
     
-    public TunnelPoolSettings(boolean isExploratory, boolean isInbound) {
+    public TunnelPoolSettings(Hash dest, boolean isExploratory, boolean isInbound) {
+        _destination = dest;
         _isExploratory = isExploratory;
         _isInbound = isInbound;
         _quantity = DEFAULT_QUANTITY;
@@ -71,7 +75,10 @@ public class TunnelPoolSettings {
         _length = DEFAULT_LENGTH;
         _lengthVariance = DEFAULT_LENGTH_VARIANCE;
         _lengthOverride = -1;
-        _allowZeroHop = DEFAULT_ALLOW_ZERO_HOP;
+        if (isExploratory)
+            _allowZeroHop = true;
+        else
+            _allowZeroHop = DEFAULT_ALLOW_ZERO_HOP;
         _IPRestriction = DEFAULT_IP_RESTRICTION;
         _unknownOptions = new Properties();
         _randomKey = generateRandomKey();
@@ -112,9 +119,22 @@ public class TunnelPoolSettings {
      */
     public void setLength(int length) { _length = length; }
     
-    /** if there are no tunnels to build with, will this pool allow 0 hop tunnels? */
+    /**
+     * If there are no tunnels to build with, will this pool allow 0 hop tunnels?
+     * Always true for exploratory.
+     * Generally true for client, but should probably be ignored...
+     * use getLength() + getLengthVariance() > 0 instead.
+     */
     public boolean getAllowZeroHop() { return _allowZeroHop; }
-    public void setAllowZeroHop(boolean ok) { _allowZeroHop = ok; }
+
+    /**
+     * If there are no tunnels to build with, will this pool allow 0 hop tunnels?
+     * No effect on exploratory (always true)
+     */
+    public void setAllowZeroHop(boolean ok) {
+        if (!_isExploratory)
+            _allowZeroHop = ok;
+    }
     
     /** 
      * how should the length be varied.  if negative, this randomly skews from
@@ -151,7 +171,6 @@ public class TunnelPoolSettings {
     
     /** what destination is this a tunnel for (or null if none) */
     public Hash getDestination() { return _destination; }
-    public void setDestination(Hash dest) { _destination = dest; }
 
     /** random key used for peer ordering */
     public Hash getRandomKey() { return _randomKey; }
@@ -178,6 +197,9 @@ public class TunnelPoolSettings {
 
     public Properties getUnknownOptions() { return _unknownOptions; }
     
+    /**
+     *  @param prefix non-null
+     */
     public void readFromProperties(String prefix, Map<Object, Object> props) {
         for (Map.Entry e : props.entrySet()) {
             String name = (String) e.getKey();
@@ -206,11 +228,14 @@ public class TunnelPoolSettings {
                      int max = _isExploratory ? EXPLORATORY_PRIORITY : MAX_PRIORITY;
                     _priority = Math.min(max, Math.max(MIN_PRIORITY, getInt(value, def)));
                 } else
-                    _unknownOptions.setProperty(name.substring((prefix != null ? prefix.length() : 0)), value);
+                    _unknownOptions.setProperty(name.substring(prefix.length()), value);
             }
         }
-	}
+    }
     
+    /**
+     *  @param prefix non-null
+     */
     public void writeToProperties(String prefix, Properties props) {
         if (props == null) return;
         props.setProperty(prefix + PROP_ALLOW_ZERO_HOP, ""+_allowZeroHop);
@@ -260,7 +285,7 @@ public class TunnelPoolSettings {
     private static final boolean getBoolean(String str, boolean defaultValue) { 
         if (str == null) return defaultValue;
         boolean v = Boolean.parseBoolean(str) ||
-                    (str != null && "YES".equals(str.toUpperCase(Locale.US)));
+                    "YES".equals(str.toUpperCase(Locale.US));
         return v;
     }
 

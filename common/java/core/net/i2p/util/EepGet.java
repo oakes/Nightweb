@@ -18,7 +18,6 @@ import java.util.Date;
 import java.util.Formatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.StringTokenizer;
 
 import net.i2p.I2PAppContext;
 import net.i2p.data.Base64;
@@ -63,6 +62,7 @@ public class EepGet {
     protected long _bytesRemaining;
     protected int _currentAttempt;
     protected int _responseCode = -1;
+    protected String _responseText;
     protected boolean _shouldWriteErrorToOutput;
     protected String _etag;
     protected String _lastModified;
@@ -143,7 +143,7 @@ public class EepGet {
         _postData = postData;
         _bytesRemaining = -1;
         _fetchHeaderTimeout = CONNECT_TIMEOUT;
-        _listeners = new ArrayList(1);
+        _listeners = new ArrayList<StatusListener>(1);
         _etag = etag;
         _lastModified = lastModified;
         _etagOrig = etag;
@@ -190,7 +190,7 @@ public class EepGet {
                     lineLen = Integer.parseInt(args[++i]);
                 } else if (args[i].equals("-h")) {
                     if (extra == null)
-                        extra = new ArrayList(2);
+                        extra = new ArrayList<String>(2);
                     extra.add(args[++i]);
                     extra.add(args[++i]);
                 } else if (args[i].equals("-u")) {
@@ -732,7 +732,12 @@ public class EepGet {
         if (_transferFailed) {
             // 404, etc - transferFailed is called after all attempts fail, by fetch() above
             if (!_listeners.isEmpty()) {
-                Exception e = new IOException("Attempt failed " + _responseCode);
+                String s;
+                if (_responseText != null)
+                    s = "Attempt failed: " + _responseCode + ' ' + _responseText;
+                else
+                    s = "Attempt failed: " + _responseCode;
+                Exception e = new IOException(s);
                 for (int i = 0; i < _listeners.size(); i++)  {
                     _listeners.get(i).attemptFailed(_url, _bytesTransferred, _bytesRemaining, _currentAttempt,
                                                     _numRetries, e);
@@ -947,25 +952,25 @@ public class EepGet {
      * e.g. "HTTP/1.1 206 OK" vs "HTTP/1.1 200 OK" vs 
      * "HTTP/1.1 404 NOT FOUND", etc.  
      *
+     * Side effect - stores status text in _responseText
+     *
      * @return HTTP response code (200, 206, other)
      */
     private int handleStatus(String line) {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("Status line: [" + line + "]");
-        StringTokenizer tok = new StringTokenizer(line, " ");
-        if (!tok.hasMoreTokens()) {
+        String[] toks = line.split(" ", 3);
+        if (toks.length < 2) {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("ERR: status "+  line);
             return -1;
         }
-        tok.nextToken(); // ignored (protocol)
-        if (!tok.hasMoreTokens()) {
-            if (_log.shouldLog(Log.WARN))
-                _log.warn("ERR: status "+  line);
-            return -1;
-        }
-        String rc = tok.nextToken();
+        String rc = toks[1];
         try {
+            if (toks.length >= 3)
+                _responseText = toks[2].trim();
+            else
+                _responseText = null;
             return Integer.parseInt(rc); 
         } catch (NumberFormatException nfe) {
             if (_log.shouldLog(Log.WARN))
@@ -1055,12 +1060,14 @@ public class EepGet {
                 URL url = new URL(_actualURL);
                 if ("http".equals(url.getProtocol())) {
                     String host = url.getHost();
+                    if (host.toLowerCase(Locale.US).endsWith(".i2p"))
+                        throw new MalformedURLException("I2P addresses must be proxied");
                     int port = url.getPort();
                     if (port == -1)
                         port = 80;
                     _proxy = new Socket(host, port);
                 } else {
-                    throw new IOException("URL is not supported:" + _actualURL);
+                    throw new MalformedURLException("URL is not supported:" + _actualURL);
                 }
             // an MUE is an IOE
             //} catch (MalformedURLException mue) {
@@ -1089,6 +1096,8 @@ public class EepGet {
             post = true;
         URL url = new URL(_actualURL);
         String host = url.getHost();
+        if (host == null || host.length() <= 0)
+            throw new MalformedURLException("Bad URL, no host");
         int port = url.getPort();
         String path = url.getPath();
         String query = url.getQuery();
@@ -1191,6 +1200,23 @@ public class EepGet {
     public int getStatusCode() {
         return _responseCode;
     }
+    
+    /**
+     *  The server text ("OK", "Not Found",  etc).
+     *  Note that the text may contain % encoding.
+     *
+     *  @return null if invalid, or if the proxy never responded,
+     *  or if no proxy was used and the server never responded.
+     *  If a non-proxied request partially succeeded (for example a redirect followed
+     *  by a fail, or a partial fetch followed by a fail), this will
+     *  be the last status code received.
+     *  Note that fetch() may return false even if this returns "OK".
+     *
+      *  @since 0.9.9
+     */
+    public String getStatusText() {
+        return _responseText;
+    }
 
     /**
      *  If called (before calling fetch()),
@@ -1215,7 +1241,7 @@ public class EepGet {
      */
     public void addHeader(String name, String value) {
         if (_extraHeaders == null)
-            _extraHeaders = new ArrayList();
+            _extraHeaders = new ArrayList<String>();
         _extraHeaders.add(name + ": " + value);
     }
 
@@ -1265,7 +1291,7 @@ public class EepGet {
             } catch (IOException ioe) {
                 _decompressException = ioe;
                 if (_log.shouldLog(Log.WARN))
-                    _log.warn("Error decompressing: " + written + ", " + (in != null ? in.getTotalRead() + "/" + in.getTotalExpanded() : ""), ioe);
+                    _log.warn("Error decompressing: " + written + ", " + in.getTotalRead() + "/" + in.getTotalExpanded(), ioe);
             } catch (OutOfMemoryError oom) {
                 _decompressException = new IOException("OOM in HTTP Decompressor");
                 _log.error("OOM in HTTP Decompressor", oom);

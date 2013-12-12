@@ -11,7 +11,6 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import net.i2p.data.DataFormatException;
-import net.i2p.data.DataHelper;
 import net.i2p.data.Destination;
 import net.i2p.data.Hash;
 
@@ -62,9 +61,7 @@ public class DestReplyMessage extends I2CPMessageImpl {
                 if (size == Hash.HASH_LENGTH) {
                     _hash = Hash.create(in);
                 } else {
-                    Destination d = new Destination();
-                    d.readBytes(in);
-                    _dest = d;
+                    _dest = Destination.create(in);
                 }
             } catch (DataFormatException dfe) {
                 _dest = null;

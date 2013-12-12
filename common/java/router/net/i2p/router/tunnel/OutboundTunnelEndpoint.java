@@ -47,10 +47,18 @@ class OutboundTunnelEndpoint {
     
     private class DefragmentedHandler implements FragmentHandler.DefragmentedReceiver {
         public void receiveComplete(I2NPMessage msg, Hash toRouter, TunnelId toTunnel) {
+            if (toRouter == null) {
+                // Delivery type LOCAL is not supported at the OBEP
+                // We don't have any use for it yet.
+                // Don't send to OutboundMessageDistributor.distribute() which will NPE or fail
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("Dropping msg at OBEP with unsupported delivery instruction type LOCAL");
+                return;
+            }
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("outbound tunnel " + _config + " received a full message: " + msg
                            + " to be forwarded on to "
-                           + (toRouter != null ? toRouter.toBase64().substring(0,4) : "")
+                           + toRouter.toBase64().substring(0,4)
                            + (toTunnel != null ? ":" + toTunnel.getTunnelId() : ""));
             int size = msg.getMessageSize();
             // don't drop it if we are the target

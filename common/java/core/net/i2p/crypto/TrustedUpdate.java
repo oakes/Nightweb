@@ -21,6 +21,7 @@ import net.i2p.data.Signature;
 import net.i2p.data.SigningPrivateKey;
 import net.i2p.data.SigningPublicKey;
 import net.i2p.util.Log;
+import net.i2p.util.SecureFileOutputStream;
 import net.i2p.util.VersionComparator;
 import net.i2p.util.ZipFileComment;
 
@@ -160,7 +161,7 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
     /** 172 */
     private static final int KEYSIZE_B64_BYTES = 2 + (SigningPublicKey.KEYSIZE_BYTES * 4 / 3);
 
-    private static final Map<String, String> DEFAULT_KEYS = new HashMap(4);
+    private static final Map<String, String> DEFAULT_KEYS = new HashMap<String, String>(4);
     static {
             //DEFAULT_KEYS.put(DEFAULT_TRUSTED_KEY, "jrandom@mail.i2p");
             DEFAULT_KEYS.put(DEFAULT_TRUSTED_KEY2, "zzz@mail.i2p");
@@ -186,7 +187,7 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
     public TrustedUpdate(I2PAppContext context) {
         _context = context;
         _log = _context.logManager().getLog(TrustedUpdate.class);
-        _trustedKeys = new HashMap(4);
+        _trustedKeys = new HashMap<SigningPublicKey, String>(4);
 
         String propertyTrustedKeys = context.getProperty(PROP_TRUSTED_KEYS);
 
@@ -315,20 +316,29 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
 
     /** @return success */
     private static final boolean genKeysCLI(String publicKeyFile, String privateKeyFile) {
+        File pubFile = new File(publicKeyFile);
+        File privFile = new File(privateKeyFile);
+        if (pubFile.exists()) {
+            System.out.println("Error: Not overwriting file " + publicKeyFile);
+            return false;
+        }
+        if (privFile.exists()) {
+            System.out.println("Error: Not overwriting file " + privateKeyFile);
+            return false;
+        }
         FileOutputStream fileOutputStream = null;
-
         I2PAppContext context = I2PAppContext.getGlobalContext();
         try {
             Object signingKeypair[] = context.keyGenerator().generateSigningKeypair();
             SigningPublicKey signingPublicKey = (SigningPublicKey) signingKeypair[0];
             SigningPrivateKey signingPrivateKey = (SigningPrivateKey) signingKeypair[1];
 
-            fileOutputStream = new FileOutputStream(publicKeyFile);
+            fileOutputStream = new SecureFileOutputStream(pubFile);
             signingPublicKey.writeBytes(fileOutputStream);
             fileOutputStream.close();
             fileOutputStream = null;
 
-            fileOutputStream = new FileOutputStream(privateKeyFile);
+            fileOutputStream = new SecureFileOutputStream(privFile);
             signingPrivateKey.writeBytes(fileOutputStream);
 
             System.out.println("\r\nPrivate key written to: " + privateKeyFile);
@@ -464,9 +474,7 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
 
         try {
             fileInputStream = new FileInputStream(signedFile);
-            long skipped = fileInputStream.skip(Signature.SIGNATURE_BYTES);
-            if (skipped != Signature.SIGNATURE_BYTES)
-                return "";
+            DataHelper.skip(fileInputStream, Signature.SIGNATURE_BYTES);
             byte[] data = new byte[VERSION_BYTES];
             int bytesRead = DataHelper.read(fileInputStream, data);
 
@@ -505,9 +513,7 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
      */
     public static String getVersionString(InputStream inputStream) {
         try {
-            long skipped = inputStream.skip(Signature.SIGNATURE_BYTES);
-            if (skipped != Signature.SIGNATURE_BYTES)
-                return "";
+            DataHelper.skip(inputStream, Signature.SIGNATURE_BYTES);
             byte[] data = new byte[VERSION_BYTES];
             int bytesRead = DataHelper.read(inputStream, data);
 
@@ -630,10 +636,8 @@ riCe6OlAEiNpcc6mMyIYYWFICbrDFTrDR3wXqwc/Jkcx6L5VVWoagpSzbo3yGhc=
         try {
             fileInputStream = new FileInputStream(signedFile);
             fileOutputStream = new FileOutputStream(outputFile);
-            long skipped = 0;
 
-            while (skipped < HEADER_BYTES)
-                skipped += fileInputStream.skip(HEADER_BYTES - skipped);
+            DataHelper.skip(fileInputStream, HEADER_BYTES);
 
             byte[] buffer = new byte[16*1024];
             int bytesRead = 0;

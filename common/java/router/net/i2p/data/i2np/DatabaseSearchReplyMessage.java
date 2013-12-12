@@ -25,7 +25,7 @@ import net.i2p.data.Hash;
 public class DatabaseSearchReplyMessage extends FastI2NPMessageImpl {
     public final static int MESSAGE_TYPE = 3;
     private Hash _key;
-    private List<Hash> _peerHashes;
+    private final List<Hash> _peerHashes;
     private Hash _from;
     
     public DatabaseSearchReplyMessage(I2PAppContext context) {
@@ -33,7 +33,7 @@ public class DatabaseSearchReplyMessage extends FastI2NPMessageImpl {
         // do this in netdb if we need it
         //_context.statManager().createRateStat("netDb.searchReplyMessageSend", "How many search reply messages we send", "NetworkDatabase", new long[] { 60*1000, 5*60*1000, 10*60*1000, 60*60*1000 });
         //_context.statManager().createRateStat("netDb.searchReplyMessageReceive", "How many search reply messages we receive", "NetworkDatabase", new long[] { 60*1000, 5*60*1000, 10*60*1000, 60*60*1000 });
-        _peerHashes = new ArrayList(3);
+        _peerHashes = new ArrayList<Hash>(3);
     }
     
     /**
@@ -93,12 +93,11 @@ public class DatabaseSearchReplyMessage extends FastI2NPMessageImpl {
     protected int calculateWrittenLength() { 
         return Hash.HASH_LENGTH + 1 + getNumReplies()*Hash.HASH_LENGTH + Hash.HASH_LENGTH;
     }
+
     /** write the message body to the output array, starting at the given index */
     protected int writeMessageBody(byte out[], int curIndex) throws I2NPMessageException {
         if (_key == null)
             throw new I2NPMessageException("Key in reply to not specified");
-        if (_peerHashes == null)
-            throw new I2NPMessageException("Peer replies are null");
         if (_from == null)
             throw new I2NPMessageException("No 'from' address specified!");
 

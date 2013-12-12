@@ -62,6 +62,12 @@ public abstract class NetworkDatabaseFacade implements Service {
     public abstract void publish(LeaseSet localLeaseSet);
     public abstract void unpublish(LeaseSet localLeaseSet);
     public abstract void fail(Hash dbEntry);
+
+    /**
+     *  The last time we successfully published our RI.
+     *  @since 0.9.9
+     */
+    public long getLastRouterInfoPublishTime() { return 0; }
     
     public abstract Set<Hash> getAllRouters();
     public int getKnownRouters() { return 0; }
@@ -71,9 +77,9 @@ public abstract class NetworkDatabaseFacade implements Service {
     /** @deprecated moved to router console */
     public void renderStatusHTML(Writer out) throws IOException {}
     /** public for NetDbRenderer in routerconsole */
-    public Set<LeaseSet> getLeases() { return Collections.EMPTY_SET; }
+    public Set<LeaseSet> getLeases() { return Collections.emptySet(); }
     /** public for NetDbRenderer in routerconsole */
-    public Set<RouterInfo> getRouters() { return Collections.EMPTY_SET; }
+    public Set<RouterInfo> getRouters() { return Collections.emptySet(); }
 
     /** @since 0.9 */
     public ReseedChecker reseedChecker() { return null; };

@@ -27,13 +27,15 @@ public class SigningPublicKey extends SimpleDataStructure {
     public final static int KEYSIZE_BYTES = DEF_TYPE.getPubkeyLen();
     private static final int CACHE_SIZE = 1024;
 
-    private static final SDSCache<SigningPublicKey> _cache = new SDSCache(SigningPublicKey.class, KEYSIZE_BYTES, CACHE_SIZE);
+    private static final SDSCache<SigningPublicKey> _cache = new SDSCache<SigningPublicKey>(SigningPublicKey.class, KEYSIZE_BYTES, CACHE_SIZE);
 
     private final SigType _type;
 
     /**
-     * Pull from cache or return new
-     * @throws AIOOBE if not enough bytes
+     * Pull from cache or return new.
+     * Deprecated - used only by deprecated Destination.readBytes(data, off)
+     *
+     * @throws AIOOBE if not enough bytes, FIXME should throw DataFormatException
      * @since 0.8.3
      */
     public static SigningPublicKey create(byte[] data, int off) {

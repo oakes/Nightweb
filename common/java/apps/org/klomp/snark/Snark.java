@@ -25,7 +25,6 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -34,7 +33,6 @@ import java.util.StringTokenizer;
 import net.i2p.I2PAppContext;
 import net.i2p.client.streaming.I2PServerSocket;
 import net.i2p.data.Destination;
-import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
 
 /**
@@ -232,7 +230,7 @@ public class Snark
   private byte[] id;
   private final byte[] infoHash;
   private String additionalTrackerURL;
-  private final I2PSnarkUtil _util;
+  protected final I2PSnarkUtil _util;
   private final Log _log;
   private final PeerCoordinatorSet _peerCoordinatorSet;
   private volatile String trackerProblems;
@@ -527,17 +525,16 @@ public class Snark
         if (_peerCoordinatorSet != null) {
             // multitorrent
             _peerCoordinatorSet.add(coordinator);
-            if (acceptor != null) {
-                acceptor.startAccepting(_peerCoordinatorSet, serversocket);
-            } else {
-              // error
-            }
         } else {
             // single torrent
-            acceptor = new ConnectionAcceptor(_util, serversocket, new PeerAcceptor(coordinator));
+            acceptor = new ConnectionAcceptor(_util, new PeerAcceptor(coordinator));
         }
         // TODO pass saved closest DHT nodes to the tracker? or direct to the coordinator?
         trackerclient = new TrackerClient(_util, meta, additionalTrackerURL, coordinator, this);
+    }
+    // ensure acceptor is running when in multitorrent
+    if (_peerCoordinatorSet != null && acceptor != null) {
+        acceptor.startAccepting();
     }
 
     stopped = false;
@@ -666,10 +663,6 @@ public class Snark
         return storage;
     }
 
-    public String getDataDir() {
-        return rootDataDir;
-    }
-
     /**
      *  @since 0.8.4
      */
@@ -766,7 +759,7 @@ public class Snark
         PeerCoordinator coord = coordinator;
         if (coord != null)
             return coord.peerList();
-        return Collections.EMPTY_LIST;
+        return Collections.emptyList();
     }
 
     /**
@@ -1204,20 +1197,6 @@ public class Snark
     //System.out.println("Completely received: " + torrent);
     if (completeListener != null)
         completeListener.torrentComplete(this);
-  }
-
-  public void setPersistent(boolean isPersistent) {
-    if (coordinator != null) {
-      coordinator.setPersistent(isPersistent);
-    }
-  }
-
-  public boolean getPersistent() {
-    if (coordinator != null) {
-      return coordinator.getPersistent();
-    }
-
-    return false;
   }
 
   public void setWantedPieces(Storage storage)

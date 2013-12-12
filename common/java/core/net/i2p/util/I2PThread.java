@@ -10,7 +10,6 @@ package net.i2p.util;
  */
 
 
-import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
@@ -26,7 +25,7 @@ public class I2PThread extends Thread {
      *  Logging removed, too much trouble with extra contexts
      */
     //private volatile Log _log;
-    private static final Set _listeners = new CopyOnWriteArraySet();
+    private static final Set<OOMEventListener> _listeners = new CopyOnWriteArraySet<OOMEventListener>();
     //private String _name;
     //private Exception _createdBy;
 
@@ -112,10 +111,8 @@ public class I2PThread extends Thread {
 ****/
     
     protected void fireOOM(OutOfMemoryError oom) {
-        for (Iterator iter = _listeners.iterator(); iter.hasNext(); ) {
-            OOMEventListener listener = (OOMEventListener)iter.next();
+        for (OOMEventListener listener : _listeners)
             listener.outOfMemory(oom);
-        }
     }
 
     /** register a new component that wants notification of OOM events */

@@ -55,7 +55,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
         // these override the settings in super
         _timeoutMs = Math.min(timeoutMs, SearchJob.PER_FLOODFILL_PEER_TIMEOUT);
         _expiration = _timeoutMs + ctx.clock().now();
-        _unheardFrom = new HashSet(CONCURRENT_SEARCHES);
+        _unheardFrom = new HashSet<Hash>(CONCURRENT_SEARCHES);
         _replySelector = new FloodOnlyLookupSelector(getContext(), this);
         _onReply = new FloodOnlyLookupMatchJob(getContext(), this);
         _onTimeout = new FloodOnlyLookupTimeoutJob(getContext(), this);
@@ -77,7 +77,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
             // but we're passing the rkey not the key, so we do it below instead in certain cases.
             floodfillPeers = ((FloodfillPeerSelector)_facade.getPeerSelector()).selectFloodfillParticipants(rkey, MIN_FOR_NO_DSRM, ks);
         } else {
-            floodfillPeers = Collections.EMPTY_LIST;
+            floodfillPeers = Collections.emptyList();
         }
 
         // If we dont know enough floodfills,
@@ -91,7 +91,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
             // so this situation should be temporary
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Running netDb searches against the floodfill peers, but we don't know any");
-            floodfillPeers = new ArrayList(_facade.getAllRouters());
+            floodfillPeers = new ArrayList<Hash>(_facade.getAllRouters());
             if (floodfillPeers.isEmpty()) {
                 if (_log.shouldLog(Log.ERROR))
                     _log.error("We don't know any peers at all");
@@ -143,7 +143,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
 ********/
 
         int count = 0; // keep a separate count since _lookupsRemaining could be decremented elsewhere
-        for (int i = 0; _lookupsRemaining < CONCURRENT_SEARCHES && i < floodfillPeers.size(); i++) {
+        for (int i = 0; _lookupsRemaining.get() < CONCURRENT_SEARCHES && i < floodfillPeers.size(); i++) {
             Hash peer = floodfillPeers.get(i);
             if (peer.equals(getContext().routerHash()))
                 continue;
@@ -177,7 +177,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
                 _log.info(getJobId() + ": Floodfill search for " + _key + " to " + peer);
             getContext().tunnelDispatcher().dispatchOutbound(dlm, outTunnel.getSendTunnelId(0), peer);
             count++;
-            _lookupsRemaining++;
+            _lookupsRemaining.incrementAndGet();
         }
         
         if (count <= 0) {

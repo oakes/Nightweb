@@ -40,6 +40,7 @@ public class EventLog {
     public static final String CRITICAL = "critical";
     public static final String INSTALLED = "installed";
     public static final String INSTALL_FAILED = "intallFailed";
+    public static final String NETWORK = "network";
     public static final String NEW_IDENT = "newIdent";
     public static final String OOM = "oom";
     public static final String REKEYED = "rekeyed";
@@ -58,8 +59,8 @@ public class EventLog {
         //    throw new IllegalArgumentException();
         _context = ctx;
         _file = file;
-        _cache = new HashMap(4);
-        _cacheTime = new HashMap(4);
+        _cache = new HashMap<String, SortedMap<Long, String>>(4);
+        _cacheTime = new HashMap<String, Long>(4);
     }
 
     /**
@@ -114,7 +115,7 @@ public class EventLog {
                     return rv.tailMap(Long.valueOf(since));
             }
         }
-        rv = new TreeMap();
+        rv = new TreeMap<Long, String>();
         InputStream in = null;
         try {
             in = new FileInputStream(_file);

@@ -35,7 +35,6 @@ import freenet.support.CPUInformation.UnknownCPUException;
 
 import net.i2p.I2PAppContext;
 import net.i2p.crypto.CryptoConstants;
-import net.i2p.data.DataHelper;
 
 /**
  * <p>BigInteger that takes advantage of the jbigi library for the modPow operation,
@@ -112,7 +111,8 @@ public class NativeBigInteger extends BigInteger {
      * don't spew log messages. main() below overrides to true.
      */
     private static boolean _doLog = System.getProperty("jbigi.dontLog") == null &&
-                                    I2PAppContext.getGlobalContext().isRouterContext();
+                                    I2PAppContext.getCurrentContext() != null &&
+                                    I2PAppContext.getCurrentContext().isRouterContext();
     
     /**
      *  The following libraries are be available in jbigi.jar in all I2P versions
@@ -521,9 +521,11 @@ public class NativeBigInteger extends BigInteger {
      * @return true if it was loaded successfully, else false
      *
      */
+/****
     private static final boolean loadGeneric(boolean optimized) {
         return loadGeneric(getMiddleName(optimized));
     }
+****/
 
     private static final boolean loadGeneric(String name) {
         try {
@@ -562,10 +564,12 @@ public class NativeBigInteger extends BigInteger {
      * @return true if it was loaded successfully, else false
      *
      */
+/****
     private static final boolean loadFromResource(boolean optimized) {
         String resourceName = getResourceName(optimized);
         return loadFromResource(resourceName);
     }
+****/
 
     private static final boolean loadFromResource(String resourceName) {
         if (resourceName == null) return false;
@@ -622,8 +626,8 @@ public class NativeBigInteger extends BigInteger {
      */
     private static List<String> getResourceList() {
         if (_isAndroid)
-            return Collections.EMPTY_LIST;
-        List<String> rv = new ArrayList(8);
+            return Collections.emptyList();
+        List<String> rv = new ArrayList<String>(8);
         String primary = getMiddleName2(true);
         if (primary != null) {
             if (_is64) {
@@ -703,7 +707,7 @@ public class NativeBigInteger extends BigInteger {
      *  @since 0.9.1
      */
     private static Map<String, String> getCPUInfo() {
-        Map<String, String> rv = new HashMap(32);
+        Map<String, String> rv = new HashMap<String, String>(32);
         BufferedReader in = null;
         try {
             in = new BufferedReader(new InputStreamReader(new FileInputStream("/proc/cpuinfo"), "ISO-8859-1"), 4096);

@@ -4,6 +4,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.data.Hash;
 import net.i2p.util.ObjectCounter;
+import net.i2p.util.RandomSource;
 import net.i2p.util.SimpleScheduler;
 import net.i2p.util.SimpleTimer;
 
@@ -29,7 +30,12 @@ class ConnThrottler {
         _totalMax = totalMax;
         this.counter = new ObjectCounter<Hash>();
         _currentTotal = new AtomicInteger();
-        SimpleScheduler.getInstance().addPeriodicEvent(new Cleaner(), period);
+        // shorten the initial period by a random amount,mpleScheduler.getInstance().addPeriodicEvent(new Cleaner(),
+        // to prevent correlation across destinations
+        // and identification of router startup time
+        SimpleScheduler.getInstance().addPeriodicEvent(new Cleaner(),
+                                                       (period / 2) + RandomSource.getInstance().nextLong(period / 2),
+                                                       period);
     }
 
     /*
@@ -46,10 +52,11 @@ class ConnThrottler {
      *  Checks both individual and total. Increments before checking.
      */
     boolean shouldThrottle(Hash h) {
+        // do this first, so we don't increment total if individual throttled
+        if (_max > 0 && this.counter.increment(h) > _max)
+            return true;
         if (_totalMax > 0 && _currentTotal.incrementAndGet() > _totalMax)
             return true;
-        if (_max > 0)
-            return this.counter.increment(h) > _max;
         return false;
     }
 

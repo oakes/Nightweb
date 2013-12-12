@@ -23,7 +23,6 @@ import net.i2p.router.tunnel.TunnelDispatcher;
 import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
 import net.i2p.util.ObjectCounter;
-import net.i2p.util.SimpleScheduler;
 import net.i2p.util.SimpleTimer;
 
 /**
@@ -58,14 +57,14 @@ public class TunnelPoolManager implements TunnelManagerFacade {
         //ctx.inNetMessagePool().registerHandlerJobBuilder(TunnelGatewayMessage.MESSAGE_TYPE, b);
         //ctx.inNetMessagePool().registerHandlerJobBuilder(TunnelDataMessage.MESSAGE_TYPE, b);
 
-        _clientInboundPools = new ConcurrentHashMap(4);
-        _clientOutboundPools = new ConcurrentHashMap(4);
+        _clientInboundPools = new ConcurrentHashMap<Hash, TunnelPool>(4);
+        _clientOutboundPools = new ConcurrentHashMap<Hash, TunnelPool>(4);
         _clientPeerSelector = new ClientPeerSelector(ctx);
 
         ExploratoryPeerSelector selector = new ExploratoryPeerSelector(_context);
-        TunnelPoolSettings inboundSettings = new TunnelPoolSettings(true, true);
+        TunnelPoolSettings inboundSettings = new TunnelPoolSettings(null, true, true);
         _inboundExploratory = new TunnelPool(_context, this, inboundSettings, selector);
-        TunnelPoolSettings outboundSettings = new TunnelPoolSettings(true, false);
+        TunnelPoolSettings outboundSettings = new TunnelPoolSettings(null, true, false);
         _outboundExploratory = new TunnelPool(_context, this, outboundSettings, selector);
         
         // threads will be started in startup()
@@ -177,11 +176,11 @@ public class TunnelPoolManager implements TunnelManagerFacade {
      * @since 0.8.10
      */
     public TunnelInfo selectInboundExploratoryTunnel(Hash closestTo) { 
-        TunnelInfo info = _inboundExploratory.selectTunnel(); 
+        TunnelInfo info = _inboundExploratory.selectTunnel(closestTo); 
         if (info == null) {
             _inboundExploratory.buildFallback();
             // still can be null, but probably not
-            info = _inboundExploratory.selectTunnel(closestTo);
+            info = _inboundExploratory.selectTunnel();
         }
         return info;
     }
@@ -221,11 +220,11 @@ public class TunnelPoolManager implements TunnelManagerFacade {
      * @since 0.8.10
      */
     public TunnelInfo selectOutboundExploratoryTunnel(Hash closestTo) { 
-        TunnelInfo info = _outboundExploratory.selectTunnel();
+        TunnelInfo info = _outboundExploratory.selectTunnel(closestTo);
         if (info == null) {
             _outboundExploratory.buildFallback();
             // still can be null, but probably not
-            info = _outboundExploratory.selectTunnel(closestTo);
+            info = _outboundExploratory.selectTunnel();
         }
         return info;
     }
@@ -271,9 +270,6 @@ public class TunnelPoolManager implements TunnelManagerFacade {
     
     /** @return number of inbound exploratory tunnels */
     public int getFreeTunnelCount() { 
-        if (_inboundExploratory == null)
-            return 0;
-        else
             return _inboundExploratory.size(); 
     }
 
@@ -322,7 +318,7 @@ public class TunnelPoolManager implements TunnelManagerFacade {
         int part = getParticipatingCount();
         if (part <= 0)
             return 0d;
-        List<TunnelPool> pools = new ArrayList();
+        List<TunnelPool> pools = new ArrayList<TunnelPool>();
         listPools(pools);
         int count = 0;
         for (int i = 0; i < pools.size(); i++) {
@@ -380,7 +376,6 @@ public class TunnelPoolManager implements TunnelManagerFacade {
     private static void setSettings(Map<Hash, TunnelPool> pools, Hash client, TunnelPoolSettings settings) {
         TunnelPool pool = pools.get(client); 
         if (pool != null) {
-            settings.setDestination(client); // prevent spoofing or unset dest
             pool.setSettings(settings);
         }
     }
@@ -400,8 +395,6 @@ public class TunnelPoolManager implements TunnelManagerFacade {
         Hash dest = client.calculateHash();
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("Building tunnels for the client " + dest + ": " + settings);
-        settings.getInboundSettings().setDestination(dest);
-        settings.getOutboundSettings().setDestination(dest);
         TunnelPool inbound = null;
         TunnelPool outbound = null;
 
@@ -568,7 +561,7 @@ public class TunnelPoolManager implements TunnelManagerFacade {
 
     /** @return total number of non-fallback expl. + client tunnels */
     private int countTunnelsPerPeer(ObjectCounter<Hash> lc) {
-        List<TunnelPool> pools = new ArrayList();
+        List<TunnelPool> pools = new ArrayList<TunnelPool>();
         listPools(pools);
         int tunnelCount = 0;
         for (TunnelPool tp : pools) {
@@ -603,9 +596,9 @@ public class TunnelPoolManager implements TunnelManagerFacade {
      *  @return Set of peers that should not be allowed in another tunnel
      */
     public Set<Hash> selectPeersInTooManyTunnels() {
-        ObjectCounter<Hash> lc = new ObjectCounter();
+        ObjectCounter<Hash> lc = new ObjectCounter<Hash>();
         int tunnelCount = countTunnelsPerPeer(lc);
-        Set<Hash> rv = new HashSet();
+        Set<Hash> rv = new HashSet<Hash>();
         if (tunnelCount >= 4 && _context.router().getUptime() > 10*60*1000) {
             int max = _context.getProperty("router.maxTunnelPercentage", DEFAULT_MAX_PCT_TUNNELS);
             for (Hash h : lc.objects()) {
@@ -618,12 +611,12 @@ public class TunnelPoolManager implements TunnelManagerFacade {
 
     /** for TunnelRenderer in router console */
     public Map<Hash, TunnelPool> getInboundClientPools() {
-            return new HashMap(_clientInboundPools);
+            return new HashMap<Hash, TunnelPool>(_clientInboundPools);
     }
 
     /** for TunnelRenderer in router console */
     public Map<Hash, TunnelPool> getOutboundClientPools() {
-            return new HashMap(_clientOutboundPools);
+            return new HashMap<Hash, TunnelPool>(_clientOutboundPools);
     }
 
     /**

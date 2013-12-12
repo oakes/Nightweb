@@ -75,7 +75,7 @@ public class Storage
   public static final int MAX_PIECES = 10*1024;
   public static final long MAX_TOTAL_SIZE = MAX_PIECE_SIZE * (long) MAX_PIECES;
 
-  private static final Map<String, String> _filterNameCache = new ConcurrentHashMap();
+  private static final Map<String, String> _filterNameCache = new ConcurrentHashMap<String, String>();
 
   private static final boolean _isWindows = SystemVersion.isWindows();
 
@@ -101,7 +101,7 @@ public class Storage
     total_length = metainfo.getTotalLength();
     List<List<String>> files = metainfo.getFiles();
     int sz = files != null ? files.size() : 1;
-    _torrentFiles = new ArrayList(sz);
+    _torrentFiles = new ArrayList<TorrentFile>(sz);
   }
 
   /**
@@ -127,7 +127,7 @@ public class Storage
     _torrentFiles = getFiles(baseFile);
     
     long total = 0;
-    ArrayList<Long> lengthsList = new ArrayList();
+    ArrayList<Long> lengthsList = new ArrayList<Long>();
     for (TorrentFile tf : _torrentFiles)
       {
         long length = tf.length;
@@ -160,10 +160,10 @@ public class Storage
     bitfield = new BitField(pieces);
     needed = 0;
 
-    List<List<String>> files = new ArrayList();
+    List<List<String>> files = new ArrayList<List<String>>();
     for (TorrentFile tf : _torrentFiles)
       {
-        List<String> file = new ArrayList();
+        List<String> file = new ArrayList<String>();
         StringTokenizer st = new StringTokenizer(tf.name, File.separator);
         while (st.hasMoreTokens())
           {
@@ -218,11 +218,11 @@ public class Storage
   {
     if (base.getAbsolutePath().equals("/"))
         throw new IOException("Don't seed root");
-    List<File> files = new ArrayList();
+    List<File> files = new ArrayList<File>();
     addFiles(files, base);
 
     int size = files.size();
-    List<TorrentFile> rv = new ArrayList(size);
+    List<TorrentFile> rv = new ArrayList<TorrentFile>(size);
 
     for (File f : files) {
         rv.add(new TorrentFile(base, f));
@@ -526,6 +526,8 @@ public class Storage
             long lm = base.lastModified();
             if (lm <= 0 || lm > savedTime)
                 useSavedBitField = false;
+            else if (base.length() != metainfo.getTotalLength())
+                useSavedBitField = false;
         }
       }
     else
@@ -548,7 +550,7 @@ public class Storage
                 if (f.equals(_torrentFiles.get(j).RAFfile)) {
                     // Rename and start the check over again
                     // Copy path since metainfo list is unmodifiable
-                    path = new ArrayList(path);
+                    path = new ArrayList<String>(path);
                     int last = path.size() - 1;
                     String lastPath = path.get(last);
                     int dot = lastPath.lastIndexOf('.');
@@ -569,6 +571,8 @@ public class Storage
                 long lm = f.lastModified();
                 if (lm <= 0 || lm > savedTime)
                     useSavedBitField = false;
+                else if (f.length() != len)
+                    useSavedBitField = false;
             }
           }
 
@@ -587,6 +591,8 @@ public class Storage
     } else {
       // the following sets the needed variable
       changed = true;
+      if (_log.shouldLog(Log.INFO))
+          _log.info("Forcing check");
       checkCreateFiles(false);
     }
     if (complete()) {
@@ -977,24 +983,31 @@ public class Storage
               int len = (start + need < raflen) ? need : (int)(raflen - start);
               TorrentFile tf = _torrentFiles.get(i);
               synchronized(tf) {
-                  RandomAccessFile raf = tf.checkRAF();
-                  if (tf.isSparse) {
-                      // If the file is a newly created sparse file,
-                      // AND we aren't skipping it, balloon it with all
-                      // zeros to un-sparse it by allocating the space.
-                      // Obviously this could take a while.
-                      // Once we have written to it, it isn't empty/sparse any more.
-                      if (tf.priority >= 0) {
-                          if (_log.shouldLog(Log.INFO))
-                              _log.info("Ballooning " + tf);
-                          tf.balloonFile();
-                      } else {
-                          tf.isSparse = false;
+                  try {
+                      RandomAccessFile raf = tf.checkRAF();
+                      if (tf.isSparse) {
+                          // If the file is a newly created sparse file,
+                          // AND we aren't skipping it, balloon it with all
+                          // zeros to un-sparse it by allocating the space.
+                          // Obviously this could take a while.
+                          // Once we have written to it, it isn't empty/sparse any more.
+                          if (tf.priority >= 0) {
+                              if (_log.shouldLog(Log.INFO))
+                                  _log.info("Ballooning " + tf);
+                              tf.balloonFile();
+                          } else {
+                              tf.isSparse = false;
+                          }
                       }
+                      raf.seek(start);
+                      //rafs[i].write(bs, off + written, len);
+                      pp.write(raf, written, len);
+                  } catch (IOException ioe) {
+                      // get the file name in the logs
+                      IOException ioe2 = new IOException("Error writing " + tf.RAFfile.getAbsolutePath());
+                      ioe2.initCause(ioe);
+                      throw ioe2;
                   }
-                  raf.seek(start);
-                  //rafs[i].write(bs, off + written, len);
-                  pp.write(raf, written, len);
               }
               written += len;
               if (need - len > 0) {
@@ -1090,12 +1103,18 @@ public class Storage
         int need = length - read;
         int len = (start + need < raflen) ? need : (int)(raflen - start);
         TorrentFile tf = _torrentFiles.get(i);
-        synchronized(tf)
-          {
-            RandomAccessFile raf = tf.checkRAF();
-            raf.seek(start);
-            raf.readFully(bs, read, len);
-          }
+        synchronized(tf) {
+            try {
+                RandomAccessFile raf = tf.checkRAF();
+                raf.seek(start);
+                raf.readFully(bs, read, len);
+            } catch (IOException ioe) {
+                // get the file name in the logs
+                IOException ioe2 = new IOException("Error reading " + tf.RAFfile.getAbsolutePath());
+                ioe2.initCause(ioe);
+                throw ioe2;
+            }
+        }
         read += len;
         if (need - len > 0)
           {
@@ -1280,6 +1299,15 @@ public class Storage
 
       public int compareTo(TorrentFile tf) {
           return name.compareTo(tf.name);
+      }
+
+      @Override
+      public int hashCode() { return RAFfile.getAbsolutePath().hashCode(); }
+
+      @Override
+      public boolean equals(Object o) {
+          return (o instanceof TorrentFile) &&
+                 RAFfile.getAbsolutePath().equals(((TorrentFile)o).RAFfile.getAbsolutePath());
       }
 
       @Override

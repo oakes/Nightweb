@@ -30,7 +30,7 @@ import net.i2p.util.Log;
  * As of 0.8.11, inbound request handling is done in a separate thread.
  */
 class BuildExecutor implements Runnable {
-    private final ArrayList<Long> _recentBuildIds = new ArrayList(100);
+    private final ArrayList<Long> _recentBuildIds = new ArrayList<Long>(100);
     private final RouterContext _context;
     private final Log _log;
     private final TunnelPoolManager _manager;
@@ -51,8 +51,8 @@ class BuildExecutor implements Runnable {
         _log = ctx.logManager().getLog(getClass());
         _manager = mgr;
         _currentlyBuilding = new Object();
-        _currentlyBuildingMap = new ConcurrentHashMap(MAX_CONCURRENT_BUILDS);
-        _recentlyBuildingMap = new ConcurrentHashMap(4 * MAX_CONCURRENT_BUILDS);
+        _currentlyBuildingMap = new ConcurrentHashMap<Long, PooledTunnelCreatorConfig>(MAX_CONCURRENT_BUILDS);
+        _recentlyBuildingMap = new ConcurrentHashMap<Long, PooledTunnelCreatorConfig>(4 * MAX_CONCURRENT_BUILDS);
         _context.statManager().createRateStat("tunnel.concurrentBuilds", "How many builds are going at once", "Tunnels", new long[] { 60*1000, 5*60*1000, 60*60*1000 });
         _context.statManager().createRateStat("tunnel.concurrentBuildsLagged", "How many builds are going at once when we reject further builds, due to job lag (period is lag)", "Tunnels", new long[] { 60*1000, 5*60*1000, 60*60*1000 });
         _context.statManager().createRequiredRateStat("tunnel.buildExploratoryExpire", "No response to our build request", "Tunnels", new long[] { 10*60*1000, 60*60*1000 });
@@ -129,7 +129,7 @@ class BuildExecutor implements Runnable {
             }
         }
         if (allowed < 2) allowed = 2; // Never choke below 2 builds (but congestion may)
-        if (allowed > MAX_CONCURRENT_BUILDS) allowed = MAX_CONCURRENT_BUILDS; // Never go beyond 10, that is uncharted territory (old limit was 5)
+        else if (allowed > MAX_CONCURRENT_BUILDS) allowed = MAX_CONCURRENT_BUILDS; // Never go beyond 10, that is uncharted territory (old limit was 5)
         allowed = _context.getProperty("router.tunnelConcurrentBuilds", allowed);
 
         // expire any REALLY old requests
@@ -153,7 +153,7 @@ class BuildExecutor implements Runnable {
                 _recentlyBuildingMap.putIfAbsent(Long.valueOf(cfg.getReplyMessageId()), cfg);
                 iter.remove();
                 if (expired == null)
-                    expired = new ArrayList();
+                    expired = new ArrayList<PooledTunnelCreatorConfig>();
                 expired.add(cfg);
             }
         }
@@ -284,8 +284,8 @@ class BuildExecutor implements Runnable {
 
     public void run() {
         _isRunning = true;
-        List<TunnelPool> wanted = new ArrayList(MAX_CONCURRENT_BUILDS);
-        List<TunnelPool> pools = new ArrayList(8);
+        List<TunnelPool> wanted = new ArrayList<TunnelPool>(MAX_CONCURRENT_BUILDS);
+        List<TunnelPool> pools = new ArrayList<TunnelPool>(8);
         
         while (_isRunning && !_manager.isShutdown()){
             //loopBegin = System.currentTimeMillis();
@@ -319,6 +319,13 @@ class BuildExecutor implements Runnable {
                 if ( (mgr == null) || (mgr.getFreeTunnelCount() <= 0) || (mgr.getOutboundTunnelCount() <= 0) ) {
                     // we don't have either inbound or outbound tunnels, so don't bother trying to build
                     // non-zero-hop tunnels
+                    // try to kickstart it to build a fallback, otherwise we may get stuck here for a long time (minutes)
+                    if (mgr != null) {
+                        if (mgr.getFreeTunnelCount() <= 0)
+                            mgr.selectInboundTunnel();
+                        if (mgr.getOutboundTunnelCount() <= 0)
+                            mgr.selectOutboundTunnel();
+                    }
                     synchronized (_currentlyBuilding) {
                         if (!_repoll) {
                             if (_log.shouldLog(Log.DEBUG))
@@ -330,12 +337,14 @@ class BuildExecutor implements Runnable {
                     }
                 } else {
                     if ( (allowed > 0) && (!wanted.isEmpty()) ) {
-                        Collections.shuffle(wanted, _context.random());
-                        try {
-                            Collections.sort(wanted, new TunnelPoolComparator());
-                        } catch (IllegalArgumentException iae) {
-                            // Java 7 TimSort - see info in TunnelPoolComparator
-                            continue;
+                        if (wanted.size() > 1) {
+                            Collections.shuffle(wanted, _context.random());
+                            try {
+                                Collections.sort(wanted, new TunnelPoolComparator());
+                            } catch (IllegalArgumentException iae) {
+                                // Java 7 TimSort - see info in TunnelPoolComparator
+                                continue;
+                            }
                         }
 
                         // force the loops to be short, since 3 consecutive tunnel build requests can take
@@ -471,7 +480,9 @@ class BuildExecutor implements Runnable {
                 cfg.setReplyMessageId(_context.random().nextLong(I2NPMessage.MAX_ID_VALUE));
             } while (addToBuilding(cfg)); // if a dup, go araound again
         }
-        BuildRequestor.request(_context, pool, cfg, this);
+        boolean ok = BuildRequestor.request(_context, pool, cfg, this);
+        if (!ok)
+            return;
         long buildTime = System.currentTimeMillis() - beforeBuild;
         if (cfg.getLength() <= 1)
             _context.statManager().addRateData("tunnel.buildRequestZeroHopTime", buildTime, 0);
@@ -496,7 +507,7 @@ class BuildExecutor implements Runnable {
      */
     public void buildComplete(PooledTunnelCreatorConfig cfg, TunnelPool pool) {
         if (_log.shouldLog(Log.DEBUG))
-            _log.debug("Build complete for " + cfg);
+            _log.debug("Build complete for " + cfg, new Exception());
         pool.buildComplete(cfg);
         if (cfg.getLength() > 1)
             removeFromBuilding(cfg.getReplyMessageId());

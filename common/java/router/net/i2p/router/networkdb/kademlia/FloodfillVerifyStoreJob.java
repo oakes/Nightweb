@@ -55,7 +55,7 @@ class FloodfillVerifyStoreJob extends JobImpl {
         _log = ctx.logManager().getLog(getClass());
         _sentTo = sentTo;
         _facade = facade;
-        _ignore = new HashSet(MAX_PEERS_TO_TRY);
+        _ignore = new HashSet<Hash>(MAX_PEERS_TO_TRY);
         if (sentTo != null) {
             _ignore.add(_sentTo);
         }
@@ -82,11 +82,21 @@ class FloodfillVerifyStoreJob extends JobImpl {
             return;
         }        
 
-        DatabaseLookupMessage lookup = buildLookup();
-        if (lookup == null) {
-            _facade.verifyFinished(_key);
+        boolean isInboundExploratory;
+        TunnelInfo replyTunnelInfo;
+        if (_isRouterInfo || getContext().keyRing().get(_key) != null) {
+            replyTunnelInfo = getContext().tunnelManager().selectInboundExploratoryTunnel(_target);
+            isInboundExploratory = true;
+        } else {
+            replyTunnelInfo = getContext().tunnelManager().selectInboundTunnel(_key, _target);
+            isInboundExploratory = false;
+        }
+        if (replyTunnelInfo == null) {
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("No inbound tunnels to get a reply from!");
             return;
-        }        
+        }
+        DatabaseLookupMessage lookup = buildLookup(replyTunnelInfo);
  
         // If we are verifying a leaseset, use the destination's own tunnels,
         // to avoid association by the exploratory tunnel OBEP.
@@ -112,7 +122,19 @@ class FloodfillVerifyStoreJob extends JobImpl {
             return;
         }
         if (DatabaseLookupMessage.supportsEncryptedReplies(peer)) {
-            MessageWrapper.OneTimeSession sess = MessageWrapper.generateSession(getContext());
+            // register the session with the right SKM
+            MessageWrapper.OneTimeSession sess;
+            if (isInboundExploratory) {
+                sess = MessageWrapper.generateSession(getContext());
+            } else {
+                sess = MessageWrapper.generateSession(getContext(), _key);
+                if (sess == null) {
+                     if (_log.shouldLog(Log.WARN))
+                         _log.warn("No SKM to reply to");
+                    _facade.verifyFinished(_key);
+                    return;
+                }
+            }
             if (_log.shouldLog(Log.INFO))
                 _log.info("Requesting encrypted reply from " + _target + ' ' + sess.key + ' ' + sess.tag);
             lookup.setReplySession(sess.key, sess.tag);
@@ -154,20 +176,11 @@ class FloodfillVerifyStoreJob extends JobImpl {
         return _sentTo;
     }
     
-    private DatabaseLookupMessage buildLookup() {
+    /** @return non-null */
+    private DatabaseLookupMessage buildLookup(TunnelInfo replyTunnelInfo) {
         // If we are verifying a leaseset, use the destination's own tunnels,
         // to avoid association by the exploratory tunnel OBEP.
         // Unless it is an encrypted leaseset.
-        TunnelInfo replyTunnelInfo;
-        if (_isRouterInfo || getContext().keyRing().get(_key) != null)
-            replyTunnelInfo = getContext().tunnelManager().selectInboundExploratoryTunnel(_target);
-        else
-            replyTunnelInfo = getContext().tunnelManager().selectInboundTunnel(_key, _target);
-        if (replyTunnelInfo == null) {
-            if (_log.shouldLog(Log.WARN))
-                _log.warn("No inbound tunnels to get a reply from!");
-            return null;
-        }
         DatabaseLookupMessage m = new DatabaseLookupMessage(getContext(), true);
         m.setMessageExpiration(getContext().clock().now() + VERIFY_TIMEOUT);
         m.setReplyTunnel(replyTunnelInfo.getReceiveTunnelId(0));
@@ -207,9 +220,8 @@ class FloodfillVerifyStoreJob extends JobImpl {
             _facade.verifyFinished(_key);
             if (_message instanceof DatabaseStoreMessage) {
                 // Verify it's as recent as the one we sent
-                boolean success = false;
                 DatabaseStoreMessage dsm = (DatabaseStoreMessage)_message;
-                success = dsm.getEntry().getDate() >= _published;
+                boolean success = dsm.getEntry().getDate() >= _published;
                 if (success) {
                     // store ok, w00t!
                     getContext().profileManager().dbLookupSuccessful(_target, delay);
@@ -218,6 +230,8 @@ class FloodfillVerifyStoreJob extends JobImpl {
                     getContext().statManager().addRateData("netDb.floodfillVerifyOK", delay, 0);
                     if (_log.shouldLog(Log.INFO))
                         _log.info("Verify success for " + _key);
+                    if (_isRouterInfo)
+                        _facade.routerInfoPublishSuccessful();
                     return;
                 }
                 if (_log.shouldLog(Log.WARN))
@@ -263,7 +277,7 @@ class FloodfillVerifyStoreJob extends JobImpl {
     private void resend() {
         DatabaseEntry ds = _facade.lookupLocally(_key);
         if (ds != null) {
-            Set<Hash> toSkip = new HashSet(2);
+            Set<Hash> toSkip = new HashSet<Hash>(2);
             if (_sentTo != null)
                 toSkip.add(_sentTo);
             if (_target != null)

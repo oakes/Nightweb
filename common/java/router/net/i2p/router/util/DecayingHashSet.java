@@ -1,9 +1,6 @@
 package net.i2p.router.util;
 
-import java.util.Random;
-
 import net.i2p.I2PAppContext;
-import net.i2p.data.DataHelper;
 import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.Log;
 
@@ -77,10 +74,10 @@ public class DecayingHashSet extends DecayingBloomFilter {
         super(durationMs, entryBytes, name, context);
         if (entryBytes <= 0 || entryBytes > 32)
             throw new IllegalArgumentException("Bad size");
-        _current = new ConcurrentHashSet(128);
-        _previous = new ConcurrentHashSet(128);
-        if (_log.shouldLog(Log.WARN))
-           _log.warn("New DHS " + name + " entryBytes = " + entryBytes +
+        _current = new ConcurrentHashSet<ArrayWrapper>(128);
+        _previous = new ConcurrentHashSet<ArrayWrapper>(128);
+        if (_log.shouldLog(Log.DEBUG))
+            _log.debug("New DHS " + name + " entryBytes = " + entryBytes +
                      " cycle (s) = " + (durationMs / 1000));
         // try to get a handle on memory usage vs. false positives
         context.statManager().createRateStat("router.decayingHashSet." + name + ".size",

@@ -12,6 +12,7 @@ import java.math.BigInteger;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.I2PAppContext;
 import net.i2p.data.DataHelper;
@@ -29,7 +30,7 @@ class KBucketSet {
     private final I2PAppContext _context;
     private final LocalHash _us;
     private final KBucket _buckets[];
-    private volatile int _size;
+    private final AtomicInteger _size = new AtomicInteger();
     
     public final static int BASE = 8; // must go into KEYSIZE_BITS evenly
     public final static int KEYSIZE_BITS = Hash.HASH_LENGTH * 8;
@@ -55,7 +56,7 @@ class KBucketSet {
             int oldSize = _buckets[bucket].getKeyCount();
             int numInBucket = _buckets[bucket].add(peer);
             if (numInBucket != oldSize)
-                _size++;
+                _size.incrementAndGet();
             if (numInBucket > BUCKET_SIZE) {
                 // perhaps queue up coalesce job?  naaahh.. lets let 'er grow for now
             }
@@ -72,7 +73,7 @@ class KBucketSet {
      *
      */
     public int size() {
-        return _size;
+        return _size.get();
         /*
         int size = 0;
         for (int i = 0; i < _buckets.length; i++)
@@ -86,23 +87,23 @@ class KBucketSet {
         KBucket kbucket = getBucket(bucket);
         boolean removed = kbucket.remove(entry);
         if (removed)
-            _size--;
+            _size.decrementAndGet();
         return removed;
     }
     
     /** @since 0.8.8 */
     public void clear() {
         for (int i = 0; i < _buckets.length; i++) {
-            _buckets[i].setEntries(Collections.EMPTY_SET);
+            _buckets[i].setEntries(Collections.<Hash> emptySet());
         }
-        _size = 0;
+        _size.set(0);
         _us.clearXorCache();
     }
     
-    public Set<Hash> getAll() { return getAll(Collections.EMPTY_SET); };
+    public Set<Hash> getAll() { return getAll(Collections.<Hash> emptySet()); };
 
     public Set<Hash> getAll(Set<Hash> toIgnore) {
-        Set<Hash> all = new HashSet(1024);
+        Set<Hash> all = new HashSet<Hash>(1024);
         for (int i = 0; i < _buckets.length; i++) {
             all.addAll(_buckets[i].getEntries());
         }

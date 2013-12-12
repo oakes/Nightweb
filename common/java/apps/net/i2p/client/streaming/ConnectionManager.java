@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.I2PAppContext;
 import net.i2p.I2PException;
@@ -40,7 +41,7 @@ class ConnectionManager {
     private final Map<Long, PingRequest> _pendingPings;
     private volatile boolean _throttlersInitialized;
     private final ConnectionOptions _defaultOptions;
-    private volatile int _numWaiting;
+    private final AtomicInteger _numWaiting = new AtomicInteger();
     private long _soTimeout;
     private volatile ConnThrottler _minuteThrottler;
     private volatile ConnThrottler _hourThrottler;
@@ -192,9 +193,8 @@ class ConnectionManager {
         ConnectionOptions opts = new ConnectionOptions(_defaultOptions);
         opts.setPort(synPacket.getRemotePort());
         opts.setLocalPort(synPacket.getLocalPort());
-        Connection con = new Connection(_context, this, _schedulerChooser, _timer, _outboundQueue, _conPacketHandler, opts);
+        Connection con = new Connection(_context, this, _schedulerChooser, _timer, _outboundQueue, _conPacketHandler, opts, true);
         _tcbShare.updateOptsFromShare(con);
-        con.setInbound();
         long receiveId = _context.random().nextLong(Packet.MAX_STREAM_ID-1)+1;
         boolean reject = false;
         int active = 0;
@@ -300,24 +300,24 @@ class ConnectionManager {
         long expiration = _context.clock().now() + opts.getConnectTimeout();
         if (opts.getConnectTimeout() <= 0)
             expiration = _context.clock().now() + DEFAULT_STREAM_DELAY_MAX;
-        _numWaiting++;
+        _numWaiting.incrementAndGet();
         while (true) {
             long remaining = expiration - _context.clock().now();
             if (remaining <= 0) { 
                 _log.logAlways(Log.WARN, "Refusing to connect since we have exceeded our max of " 
                           + _defaultOptions.getMaxConns() + " connections");
-                _numWaiting--;
+                _numWaiting.decrementAndGet();
                 return null;
             }
 
                 if (locked_tooManyStreams()) {
                     int max = _defaultOptions.getMaxConns();
                     // allow a full buffer of pending/waiting streams
-                    if (_numWaiting > max) {
+                    if (_numWaiting.get() > max) {
                         _log.logAlways(Log.WARN, "Refusing connection since we have exceeded our max of "
                                       + max + " and there are " + _numWaiting
                                       + " waiting already");
-                        _numWaiting--;
+                        _numWaiting.decrementAndGet();
                         return null;
                     }
 
@@ -326,7 +326,7 @@ class ConnectionManager {
                     // try { _connectionLock.wait(remaining); } catch (InterruptedException ie) {}
                     try { Thread.sleep(remaining/4); } catch (InterruptedException ie) {}
                 } else { 
-                    con = new Connection(_context, this, _schedulerChooser, _timer, _outboundQueue, _conPacketHandler, opts);
+                    con = new Connection(_context, this, _schedulerChooser, _timer, _outboundQueue, _conPacketHandler, opts, false);
                     con.setRemotePeer(peer);
             
                     while (_connectionByInboundId.containsKey(Long.valueOf(receiveId))) {
@@ -347,8 +347,14 @@ class ConnectionManager {
         if (opts.getConnectDelay() <= 0) {
             con.waitForConnect();
         }
-        if (_numWaiting > 0)
-            _numWaiting--;
+        // safe decrement
+        for (;;) {
+            int n = _numWaiting.get();
+            if (n <= 0)
+                break;
+            if (_numWaiting.compareAndSet(n, n - 1))
+                break;
+        }
         
         _context.statManager().addRateData("stream.connectionCreated", 1, 0);
         return con;
@@ -361,18 +367,29 @@ class ConnectionManager {
     private boolean locked_tooManyStreams() {
         int max = _defaultOptions.getMaxConns();
         if (max <= 0) return false;
-        if (_connectionByInboundId.size() < max) return false;
+        int size = _connectionByInboundId.size();
+        if (size < max) return false;
+        // count both so we can break out of the for loop asap
         int active = 0;
+        int inactive = 0;
+        int maxInactive = size - max;
         for (Connection con : _connectionByInboundId.values()) {
-            if (con.getIsConnected())
-                active++;
+            // ticket #1039
+            if (con.getIsConnected() &&
+                !(con.getCloseSentOn() > 0 && con.getCloseReceivedOn() > 0)) {
+                if (++active >= max)
+                    return true;
+            } else {
+                if (++inactive > maxInactive)
+                    return false;
+            }
         }
         
-        if ( (_connectionByInboundId.size() > 100) && (_log.shouldLog(Log.INFO)) )
-            _log.info("More than 100 connections!  " + active
-                      + " total: " + _connectionByInboundId.size());
+        //if ( (_connectionByInboundId.size() > 100) && (_log.shouldLog(Log.INFO)) )
+        //    _log.info("More than 100 connections!  " + active
+        //              + " total: " + _connectionByInboundId.size());
 
-        return (active >= max);
+        return false;
     }
     
     /**
@@ -385,59 +402,12 @@ class ConnectionManager {
         if (from == null)
             return "null";
         Hash h = from.calculateHash();
-        String throttled = null;
-        // always call all 3 to increment all counters
-        if (_minuteThrottler != null && _minuteThrottler.shouldThrottle(h)) {
-            _context.statManager().addRateData("stream.con.throttledMinute", 1, 0);
-            if (_defaultOptions.getMaxConnsPerMinute() <= 0)
-                throttled = "throttled by" +
-                        " total limit of " + _defaultOptions.getMaxTotalConnsPerMinute() +
-                        " per minute";
-            else if (_defaultOptions.getMaxTotalConnsPerMinute() <= 0)
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerMinute() +
-                        " per minute";
-            else
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerMinute() +
-                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerMinute() +
-                        " per minute";
-        }
-        if (_hourThrottler != null && _hourThrottler.shouldThrottle(h)) {
-            _context.statManager().addRateData("stream.con.throttledHour", 1, 0);
-            if (_defaultOptions.getMaxConnsPerHour() <= 0)
-                throttled = "throttled by" +
-                        " total limit of " + _defaultOptions.getMaxTotalConnsPerHour() +
-                        " per hour";
-            else if (_defaultOptions.getMaxTotalConnsPerHour() <= 0)
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerHour() +
-                        " per hour";
-            else
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerHour() +
-                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerHour() +
-                        " per hour";
-        }
-        if (_dayThrottler != null && _dayThrottler.shouldThrottle(h)) {
-            _context.statManager().addRateData("stream.con.throttledDay", 1, 0);
-            if (_defaultOptions.getMaxConnsPerDay() <= 0)
-                throttled = "throttled by" +
-                        " total limit of " + _defaultOptions.getMaxTotalConnsPerDay() +
-                        " per day";
-            else if (_defaultOptions.getMaxTotalConnsPerDay() <= 0)
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerDay() +
-                        " per day";
-            else
-                throttled = "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerDay() +
-                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerDay() +
-                        " per day";
-        }
-        if (throttled != null)
-            return throttled;
+
+        // As of 0.9.9, run the blacklist checks BEFORE the port counters,
+        // so blacklisted dests will not increment the counters and
+        // possibly trigger total-counter blocks for others.
+
         // if the sig is absent or bad it will be caught later (in CPH)
-        if (_defaultOptions.isAccessListEnabled() &&
-            !_defaultOptions.getAccessList().contains(h))
-            return "not whitelisted";
-        if (_defaultOptions.isBlacklistEnabled() &&
-            _defaultOptions.getBlacklist().contains(h))
-            return "blacklisted";
         String hashes = _context.getProperty(PROP_BLACKLIST, "");
         if (!_currentBlacklist.equals(hashes)) {
             // rebuild _globalBlacklist when property changes
@@ -464,6 +434,58 @@ class ConnectionManager {
         }
         if (hashes.length() > 0 && _globalBlacklist.contains(h))
             return "blacklisted globally";
+
+        if (_defaultOptions.isAccessListEnabled() &&
+            !_defaultOptions.getAccessList().contains(h))
+            return "not whitelisted";
+        if (_defaultOptions.isBlacklistEnabled() &&
+            _defaultOptions.getBlacklist().contains(h))
+            return "blacklisted";
+
+
+        if (_dayThrottler != null && _dayThrottler.shouldThrottle(h)) {
+            _context.statManager().addRateData("stream.con.throttledDay", 1, 0);
+            if (_defaultOptions.getMaxConnsPerDay() <= 0)
+                return "throttled by" +
+                        " total limit of " + _defaultOptions.getMaxTotalConnsPerDay() +
+                        " per day";
+            else if (_defaultOptions.getMaxTotalConnsPerDay() <= 0)
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerDay() +
+                        " per day";
+            else
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerDay() +
+                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerDay() +
+                        " per day";
+        }
+        if (_hourThrottler != null && _hourThrottler.shouldThrottle(h)) {
+            _context.statManager().addRateData("stream.con.throttledHour", 1, 0);
+            if (_defaultOptions.getMaxConnsPerHour() <= 0)
+                return "throttled by" +
+                        " total limit of " + _defaultOptions.getMaxTotalConnsPerHour() +
+                        " per hour";
+            else if (_defaultOptions.getMaxTotalConnsPerHour() <= 0)
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerHour() +
+                        " per hour";
+            else
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerHour() +
+                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerHour() +
+                        " per hour";
+        }
+        if (_minuteThrottler != null && _minuteThrottler.shouldThrottle(h)) {
+            _context.statManager().addRateData("stream.con.throttledMinute", 1, 0);
+            if (_defaultOptions.getMaxConnsPerMinute() <= 0)
+                return "throttled by" +
+                        " total limit of " + _defaultOptions.getMaxTotalConnsPerMinute() +
+                        " per minute";
+            else if (_defaultOptions.getMaxTotalConnsPerMinute() <= 0)
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerMinute() +
+                        " per minute";
+            else
+                return "throttled by per-peer limit of " + _defaultOptions.getMaxConnsPerMinute() +
+                        " or total limit of " + _defaultOptions.getMaxTotalConnsPerMinute() +
+                        " per minute";
+        }
+
         return null;
     }
 

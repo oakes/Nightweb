@@ -105,7 +105,7 @@ class FragmentHandler {
     public FragmentHandler(RouterContext context, DefragmentedReceiver receiver) {
         _context = context;
         _log = context.logManager().getLog(FragmentHandler.class);
-        _fragmentedMessages = new HashMap(16);
+        _fragmentedMessages = new HashMap<Long, FragmentedMessage>(16);
         _receiver = receiver;
         // all createRateStat in TunnelDispatcher
     }
@@ -277,10 +277,10 @@ class FragmentHandler {
     /** for subsequent fragments, which bits contain the fragment #? */
     private static final int MASK_FRAGMENT_NUM = (byte)((1 << 7) - 2); // 0x7E;
     
-    /** LOCAL isn't explicitly used anywhere, because the code knows that it is 0 */
     static final short TYPE_LOCAL = 0;
     static final short TYPE_TUNNEL = 1;
     static final short TYPE_ROUTER = 2;
+    static final short TYPE_UNDEF = 3;
     
     /** 
      * @return the offset for the next byte after the received fragment 
@@ -350,19 +350,27 @@ class FragmentHandler {
         int size = (int)DataHelper.fromLong(preprocessed, offset, 2);
         offset += 2;
         
-        if (fragmented) {
+        if (type == TYPE_UNDEF) {
+            // do this after the above since we have to return offset
+            // no uses for TYPE_LOCAL yet
+            // OutboundTunnelEndpoint doesn't check for null Hash, passes it
+            // to OutboundMessageDistributor.distribute() which will NPE
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Dropping msg at tunnel endpoint with unsupported delivery instruction type " +
+                          type + " rcvr: " + _receiver);
+        } else if (fragmented) {
             FragmentedMessage msg;
             synchronized (_fragmentedMessages) {
                 msg = _fragmentedMessages.get(Long.valueOf(messageId));
                 if (msg == null) {
-                    msg = new FragmentedMessage(_context);
+                    msg = new FragmentedMessage(_context, messageId);
                     _fragmentedMessages.put(Long.valueOf(messageId), msg);
                 }
             }
 
             // synchronized is required, fragments may be arriving in different threads
             synchronized(msg) {
-                boolean ok = msg.receive(messageId, preprocessed, offset, size, false, router, tunnelId);
+                boolean ok = msg.receive(preprocessed, offset, size, false, router, tunnelId);
                 if (!ok) return -1;
                 if (msg.isComplete()) {
                     synchronized (_fragmentedMessages) {
@@ -422,14 +430,14 @@ class FragmentHandler {
         synchronized (_fragmentedMessages) {
             msg = _fragmentedMessages.get(Long.valueOf(messageId));
             if (msg == null) {
-                msg = new FragmentedMessage(_context);
+                msg = new FragmentedMessage(_context, messageId);
                 _fragmentedMessages.put(Long.valueOf(messageId), msg);
             }
         }
         
         // synchronized is required, fragments may be arriving in different threads
         synchronized(msg) {
-            boolean ok = msg.receive(messageId, fragmentNum, preprocessed, offset, size, isLast);
+            boolean ok = msg.receive(fragmentNum, preprocessed, offset, size, isLast);
             if (!ok) return -1;
             
             if (msg.isComplete()) {

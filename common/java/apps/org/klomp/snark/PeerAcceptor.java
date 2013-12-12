@@ -26,8 +26,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.SequenceInputStream;
-import java.util.Iterator;
-
 import net.i2p.I2PAppContext;
 import net.i2p.client.streaming.I2PSocket;
 import net.i2p.data.Base64;
@@ -170,8 +168,7 @@ class PeerAcceptor
         if (b != PROTO[i])
             throw new IOException("Bad protocol 0x" + Integer.toHexString(b) + " at byte " + i);
     }
-    if (in.skip(8) != 8)
-        throw new IOException("EOF before hash");
+    DataHelper.skip(in, 8);
     byte buf[] = new byte[20];
     int read = DataHelper.read(in, buf);
     if (read != buf.length)

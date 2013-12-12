@@ -83,7 +83,7 @@ class GeoIPv6 {
             if (!DataHelper.eq(magic, DataHelper.getASCII(MAGIC)))
                 throw new IOException("Not a IPv6 geoip data file");
             // skip timestamp and comments
-            in.skip(HEADER_LEN - MAGIC.length());
+            DataHelper.skip(in, HEADER_LEN - MAGIC.length());
             byte[] buf = new byte[18];
             while (DataHelper.read(in, buf) == 18 && idx < search.length) {
                 long ip1 = readLong(buf, 0);
@@ -154,7 +154,7 @@ class GeoIPv6 {
     */
     private static boolean compressGeoIPv6CSVFiles(List<File> inFiles, File outFile) {
         boolean DEBUG = false;
-        List<V6Entry> entries = new ArrayList(20000);
+        List<V6Entry> entries = new ArrayList<V6Entry>(20000);
         for (File geoFile : inFiles) {
             int count = 0;
             InputStream in = null;
@@ -293,6 +293,12 @@ class GeoIPv6 {
         }
 
         @Override
+        public int hashCode() { return (((int) from) ^ ((int) to)); }
+
+        @Override
+        public boolean equals(Object o) { return (o instanceof V6Entry) && compareTo((V6Entry)o) == 0; }
+
+        @Override
         public String toString() {
                 return "0x" + Long.toHexString(from) + " -> 0x" + Long.toHexString(to) + " : " + cc;
         }
@@ -327,16 +333,16 @@ class GeoIPv6 {
     /**
      *  Merge and compress CSV files to I2P compressed format
      *
-     *  GeoIP infile1.csv[.gz] [infile2.csv[.gz]...] outfile.dat.gz
+     *  GeoIPv6 infile1.csv[.gz] [infile2.csv[.gz]...] outfile.dat.gz
      *
      *  Used to create the file for distribution, do not comment out
      */
     public static void main(String args[]) {
         if (args.length < 2) {
-            System.err.println("Usage: GeoIP infile1.csv [infile2.csv...] outfile.dat.gz");
+            System.err.println("Usage: GeoIPv6 infile1.csv [infile2.csv...] outfile.dat.gz");
             System.exit(1);
         }
-        List<File> infiles = new ArrayList();
+        List<File> infiles = new ArrayList<File>();
         for (int i = 0; i < args.length - 1; i++) {
             infiles.add(new File(args[i]));
         }
@@ -347,6 +353,6 @@ class GeoIPv6 {
             System.exit(1);
         }
         // readback for testing
-        readGeoIPFile(outfile, new Long[] { Long.MAX_VALUE }, Collections.EMPTY_MAP, new Log(GeoIPv6.class));
+        readGeoIPFile(outfile, new Long[] { Long.MAX_VALUE }, Collections.<String, String> emptyMap(), new Log(GeoIPv6.class));
     }
 }

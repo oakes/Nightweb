@@ -2,6 +2,7 @@ package net.i2p.router.networkdb.kademlia;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.data.Hash;
 import net.i2p.router.Job;
@@ -29,7 +30,7 @@ public class FloodSearchJob extends JobImpl {
     protected long _expiration;
     protected int _timeoutMs;
     protected final boolean _isLease;
-    protected volatile int _lookupsRemaining;
+    protected final AtomicInteger _lookupsRemaining = new AtomicInteger();
     protected volatile boolean _dead;
     protected final long _created;
 
@@ -42,10 +43,10 @@ public class FloodSearchJob extends JobImpl {
         _log = ctx.logManager().getLog(getClass());
         _facade = facade;
         _key = key;
-        _onFind = new CopyOnWriteArrayList();
+        _onFind = new CopyOnWriteArrayList<Job>();
         if (onFind != null)
             _onFind.add(onFind);
-        _onFailed = new CopyOnWriteArrayList();
+        _onFailed = new CopyOnWriteArrayList<Job>();
         if (onFailed != null)
             _onFailed.add(onFailed);
         int timeout = timeoutMs / FLOOD_SEARCH_TIME_FACTOR;
@@ -148,16 +149,20 @@ public class FloodSearchJob extends JobImpl {
     protected Hash getKey() { return _key; }
 
     /**
-     *  TODO AtomicInteger?
      *  @return number remaining after decrementing
      */
     protected int decrementRemaining() {
-        if (_lookupsRemaining > 0)
-            return (--_lookupsRemaining);
-        return 0;
+        // safe decrement
+        for (;;) {
+            int n = _lookupsRemaining.get();
+            if (n <= 0)
+                return 0;
+            if (_lookupsRemaining.compareAndSet(n, n - 1))
+                return n - 1;
+        }
     }
 
-    protected int getLookupsRemaining() { return _lookupsRemaining; }
+    protected int getLookupsRemaining() { return _lookupsRemaining.get(); }
     
     /**
      *  Deprecated, unused, see FOSJ override

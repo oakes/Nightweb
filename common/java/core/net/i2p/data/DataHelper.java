@@ -92,7 +92,7 @@ public class DataHelper {
             "version", "created", "upgraded", "lists",
             "a", "s",
         };
-        _propertiesKeyCache = new HashMap(keys.length);
+        _propertiesKeyCache = new HashMap<String, String>(keys.length);
         for (int i = 0; i < keys.length; i++) {
             _propertiesKeyCache.put(keys[i], keys[i]);
         }
@@ -1141,6 +1141,46 @@ public class DataHelper {
     }
 
     /**
+     *  This is different than InputStream.skip(), in that it
+     *  does repeated reads until the full amount is skipped.
+     *  To fix findbugs issues with skip().
+     *
+     *  Guaranteed to skip exactly n bytes or throw an IOE.
+     *
+     *  http://stackoverflow.com/questions/14057720/robust-skipping-of-data-in-a-java-io-inputstream-and-its-subtypes
+     *  http://stackoverflow.com/questions/11511093/java-inputstream-skip-return-value-near-end-of-file
+     *
+     *  @since 0.9.9
+     */
+    public static void skip(InputStream in, long n) throws IOException {
+        if (n < 0)
+            throw new IllegalArgumentException();
+        if (n == 0)
+            return;
+        long read = 0;
+        long nm1 = n - 1;
+        if (nm1 > 0) {
+            // skip all but the last byte
+            do {
+                long c = in.skip(nm1 - read);
+                if (c < 0)
+                    throw new EOFException("EOF while skipping " + n + ", read only " + read);
+                if (c == 0) {
+                    // see second SO link above
+                    if (in.read() == -1)
+                        throw new EOFException("EOF while skipping " + n + ", read only " + read);
+                    read++;
+                } else {
+                    read += c;
+                }
+            } while (read < nm1);
+        }
+        // read the last byte to check for EOF
+        if (in.read() == -1)
+            throw new EOFException("EOF while skipping " + n + ", read only " + read);
+    }
+
+    /**
      *  This is different than InputStream.read(target), in that it
      *  does repeated reads until the full data is received.
      */
@@ -1354,7 +1394,7 @@ public class DataHelper {
      *  @return a new list
      */
     public static List<? extends DataStructure> sortStructures(Collection<? extends DataStructure> dataStructures) {
-        if (dataStructures == null) return Collections.EMPTY_LIST;
+        if (dataStructures == null) return Collections.emptyList();
 
         // This used to use Hash.toString(), which is insane, since a change to toString()
         // would break the whole network. Now use Hash.toBase64().
@@ -1369,7 +1409,7 @@ public class DataHelper {
         //for (DataStructure struct : tm.values()) {
         //    rv.add(struct);
         //}
-        ArrayList<DataStructure> rv = new ArrayList(dataStructures);
+        ArrayList<DataStructure> rv = new ArrayList<DataStructure>(dataStructures);
         sortStructureList(rv);
         return rv;
     }

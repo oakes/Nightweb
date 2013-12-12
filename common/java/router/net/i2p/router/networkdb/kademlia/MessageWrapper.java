@@ -43,15 +43,12 @@ public class MessageWrapper {
      *  @return null on encrypt failure
      */
     static WrappedMessage wrap(RouterContext ctx, I2NPMessage m, Hash from, RouterInfo to) {
-        DeliveryInstructions instructions = new DeliveryInstructions();
-        instructions.setDeliveryMode(DeliveryInstructions.DELIVERY_MODE_LOCAL);
-
         PayloadGarlicConfig payload = new PayloadGarlicConfig();
         payload.setCertificate(Certificate.NULL_CERT);
         payload.setId(ctx.random().nextLong(I2NPMessage.MAX_ID_VALUE));
         payload.setPayload(m);
         payload.setRecipient(to);
-        payload.setDeliveryInstructions(instructions);
+        payload.setDeliveryInstructions(DeliveryInstructions.LOCAL);
         payload.setExpiration(m.getMessageExpiration());
 
         SessionKeyManager skm;
@@ -62,7 +59,7 @@ public class MessageWrapper {
         if (skm == null)
             return null;
         SessionKey sentKey = new SessionKey();
-        Set<SessionTag> sentTags = new HashSet();
+        Set<SessionTag> sentTags = new HashSet<SessionTag>();
         GarlicMessage msg = GarlicMessageBuilder.buildMessage(ctx, payload, sentKey, sentTags, 
                                                               NETDB_TAGS_TO_DELIVER, NETDB_LOW_THRESHOLD, skm);
         if (msg == null)
@@ -127,15 +124,12 @@ public class MessageWrapper {
      *  @since 0.9.5
      */
     static GarlicMessage wrap(RouterContext ctx, I2NPMessage m, RouterInfo to) {
-        DeliveryInstructions instructions = new DeliveryInstructions();
-        instructions.setDeliveryMode(DeliveryInstructions.DELIVERY_MODE_LOCAL);
-
         PayloadGarlicConfig payload = new PayloadGarlicConfig();
         payload.setCertificate(Certificate.NULL_CERT);
         payload.setId(ctx.random().nextLong(I2NPMessage.MAX_ID_VALUE));
         payload.setPayload(m);
         payload.setRecipient(to);
-        payload.setDeliveryInstructions(instructions);
+        payload.setDeliveryInstructions(DeliveryInstructions.LOCAL);
         payload.setExpiration(m.getMessageExpiration());
 
         SessionKey sentKey = ctx.keyGenerator().generateSessionKey();
@@ -168,10 +162,38 @@ public class MessageWrapper {
      *  @since 0.9.7
      */
     public static OneTimeSession generateSession(RouterContext ctx) {
+        return generateSession(ctx, ctx.sessionKeyManager());
+    }
+
+    /**
+     *  Create a single key and tag, for receiving a single encrypted message,
+     *  and register it with the client's session key manager, to expire in two minutes.
+     *  The recipient can then send us an AES-encrypted message,
+     *  avoiding ElGamal.
+     *
+     *  @return null if we can't find the SKM for the localDest
+     *  @since 0.9.9
+     */
+    public static OneTimeSession generateSession(RouterContext ctx, Hash localDest) {
+         SessionKeyManager skm = ctx.clientManager().getClientSessionKeyManager(localDest);
+         if (skm == null)
+             return null;
+         return generateSession(ctx, skm);
+    }
+
+    /**
+     *  Create a single key and tag, for receiving a single encrypted message,
+     *  and register it with the given session key manager, to expire in two minutes.
+     *  The recipient can then send us an AES-encrypted message,
+     *  avoiding ElGamal.
+     *
+     *  @since 0.9.9
+     */
+    private static OneTimeSession generateSession(RouterContext ctx, SessionKeyManager skm) {
         SessionKey key = ctx.keyGenerator().generateSessionKey();
         SessionTag tag = new SessionTag(true);
-        Set<SessionTag> tags = new RemovableSingletonSet(tag);
-        ctx.sessionKeyManager().tagsReceived(key, tags, 2*60*1000);
+        Set<SessionTag> tags = new RemovableSingletonSet<SessionTag>(tag);
+        skm.tagsReceived(key, tags, 2*60*1000);
         return new OneTimeSession(key, tag);
     }
 
@@ -187,14 +209,11 @@ public class MessageWrapper {
      *  @since 0.9.7
      */
     public static GarlicMessage wrap(RouterContext ctx, I2NPMessage m, SessionKey encryptKey, SessionTag encryptTag) {
-        DeliveryInstructions instructions = new DeliveryInstructions();
-        instructions.setDeliveryMode(DeliveryInstructions.DELIVERY_MODE_LOCAL);
-
         PayloadGarlicConfig payload = new PayloadGarlicConfig();
         payload.setCertificate(Certificate.NULL_CERT);
         payload.setId(ctx.random().nextLong(I2NPMessage.MAX_ID_VALUE));
         payload.setPayload(m);
-        payload.setDeliveryInstructions(instructions);
+        payload.setDeliveryInstructions(DeliveryInstructions.LOCAL);
         payload.setExpiration(m.getMessageExpiration());
 
         GarlicMessage msg = GarlicMessageBuilder.buildMessage(ctx, payload, null, null, 

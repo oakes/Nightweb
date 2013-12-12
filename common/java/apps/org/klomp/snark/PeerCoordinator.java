@@ -134,9 +134,6 @@ class PeerCoordinator implements PeerListener
   private final CoordinatorListener listener;
   private final I2PSnarkUtil _util;
   private final Random _random;
-
-  /** Maintain connections with peers even after the torrent has finished. */
-  private boolean persistent = false;
   
   /**
    *  @param metainfo null if in magnet mode
@@ -154,12 +151,12 @@ class PeerCoordinator implements PeerListener
     this.listener = listener;
     this.snark = torrent;
 
-    wantedPieces = new ArrayList();
+    wantedPieces = new ArrayList<Piece>();
     setWantedPieces();
-    partialPieces = new ArrayList(getMaxConnections() + 1);
-    peers = new LinkedBlockingQueue();
+    partialPieces = new ArrayList<PartialPiece>(getMaxConnections() + 1);
+    peers = new LinkedBlockingQueue<Peer>();
     magnetState = new MagnetState(infohash, metainfo);
-    pexPeers = new ConcurrentHashSet();
+    pexPeers = new ConcurrentHashSet<PeerID>();
 
     // Install a timer to check the uploaders.
     // Randomize the first start time so multiple tasks are spread out,
@@ -221,7 +218,7 @@ class PeerCoordinator implements PeerListener
   /** for web page detailed stats */
   public List<Peer> peerList()
   {
-        return new ArrayList(peers);
+        return new ArrayList<Peer>(peers);
   }
 
   public byte[] getID()
@@ -380,7 +377,7 @@ class PeerCoordinator implements PeerListener
   public boolean needOutboundPeers() {
         //return wantedBytes != 0 && needPeers();
         // minus two to make it a little easier for new peers to get in on large swarms
-        return (wantedBytes != 0 || persistent) &&
+        return wantedBytes != 0 &&
                !halted &&
                peers.size() < getMaxConnections() - 2 &&
                (storage == null || !storage.isChecking());
@@ -410,20 +407,12 @@ class PeerCoordinator implements PeerListener
     //return (max + 2) / 3;
   }
 
-  public void setPersistent(boolean isPersistent) {
-    persistent = isPersistent;
-  }
-
-  public boolean getPersistent() {
-    return persistent;
-  }
-
   public boolean halted() { return halted; }
 
   public void halt()
   {
     halted = true;
-    List<Peer> removed = new ArrayList();
+    List<Peer> removed = new ArrayList<Peer>();
     synchronized(peers)
       {
         // Stop peer checker task.
@@ -624,7 +613,7 @@ class PeerCoordinator implements PeerListener
     // linked list will contain all interested peers that we choke.
     // At the start are the peers that have us unchoked at the end the
     // other peer that are interested, but are choking us.
-    List<Peer> interested = new LinkedList();
+    List<Peer> interested = new LinkedList<Peer>();
         int count = 0;
         int unchokedCount = 0;
         int maxUploaders = allowedUploaders();
@@ -699,7 +688,7 @@ class PeerCoordinator implements PeerListener
             }
         }
     }
-    return rv || (wantedBytes == 0 && persistent);
+    return rv;
   }
 
   /**
@@ -740,7 +729,7 @@ class PeerCoordinator implements PeerListener
     }
 
     Piece piece = null;
-    List<Piece> requested = new ArrayList(); 
+    List<Piece> requested = new ArrayList<Piece>(); 
     int wantedSize = END_GAME_THRESHOLD + 1;
     synchronized(wantedPieces)
       {
@@ -844,7 +833,7 @@ class PeerCoordinator implements PeerListener
           _log.debug("Updated piece priorities called but no priorities to set?");
           return;
       }
-      List<Piece> toCancel = new ArrayList();
+      List<Piece> toCancel = new ArrayList<Piece>();
       synchronized(wantedPieces) {
           // Add incomplete and previously unwanted pieces to the list
           // Temp to avoid O(n**2)
@@ -1030,7 +1019,7 @@ class PeerCoordinator implements PeerListener
 
     // Announce to the world we have it!
     // Disconnect from other seeders when we get the last piece
-    List<Peer> toDisconnect = done ? new ArrayList() : null; 
+    List<Peer> toDisconnect = done ? new ArrayList<Peer>() : null; 
     for (Peer p : peers) {
             if (p.isConnected())
               {
@@ -1042,10 +1031,8 @@ class PeerCoordinator implements PeerListener
     }
 
     if (done) {
-        if (!persistent) {
-            for (Peer p : toDisconnect) {
-                p.disconnect(true);
-            }
+        for (Peer p : toDisconnect) {
+            p.disconnect(true);
         }
     
         // put msg on the console if partial, since Storage won't do it

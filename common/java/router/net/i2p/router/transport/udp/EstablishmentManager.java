@@ -9,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-import net.i2p.data.Base64;
-import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
 import net.i2p.data.RouterAddress;
 import net.i2p.data.RouterIdentity;
@@ -127,12 +125,12 @@ class EstablishmentManager {
         _log = ctx.logManager().getLog(EstablishmentManager.class);
         _transport = transport;
         _builder = new PacketBuilder(ctx, transport);
-        _inboundStates = new ConcurrentHashMap();
-        _outboundStates = new ConcurrentHashMap();
-        _queuedOutbound = new ConcurrentHashMap();
-        _liveIntroductions = new ConcurrentHashMap();
-        _outboundByClaimedAddress = new ConcurrentHashMap();
-        _outboundByHash = new ConcurrentHashMap();
+        _inboundStates = new ConcurrentHashMap<RemoteHostId, InboundEstablishState>();
+        _outboundStates = new ConcurrentHashMap<RemoteHostId, OutboundEstablishState>();
+        _queuedOutbound = new ConcurrentHashMap<RemoteHostId, List<OutNetMessage>>();
+        _liveIntroductions = new ConcurrentHashMap<Long, OutboundEstablishState>();
+        _outboundByClaimedAddress = new ConcurrentHashMap<RemoteHostId, OutboundEstablishState>();
+        _outboundByHash = new ConcurrentHashMap<Hash, OutboundEstablishState>();
         _activityLock = new Object();
         DEFAULT_MAX_CONCURRENT_ESTABLISH = Math.max(DEFAULT_LOW_MAX_CONCURRENT_ESTABLISH,
                                                     Math.min(DEFAULT_HIGH_MAX_CONCURRENT_ESTABLISH,
@@ -312,7 +310,7 @@ class EstablishmentManager {
                     if (_queuedOutbound.size() >= MAX_QUEUED_OUTBOUND && !_queuedOutbound.containsKey(to)) {
                         rejected = true;
                     } else {
-                        List<OutNetMessage> newQueued = new ArrayList(MAX_QUEUED_PER_PEER);
+                        List<OutNetMessage> newQueued = new ArrayList<OutNetMessage>(MAX_QUEUED_PER_PEER);
                         List<OutNetMessage> queued = _queuedOutbound.putIfAbsent(to, newQueued);
                         if (queued == null) {
                             queued = newQueued;
@@ -622,7 +620,7 @@ class EstablishmentManager {
             }
             RemoteHostId to = entry.getKey();
             List<OutNetMessage> allQueued = entry.getValue();
-            List<OutNetMessage> queued = new ArrayList();
+            List<OutNetMessage> queued = new ArrayList<OutNetMessage>();
             long now = _context.clock().now();
             synchronized (allQueued) {
                 for (OutNetMessage msg : allQueued) {
@@ -1306,7 +1304,7 @@ class EstablishmentManager {
         _outboundByHash.remove(outboundState.getRemoteIdentity().calculateHash(), outboundState);
         // should have already been removed in handleOutbound() above
         // remove only if value == state
-        boolean removed = _outboundStates.remove(outboundState.getRemoteHostId(), outboundState);
+        _outboundStates.remove(outboundState.getRemoteHostId(), outboundState);
         if (outboundState.getState() != OB_STATE_CONFIRMED_COMPLETELY) {
             if (_log.shouldLog(Log.INFO))
                 _log.info("Expired: " + outboundState + " Lifetime: " + outboundState.getLifetime());

@@ -33,11 +33,11 @@ import net.i2p.util.VersionComparator;
  */
 class StoreJob extends JobImpl {
     protected final Log _log;
-    private KademliaNetworkDatabaseFacade _facade;
+    private final KademliaNetworkDatabaseFacade _facade;
     protected final StoreState _state;
     private final Job _onSuccess;
     private final Job _onFailure;
-    private long _timeoutMs;
+    private final long _timeoutMs;
     private final long _expiration;
     private final PeerSelector _peerSelector;
 
@@ -234,7 +234,7 @@ class StoreJob extends JobImpl {
     private List<Hash> getClosestFloodfillRouters(Hash key, int numClosest, Set<Hash> alreadyChecked) {
         Hash rkey = getContext().routingKeyGenerator().getRoutingKey(key);
         KBucketSet ks = _facade.getKBuckets();
-        if (ks == null) return new ArrayList();
+        if (ks == null) return new ArrayList<Hash>();
         return ((FloodfillPeerSelector)_peerSelector).selectFloodfillParticipants(rkey, numClosest, alreadyChecked, ks);
     }
 
@@ -315,15 +315,11 @@ class StoreJob extends JobImpl {
         
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("sending store directly to " + peer.getIdentity().getHash());
-        OutNetMessage m = new OutNetMessage(getContext());
-        m.setExpiration(expiration);
-        m.setMessage(msg);
+        OutNetMessage m = new OutNetMessage(getContext(), msg, expiration, STORE_PRIORITY, peer);
         m.setOnFailedReplyJob(onFail);
         m.setOnFailedSendJob(onFail);
         m.setOnReplyJob(onReply);
-        m.setPriority(STORE_PRIORITY);
         m.setReplySelector(selector);
-        m.setTarget(peer);
         getContext().messageRegistry().registerPending(m);
         getContext().commSystem().processMessage(m);
     }

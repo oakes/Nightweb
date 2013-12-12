@@ -125,7 +125,7 @@ public abstract class TunnelPeerSelector {
             peers = I2PAppContext.getGlobalContext().getProperty("explicitPeers");
         
         Log log = ctx.logManager().getLog(ClientPeerSelector.class);
-        List<Hash> rv = new ArrayList();
+        List<Hash> rv = new ArrayList<Hash>();
         StringTokenizer tok = new StringTokenizer(peers, ",");
         while (tok.hasMoreTokens()) {
             String peerStr = tok.nextToken();
@@ -198,7 +198,7 @@ public abstract class TunnelPeerSelector {
         //
         // Defaults changed to true for inbound only in filterUnreachable below.
 
-        Set<Hash> peers = new HashSet(1);
+        Set<Hash> peers = new HashSet<Hash>(1);
         peers.addAll(ctx.profileOrganizer().selectPeersRecentlyRejecting());
         peers.addAll(ctx.tunnelManager().selectPeersInTooManyTunnels());
         // if (false && filterUnreachable(ctx, isInbound, isExploratory)) {
@@ -218,10 +218,10 @@ public abstract class TunnelPeerSelector {
             char excl[] = getExcludeCaps(ctx);
             if (excl != null) {
                 FloodfillNetworkDatabaseFacade fac = (FloodfillNetworkDatabaseFacade)ctx.netDb();
-                List known = fac.getKnownRouterData();
+                List<RouterInfo> known = fac.getKnownRouterData();
                 if (known != null) {
                     for (int i = 0; i < known.size(); i++) {
-                        RouterInfo peer = (RouterInfo)known.get(i);
+                        RouterInfo peer = known.get(i);
                         boolean shouldExclude = shouldExclude(ctx, log, peer, excl);
                         if (shouldExclude) {
                             peers.add(peer.getIdentity().calculateHash());
@@ -348,9 +348,6 @@ public abstract class TunnelPeerSelector {
 
     private static boolean shouldExclude(RouterContext ctx, Log log, RouterInfo peer, char excl[]) {
         String cap = peer.getCapabilities();
-        if (cap == null) {
-            return true;
-        }
         for (int j = 0; j < excl.length; j++) {
             if (cap.indexOf(excl[j]) >= 0) {
                 return true;
@@ -510,7 +507,7 @@ public abstract class TunnelPeerSelector {
 ****/
 
     /** see HashComparator */
-    protected void orderPeers(List rv, Hash hash) {
+    protected void orderPeers(List<Hash> rv, Hash hash) {
         if (rv.size() > 1)
             Collections.sort(rv, new HashComparator(hash));
     }

@@ -12,12 +12,9 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Properties;
 import java.util.Vector;
 
 import net.i2p.data.Hash;
@@ -27,9 +24,9 @@ import net.i2p.router.CommSystemFacade;
 import net.i2p.router.OutNetMessage;
 import net.i2p.router.RouterContext;
 import net.i2p.router.transport.udp.UDPTransport;
+import net.i2p.router.util.EventLog;
 import net.i2p.util.Addresses;
 import net.i2p.util.Log;
-import net.i2p.util.SimpleScheduler;
 import net.i2p.util.SimpleTimer;
 import net.i2p.util.SimpleTimer2;
 import net.i2p.util.Translate;
@@ -100,7 +97,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
      */
     @Override
     public long getFramedAveragePeerClockSkew(int percentToInclude) {
-        Vector skews = _manager.getClockSkews();
+        Vector<Long> skews = _manager.getClockSkews();
         if (skews == null ||
             skews.isEmpty() ||
             (skews.size() < 5 && _context.clock().getUpdatedSuccessfully())) {
@@ -190,7 +187,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         // No, don't do this, it makes it almost impossible to build inbound tunnels
         //if (_context.router().isHidden())
         //    return Collections.EMPTY_SET;
-        List<RouterAddress> addresses = new ArrayList(_manager.getAddresses());
+        List<RouterAddress> addresses = new ArrayList<RouterAddress>(_manager.getAddresses());
         if (_log.shouldLog(Log.INFO))
             _log.info("Creating addresses: " + addresses, new Exception("creator"));
         return addresses;
@@ -323,6 +320,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
     }
 
     private static final String BUNDLE_NAME = "net.i2p.router.web.messages";
+    private static final String COUNTRY_BUNDLE_NAME = "net.i2p.router.countries.messages";
 
     /** Provide a consistent "look" for displaying router IDs in the console */
     @Override
@@ -333,7 +331,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         if (c != null) {
             String countryName = getCountryName(c);
             if (countryName.length() > 2)
-                countryName = Translate.getString(countryName, _context, BUNDLE_NAME);
+                countryName = Translate.getString(countryName, _context, COUNTRY_BUNDLE_NAME);
             buf.append("<img height=\"11\" width=\"16\" alt=\"").append(c.toUpperCase(Locale.US)).append("\" title=\"");
             buf.append(countryName);
             buf.append("\" src=\"/flags.jsp?c=").append(c).append("\"> ");
@@ -419,7 +417,10 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
 
         public void timeReached() {
              boolean good = Addresses.isConnected();
-             _netMonitorStatus = good;
+             if (_netMonitorStatus != good) {
+                 _context.router().eventLog().addEvent(EventLog.NETWORK, good ? "connected" : "disconnected");
+                 _netMonitorStatus = good;
+             }
              reschedule(good ? LONG_DELAY : SHORT_DELAY);
         }
     }

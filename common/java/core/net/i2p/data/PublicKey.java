@@ -23,11 +23,13 @@ public class PublicKey extends SimpleDataStructure {
     public final static int KEYSIZE_BYTES = 256;
     private static final int CACHE_SIZE = 1024;
 
-    private static final SDSCache<PublicKey> _cache = new SDSCache(PublicKey.class, KEYSIZE_BYTES, CACHE_SIZE);
+    private static final SDSCache<PublicKey> _cache = new SDSCache<PublicKey>(PublicKey.class, KEYSIZE_BYTES, CACHE_SIZE);
 
     /**
-     * Pull from cache or return new
-     * @throws AIOOBE if not enough bytes
+     * Pull from cache or return new.
+     * Deprecated - used only by deprecated Destination.readBytes(data, off)
+     *
+     * @throws AIOOBE if not enough bytes, FIXME should throw DataFormatException
      * @since 0.8.3
      */
     public static PublicKey create(byte[] data, int off) {

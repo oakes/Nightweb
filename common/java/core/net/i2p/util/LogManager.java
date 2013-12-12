@@ -15,15 +15,16 @@ import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Queue;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import net.i2p.I2PAppContext;
@@ -130,14 +131,14 @@ public class LogManager {
     public LogManager(I2PAppContext context) {
         _displayOnScreen = true;
         _alreadyNoticedMissingConfig = false;
-        _limits = new ConcurrentHashSet();
-        _logs = new ConcurrentHashMap(128);
+        _limits = new ConcurrentHashSet<LogLimit>();
+        _logs = new ConcurrentHashMap<Object, Log>(128);
         _defaultLimit = Log.ERROR;
         _context = context;
         _log = getLog(LogManager.class);
         String location = context.getProperty(CONFIG_LOCATION_PROP, CONFIG_LOCATION_DEFAULT);
         setConfig(location);
-        _records = new LinkedBlockingQueue(_logBufferSize);
+        _records = new LinkedBlockingQueue<LogRecord>(_logBufferSize);
         _consoleBuffer = new LogConsoleBuffer(_consoleBufferSize);
         // If we aren't in the router context, delay creating the LogWriter until required,
         // so it doesn't create a log directory and log files unless there is output.
@@ -406,9 +407,8 @@ public class LogManager {
     private void parseLimits(Properties config, String recordPrefix) {
         _limits.clear();
         if (config != null) {
-            for (Iterator iter = config.keySet().iterator(); iter.hasNext();) {
-                String key = (String) iter.next();
-                String val = config.getProperty(key);
+            for (Map.Entry e : config.entrySet()) {
+                String key = (String) e.getKey();
 
                 // if we're filtering the records (e.g. logger.record.*) then
                 // filter accordingly (stripping off that prefix for matches)
@@ -420,6 +420,7 @@ public class LogManager {
                     }
                 }
 
+                String val = (String) e.getValue();
                 LogLimit lim = new LogLimit(key, Log.getLevel(val));
                 //_log.debug("Limit found for " + name + " as " + val);
                 if (!_limits.contains(lim))
@@ -581,7 +582,7 @@ public class LogManager {
         for (LogLimit limit : _limits) {
             if (limit.matches(log)) { 
                 if (limits == null)
-                    limits = new ArrayList(4);
+                    limits = new ArrayList<LogLimit>(4);
                 limits.add(limit);
             }
         }
@@ -738,11 +739,12 @@ public class LogManager {
         _consoleBuffer.clear();
     }
 
-    private static int __id = 0;
+    private static final AtomicInteger __id = new AtomicInteger();
+
     private class ShutdownHook extends Thread {
-        private int _id;
+        private final int _id;
         public ShutdownHook() {
-            _id = ++__id;
+            _id = __id.incrementAndGet();
         }
         @Override
         public void run() {

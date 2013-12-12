@@ -38,9 +38,9 @@ public class I2PSocketManagerFull implements I2PSocketManager {
     private final ConnectionOptions _defaultOptions;
     private long _acceptTimeout;
     private String _name;
-    private static final AtomicInteger __managerId = new AtomicInteger(0);
+    private static final AtomicInteger __managerId = new AtomicInteger();
     private final ConnectionManager _connectionManager;
-    private final AtomicBoolean _isDestroyed = new AtomicBoolean(false);
+    private final AtomicBoolean _isDestroyed = new AtomicBoolean();
     
     /**
      * How long to wait for the client app to accept() before sending back CLOSE?
@@ -204,7 +204,7 @@ public class I2PSocketManagerFull implements I2PSocketManager {
 
     private void verifySession() throws I2PException {
         if (_isDestroyed.get())
-            throw new I2PException("destroyed");
+            throw new I2PException("Session was closed");
         if (!_connectionManager.getSession().isClosed())
             return;
         _connectionManager.getSession().connect();
@@ -336,6 +336,15 @@ public class I2PSocketManagerFull implements I2PSocketManager {
             if (pcap != null)
                 pcap.flush();
         }
+    }
+
+    /**
+     * Has the socket manager been destroyed?
+     *
+     * @since 0.9.9
+     */
+    public boolean isDestroyed() {
+        return _isDestroyed.get();
     }
 
     /**

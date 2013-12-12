@@ -7,7 +7,6 @@ import java.util.Map;
 import java.util.Set;
 
 import net.i2p.data.DatabaseEntry;
-import net.i2p.data.DataFormatException;
 import net.i2p.data.Hash;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.TunnelId;
@@ -38,16 +37,17 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
      *  This is the flood redundancy. Entries are
      *  sent to this many other floodfills.
      *  Was 7 through release 0.9; 5 for 0.9.1.
+     *  4 as of 0.9.2; 3 as of 0.9.9
      */
-    private static final int MAX_TO_FLOOD = 4;
+    private static final int MAX_TO_FLOOD = 3;
     
     private static final int FLOOD_PRIORITY = OutNetMessage.PRIORITY_NETDB_FLOOD;
     private static final int FLOOD_TIMEOUT = 30*1000;
     
     public FloodfillNetworkDatabaseFacade(RouterContext context) {
         super(context);
-        _activeFloodQueries = new HashMap();
-         _verifiesInProgress = new ConcurrentHashSet(8);
+        _activeFloodQueries = new HashMap<Hash, FloodSearchJob>();
+         _verifiesInProgress = new ConcurrentHashSet<Hash>(8);
 
         _context.statManager().createRequiredRateStat("netDb.successTime", "Time for successful lookup (ms)", "NetworkDatabase", new long[] { 60*60*1000l, 24*60*60*1000l });
         _context.statManager().createRateStat("netDb.failedTime", "How long a failed search takes", "NetworkDatabase", new long[] { 60*60*1000l, 24*60*60*1000l });
@@ -139,7 +139,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
     }
     
     @Override
-    public void sendStore(Hash key, DatabaseEntry ds, Job onSuccess, Job onFailure, long sendTimeout, Set toIgnore) {
+    public void sendStore(Hash key, DatabaseEntry ds, Job onSuccess, Job onFailure, long sendTimeout, Set<Hash> toIgnore) {
         // if we are a part of the floodfill netDb, don't send out our own leaseSets as part 
         // of the flooding - instead, send them to a random floodfill peer so *they* can flood 'em out.
         // perhaps statistically adjust this so we are the source every 1/N times... or something.
@@ -211,15 +211,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
                 continue;
             DatabaseStoreMessage msg = new DatabaseStoreMessage(_context);
             msg.setEntry(ds);
-            msg.setReplyGateway(null);
-            msg.setReplyToken(0);
-            msg.setReplyTunnel(null);
-            OutNetMessage m = new OutNetMessage(_context);
-            m.setMessage(msg);
-            m.setOnFailedReplyJob(null);
-            m.setPriority(FLOOD_PRIORITY);
-            m.setTarget(target);
-            m.setExpiration(_context.clock().now()+FLOOD_TIMEOUT);
+            OutNetMessage m = new OutNetMessage(_context, msg, _context.clock().now()+FLOOD_TIMEOUT, FLOOD_PRIORITY, target);
             // note send failure but don't give credit on success
             // might need to change this
             Job floodFail = new FloodFailedJob(_context, peer);
@@ -236,7 +228,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
 
     /** note in the profile that the store failed */
     private static class FloodFailedJob extends JobImpl {
-        private Hash _peer;
+        private final Hash _peer;
     
         public FloodFailedJob(RouterContext ctx, Hash peer) {
             super(ctx);
@@ -275,7 +267,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
     }
 
     public List<RouterInfo> getKnownRouterData() {
-        List<RouterInfo> rv = new ArrayList();
+        List<RouterInfo> rv = new ArrayList<RouterInfo>();
         DataStore ds = getDataStore();
         if (ds != null) {
             for (DatabaseEntry o : ds.getEntries()) {
@@ -471,7 +463,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
         }
         public String getName() { return "Lookup on failure of netDb peer timed out"; }
         public void runJob() {
-            dropAfterLookupFailed(_peer, _info);
+            dropAfterLookupFailed(_peer);
         }
     }
 
@@ -491,7 +483,7 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
                 // great, a legitimate update
             } else {
                 // they just sent us what we already had.  kill 'em both
-                dropAfterLookupFailed(_peer, _info);
+                dropAfterLookupFailed(_peer);
             }
         }
     }

@@ -164,7 +164,7 @@ class PersistentDataStore extends TransientDataStore {
             super(PersistentDataStore.this._context);
             _key = key;
         }
-        public String getName() { return "Remove Key"; }
+        public String getName() { return "Delete RI file"; }
         public void runJob() {
             if (_log.shouldLog(Log.INFO))
                 _log.info("Removing key " + _key /* , getAddedBy() */);
@@ -196,7 +196,7 @@ class PersistentDataStore extends TransientDataStore {
         private volatile boolean _quit;
 
         public Writer() { 
-            _keys = new ConcurrentHashMap(64);
+            _keys = new ConcurrentHashMap<Hash, DatabaseEntry>(64);
             _waitLock = new Object();
         }
 

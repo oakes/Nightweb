@@ -186,8 +186,7 @@ public class SessionConfig extends DataStructureImpl {
     }
 
     public void readBytes(InputStream rawConfig) throws DataFormatException, IOException {
-        _destination = new Destination();
-        _destination.readBytes(rawConfig);
+        _destination = Destination.create(rawConfig);
         _options = DataHelper.readProperties(rawConfig);
         _creationDate = DataHelper.readDate(rawConfig);
         _signature = new Signature();

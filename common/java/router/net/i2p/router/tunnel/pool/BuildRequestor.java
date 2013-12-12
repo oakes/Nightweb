@@ -16,6 +16,7 @@ import net.i2p.router.JobImpl;
 import net.i2p.router.OutNetMessage;
 import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelInfo;
+import net.i2p.router.TunnelManagerFacade;
 import net.i2p.router.tunnel.BuildMessageGenerator;
 import net.i2p.util.Log;
 import net.i2p.util.VersionComparator;
@@ -24,7 +25,7 @@ import net.i2p.util.VersionComparator;
  *  Methods for creating Tunnel Build Messages, i.e. requests
  */
 abstract class BuildRequestor {
-    private static final List<Integer> ORDER = new ArrayList(TunnelBuildMessage.MAX_RECORD_COUNT);
+    private static final List<Integer> ORDER = new ArrayList<Integer>(TunnelBuildMessage.MAX_RECORD_COUNT);
     static {
         for (int i = 0; i < TunnelBuildMessage.MAX_RECORD_COUNT; i++)
             ORDER.add(Integer.valueOf(i));
@@ -98,15 +99,19 @@ abstract class BuildRequestor {
     }
 
     /**
+     *  Send out a build request message.
+     *
      *  @param cfg ReplyMessageId must be set
+     *  @return success
      */
-    public static void request(RouterContext ctx, TunnelPool pool, PooledTunnelCreatorConfig cfg, BuildExecutor exec) {
+    public static boolean request(RouterContext ctx, TunnelPool pool,
+                                  PooledTunnelCreatorConfig cfg, BuildExecutor exec) {
         // new style crypto fills in all the blanks, while the old style waits for replies to fill in the next hop, etc
         prepare(ctx, cfg);
         
         if (cfg.getLength() <= 1) {
             buildZeroHop(ctx, pool, cfg, exec);
-            return;
+            return true;
         }
         
         Log log = ctx.logManager().getLog(BuildRequestor.class);
@@ -114,49 +119,70 @@ abstract class BuildRequestor {
         
         TunnelInfo pairedTunnel = null;
         Hash farEnd = cfg.getFarEnd();
+        TunnelManagerFacade mgr = ctx.tunnelManager();
+        boolean isInbound = pool.getSettings().isInbound();
         if (pool.getSettings().isExploratory() || !usePairedTunnels(ctx)) {
-            if (pool.getSettings().isInbound())
-                pairedTunnel = ctx.tunnelManager().selectOutboundExploratoryTunnel(farEnd);
+            if (isInbound)
+                pairedTunnel = mgr.selectOutboundExploratoryTunnel(farEnd);
             else
-                pairedTunnel = ctx.tunnelManager().selectInboundExploratoryTunnel(farEnd);
+                pairedTunnel = mgr.selectInboundExploratoryTunnel(farEnd);
         } else {
-            if (pool.getSettings().isInbound())
-                pairedTunnel = ctx.tunnelManager().selectOutboundTunnel(pool.getSettings().getDestination(), farEnd);
+            // building a client tunnel
+            if (isInbound)
+                pairedTunnel = mgr.selectOutboundTunnel(pool.getSettings().getDestination(), farEnd);
             else
-                pairedTunnel = ctx.tunnelManager().selectInboundTunnel(pool.getSettings().getDestination(), farEnd);
-        }
-        if (pairedTunnel == null) {   
-            if (log.shouldLog(Log.WARN))
-                log.warn("Couldn't find a paired tunnel for " + cfg + ", fall back on exploratory tunnels for pairing");
-            if (!pool.getSettings().isExploratory() && usePairedTunnels(ctx))
-                if (pool.getSettings().isInbound())
-                    pairedTunnel = ctx.tunnelManager().selectOutboundExploratoryTunnel(farEnd);
-                else
-                    pairedTunnel = ctx.tunnelManager().selectInboundExploratoryTunnel(farEnd);
+                pairedTunnel = mgr.selectInboundTunnel(pool.getSettings().getDestination(), farEnd);
+            if (pairedTunnel == null) {   
+                if (isInbound) {
+                    // random more reliable than closest ??
+                    //pairedTunnel = mgr.selectOutboundExploratoryTunnel(farEnd);
+                    pairedTunnel = mgr.selectOutboundTunnel();
+                    if (pairedTunnel != null &&
+                        pairedTunnel.getLength() <= 1 &&
+                        mgr.getOutboundSettings().getLength() + mgr.getOutboundSettings().getLengthVariance() > 0) {
+                        // don't build using a zero-hop expl.,
+                        // as it is both very bad for anonomyity,
+                        // and it takes a build slot away from exploratory
+                        pairedTunnel = null;
+                    }
+                } else {
+                    // random more reliable than closest ??
+                    //pairedTunnel = mgr.selectInboundExploratoryTunnel(farEnd);
+                    pairedTunnel = mgr.selectInboundTunnel();
+                    if (pairedTunnel != null &&
+                        pairedTunnel.getLength() <= 1 &&
+                        mgr.getInboundSettings().getLength() + mgr.getInboundSettings().getLengthVariance() > 0) {
+                        // ditto
+                        pairedTunnel = null;
+                    }
+                }
+                if (pairedTunnel != null && log.shouldLog(Log.INFO))
+                    log.info("Couldn't find a paired tunnel for " + cfg + ", using exploratory tunnel");
+            }
         }
         if (pairedTunnel == null) {
-            if (log.shouldLog(Log.ERROR))
-                log.error("Tunnel build failed, as we couldn't find a paired tunnel for " + cfg);
+            if (log.shouldLog(Log.WARN))
+                log.warn("Tunnel build failed, as we couldn't find a paired tunnel for " + cfg);
             exec.buildComplete(cfg, pool);
-            // Not even a zero-hop exploratory tunnel? We are in big trouble.
+            // Not even an exploratory tunnel? We are in big trouble.
             // Let's not spin through here too fast.
             try { Thread.sleep(250); } catch (InterruptedException ie) {}
-            return;
+            return false;
         }
         
-        long beforeCreate = System.currentTimeMillis();
+        //long beforeCreate = System.currentTimeMillis();
         TunnelBuildMessage msg = createTunnelBuildMessage(ctx, pool, cfg, pairedTunnel, exec);
-        long createTime = System.currentTimeMillis()-beforeCreate;
+        //long createTime = System.currentTimeMillis()-beforeCreate;
         if (msg == null) {
             if (log.shouldLog(Log.WARN))
                 log.warn("Tunnel build failed, as we couldn't create the tunnel build message for " + cfg);
             exec.buildComplete(cfg, pool);
-            return;
+            return false;
         }
         
         //cfg.setPairedTunnel(pairedTunnel);
         
-        long beforeDispatch = System.currentTimeMillis();
+        //long beforeDispatch = System.currentTimeMillis();
         if (cfg.isInbound()) {
             if (log.shouldLog(Log.INFO))
                 log.info("Sending the tunnel build request " + msg.getUniqueId() + " out the tunnel " + pairedTunnel + " to " 
@@ -172,29 +198,26 @@ abstract class BuildRequestor {
                           + " for " + cfg + " waiting for the reply of " + cfg.getReplyMessageId() 
                           + " with msgId=" + msg.getUniqueId());
             // send it directly to the first hop
-            OutNetMessage outMsg = new OutNetMessage(ctx);
             // Add some fuzz to the TBM expiration to make it harder to guess how many hops
             // or placement in the tunnel
             msg.setMessageExpiration(ctx.clock().now() + BUILD_MSG_TIMEOUT + ctx.random().nextLong(20*1000));
             // We set the OutNetMessage expiration much shorter, so that the
             // TunnelBuildFirstHopFailJob fires before the 13s build expiration.
-            outMsg.setExpiration(ctx.clock().now() + FIRST_HOP_TIMEOUT);
-            outMsg.setMessage(msg);
-            outMsg.setPriority(PRIORITY);
             RouterInfo peer = ctx.netDb().lookupRouterInfoLocally(cfg.getPeer(1));
             if (peer == null) {
                 if (log.shouldLog(Log.WARN))
                     log.warn("Could not find the next hop to send the outbound request to: " + cfg);
                 exec.buildComplete(cfg, pool);
-                return;
+                return false;
             }
-            outMsg.setTarget(peer);
+            OutNetMessage outMsg = new OutNetMessage(ctx, msg, ctx.clock().now() + FIRST_HOP_TIMEOUT, PRIORITY, peer);
             outMsg.setOnFailedSendJob(new TunnelBuildFirstHopFailJob(ctx, pool, cfg, exec));
             ctx.outNetMessagePool().add(outMsg);
         }
-        if (log.shouldLog(Log.DEBUG))
-            log.debug("Tunnel build message " + msg.getUniqueId() + " created in " + createTime
-                      + "ms and dispatched in " + (System.currentTimeMillis()-beforeDispatch));
+        //if (log.shouldLog(Log.DEBUG))
+        //    log.debug("Tunnel build message " + msg.getUniqueId() + " created in " + createTime
+        //              + "ms and dispatched in " + (System.currentTimeMillis()-beforeDispatch));
+        return true;
     }
     
     private static final String MIN_VARIABLE_VERSION = "0.7.12";
@@ -202,7 +225,7 @@ abstract class BuildRequestor {
     private static final boolean SEND_VARIABLE = true;
     /** 5 (~2600 bytes) fits nicely in 3 tunnel messages */
     private static final int SHORT_RECORDS = 5;
-    private static final List<Integer> SHORT_ORDER = new ArrayList(SHORT_RECORDS);
+    private static final List<Integer> SHORT_ORDER = new ArrayList<Integer>(SHORT_RECORDS);
     static {
         for (int i = 0; i < SHORT_RECORDS; i++)
             SHORT_ORDER.add(Integer.valueOf(i));
@@ -269,12 +292,12 @@ abstract class BuildRequestor {
         List<Integer> order;
         if (useVariable) {
             msg = new VariableTunnelBuildMessage(ctx, SHORT_RECORDS);
-            order = new ArrayList(SHORT_ORDER);
-            if (log.shouldLog(Log.INFO))
-                log.info("Using new VTBM");
+            order = new ArrayList<Integer>(SHORT_ORDER);
+            //if (log.shouldLog(Log.INFO))
+            //    log.info("Using new VTBM");
         } else {
             msg = new TunnelBuildMessage(ctx);
-            order = new ArrayList(ORDER);
+            order = new ArrayList<Integer>(ORDER);
         }
 
         // This is in BuildExecutor.buildTunnel() now

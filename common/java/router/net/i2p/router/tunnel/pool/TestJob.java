@@ -115,22 +115,19 @@ class TestJob extends JobImpl {
         // can't tell its a test.  to simplify this, we encrypt it with a random key and tag,
         // remembering that key+tag so that we can decrypt it later.  this means we can do the
         // garlic encryption without any ElGamal (yay)
-        DeliveryInstructions instructions = new DeliveryInstructions();
-        instructions.setDeliveryMode(DeliveryInstructions.DELIVERY_MODE_LOCAL);
-
         PayloadGarlicConfig payload = new PayloadGarlicConfig();
         payload.setCertificate(Certificate.NULL_CERT);
         payload.setId(getContext().random().nextLong(I2NPMessage.MAX_ID_VALUE));
         payload.setPayload(m);
         payload.setRecipient(getContext().router().getRouterInfo());
-        payload.setDeliveryInstructions(instructions);
+        payload.setDeliveryInstructions(DeliveryInstructions.LOCAL);
         payload.setExpiration(m.getMessageExpiration());
 
         SessionKey encryptKey = getContext().keyGenerator().generateSessionKey();
         SessionTag encryptTag = new SessionTag(true);
         _encryptTag = encryptTag;
         SessionKey sentKey = new SessionKey();
-        Set sentTags = null;
+        Set<SessionTag> sentTags = null;
         GarlicMessage msg = GarlicMessageBuilder.buildMessage(getContext(), payload, sentKey, sentTags, 
                                                               getContext().keyManager().getPublicKey(), 
                                                               encryptKey, encryptTag);
@@ -140,7 +137,7 @@ class TestJob extends JobImpl {
             scheduleRetest();
             return;
         }
-        Set<SessionTag> encryptTags = new RemovableSingletonSet(encryptTag);
+        Set<SessionTag> encryptTags = new RemovableSingletonSet<SessionTag>(encryptTag);
         // Register the single tag with the appropriate SKM
         if (_cfg.isInbound() && !_pool.getSettings().isExploratory()) {
             SessionKeyManager skm = getContext().clientManager().getClientSessionKeyManager(_pool.getSettings().getDestination());

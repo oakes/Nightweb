@@ -6,7 +6,6 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
@@ -30,7 +29,7 @@ import net.i2p.router.OutNetMessage;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
 import net.i2p.router.transport.FIFOBandwidthLimiter;
-import net.i2p.router.util.CoDelPriorityBlockingQueue;
+import net.i2p.router.transport.FIFOBandwidthLimiter.Request;
 import net.i2p.router.util.PriBlockingQueue;
 import net.i2p.util.ByteCache;
 import net.i2p.util.ConcurrentHashSet;
@@ -170,12 +169,12 @@ class NTCPConnection {
         _transport = transport;
         _remAddr = null;
         _chan = chan;
-        _readBufs = new ConcurrentLinkedQueue();
-        _writeBufs = new ConcurrentLinkedQueue();
-        _bwInRequests = new ConcurrentHashSet(2);
-        _bwOutRequests = new ConcurrentHashSet(8);
+        _readBufs = new ConcurrentLinkedQueue<ByteBuffer>();
+        _writeBufs = new ConcurrentLinkedQueue<ByteBuffer>();
+        _bwInRequests = new ConcurrentHashSet<Request>(2);
+        _bwOutRequests = new ConcurrentHashSet<Request>(8);
         //_outbound = new CoDelPriorityBlockingQueue(ctx, "NTCP-Connection", 32);
-        _outbound = new PriBlockingQueue(ctx, "NTCP-Connection", 32);
+        _outbound = new PriBlockingQueue<OutNetMessage>(ctx, "NTCP-Connection", 32);
         _isInbound = true;
         _decryptBlockBuf = new byte[BLOCK_SIZE];
         _curReadState = new ReadState();
@@ -198,12 +197,12 @@ class NTCPConnection {
         _transport = transport;
         _remotePeer = remotePeer;
         _remAddr = remAddr;
-        _readBufs = new ConcurrentLinkedQueue();
-        _writeBufs = new ConcurrentLinkedQueue();
-        _bwInRequests = new ConcurrentHashSet(2);
-        _bwOutRequests = new ConcurrentHashSet(8);
+        _readBufs = new ConcurrentLinkedQueue<ByteBuffer>();
+        _writeBufs = new ConcurrentLinkedQueue<ByteBuffer>();
+        _bwInRequests = new ConcurrentHashSet<Request>(2);
+        _bwOutRequests = new ConcurrentHashSet<Request>(8);
         //_outbound = new CoDelPriorityBlockingQueue(ctx, "NTCP-Connection", 32);
-        _outbound = new PriBlockingQueue(ctx, "NTCP-Connection", 32);
+        _outbound = new PriBlockingQueue<OutNetMessage>(ctx, "NTCP-Connection", 32);
         _isInbound = false;
         _establishState = new EstablishState(ctx, transport, this);
         _decryptBlockBuf = new byte[BLOCK_SIZE];
@@ -381,7 +380,7 @@ class NTCPConnection {
             EventPumper.releaseBuf(bb);
         }
 
-        List<OutNetMessage> pending = new ArrayList();
+        List<OutNetMessage> pending = new ArrayList<OutNetMessage>();
         //_outbound.drainAllTo(pending);
         _outbound.drainTo(pending);
         for (OutNetMessage msg : pending) {
@@ -489,15 +488,11 @@ class NTCPConnection {
     }
     
     public void enqueueInfoMessage() {
-        OutNetMessage infoMsg = new OutNetMessage(_context);
-        infoMsg.setExpiration(_context.clock().now()+10*1000);
-        DatabaseStoreMessage dsm = new DatabaseStoreMessage(_context);
-        dsm.setEntry(_context.router().getRouterInfo());
-        infoMsg.setMessage(dsm);
-        infoMsg.setPriority(PRIORITY);
         RouterInfo target = _context.netDb().lookupRouterInfoLocally(_remotePeer.calculateHash());
         if (target != null) {
-            infoMsg.setTarget(target);
+            DatabaseStoreMessage dsm = new DatabaseStoreMessage(_context);
+            dsm.setEntry(_context.router().getRouterInfo());
+            OutNetMessage infoMsg = new OutNetMessage(_context, dsm, _context.clock().now()+10*1000, PRIORITY, target);
             infoMsg.beginSend();
             _context.statManager().addRateData("ntcp.infoMessageEnqueued", 1);
             send(infoMsg);
@@ -873,7 +868,7 @@ class NTCPConnection {
         NUM_PREP_BUFS = (int) Math.max(MIN_BUFS, Math.min(MAX_BUFS, 1 + (maxMemory / (16*1024*1024))));
     }
 
-    private final static LinkedBlockingQueue<PrepBuffer> _bufs = new LinkedBlockingQueue(NUM_PREP_BUFS);
+    private final static LinkedBlockingQueue<PrepBuffer> _bufs = new LinkedBlockingQueue<PrepBuffer>(NUM_PREP_BUFS);
 
     /**
      *  32KB each
@@ -1063,8 +1058,8 @@ class NTCPConnection {
             if (msg != null) {
                 _lastSendTime = System.currentTimeMillis();
                 _context.statManager().addRateData("ntcp.sendTime", msg.getSendTime());
-                if (_log.shouldLog(Log.INFO)) {
-                    _log.info("I2NP message " + _messagesWritten + "/" + msg.getMessageId() + " sent after " 
+                if (_log.shouldLog(Log.DEBUG)) {
+                    _log.debug("I2NP message " + _messagesWritten + "/" + msg.getMessageId() + " sent after " 
                               + msg.getSendTime() + "/"
                               + msg.getLifetime()
                               + " with " + buf.capacity() + " bytes (uid=" + System.identityHashCode(msg)+" on " + toString() + ")");
@@ -1334,7 +1329,7 @@ class NTCPConnection {
     /**
      *  FIXME static queue mixes handlers from different contexts in multirouter JVM
      */
-    private final static LinkedBlockingQueue<I2NPMessageHandler> _i2npHandlers = new LinkedBlockingQueue(MAX_HANDLERS);
+    private final static LinkedBlockingQueue<I2NPMessageHandler> _i2npHandlers = new LinkedBlockingQueue<I2NPMessageHandler>(MAX_HANDLERS);
 
     private final static I2NPMessageHandler acquireHandler(RouterContext ctx) {
         I2NPMessageHandler rv = _i2npHandlers.poll();
@@ -1503,8 +1498,8 @@ class NTCPConnection {
                     I2NPMessage read = h.lastRead();
                     long timeToRecv = System.currentTimeMillis() - _stateBegin;
                     releaseHandler(h);
-                    if (_log.shouldLog(Log.INFO))
-                        _log.info("I2NP message " + _messagesRead + "/" + (read != null ? read.getUniqueId() : 0) 
+                    if (_log.shouldLog(Log.DEBUG))
+                        _log.debug("I2NP message " + _messagesRead + "/" + (read != null ? read.getUniqueId() : 0) 
                                    + " received after " + timeToRecv + " with " + _size +"/"+ (_blocks*16) + " bytes on " + NTCPConnection.this.toString());
                     _context.statManager().addRateData("ntcp.receiveTime", timeToRecv);
                     _context.statManager().addRateData("ntcp.receiveSize", _size);
@@ -1553,6 +1548,10 @@ class NTCPConnection {
                (_isInbound ? "from " : "to ") +
                (_remotePeer == null ? "unknown" : _remotePeer.calculateHash().toBase64().substring(0,6)) +
                (isEstablished() ? "" : " not established") +
-               " created " + DataHelper.formatDuration(getTimeSinceCreated()) + " ago";
+               " created " + DataHelper.formatDuration(getTimeSinceCreated()) + " ago," +
+               " last send " + DataHelper.formatDuration(getTimeSinceSend()) + " ago," +
+               " last recv " + DataHelper.formatDuration(getTimeSinceReceive()) + " ago," +
+               " sent " + _messagesWritten + "," +
+               " rcvd " + _messagesRead;
     }
 }

@@ -46,7 +46,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     /** where the data store is pushing the data */
     private String _dbDir;
     // set of Hash objects that we should search on (to fill up a bucket, not to get data)
-    private final Set<Hash> _exploreKeys = new ConcurrentHashSet(64);
+    private final Set<Hash> _exploreKeys = new ConcurrentHashSet<Hash>(64);
     private boolean _initialized;
     /** Clock independent time of when we started up */
     private long _started;
@@ -57,6 +57,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     protected final PeerSelector _peerSelector;
     protected final RouterContext _context;
     private final ReseedChecker _reseedChecker;
+    private volatile long _lastRIPublishTime;
 
     /** 
      * Map of Hash to RepublishLeaseSetJob for leases we'realready managing.
@@ -137,8 +138,8 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         _context = context;
         _log = _context.logManager().getLog(getClass());
         _peerSelector = createPeerSelector();
-        _publishingLeaseSets = new HashMap(8);
-        _activeRequests = new HashMap(8);
+        _publishingLeaseSets = new HashMap<Hash, RepublishLeaseSetJob>(8);
+        _activeRequests = new HashMap<Hash, SearchJob>(8);
         _reseedChecker = new ReseedChecker(context);
         context.statManager().createRateStat("netDb.lookupDeferred", "how many lookups are deferred?", "NetworkDatabase", new long[] { 60*60*1000 });
         context.statManager().createRateStat("netDb.exploreKeySet", "how many keys are queued for exploration?", "NetworkDatabase", new long[] { 60*60*1000 });
@@ -180,7 +181,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     /** @return unmodifiable set */
     public Set<Hash> getExploreKeys() {
         if (!_initialized)
-            return Collections.EMPTY_SET;
+            return Collections.emptySet();
         return Collections.unmodifiableSet(_exploreKeys);
     }
     
@@ -259,12 +260,11 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         elj.getTiming().setStartAfter(_context.clock().now() + 2*60*1000);
         _context.jobQueue().addJob(elj);
         
-        // the ExpireRoutersJob never fired since the tunnel pool manager lied
-        // and said all peers are in use (for no good reason), but this expire
-        // thing was a bit overzealous anyway, since the kbuckets are only
-        // relevent when the network is huuuuuuuuge.
-        //// expire some routers in overly full kbuckets
-        ////_context.jobQueue().addJob(new ExpireRoutersJob(_context, this));
+        //// expire some routers
+        // Don't run until after RefreshRoutersJob has run, and after validate() will return invalid for old routers.
+        Job erj = new ExpireRoutersJob(_context, this);
+        erj.getTiming().setStartAfter(_context.clock().now() + ROUTER_INFO_EXPIRATION_FLOODFILL + 10*60*1000);
+        _context.jobQueue().addJob(erj);
         
         if (!QUIET) {
             // fill the search queue with random keys in buckets that are too small
@@ -323,8 +323,8 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
      * @param peersToIgnore can be null
      */
     public Set<Hash> findNearestRouters(Hash key, int maxNumRouters, Set<Hash> peersToIgnore) {
-        if (!_initialized) return Collections.EMPTY_SET;
-        return new HashSet(_peerSelector.selectNearest(key, maxNumRouters, peersToIgnore, _kb));
+        if (!_initialized) return Collections.emptySet();
+        return new HashSet<Hash>(_peerSelector.selectNearest(key, maxNumRouters, peersToIgnore, _kb));
     }
     
 /*****
@@ -349,9 +349,9 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     
     /** get the hashes for all known routers */
     public Set<Hash> getAllRouters() {
-        if (!_initialized) return Collections.EMPTY_SET;
+        if (!_initialized) return Collections.emptySet();
         Set<Map.Entry<Hash, DatabaseEntry>> entries = _ds.getMapEntries();
-        Set<Hash> rv = new HashSet(entries.size());
+        Set<Hash> rv = new HashSet<Hash>(entries.size());
         for (Map.Entry<Hash, DatabaseEntry> entry : entries) {
             if (entry.getValue().getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) {
                 rv.add(entry.getKey());
@@ -433,6 +433,17 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
             fail(key);
         }
         return null;
+    }
+    
+    /**
+     *  Not for use without validation
+     *  @return RouterInfo, LeaseSet, or null, NOT validated
+     *  @since 0.9.9
+     */
+    DatabaseEntry lookupLocallyWithoutValidation(Hash key) {
+        if (!_initialized)
+            return null;
+        return _ds.get(key);
     }
 
     public void lookupLeaseSet(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs) {
@@ -577,6 +588,23 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     }
 
     /**
+     *  Set the last time we successfully published our RI.
+     *  @since 0.9.9
+     */
+    void routerInfoPublishSuccessful() {
+        _lastRIPublishTime = _context.clock().now();
+    }
+
+    /**
+     *  The last time we successfully published our RI.
+     *  @since 0.9.9
+     */
+    @Override
+    public long getLastRouterInfoPublishTime() {
+        return _lastRIPublishTime;
+    }
+
+    /**
      * Persist the local router's info (as updated) into netDb/my.info, since
      * ./router.info isn't always updated.  This also allows external applications
      * to easily pick out which router a netDb directory is rooted off, which is handy
@@ -634,7 +662,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         long earliest = leaseSet.getEarliestLeaseDate();
         long latest = leaseSet.getLatestLeaseDate();
         long now = _context.clock().now();
-        if (earliest <= now - 2*Router.CLOCK_FUDGE_FACTOR ||
+        if (earliest <= now - 10*60*1000L ||
             // same as the isCurrent(Router.CLOCK_FUDGE_FACTOR) test in
             // lookupLeaseSetLocally()
             latest <= now - Router.CLOCK_FUDGE_FACTOR) {
@@ -752,7 +780,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
      * @return reason why the entry is not valid, or null if it is valid
      * @since 0.9.7
      */
-    private String validate(RouterInfo routerInfo) throws IllegalArgumentException {
+    String validate(RouterInfo routerInfo) throws IllegalArgumentException {
         long now = _context.clock().now();
         boolean upLongEnough = _context.router().getUptime() > 60*60*1000;
         // Once we're over MIN_ROUTERS routers, reduce the expiration time down from the default,
@@ -858,6 +886,10 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return rv;
     }
     
+    /**
+     *   Final remove for a leaseset.
+     *   For a router info, will look up in the network before dropping.
+     */
     public void fail(Hash dbEntry) {
         if (!_initialized) return;
         DatabaseEntry o = _ds.get(dbEntry);
@@ -885,15 +917,20 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     /** don't use directly - see F.N.D.F. override */
     protected void lookupBeforeDropping(Hash peer, RouterInfo info) {
         //bah, humbug.
-        dropAfterLookupFailed(peer, info);
+        dropAfterLookupFailed(peer);
     }
-    protected void dropAfterLookupFailed(Hash peer, RouterInfo info) {
+
+    /**
+     *  Final remove for a router info.
+     *  Do NOT use for leasesets.
+     */
+    void dropAfterLookupFailed(Hash peer) {
         _context.peerManager().removeCapabilities(peer);
-        boolean removed = _kb.remove(peer);
-        if (removed) {
-            if (_log.shouldLog(Log.INFO))
-                _log.info("Removed kbucket entry for " + peer);
-        }
+        _kb.remove(peer);
+        //if (removed) {
+        //    if (_log.shouldLog(Log.INFO))
+        //        _log.info("Removed kbucket entry for " + peer);
+        //}
         
         _ds.remove(peer);
     }
@@ -951,10 +988,10 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     @Override
     public Set<LeaseSet> getLeases() {
         if (!_initialized) return null;
-        Set leases = new HashSet();
+        Set<LeaseSet> leases = new HashSet<LeaseSet>();
         for (DatabaseEntry o : getDataStore().getEntries()) {
             if (o.getType() == DatabaseEntry.KEY_TYPE_LEASESET)
-                leases.add(o);
+                leases.add((LeaseSet)o);
         }
         return leases;
     }
@@ -963,10 +1000,10 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     @Override
     public Set<RouterInfo> getRouters() {
         if (!_initialized) return null;
-        Set routers = new HashSet();
+        Set<RouterInfo> routers = new HashSet<RouterInfo>();
         for (DatabaseEntry o : getDataStore().getEntries()) {
             if (o.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO)
-                routers.add(o);
+                routers.add((RouterInfo)o);
         }
         return routers;
     }
@@ -997,7 +1034,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     }
 
     /** unused (overridden in FNDF) */
-    public void sendStore(Hash key, DatabaseEntry ds, Job onSuccess, Job onFailure, long sendTimeout, Set toIgnore) {
+    public void sendStore(Hash key, DatabaseEntry ds, Job onSuccess, Job onFailure, long sendTimeout, Set<Hash> toIgnore) {
         if ( (ds == null) || (key == null) ) {
             if (onFailure != null) 
                 _context.jobQueue().addJob(onFailure);

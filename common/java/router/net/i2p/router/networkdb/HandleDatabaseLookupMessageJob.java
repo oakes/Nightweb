@@ -9,7 +9,6 @@ package net.i2p.router.networkdb;
  */
 
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 import net.i2p.data.DatabaseEntry;
@@ -223,7 +222,6 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
     private static boolean isUnreachable(RouterInfo info) {
         if (info == null) return true;
         String cap = info.getCapabilities();
-        if (cap == null) return false;
         return cap.indexOf(Router.CAPABILITY_REACHABLE) >= 0;
     }
     

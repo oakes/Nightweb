@@ -120,18 +120,39 @@ public abstract class TransportUtil {
             if (a0 == 169 && a1 == 254) return false;
             // 5/8 allocated to RIPE (30 November 2010)
             //if ((addr[0]&0xFF) == 5) return false;  // Hamachi
+            // Hamachi moved to 25/8 Nov. 2012
+            // Assigned to UK Ministry of Defence
+            // http://blog.logmein.com/products/changes-to-hamachi-on-november-19th
+            if (a0 == 25) return false;
             return true; // or at least possible to be true
         } else if (addr.length == 16) {
             if (allowIPv6) {
-                // disallow 2002::/16 (6to4 RFC 3056)
-                if (addr[0] == 0x20 && addr[1] == 0x02)
+                // loopback, broadcast,
+                // IPv4 compat ::xxxx:xxxx
+                if (addr[0] == 0)
                     return false;
+                if (addr[0] == 0x20) {
+                    // disallow 2002::/16 (6to4 RFC 3056)
+                    if (addr[1] == 0x02)
+                        return false;
+                    if (addr[1] == 0x01) {
+                        // disallow 2001:0::/32 (Teredo RFC 4380)
+                        if (addr[2] == 0x00 && addr[3] == 0x00)
+                            return false;
+                        // Documenation (example) RFC 3849
+                        if (addr[2] == 0x0d && (addr[3] & 0xff) == 0xb8)
+                            return false;
+                    }
+                }
                 // disallow fc00::/8 and fd00::/8 (Unique local addresses RFC 4193)
                 // not recognized as local by InetAddress
                 if ((addr[0] & 0xfe) == 0xfc)
                     return false;
-                // disallow 2001:0::/32 (Teredo RFC 4380)
-                if (addr[0] == 0x20 && addr[1] == 0x01 && addr[2] == 0x00 && addr[3] == 0x00)
+                // Hamachi IPv6
+                if (addr[0] == 0x26 && addr[1] == 0x20 && addr[2] == 0x00 && (addr[3] & 0xff) == 0x9b)
+                    return false;
+                // 6bone RFC 2471
+                if (addr[0] == 0x3f && (addr[1] & 0xff) == 0xfe)
                     return false;
                 try {
                     InetAddress ia = InetAddress.getByAddress(addr);

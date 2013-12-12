@@ -36,9 +36,9 @@ public class InNetMessagePool implements Service {
     private final HandlerJobBuilder _handlerJobBuilders[];
 
     /** following 5 unused unless DISPATCH_DIRECT == false */
-    private final List _pendingDataMessages;
-    private final List _pendingDataMessagesFrom;
-    private final List _pendingGatewayMessages;
+    private final List<I2NPMessage> _pendingDataMessages;
+    private final List<Hash> _pendingDataMessagesFrom;
+    private final List<I2NPMessage> _pendingGatewayMessages;
     private SharedShortCircuitDataJob _shortCircuitDataJob;
     private SharedShortCircuitGatewayJob _shortCircuitGatewayJob;
 
@@ -75,9 +75,9 @@ public class InNetMessagePool implements Service {
             _pendingDataMessagesFrom = null;
             _pendingGatewayMessages = null;
         } else {
-            _pendingDataMessages = new ArrayList(16);
-            _pendingDataMessagesFrom = new ArrayList(16);
-            _pendingGatewayMessages = new ArrayList(16);
+            _pendingDataMessages = new ArrayList<I2NPMessage>(16);
+            _pendingDataMessagesFrom = new ArrayList<Hash>(16);
+            _pendingGatewayMessages = new ArrayList<I2NPMessage>(16);
             _shortCircuitDataJob = new SharedShortCircuitDataJob(context);
             _shortCircuitGatewayJob = new SharedShortCircuitGatewayJob(context);
         }
@@ -130,7 +130,7 @@ public class InNetMessagePool implements Service {
                 _log.info("Received inbound " 
                           + " with id " + messageBody.getUniqueId()
                           + " expiring on " + exp
-                          + " of type " + messageBody.getClass().getName());
+                          + " of type " + messageBody.getClass().getSimpleName());
         
         //if (messageBody instanceof DataMessage) {
         //    _context.statManager().getStatLog().addData(fromRouterHash.toBase64().substring(0,6), "udp.floodDataReceived", 1, 0);
@@ -185,7 +185,7 @@ public class InNetMessagePool implements Service {
 
                 if (_log.shouldLog(Log.DEBUG))
                     _log.debug("Add message to the inNetMessage pool - builder: " + builder 
-                               + " message class: " + messageBody.getClass().getName());
+                               + " message class: " + messageBody.getClass().getSimpleName());
 
                 if (builder != null) {
                     Job job = builder.createJob(messageBody, fromRouter, 

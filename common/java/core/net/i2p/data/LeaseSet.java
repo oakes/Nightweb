@@ -15,7 +15,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 import net.i2p.I2PAppContext;
@@ -93,7 +92,7 @@ public class LeaseSet extends DatabaseEntry {
     private static final int OLD_MAX_LEASES = 6;
 
     public LeaseSet() {
-        _leases = new ArrayList(OLD_MAX_LEASES);
+        _leases = new ArrayList<Lease>(OLD_MAX_LEASES);
         _firstExpiration = Long.MAX_VALUE;
     }
 
@@ -290,10 +289,8 @@ public class LeaseSet extends DatabaseEntry {
             _signingKey.writeBytes(out);
             DataHelper.writeLong(out, 1, _leases.size());
             //DataHelper.writeLong(out, 4, _version);
-            for (Iterator iter = _leases.iterator(); iter.hasNext();) {
-                Lease lease = (Lease) iter.next();
+            for (Lease lease : _leases)
                 lease.writeBytes(out);
-            }
         } catch (IOException ioe) {
             return null;
         } catch (DataFormatException dfe) {
@@ -311,8 +308,7 @@ public class LeaseSet extends DatabaseEntry {
     public void readBytes(InputStream in) throws DataFormatException, IOException {
         if (_destination != null)
             throw new IllegalStateException();
-        _destination = new Destination();
-        _destination.readBytes(in);
+        _destination = Destination.create(in);
         _encryptionKey = PublicKey.create(in);
         _signingKey = SigningPublicKey.create(in);
         int numLeases = (int) DataHelper.readLong(in, 1);
@@ -340,10 +336,8 @@ public class LeaseSet extends DatabaseEntry {
         _signingKey.writeBytes(out);
         DataHelper.writeLong(out, 1, _leases.size());
         //DataHelper.writeLong(out, 4, _version);
-        for (Iterator iter = _leases.iterator(); iter.hasNext();) {
-            Lease lease = (Lease) iter.next();
+        for (Lease lease : _leases)
             lease.writeBytes(out);
-        }
         _signature.writeBytes(out);
     }
     
@@ -495,7 +489,7 @@ public class LeaseSet extends DatabaseEntry {
         byte[] dec = new byte[enclen];
         I2PAppContext.getGlobalContext().aes().decrypt(enc, 0, dec, 0, key, iv, enclen);
         ByteArrayInputStream bais = new ByteArrayInputStream(dec);
-        _decryptedLeases = new ArrayList(size - 1);
+        _decryptedLeases = new ArrayList<Lease>(size - 1);
         for (int i = 0; i < size-1; i++) {
             Lease l = new Lease();
             Hash h = new Hash();

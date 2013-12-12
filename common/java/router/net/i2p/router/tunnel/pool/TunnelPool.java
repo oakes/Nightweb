@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
-import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
 import net.i2p.data.Lease;
 import net.i2p.data.LeaseSet;
@@ -29,7 +28,7 @@ import net.i2p.util.Log;
  *  Public only for TunnelRenderer in router console.
  */
 public class TunnelPool {
-    private final List<PooledTunnelCreatorConfig> _inProgress = new ArrayList();
+    private final List<PooledTunnelCreatorConfig> _inProgress = new ArrayList<PooledTunnelCreatorConfig>();
     private final RouterContext _context;
     private final Log _log;
     private TunnelPoolSettings _settings;
@@ -58,7 +57,7 @@ public class TunnelPool {
         _log = ctx.logManager().getLog(TunnelPool.class);
         _manager = mgr;
         _settings = settings;
-        _tunnels = new ArrayList(settings.getTotalQuantity());
+        _tunnels = new ArrayList<TunnelInfo>(settings.getTotalQuantity());
         _peerSelector = sel;
         _expireSkew = _context.random().nextInt(90*1000);
         _started = System.currentTimeMillis();
@@ -250,7 +249,8 @@ public class TunnelPool {
         TunnelInfo rv = null;
         synchronized (_tunnels) {
             if (!_tunnels.isEmpty()) {
-                Collections.sort(_tunnels, new TunnelInfoComparator(closestTo, avoidZeroHop));
+                if (_tunnels.size() > 1)
+                    Collections.sort(_tunnels, new TunnelInfoComparator(closestTo, avoidZeroHop));
                 for (TunnelInfo info : _tunnels) {
                     if (info.getExpiration() > _context.clock().now()) {
                         rv = info;
@@ -260,7 +260,7 @@ public class TunnelPool {
             }
         }
         if (rv != null) {
-            _context.statManager().addRateData("tunnel.matchLease", closestTo.equals(rv) ? 1 : 0);
+            _context.statManager().addRateData("tunnel.matchLease", closestTo.equals(rv.getFarEnd()) ? 1 : 0);
         } else {
             if (_log.shouldLog(Log.WARN))
                 _log.warn(toString() + ": No tunnels to select from");
@@ -291,7 +291,7 @@ public class TunnelPool {
      */
     public List<TunnelInfo> listTunnels() {
         synchronized (_tunnels) {
-            return new ArrayList(_tunnels);
+            return new ArrayList<TunnelInfo>(_tunnels);
         }
     }
     
@@ -393,7 +393,7 @@ public class TunnelPool {
     }
 
     /** list of tunnelInfo instances of tunnels currently being built */
-    public List listPending() { synchronized (_inProgress) { return new ArrayList(_inProgress); } }
+    public List<PooledTunnelCreatorConfig> listPending() { synchronized (_inProgress) { return new ArrayList<PooledTunnelCreatorConfig>(_inProgress); } }
     
     /** duplicate of size(), let's pick one */
     int getTunnelCount() { synchronized (_tunnels) { return _tunnels.size(); } }
@@ -673,11 +673,17 @@ public class TunnelPool {
                 if (rlen > 1 && llen <= 1)
                     return 1;
             }
-            byte lhsDelta[] = DataHelper.xor(lhs.getFarEnd().getData(), _base);
-            byte rhsDelta[] = DataHelper.xor(rhs.getFarEnd().getData(), _base);
-            int rv = DataHelper.compareTo(lhsDelta, rhsDelta);
-            if (rv != 0)
-                return rv;
+            // TODO don't prefer exact match for security?
+            byte lhsb[] = lhs.getFarEnd().getData();
+            byte rhsb[] = rhs.getFarEnd().getData();
+            for (int i = 0; i < _base.length; i++) {
+                int ld = (lhsb[i] ^ _base[i]) & 0xff;
+                int rd = (rhsb[i] ^ _base[i]) & 0xff;
+                if (ld < rd)
+                    return -1;
+                if (ld > rd)
+                    return 1;
+            }
             // latest-expiring first as a tie-breaker
             return (int) (rhs.getExpiration() - lhs.getExpiration());
         }
@@ -706,7 +712,7 @@ public class TunnelPool {
         
         TunnelInfo zeroHopTunnel = null;
         Lease zeroHopLease = null;
-        TreeSet<Lease> leases = new TreeSet(new LeaseComparator());
+        TreeSet<Lease> leases = new TreeSet<Lease>(new LeaseComparator());
         for (int i = 0; i < _tunnels.size(); i++) {
             TunnelInfo tunnel = _tunnels.get(i);
             if (tunnel.getExpiration() <= expireAfter)
@@ -1099,7 +1105,7 @@ public class TunnelPool {
                         if (ti.getLength() >= len && ti.getExpiration() < now + 3*60*1000 && !ti.wasReused()) {
                             ti.setReused();
                             len = ti.getLength();
-                            peers = new ArrayList(len);
+                            peers = new ArrayList<Hash>(len);
                             // peers list is ordered endpoint first, but cfg.getPeer() is ordered gateway first
                             for (int i = len - 1; i >= 0; i--) {
                                 peers.add(ti.getPeer(i));

@@ -5,11 +5,8 @@ package org.klomp.snark.dht;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.I2PAppContext;
@@ -53,8 +50,8 @@ class DHTNodes {
         _context = ctx;
         _expireTime = MAX_EXPIRE_TIME;
         _log = _context.logManager().getLog(DHTNodes.class);
-        _nodeMap = new ConcurrentHashMap();
-        _kad = new KBucketSet(ctx, me, KAD_K, KAD_B, new KBTrimmer(ctx, KAD_K));
+        _nodeMap = new ConcurrentHashMap<NID, NodeInfo>();
+        _kad = new KBucketSet<NID>(ctx, me, KAD_K, KAD_B, new KBTrimmer(ctx, KAD_K));
     }
 
     public void start() {
@@ -99,13 +96,8 @@ class DHTNodes {
     }
 
     public NodeInfo remove(NID nid) {
-        NodeInfo ninfo = _nodeMap.get(nid);
-        if (ninfo != null && !ninfo.getPermanent()) {
-            _kad.remove(nid);
-            return _nodeMap.remove(nid);
-        }
-
-        return null;
+        _kad.remove(nid);
+        return _nodeMap.remove(nid);
     }
 
     public Collection<NodeInfo> values() {
@@ -125,7 +117,7 @@ class DHTNodes {
         else
             key = new NID(h.getData());
         List<NID> keys = _kad.getClosest(key, numWant);
-        List<NodeInfo> rv = new ArrayList(keys.size());
+        List<NodeInfo> rv = new ArrayList<NodeInfo>(keys.size());
         for (NID nid : keys) {
             NodeInfo ninfo = _nodeMap.get(nid);
             if (ninfo != null)
@@ -163,7 +155,7 @@ class DHTNodes {
             int peerCount = 0;
             for (Iterator<NodeInfo> iter = DHTNodes.this.values().iterator(); iter.hasNext(); ) {
                  NodeInfo peer = iter.next();
-                 if (peer.lastSeen() < now - _expireTime && !peer.getPermanent()) {
+                 if (peer.lastSeen() < now - _expireTime) {
                      iter.remove();
                      _kad.remove(peer.getNID());
                  } else {
