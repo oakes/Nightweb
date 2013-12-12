@@ -1,6 +1,6 @@
 (ns nightweb.db
   (:require [clojure.java.io :as java.io]
-            [clojure.java.jdbc.deprecated :as jdbc]
+            [clojure.java.jdbc :as jdbc]
             [nightweb.constants :as c]
             [nightweb.formats :as f]))
 
@@ -22,8 +22,15 @@
                          :type table
                          :title (f/escape-html (:title row))
                          :body (f/escape-html (:body row)))))
-       (doall)
-       (vec)))
+       doall
+       vec))
+
+(defn update-or-insert!
+  [db table set-map where-clause]
+  (let [rs (jdbc/update! db table set-map where-clause)]
+    (if (zero? (first rs))
+      (jdbc/insert! db table set-map)
+      rs)))
 
 ; initialization
 
@@ -31,25 +38,14 @@
   ([table-name] (check-table table-name "*"))
   ([table-name column-name]
    (try
-     (jdbc/with-connection
+     (jdbc/query
        @spec
-       (jdbc/with-query-results
-         rs
-         [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))]
-         rs))
+       [(str "SELECT COUNT(" (name column-name) ") FROM " (name table-name))])
      (catch Exception e nil))))
-
-(defn create-index
-  [table-name columns]
-  (jdbc/do-commands
-    "CREATE ALIAS IF NOT EXISTS FT_INIT FOR \"org.h2.fulltext.FullText.init\";"
-    "CALL FT_INIT();"
-    (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
-            table-name (clojure.string/join "," columns))))
 
 (defn create-generic-table
   [table-name]
-  (jdbc/create-table
+  (jdbc/create-table-ddl
     table-name
     [:id "BIGINT" "PRIMARY KEY AUTO_INCREMENT"]
     [:realuserhash "BINARY"]
@@ -64,29 +60,37 @@
     [:ptrtime "BIGINT"]
     [:status "BIGINT"]))
 
+(defn create-index
+  [table-name columns]
+  ["CREATE ALIAS IF NOT EXISTS FT_INIT FOR \"org.h2.fulltext.FullText.init\";"
+   "CALL FT_INIT();"
+   (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
+           table-name (clojure.string/join "," columns))])
+
 (defn create-tables
   []
   (when-not (check-table :user)
-    (jdbc/with-connection
-      @spec
-      (create-generic-table :user)
-      (create-index "USER" ["ID" "TITLE" "BODY"])))
+    (apply jdbc/db-do-commands
+           (concat [@spec true (create-generic-table :user)]
+                   (create-index "USER" ["ID" "TITLE" "BODY"]))))
   (when-not (check-table :post)
-    (jdbc/with-connection
-      @spec
-      (create-generic-table :post)
-      (create-index "POST" ["ID" "TITLE" "BODY"])))
+    (apply jdbc/db-do-commands
+           (concat [@spec true (create-generic-table :post)]
+                   (create-index "POST" ["ID" "TITLE" "BODY"]))))
   (when-not (check-table :pic)
-    (jdbc/with-connection
+    (jdbc/db-do-commands
       @spec
+      true
       (create-generic-table :pic)))
   (when-not (check-table :fav)
-    (jdbc/with-connection
+    (jdbc/db-do-commands
       @spec
+      true
       (create-generic-table :fav)))
   (when-not (check-table :tag)
-    (jdbc/with-connection
+    (jdbc/db-do-commands
       @spec
+      true
       (create-generic-table :tag))))
 
 (defn init-db
@@ -103,72 +107,61 @@
 
 (defn get-single-user-data
   [params]
-  (let [user-hash (:userhash params)]
-    (jdbc/with-connection
-      @spec
-      (jdbc/with-query-results
-        rs
-        ["SELECT * FROM user WHERE userhash = ?" user-hash]
-        (if-let [user (first (prepare-results rs :user))]
-          (dissoc user :time)
-          {:userhash user-hash :type :user})))))
+  (let [user-hash (:userhash params)
+        statement ["SELECT * FROM user WHERE userhash = ?" user-hash]
+        rs (jdbc/query @spec statement)]
+    (if-let [user (first (prepare-results rs :user))]
+      (dissoc user :time)
+      {:userhash user-hash :type :user})))
 
 (defn get-single-post-data
   [params]
   (let [user-hash (:userhash params)
-        create-time (:time params)]
-    (jdbc/with-connection
-      @spec
-      (jdbc/with-query-results
-        rs
-        ["SELECT * FROM post WHERE userhash = ? AND time = ? AND status = 1"
-         user-hash create-time]
-        (if-let [post (first (prepare-results rs :post))]
-          post
-          {:userhash user-hash :time create-time :type :post})))))
+        create-time (:time params)
+        statement ["SELECT * FROM post 
+                    WHERE userhash = ? AND time = ? AND status = 1"
+                   user-hash create-time]
+        rs (jdbc/query @spec statement)]
+    (if-let [post (first (prepare-results rs :post))]
+      post
+      {:userhash user-hash :time create-time :type :post})))
 
 (defn get-post-data
   [params]
-  (let [user-hash (:userhash params)
-        page (:page params)]
-    (jdbc/with-connection
-      @spec
-      (jdbc/with-query-results
-        rs
-        [(paginate page
-                   "SELECT * FROM post 
-                   WHERE userhash = ? AND status = 1 ORDER BY time DESC")
-         user-hash]
-        (prepare-results rs :post)))))
+  (let [page (:page params)
+        user-hash (:userhash params)
+        statement [(paginate page
+                             "SELECT * FROM post 
+                              WHERE userhash = ? AND status = 1 
+                              ORDER BY time DESC")
+                   user-hash]
+        rs (jdbc/query @spec statement)]
+    (prepare-results rs :post)))
 
 (defn get-single-fav-data
   ([params] (get-single-fav-data params @c/my-hash-bytes))
   ([params my-user-hash]
    (let [ptr-hash (:userhash params)
-         ptr-time (:time params)]
-     (jdbc/with-connection
-       @spec
-       (jdbc/with-query-results
-         rs
-         ["SELECT * FROM fav WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
-          my-user-hash ptr-hash ptr-time]
-         (first (prepare-results rs :fav)))))))
+         ptr-time (:time params)
+         statement ["SELECT * FROM fav 
+                     WHERE userhash = ? AND ptrhash = ? AND ptrtime IS ?"
+                    ptr-hash ptr-time]
+         rs (jdbc/query @spec statement)]
+     (first (prepare-results rs :fav)))))
 
 (defn get-fav-data
   ([params] (get-fav-data params @c/my-hash-bytes))
   ([params my-user-hash]
-   (let [ptr-hash (:ptrhash params)]
-     (jdbc/with-connection
-       @spec
-       (jdbc/with-query-results
-         rs
-         ["SELECT * FROM fav WHERE ptrhash = ? 
-          AND status = 1 
-          AND (userhash IN 
-          (SELECT ptrhash FROM fav WHERE userhash = ? AND status = 1) 
-          OR userhash = ?)"
-          ptr-hash my-user-hash my-user-hash]
-         (prepare-results rs :fav))))))
+   (let [ptr-hash (:ptrhash params)
+         statement ["SELECT * FROM fav WHERE ptrhash = ? 
+                     AND status = 1 
+                     AND (userhash IN 
+                     (SELECT ptrhash FROM fav 
+                     WHERE userhash = ? AND status = 1) 
+                     OR userhash = ?)"
+                    ptr-hash my-user-hash my-user-hash]
+         rs (jdbc/query @spec statement)]
+     (prepare-results rs :fav))))
 
 (defn get-category-data
   [params]
@@ -254,13 +247,11 @@
                                   ORDER BY count DESC"]
                            nil))]
     (when statement
-      (jdbc/with-connection
-        @spec
-        (jdbc/with-query-results
-          rs
-          (vec (concat [(paginate (:page params) (first statement))]
-                       (rest statement)))
-          (prepare-results rs (or sub-type data-type)))))))
+      (-> (jdbc/query
+            @spec
+            (vec (concat [(paginate (:page params) (first statement))]
+                         (rest statement))))
+          (prepare-results (or sub-type data-type))))))
 
 (defn get-single-tag-data
   [params]
@@ -280,35 +271,26 @@
                            LIMIT 1" tag]
                     nil)]
     (when statement
-      (jdbc/with-connection
-        @spec
-        (jdbc/with-query-results
-          rs
-          statement
-          (first (prepare-results rs :tag)))))))
+      (-> (jdbc/query @spec statement)
+          (prepare-results :tag)
+          first))))
 
 (defn get-pic-data
   ([params]
    (let [user-hash (:userhash params)
-         pic-hash (:pichash params)]
-     (jdbc/with-connection
-       @spec
-       (jdbc/with-query-results
-         rs
-         ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
-          user-hash pic-hash]
-         (prepare-results rs :pic)))))
+         pic-hash (:pichash params)
+         statement ["SELECT * FROM pic WHERE userhash = ? AND pichash = ?"
+                    user-hash pic-hash]
+         rs (jdbc/query @spec statement)]
+     (prepare-results rs :pic)))
   ([params ptr-time paginate?]
    (let [user-hash (:userhash params)
-         page (:page params)]
-     (jdbc/with-connection
-       @spec
-       (jdbc/with-query-results
-         rs
-         [(let [sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"]
-            (if paginate? (paginate page sql) sql))
-          user-hash ptr-time]
-         (prepare-results rs :pic))))))
+         page (:page params)
+         sql "SELECT * FROM pic WHERE userhash = ? AND ptrtime IS ?"
+         statement [(if paginate? (paginate page sql) sql)
+                    user-hash ptr-time]
+         rs (jdbc/query @spec statement)]
+     (prepare-results rs :pic))))
 
 ; insertion / removal
 
@@ -317,45 +299,43 @@
   (let [tags (f/tags-decode (f/b-decode-string (get args "body")))
         pics (f/b-decode-list (get args "pics"))
         pic-hash (f/b-decode-bytes (get pics 0))]
-    (jdbc/with-connection
-      @spec
-      (jdbc/delete-rows
+    (jdbc/delete! @spec
+                  :tag
+                  ["userhash = ? AND ptrtime IS ? AND mtime < ?"
+                   user-hash ptr-time edit-time])
+    (doseq [tag tags]
+      (update-or-insert!
+        @spec
         :tag
-        ["userhash = ? AND ptrtime IS ? AND mtime < ?"
-         user-hash ptr-time edit-time])
-      (doseq [tag tags]
-        (jdbc/update-or-insert-values
-          :tag
-          ["title = ? AND userhash = ? AND ptrtime IS ?"
-           tag user-hash ptr-time]
-          {:realuserhash user-hash
-           :userhash user-hash
-           :title tag
-           :mtime edit-time
-           :ptrtime ptr-time
-           :pichash pic-hash})))
+        {:realuserhash user-hash
+         :userhash user-hash
+         :title tag
+         :mtime edit-time
+         :ptrtime ptr-time
+         :pichash pic-hash}
+        ["title = ? AND userhash = ? AND ptrtime IS ?"
+         tag user-hash ptr-time]))
     tags))
 
 (defn insert-pic-list
   [user-hash ptr-time edit-time args]
   (let [pics (f/b-decode-list (get args "pics"))]
-    (jdbc/with-connection
-      @spec
-      (jdbc/delete-rows
-        :pic
-        ["userhash = ? AND ptrtime IS ? AND mtime < ?"
-         user-hash ptr-time edit-time])
-      (doseq [pic pics]
-        (when-let [pic-hash (f/b-decode-bytes pic)]
-          (jdbc/update-or-insert-values
-            :pic
-            ["pichash = ? AND userhash = ? AND ptrtime IS ?"
-             pic-hash user-hash ptr-time]
-            {:realuserhash user-hash
-             :userhash user-hash
-             :pichash pic-hash
-             :mtime edit-time
-             :ptrtime ptr-time}))))
+    (jdbc/delete! @spec
+                  :pic
+                  ["userhash = ? AND ptrtime IS ? AND mtime < ?"
+                   user-hash ptr-time edit-time])
+    (doseq [pic pics]
+      (when-let [pic-hash (f/b-decode-bytes pic)]
+        (update-or-insert!
+          @spec
+          :pic
+          {:realuserhash user-hash
+           :userhash user-hash
+           :pichash pic-hash
+           :mtime edit-time
+           :ptrtime ptr-time}
+          ["pichash = ? AND userhash = ? AND ptrtime IS ?"
+           pic-hash user-hash ptr-time])))
     pics))
 
 (defn insert-profile
@@ -365,22 +345,22 @@
         tags (insert-tag-list user-hash nil edit-time args)]
     (when (and edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (jdbc/with-connection
+      (update-or-insert!
         @spec
-        (jdbc/update-or-insert-values
-          :user
-          ["userhash = ?" user-hash]
-          {:realuserhash user-hash 
-           :userhash user-hash 
-           :title (f/b-decode-string (get args "title"))
-           :body (f/b-decode-string (get args "body"))
-           :mtime edit-time
-           :pichash (f/b-decode-bytes (get pics 0))
-           :status (f/b-decode-long (get args "status"))})
-        (jdbc/update-values
-          :user
-          ["userhash = ? AND time IS NULL" user-hash]
-          {:time (.getTime (java.util.Date.))})))))
+        :user
+        {:realuserhash user-hash 
+         :userhash user-hash 
+         :title (f/b-decode-string (get args "title"))
+         :body (f/b-decode-string (get args "body"))
+         :mtime edit-time
+         :pichash (f/b-decode-bytes (get pics 0))
+         :status (f/b-decode-long (get args "status"))}
+        ["userhash = ?" user-hash])
+      (jdbc/update!
+        @spec
+        :user
+        {:time (.getTime (java.util.Date.))}
+        ["userhash = ? AND time IS NULL" user-hash]))))
 
 (defn insert-post
   [user-hash post-time args]
@@ -391,21 +371,20 @@
                (<= post-time (.getTime (java.util.Date.)))
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (jdbc/with-connection
+      (update-or-insert!
         @spec
-        (jdbc/update-or-insert-values
-          :post
-          ["userhash = ? AND time = ?" user-hash post-time]
-          {:realuserhash user-hash 
-           :userhash user-hash
-           :body (f/b-decode-string (get args "body"))
-           :time post-time
-           :mtime edit-time
-           :pichash (f/b-decode-bytes (get pics 0))
-           :count (count pics)
-           :ptrhash (f/b-decode-bytes (get args "ptrhash"))
-           :ptrtime (f/b-decode-long (get args "ptrtime"))
-           :status (f/b-decode-long (get args "status"))})))))
+        :post
+        {:realuserhash user-hash 
+         :userhash user-hash
+         :body (f/b-decode-string (get args "body"))
+         :time post-time
+         :mtime edit-time
+         :pichash (f/b-decode-bytes (get pics 0))
+         :count (count pics)
+         :ptrhash (f/b-decode-bytes (get args "ptrhash"))
+         :ptrtime (f/b-decode-long (get args "ptrtime"))
+         :status (f/b-decode-long (get args "status"))}
+        ["userhash = ? AND time = ?" user-hash post-time]))))
 
 (defn insert-fav
   [user-hash fav-time args]
@@ -417,19 +396,18 @@
                (<= fav-time (.getTime (java.util.Date.)))
                edit-time
                (<= edit-time (.getTime (java.util.Date.))))
-      (jdbc/with-connection
+      (update-or-insert!
         @spec
-        (jdbc/update-or-insert-values
-          :fav
-          ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
-           user-hash ptr-hash ptr-time]
-          {:realuserhash user-hash 
-           :userhash user-hash
-           :time fav-time
-           :mtime edit-time
-           :ptrhash ptr-hash
-           :ptrtime ptr-time
-           :status (f/b-decode-long (get args "status"))})))))
+        :fav
+        {:realuserhash user-hash 
+         :userhash user-hash
+         :time fav-time
+         :mtime edit-time
+         :ptrhash ptr-hash
+         :ptrtime ptr-time
+         :status (f/b-decode-long (get args "status"))}
+        ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
+         user-hash ptr-hash ptr-time]))))
 
 (defn insert-meta-data
   [user-hash data-map]
@@ -447,10 +425,8 @@
 
 (defn delete-user
   [user-hash]
-  (jdbc/with-connection
-    @spec
-    (jdbc/delete-rows :user ["userhash = ?" user-hash])
-    (jdbc/delete-rows :post ["userhash = ?" user-hash])
-    (jdbc/delete-rows :pic ["userhash = ?" user-hash])
-    (jdbc/delete-rows :fav ["userhash = ?" user-hash])
-    (jdbc/delete-rows :tag ["userhash = ?" user-hash])))
+  (jdbc/delete! @spec :user ["userhash = ?" user-hash])
+  (jdbc/delete! @spec :post ["userhash = ?" user-hash])
+  (jdbc/delete! @spec :pic ["userhash = ?" user-hash])
+  (jdbc/delete! @spec :fav ["userhash = ?" user-hash])
+  (jdbc/delete! @spec :tag ["userhash = ?" user-hash]))
