@@ -51,15 +51,14 @@
                       [:text-view {:text-color Color/WHITE
                                    :layout-width :fill
                                    :layout-weight 1}]
-                      [:linear-layout {:orientation 0}
+                      [:linear-layout {:orientation 0
+                                       :layout-width :fill}
                        [:text-view {:text-color Color/WHITE
                                     :single-line true
-                                    :layout-width :fill
-                                    :layout-height :fill
                                     :layout-weight 1
                                     :ellipsize end}]
                        [:text-view {:text-color Color/WHITE
-                                    :layout-width :fill}]]]])
+                                    :single-line true}]]]])
         ^ImageView image (.getChildAt tile-view 0)
         ^LinearLayout linear-layout (.getChildAt tile-view 1)
         ^TextView text-top (.getChildAt linear-layout 0)
