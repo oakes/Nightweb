@@ -425,9 +425,5 @@
 
 (defn delete-user
   [user-hash]
-  (let [statement ["userhash = ?" user-hash]]
-    (jdbc/delete! @spec :user statement)
-    (jdbc/delete! @spec :post statement)
-    (jdbc/delete! @spec :pic statement)
-    (jdbc/delete! @spec :fav statement)
-    (jdbc/delete! @spec :tag statement)))
+  (doseq [table [:user :post :pic :fav :tag]]
+    (jdbc/delete! @spec table ["userhash = ?" user-hash])))
