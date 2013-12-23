@@ -2,7 +2,7 @@
   (:require [neko.-utils :as utils])
   (:import [android.app Activity]))
 
-(defn bind-service
+(defn start-service
   [^Activity context class-name connected]
   (let [intent (android.content.Intent.)
         connection (proxy [android.content.ServiceConnection] []
@@ -14,21 +14,9 @@
     (.bindService context intent connection 0)
     connection))
 
-(defn unbind-service
+(defn stop-service
   [^Activity context connection]
   (.unbindService context connection))
-
-(defn start-service
-  ([^Activity context service-name]
-   (start-service context service-name (fn [binder])))
-  ([^Activity context service-name on-connected]
-   (let [service (bind-service context service-name on-connected)]
-     (swap! (.state context) assoc :service service))))
-
-(defn stop-service
-  [^Activity context]
-  (when-let [service (get @(.state context) :service)]
-    (unbind-service context service)))
 
 (defn start-receiver
   [^Activity context receiver-name func]
@@ -38,7 +26,7 @@
     (.registerReceiver context
                        receiver
                        (android.content.IntentFilter. receiver-name))
-    (swap! (.state context) assoc receiver-name receiver)))
+    receiver))
 
 (defn start-local-receiver
   [^Activity context receiver-name func]
@@ -46,9 +34,8 @@
       (start-receiver receiver-name func)))
 
 (defn stop-receiver
-  [^Activity context receiver-name]
-  (when-let [receiver (get @(.state context) receiver-name)]
-    (.unregisterReceiver context receiver)))
+  [^Activity context receiver]
+  (.unregisterReceiver context receiver))
 
 (defn stop-local-receiver
   [^Activity context receiver-name]
@@ -87,7 +74,7 @@
     (CustomBinder. service)))
 
 (defmacro defservice
-  [name & {:keys [extends prefix on-start-command def] :as options}]
+  [name & {:keys [extends prefix on-start-command def state] :as options}]
   (let [options (or options {})
         sname (utils/simple-name name)
         prefix (or prefix (str sname "-"))
@@ -97,13 +84,14 @@
         :name ~name
         :main false
         :prefix ~prefix
-        :init "init"
-        :state "state"
+        ~@(when state
+            '(:init "init" :state "state"))
         :extends ~(or extends android.app.Service)
         :exposes-methods {~'onCreate ~'superOnCreate
                           ~'onDestroy ~'superOnDestroy})
-       (defn ~(symbol (str prefix "init"))
-         [] [[] (atom {})])
+       ~(when state
+          `(defn ~(symbol (str prefix "init"))
+             [] [[] ~state]))
        (defn ~(symbol (str prefix "onBind"))
          [~(vary-meta 'this assoc :tag name),
           ^android.content.Intent ~'intent]

@@ -27,23 +27,24 @@
 (service/defservice
   net.nightweb.MainService
   :def service
+  :state (atom {})
   :on-create
   (fn [this]
-    (service/start-foreground
-      this 1 (notify/notification
-               :icon (r/get-resource :drawable :ic_launcher)
-               :content-title (r/get-string :shut_down_nightweb)
-               :content-text (r/get-string :nightweb_is_running)
-               :action [:broadcast shutdown-receiver-name]))
-    (service/start-receiver
-      this
-      shutdown-receiver-name
-      (fn [context intent]
-        (try
-          (.stopSelf service)
-          (catch Exception e nil))))
-    (router/start-router (.getAbsolutePath (.getFilesDir this))))
+    (->> (notify/notification
+           :icon (r/get-resource :drawable :ic_launcher)
+           :content-title (r/get-string :shut_down_nightweb)
+           :content-text (r/get-string :nightweb_is_running)
+           :action [:broadcast shutdown-receiver-name])
+         (service/start-foreground this 1))
+    (->> (fn [context intent]
+           (try
+             (.stopSelf service)
+             (catch Exception e nil)))
+         (service/start-receiver this shutdown-receiver-name)
+         (swap! (.state this) assoc shutdown-receiver-name))
+    (-> this .getFilesDir .getAbsolutePath router/start-router))
   :on-destroy
   (fn [this]
-    (service/stop-receiver this shutdown-receiver-name)
+    (when-let [receiver (get @(.state this) shutdown-receiver-name)]
+      (service/stop-receiver this receiver))
     (router/stop-router)))
