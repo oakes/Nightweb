@@ -48,7 +48,7 @@
         pad (utils/make-dip context 10)
         s 80]
     (.setTag view pointers)
-    (utils/set-text-size user-name utils/default-text-size)
+    (utils/set-text-size! user-name utils/default-text-size)
     (.setMinHeight user-name s)
     (.setGravity user-name Gravity/CENTER_VERTICAL)
     (.setPadding user-name pad 0 0 0)
@@ -61,10 +61,9 @@
                 (thread/on-ui (.setText user-name ^String (:title user))
                               (.setImageBitmap user-img bitmap))))
       (.setVisibility user-info View/GONE))
-    (utils/set-text-size post-body utils/default-text-size)
-    (utils/set-text-max-length post-body db/max-length-large)
+    (utils/set-text-size! post-body utils/default-text-size)
+    (utils/set-text-max-length! post-body db/max-length-large)
     (.setText post-body ^String (:body post))
-    (actions/clear-attachments context)
     view))
 
 (defn get-profile-view
@@ -102,10 +101,10 @@
         pad (utils/make-dip context 10)]
     ; set padding and text size
     (.setPadding linear-layout pad pad pad pad)
-    (utils/set-text-size text-name utils/default-text-size)
-    (utils/set-text-size text-body utils/default-text-size)
-    (utils/set-text-max-length text-name db/max-length-small)
-    (utils/set-text-max-length text-body db/max-length-large)
+    (utils/set-text-size! text-name utils/default-text-size)
+    (utils/set-text-size! text-body utils/default-text-size)
+    (utils/set-text-max-length! text-name db/max-length-small)
+    (utils/set-text-max-length! text-body db/max-length-large)
     ; set text content
     (when (c/is-me? (:userhash user))
       (.setHint text-name (r/get-string :name))
@@ -115,7 +114,7 @@
       (.setText text-body ^String (:body user))
       (->> (:body user)
            (f/tags-encode :user)
-           (utils/set-text-content context text-body actions/show-basic)))
+           (utils/set-text-content! context text-body actions/show-basic!)))
     (.setText clear-btn (r/get-string :clear))
     ; set layout params for image view and clear button
     (let [fill android.widget.RelativeLayout$LayoutParams/FILL_PARENT
@@ -140,7 +139,7 @@
         image-view
         (proxy [android.view.View$OnClickListener] []
           (onClick [v]
-            (actions/request-files
+            (actions/request-files!
               context
               "image/*"
               (fn [uri]
@@ -193,11 +192,11 @@
         ^ImageView share-image (.findViewWithTag view "share-image")
         pad (utils/make-dip context 10)
         s 80]
-    (utils/set-text-size title-text utils/large-text-size)
-    (utils/set-text-size subtitle-text utils/default-text-size)
+    (utils/set-text-size! title-text utils/large-text-size)
+    (utils/set-text-size! subtitle-text utils/default-text-size)
     (.setGravity title-text Gravity/CENTER_HORIZONTAL)
     (doseq [^TextView txt [profile-text post-text share-text]]
-      (utils/set-text-size txt utils/default-text-size)
+      (utils/set-text-size! txt utils/default-text-size)
       (.setMinHeight txt s)
       (.setGravity txt Gravity/CENTER_VERTICAL))
     (doseq [^ImageView img [profile-image post-image share-image]]

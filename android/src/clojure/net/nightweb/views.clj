@@ -18,19 +18,19 @@
 
 (def ^:const default-tile-width 160)
 
-(defn do-action
+(defn do-action!
   "Provides a central place to associate types with the appropriate actions."
   [context item]
   (when-let [func (case (:type item)
-                    :fav actions/show-categories
-                    :toggle-fav actions/toggle-fav
-                    :search actions/show-categories
-                    :pic actions/show-gallery
-                    :edit-post dialogs/show-edit-post-dialog
-                    :profile dialogs/show-profile-dialog
-                    actions/show-basic)]
+                    :fav actions/show-categories!
+                    :toggle-fav actions/toggle-fav!
+                    :search actions/show-categories!
+                    :pic actions/show-gallery!
+                    :edit-post dialogs/show-edit-post-dialog!
+                    :profile dialogs/show-profile-dialog!
+                    actions/show-basic!)]
     (if (:confirm item)
-      (dialogs/show-confirm-dialog context item func)
+      (dialogs/show-confirm-dialog! context item func)
       (func context item))))
 
 (defn create-grid-view-tile
@@ -68,7 +68,7 @@
     (.setScaleType image android.widget.ImageView$ScaleType/CENTER_CROP)
     (.setTypeface text-bottom Typeface/DEFAULT_BOLD)
     (doseq [^TextView text-view [text-top text-bottom text-count]]
-      (utils/set-text-size text-view utils/default-text-size)
+      (utils/set-text-size! text-view utils/default-text-size)
       (.setPadding text-view pad pad pad pad)
       (.setShadowLayer text-view radius 0 0 Color/BLACK))
     (.setTypeface text-top (if (:add-emphasis? item)
@@ -100,7 +100,7 @@
       tile-view
       (proxy [android.view.View$OnClickListener] []
         (onClick [view]
-          (do-action context item))))
+          (do-action! context item))))
     tile-view))
 
 (defn get-column-count
@@ -109,7 +109,7 @@
   (int (/ (utils/get-screen-width context)
           (utils/make-dip context default-tile-width))))
 
-(defn add-grid-view-tiles
+(defn add-grid-view-tiles!
   "Adds vector of tiles to the given view."
   [context content ^GridLayout view]
   (future
@@ -145,10 +145,10 @@
         pad (utils/make-dip context 10)]
     (.setPadding text-view pad pad pad pad)
     (.setPadding date-view pad pad pad pad)
-    (utils/set-text-size text-view utils/default-text-size)
-    (utils/set-text-size date-view utils/default-text-size)
+    (utils/set-text-size! text-view utils/default-text-size)
+    (utils/set-text-size! date-view utils/default-text-size)
     (.addView linear-layout grid-view)
-    (actions/show-spinner
+    (actions/show-spinner!
       context
       (r/get-string :loading)
       (fn []
@@ -159,14 +159,14 @@
             (thread/on-ui 
               (->> (:body post)
                 (f/tags-encode :post)
-                (utils/set-text-content context text-view actions/show-basic))
+                (utils/set-text-content! context text-view actions/show-basic!))
               (let [date-format (java.text.DateFormat/getDateTimeInstance
                                   java.text.DateFormat/MEDIUM
                                   java.text.DateFormat/SHORT)]
                 (.setText date-view (->> (:time post)
                                          java.util.Date.
                                          (.format date-format))))
-              (add-grid-view-tiles context tiles grid-view))))
+              (add-grid-view-tiles! context tiles grid-view))))
         false))
     view))
 
@@ -174,7 +174,7 @@
   "Creates a view of photos that can be swiped left and right."
   [context params]
   (let [view (ui/make-ui context [:view-pager {}])]
-    (actions/show-spinner
+    (actions/show-spinner!
       context
       (r/get-string :loading)
       (fn []
@@ -214,13 +214,13 @@
   (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
-    (actions/show-spinner
+    (actions/show-spinner!
       context
       (r/get-string :loading)
       (fn []
         (let [user (db/get-single-user-data params)
               tiles (tiles/get-user-tiles params user)]
-          (add-grid-view-tiles context tiles grid-view))
+          (add-grid-view-tiles! context tiles grid-view))
         false))
     view))
 
@@ -230,16 +230,16 @@
   (let [view (ui/make-ui context [:scroll-view {}])
         grid-view (get-grid-view context)]
     (.addView view grid-view)
-    (actions/show-spinner
+    (actions/show-spinner!
       context
       (r/get-string :loading)
       (fn []
         (let [tiles (tiles/get-category-tiles params)]
-          (add-grid-view-tiles context tiles grid-view))
+          (add-grid-view-tiles! context tiles grid-view))
         false))
     view))
 
-(defn create-tab
+(defn create-tab!
   "Creates and adds a tab to the given action bar."
   [^ActionBar action-bar ^String title create-view]
   (try

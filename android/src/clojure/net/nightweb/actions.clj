@@ -18,7 +18,7 @@
 
 ; creating a new activity
 
-(defn show-page
+(defn show-page!
   "Shows a new activity of the specified type."
   [^Activity context ^String class-name ^Serializable params]
   (let [class-symbol (Class/forName class-name)
@@ -26,27 +26,27 @@
     (.putExtra intent "params" params)
     (.startActivity context intent)))
 
-(defn show-categories
+(defn show-categories!
   "Shows the Category page."
   [context content]
-  (show-page context "net.nightweb.CategoryPage" content))
+  (show-page! context "net.nightweb.CategoryPage" content))
 
-(defn show-gallery
+(defn show-gallery!
   "Shows the Gallery page."
   [context content]
-  (show-page context "net.nightweb.GalleryPage" content))
+  (show-page! context "net.nightweb.GalleryPage" content))
 
-(defn show-basic
+(defn show-basic!
   "Shows the Basic page."
   [context content]
-  (show-page context "net.nightweb.BasicPage" content))
+  (show-page! context "net.nightweb.BasicPage" content))
 
-(defn show-home
+(defn show-home!
   "Shows the Main page."
   [context content]
-  (show-page context "net.nightweb.MainPage" content))
+  (show-page! context "net.nightweb.MainPage" content))
 
-(defn share-url
+(defn share-url!
   "Displays an app chooser to share a link to the displayed content."
   [^Activity context]
   (let [intent (Intent. Intent/ACTION_SEND)
@@ -55,7 +55,7 @@
     (.putExtra intent Intent/EXTRA_TEXT url)
     (.startActivity context intent)))
 
-(defn send-file
+(defn send-file!
   "Displays an app chooser to send a file."
   [^Activity context file-type path]
   (let [intent (Intent. Intent/ACTION_SEND)
@@ -65,7 +65,7 @@
     (->> (Intent/createChooser intent (r/get-string :save))
          (.startActivity context))))
 
-(defn request-files
+(defn request-files!
   "Displays an app chooser to select files of the specified file type."
   [^Activity context file-type callback]
   (utils/set-state context :file-request callback)
@@ -86,7 +86,7 @@
           (callback data-result)))
     nil))
 
-(defn receive-attachments
+(defn receive-attachments!
   "Stores a list of selected attachments."
   [^Activity context ^Uri uri]
   (let [uri-str (.toString uri)
@@ -102,14 +102,14 @@
     (utils/set-state context :attachments total-attachments)
     total-attachments))
 
-(defn clear-attachments
+(defn clear-attachments!
   "Clears the list of selected attachments."
   [^Activity context]
   (utils/set-state context :attachments nil))
 
 ; misc actions
 
-(defn show-spinner
+(defn show-spinner!
   "Displays a spinner while the specified function runs in a thread."
   [^Activity context message func]
   (thread/on-ui
@@ -121,10 +121,10 @@
               (when should-refresh? (.recreate context))
               (catch Exception e nil))))))))
 
-(defn new-post
+(defn new-post!
   "Saves a post to the disk and creates a new meta torrent to share it."
   ([^Activity context ^View dialog-view ^Button button-view]
-   (new-post context dialog-view button-view nil nil 1))
+   (new-post! context dialog-view button-view nil nil 1))
   ([^Activity context
     ^View dialog-view
     ^Button button-view
@@ -135,39 +135,39 @@
          text (.toString (.getText text-view))
          attachments (utils/get-state context :attachments)
          pointers (.getTag dialog-view)]
-     (show-spinner context
-                   (r/get-string :sending)
-                   #(do
-                      (a/new-post!
-                        {:pic-hashes
-                         (or pic-hashes
-                             (for [path attachments]
-                               (-> (if (.startsWith path "content://")
-                                     (utils/uri-to-bitmap context path)
-                                     (utils/path-to-bitmap
-                                       path utils/full-size))
-                                   utils/bitmap-to-byte-array
-                                   io/write-pic-file!)))
-                         :status status
-                         :body-str text
-                         :ptr-hash (:ptrhash pointers)
-                         :ptr-time (:ptrtime pointers)
-                         :create-time create-time})
-                      (if-not (nil? create-time)
-                        (show-home context {})
-                        true))))
+     (show-spinner! context
+                    (r/get-string :sending)
+                    #(do
+                       (a/new-post!
+                         {:pic-hashes
+                          (or pic-hashes
+                              (for [path attachments]
+                                (-> (if (.startsWith path "content://")
+                                      (utils/uri-to-bitmap context path)
+                                      (utils/path-to-bitmap
+                                        path utils/full-size))
+                                    utils/bitmap-to-byte-array
+                                    io/write-pic-file!)))
+                          :status status
+                          :body-str text
+                          :ptr-hash (:ptrhash pointers)
+                          :ptr-time (:ptrtime pointers)
+                          :create-time create-time})
+                       (if-not (nil? create-time)
+                         (show-home! context {})
+                         true))))
    true))
 
-(defn attach-to-post
+(defn attach-to-post!
   "Initiates the action to select images to attach to a post."
   [^Activity context ^View dialog-view ^Button button-view]
-  (request-files context
-                 "image/*"
-                 (fn [uri]
-                   (let [total-count (count (receive-attachments context uri))
-                         text (str (r/get-string :attach_pics)
-                                   " (" total-count ")")]
-                     (thread/on-ui (.setText button-view text)))))
+  (request-files! context
+                  "image/*"
+                  (fn [uri]
+                    (let [total-count (count (receive-attachments! context uri))
+                          text (str (r/get-string :attach_pics)
+                                    " (" total-count ")")]
+                      (thread/on-ui (.setText button-view text)))))
   false)
 
 (defn cancel
@@ -175,7 +175,7 @@
   [^Activity context ^View dialog-view ^Button button-view]
   true)
 
-(defn save-profile
+(defn save-profile!
   "Saves the profile to the disk and creates a new meta torrent to share it."
   [^Activity context ^View dialog-view ^Button button-view]
   (let [name-field (.findViewWithTag dialog-view "profile-title")
@@ -185,74 +185,74 @@
         body-text (.toString (.getText body-field))
         image-bitmap (when-let [drawable (.getDrawable image-view)]
                        (.getBitmap drawable))]
-    (show-spinner context
-                  (r/get-string :saving)
-                  #(do
-                     (a/save-profile!
-                       {:pic-hash (-> image-bitmap
-                                      utils/bitmap-to-byte-array
-                                      io/write-pic-file!)
-                        :name-str name-text
-                        :body-str body-text})
-                     true)))
+    (show-spinner! context
+                   (r/get-string :saving)
+                   #(do
+                      (a/save-profile!
+                        {:pic-hash (-> image-bitmap
+                                       utils/bitmap-to-byte-array
+                                       io/write-pic-file!)
+                         :name-str name-text
+                         :body-str body-text})
+                      true)))
   true)
 
-(defn zip-and-send
+(defn zip-and-send!
   "Creates an encrypted zip file with our content and sends it somewhere."
   [^Activity context password]
-  (show-spinner context
-                (r/get-string :zipping)
-                #(let [path (c/get-user-dir @c/my-hash-str)
-                       dir (Environment/getExternalStorageDirectory)
-                       dest-path (-> (java.io/file dir c/user-zip-file)
-                                     .getCanonicalPath)]
-                   (if (a/export-user! {:dest-str dest-path
-                                        :pass-str password})
-                     (send-file context "application/zip" dest-path)
-                     (thread/on-ui
-                       (notify/toast (r/get-string :zip_error)))))))
+  (show-spinner! context
+                 (r/get-string :zipping)
+                 #(let [path (c/get-user-dir @c/my-hash-str)
+                        dir (Environment/getExternalStorageDirectory)
+                        dest-path (-> (java.io/file dir c/user-zip-file)
+                                      .getCanonicalPath)]
+                    (if (a/export-user! {:dest-str dest-path
+                                         :pass-str password})
+                      (send-file! context "application/zip" dest-path)
+                      (thread/on-ui
+                        (notify/toast (r/get-string :zip_error)))))))
 
-(defn unzip-and-save
+(defn unzip-and-save!
   "Unzips an encrypted zip file and replaces the current user with it."
   [^Activity context password uri-str]
-  (show-spinner context
-                (r/get-string :unzipping)
-                #(let [dir (Environment/getExternalStorageDirectory)
-                       temp-path (-> (java.io/file dir c/user-zip-file)
-                                     .getCanonicalPath)
-                       ; if it's a content URI, copy to root of SD card
-                       path (if (.startsWith uri-str "content://")
-                              (do (utils/copy-uri-to-path context
-                                                          uri-str
-                                                          temp-path)
-                                  temp-path)
-                              (.getRawPath (java.net.URI. uri-str)))]
-                   ; if unzip succeeds, import user, otherwise show error
-                   (if-let [error (a/import-user! {:source-str path
-                                                   :pass-str password})]
-                     (thread/on-ui
-                       (notify/toast
-                         (utils/get-string-at-runtime context error)))
-                     true))))
+  (show-spinner! context
+                 (r/get-string :unzipping)
+                 #(let [dir (Environment/getExternalStorageDirectory)
+                        temp-path (-> (java.io/file dir c/user-zip-file)
+                                      .getCanonicalPath)
+                        ; if it's a content URI, copy to root of SD card
+                        path (if (.startsWith uri-str "content://")
+                               (do (utils/copy-uri-to-path context
+                                                           uri-str
+                                                           temp-path)
+                                 temp-path)
+                               (.getRawPath (java.net.URI. uri-str)))]
+                    ; if unzip succeeds, import user, otherwise show error
+                    (if-let [error (a/import-user! {:source-str path
+                                                    :pass-str password})]
+                      (thread/on-ui
+                        (notify/toast
+                          (utils/get-string-at-runtime context error)))
+                      true))))
 
-(defn menu-action
+(defn menu-action!
   "Provides an action for menu items in the action bar."
   [^Activity context item]
   (when (= (.getItemId item) (r/get-resource :id :android/home))
-    (show-home context {})))
+    (show-home! context {})))
 
-(defn toggle-fav
+(defn toggle-fav!
   "Toggles our favorite status for the specified content."
   ([^Activity context content]
-   (toggle-fav context content false))
+   (toggle-fav! context content false))
   ([^Activity context content go-home?]
-   (show-spinner context
-                 (if (= 1 (:status content))
-                   (r/get-string :removing)
-                   (r/get-string :adding))
-                 #(do
-                    (a/toggle-fav! {:ptr-hash (:userhash content)
-                                    :ptr-time (:time content)})
-                    (if go-home?
-                      (show-home context {})
-                      true)))))
+   (show-spinner! context
+                  (if (= 1 (:status content))
+                    (r/get-string :removing)
+                    (r/get-string :adding))
+                  #(do
+                     (a/toggle-fav! {:ptr-hash (:userhash content)
+                                     :ptr-time (:time content)})
+                     (if go-home?
+                       (show-home! context {})
+                       true)))))

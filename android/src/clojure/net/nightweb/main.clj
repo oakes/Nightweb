@@ -3,6 +3,7 @@
             [neko.resource :as r]
             [neko.ui.mapping :as mapping]
             [net.clandroid.service :as service]
+            [net.nightweb.utils :as utils]
             [nightweb.router :as router]))
 
 (mapping/defelement :scroll-view
@@ -35,16 +36,16 @@
            :content-title (r/get-string :shut_down_nightweb)
            :content-text (r/get-string :nightweb_is_running)
            :action [:broadcast shutdown-receiver-name])
-         (service/start-foreground this 1))
+         (service/start-foreground! this 1))
     (->> (fn [context intent]
            (try
              (.stopSelf service)
              (catch Exception e nil)))
-         (service/start-receiver this shutdown-receiver-name)
-         (swap! (.state this) assoc shutdown-receiver-name))
+         (service/start-receiver! this shutdown-receiver-name)
+         (utils/set-state! this shutdown-receiver-name))
     (-> this .getFilesDir .getAbsolutePath router/start-router!))
   :on-destroy
   (fn [this]
-    (when-let [receiver (get @(.state this) shutdown-receiver-name)]
-      (service/stop-receiver this receiver))
+    (when-let [receiver (utils/get-state this shutdown-receiver-name)]
+      (service/stop-receiver! this receiver))
     (router/stop-router!)))

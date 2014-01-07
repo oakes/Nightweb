@@ -55,7 +55,7 @@
 (defn create-user!
   "Creates a new user."
   []
-  (crypto/load-user-keys nil)
+  (crypto/load-user-keys! nil)
   ; temporarily write pub key to the root dir
   (io/write-key-file! (c/get-user-pub-file nil) @crypto/pub-key)
   (let [info-hash (t/get-info-hash (c/get-user-pub-file nil))
@@ -77,7 +77,7 @@
         priv-key-path (c/get-user-priv-file user-hash-str)
         pub-key-path (c/get-user-pub-file user-hash-str)
         priv-key-bytes (io/read-key-file priv-key-path)]
-    (crypto/load-user-keys priv-key-bytes)
+    (crypto/load-user-keys! priv-key-bytes)
     (reset! c/my-hash-bytes user-hash)
     (reset! c/my-hash-str user-hash-str)
     (reset! c/my-hash-list user-list))

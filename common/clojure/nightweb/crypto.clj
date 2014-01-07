@@ -14,7 +14,7 @@
         signing-keys (.generateSigningKeypair key-gen)]
     (aget signing-keys 1)))
 
-(defn load-user-keys
+(defn load-user-keys!
   [priv-key-bytes]
   (reset! priv-key (if priv-key-bytes
                      (SigningPrivateKey. ^bytes priv-key-bytes)

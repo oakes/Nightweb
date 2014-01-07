@@ -50,7 +50,7 @@
       (.setCanceledOnTouchOutside dialog false)
       dialog)))
 
-(defn show-dialog
+(defn show-dialog!
   ([^Activity context ^String title ^String message]
    (let [builder (android.app.AlertDialog$Builder. context)]
      (.setPositiveButton builder (r/get-string :ok) nil)
@@ -79,66 +79,66 @@
        (.show (.getFragmentManager context) "dialog")
        (try (catch Exception e nil)))))
 
-(defn show-pending-user-dialog
+(defn show-pending-user-dialog!
   [^Activity context]
-  (show-dialog context nil (r/get-string :pending_user)))
+  (show-dialog! context nil (r/get-string :pending_user)))
 
-(defn show-welcome-dialog
+(defn show-welcome-dialog!
   [^Activity context]
-  (show-dialog context
-               nil
-               (views-dialog/get-welcome-view context)
-               {:positive-name (r/get-string :ok)
-                :positive-func actions/cancel}))
+  (show-dialog! context
+                nil
+                (views-dialog/get-welcome-view context)
+                {:positive-name (r/get-string :ok)
+                 :positive-func actions/cancel}))
 
-(defn show-new-user-dialog
+(defn show-new-user-dialog!
   [^Activity context content]
-  (show-dialog context
-               (r/get-string :found_user)
-               nil
-               {:positive-name (r/get-string :download_user)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (actions/toggle-fav context content true))
-                :negative-name (r/get-string :cancel)
-                :negative-func
-                (fn [context dialog-view button-view]
-                  (.finish context))}))
+  (show-dialog! context
+                (r/get-string :found_user)
+                nil
+                {:positive-name (r/get-string :download_user)
+                 :positive-func
+                 (fn [context dialog-view button-view]
+                   (actions/toggle-fav! context content true))
+                 :negative-name (r/get-string :cancel)
+                 :negative-func
+                 (fn [context dialog-view button-view]
+                   (.finish context))}))
 
-(defn show-delete-post-dialog
+(defn show-delete-post-dialog!
   [^Activity context ^View dialog-view ^Button button-view create-time]
-  (show-dialog context
-               (r/get-string :confirm_delete)
-               nil
-               {:positive-name (r/get-string :delete)
-                :positive-func
-                (fn [c d b]
-                  (let [text-view (.findViewWithTag dialog-view "post-body")]
-                    (.setText text-view "")
-                    (actions/new-post context
-                                      dialog-view
-                                      button-view
-                                      create-time
-                                      nil
-                                      0)))
-                :negative-name (r/get-string :cancel)
-                :negative-func actions/cancel})
+  (show-dialog! context
+                (r/get-string :confirm_delete)
+                nil
+                {:positive-name (r/get-string :delete)
+                 :positive-func
+                 (fn [c d b]
+                   (let [text-view (.findViewWithTag dialog-view "post-body")]
+                     (.setText text-view "")
+                     (actions/new-post! context
+                                        dialog-view
+                                        button-view
+                                        create-time
+                                        nil
+                                        0)))
+                 :negative-name (r/get-string :cancel)
+                 :negative-func actions/cancel})
   false)
 
-(defn show-delete-user-dialog
+(defn show-delete-user-dialog!
   [^Activity context user-hash]
-  (show-dialog context
-               (r/get-string :confirm_delete)
-               nil
-               {:positive-name (r/get-string :delete)
-                :positive-func (fn [c d b]
-                                 (users/delete-user! user-hash)
-                                 (.finish context)
-                                 (actions/show-home context {}))
-                :negative-name (r/get-string :cancel)
-                :negative-func actions/cancel}))
+  (show-dialog! context
+                (r/get-string :confirm_delete)
+                nil
+                {:positive-name (r/get-string :delete)
+                 :positive-func (fn [c d b]
+                                  (users/delete-user! user-hash)
+                                  (.finish context)
+                                  (actions/show-home! context {}))
+                 :negative-name (r/get-string :cancel)
+                 :negative-func actions/cancel}))
 
-(defn show-export-dialog
+(defn show-export-dialog!
   [^Activity context ^View dialog-view ^Button button-view]
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
@@ -146,19 +146,19 @@
         input-type (bit-or InputType/TYPE_CLASS_TEXT
                            InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
-    (show-dialog context
-                 (r/get-string :export_desc)
-                 view
-                 {:positive-name (r/get-string :save)
-                  :positive-func
-                  (fn [c d b]
-                    (actions/zip-and-send context (.toString (.getText view)))
-                    true)
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel}))
+    (show-dialog! context
+                  (r/get-string :export_desc)
+                  view
+                  {:positive-name (r/get-string :save)
+                   :positive-func
+                   (fn [c d b]
+                     (actions/zip-and-send! context (.toString (.getText view)))
+                     true)
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel}))
   true)
 
-(defn show-import-dialog
+(defn show-import-dialog!
   [^Activity context ^String uri-str]
   (let [view (ui/make-ui context [:edit-text {:single-line true
                                               :layout-width :fill
@@ -166,19 +166,19 @@
         input-type (bit-or InputType/TYPE_CLASS_TEXT
                            InputType/TYPE_TEXT_VARIATION_PASSWORD)]
     (.setInputType view input-type)
-    (show-dialog context
-                 (r/get-string :import_desc)
-                 view
-                 {:positive-name (r/get-string :import_user)
-                  :positive-func
-                  (fn [c d b]
-                    (actions/unzip-and-save
-                      context (.toString (.getText view)) uri-str)
-                    true)
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel})))
+    (show-dialog! context
+                  (r/get-string :import_desc)
+                  view
+                  {:positive-name (r/get-string :import_user)
+                   :positive-func
+                   (fn [c d b]
+                     (actions/unzip-and-save!
+                       context (.toString (.getText view)) uri-str)
+                     true)
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel})))
 
-(defn show-switch-user-dialog
+(defn show-switch-user-dialog!
   [^Activity context content]
   (let [view (ui/make-ui context [:scroll-view {}
                                   [:linear-layout {:orientation 1}]])]
@@ -207,90 +207,92 @@
                   (onClick [v]
                     (users/load-user! (:userhash item))
                     (.finish context)
-                    (actions/show-home context {}))))
+                    (actions/show-home! context {}))))
               (.setOnClickListener
                 delete-button
                 (proxy [android.view.View$OnClickListener] []
                   (onClick [v]
-                    (show-delete-user-dialog context (:userhash item)))))
+                    (show-delete-user-dialog! context (:userhash item)))))
               (.addView linear-layout list-item))))))
     ; display a dialog with the list
-    (show-dialog context
-                 nil
-                 view
-                 {:positive-name (r/get-string :create_user)
-                  :positive-func (fn [context dialog-view button-view]
-                                   (users/load-user! (users/create-user!))
-                                   (a/fav-default-user!)
-                                   (.finish context)
-                                   (actions/show-home context {}))
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel})))
+    (show-dialog! context
+                  nil
+                  view
+                  {:positive-name (r/get-string :create_user)
+                   :positive-func (fn [context dialog-view button-view]
+                                    (users/load-user! (users/create-user!))
+                                    (a/fav-default-user!)
+                                    (.finish context)
+                                    (actions/show-home! context {}))
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel})))
 
-(defn show-confirm-dialog
+(defn show-confirm-dialog!
   [^Activity context content func]
-  (show-dialog context
-               (utils/get-string-at-runtime context (:confirm content))
-               nil
-               {:positive-name (r/get-string :ok)
-                :positive-func
-                (fn [context dialog-view button-view]
-                  (func context content true))
-                :negative-name (r/get-string :cancel)
-                :negative-func actions/cancel}))
+  (show-dialog! context
+                (utils/get-string-at-runtime context (:confirm content))
+                nil
+                {:positive-name (r/get-string :ok)
+                 :positive-func
+                 (fn [context dialog-view button-view]
+                   (func context content true))
+                 :negative-name (r/get-string :cancel)
+                 :negative-func actions/cancel}))
 
-(defn show-new-post-dialog
+(defn show-new-post-dialog!
   [^Activity context content]
+  (actions/clear-attachments! context)
   (let [view (views-dialog/get-new-post-view context content)]
-    (show-dialog context
-                 nil
-                 view
-                 {:positive-name (if (:ptrtime (.getTag view))
-                                   (r/get-string :send_reply)
-                                   (r/get-string :send))
-                  :positive-func actions/new-post
-                  :neutral-name (r/get-string :attach_pics)
-                  :neutral-func actions/attach-to-post
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel})))
+    (show-dialog! context
+                  nil
+                  view
+                  {:positive-name (if (:ptrtime (.getTag view))
+                                    (r/get-string :send_reply)
+                                    (r/get-string :send))
+                   :positive-func actions/new-post!
+                   :neutral-name (r/get-string :attach_pics)
+                   :neutral-func actions/attach-to-post!
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel})))
 
-(defn show-edit-post-dialog
+(defn show-edit-post-dialog!
   [^Activity context content]
   (let [post (:post content)
         pics (db/get-pic-data post (:time post) false)]
-    (show-dialog context
-                 nil
-                 (views-dialog/get-new-post-view context content)
-                 {:positive-name (r/get-string :save)
-                  :positive-func
-                  (fn [context dialog-view button-view]
-                    (actions/new-post context
-                                      dialog-view
-                                      button-view
-                                      (:time post)
-                                      (for [pic pics] (:pichash pic))
-                                      1))
-                  :neutral-name (r/get-string :delete)
-                  :neutral-func
-                  (fn [context dialog-view button-view]
-                    (show-delete-post-dialog context
-                                             dialog-view
-                                             button-view
-                                             (:time post)))
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel})))
+    (actions/clear-attachments! context)
+    (show-dialog! context
+                  nil
+                  (views-dialog/get-new-post-view context content)
+                  {:positive-name (r/get-string :save)
+                   :positive-func
+                   (fn [context dialog-view button-view]
+                     (actions/new-post! context
+                                        dialog-view
+                                        button-view
+                                        (:time post)
+                                        (for [pic pics] (:pichash pic))
+                                        1))
+                   :neutral-name (r/get-string :delete)
+                   :neutral-func
+                   (fn [context dialog-view button-view]
+                     (show-delete-post-dialog! context
+                                               dialog-view
+                                               button-view
+                                               (:time post)))
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel})))
 
-(defn show-profile-dialog
+(defn show-profile-dialog!
   [^Activity context content]
-  (show-dialog context
-               nil
-               (views-dialog/get-profile-view context content)
-               (if (c/is-me? (:userhash content))
-                 {:positive-name (r/get-string :save)
-                  :positive-func actions/save-profile
-                  :neutral-name (r/get-string :export_start)
-                  :neutral-func show-export-dialog
-                  :negative-name (r/get-string :cancel)
-                  :negative-func actions/cancel}
-                 {:positive-name (r/get-string :ok)
-                  :positive-func actions/cancel})))
+  (show-dialog! context
+                nil
+                (views-dialog/get-profile-view context content)
+                (if (c/is-me? (:userhash content))
+                  {:positive-name (r/get-string :save)
+                   :positive-func actions/save-profile!
+                   :neutral-name (r/get-string :export_start)
+                   :neutral-func show-export-dialog!
+                   :negative-name (r/get-string :cancel)
+                   :negative-func actions/cancel}
+                  {:positive-name (r/get-string :ok)
+                   :positive-func actions/cancel})))

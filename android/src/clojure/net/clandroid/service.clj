@@ -2,7 +2,7 @@
   (:require [neko.-utils :as utils])
   (:import [android.app Activity]))
 
-(defn start-service
+(defn start-service!
   [^Activity context class-name connected]
   (let [intent (android.content.Intent.)
         connection (proxy [android.content.ServiceConnection] []
@@ -14,11 +14,11 @@
     (.bindService context intent connection 0)
     connection))
 
-(defn stop-service
+(defn stop-service!
   [^Activity context connection]
   (.unbindService context connection))
 
-(defn start-receiver
+(defn start-receiver!
   [^Activity context receiver-name func]
   (let [receiver (proxy [android.content.BroadcastReceiver] []
                    (onReceive [context intent]
@@ -28,33 +28,33 @@
                        (android.content.IntentFilter. receiver-name))
     receiver))
 
-(defn start-local-receiver
+(defn start-local-receiver!
   [^Activity context receiver-name func]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
-      (start-receiver receiver-name func)))
+      (start-receiver! receiver-name func)))
 
-(defn stop-receiver
+(defn stop-receiver!
   [^Activity context receiver]
   (.unregisterReceiver context receiver))
 
-(defn stop-local-receiver
+(defn stop-local-receiver!
   [^Activity context receiver-name]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
-      (stop-receiver receiver-name)))
+      (stop-receiver! receiver-name)))
 
-(defn send-broadcast
+(defn send-broadcast!
   [^Activity context params action-name]
   (let [intent (android.content.Intent.)]
     (.putExtra intent "params" params)
     (.setAction intent action-name)
     (.sendBroadcast context intent)))
 
-(defn send-local-broadcast
+(defn send-local-broadcast!
   [^Activity context params action-name]
   (-> (android.support.v4.content.LocalBroadcastManager/getInstance context)
-      (send-broadcast params action-name)))
+      (send-broadcast! params action-name)))
 
-(defn start-foreground
+(defn start-foreground!
   [service id notification]
   (.startForeground service id notification))
 

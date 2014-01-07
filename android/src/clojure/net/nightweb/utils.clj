@@ -133,12 +133,12 @@
         (.getSize point))
     (. point x)))
 
-(defn set-text-size
+(defn set-text-size!
   "Sets the given view's text size in density-independent pixels."
   [^TextView view ^double size]
   (.setTextSize view TypedValue/COMPLEX_UNIT_DIP size))
 
-(defn set-text-max-length
+(defn set-text-max-length!
   "Limits the text length for the given TextView."
   [^TextView view max-length]
   (->> [(android.text.InputFilter$LengthFilter. max-length)]
@@ -172,7 +172,7 @@
         (Selection/setSelection text (.length text)))
       (Selection/setSelection text (.length text)))))
 
-(defn set-text-content
+(defn set-text-content!
   "Sets the content of a TextView and formats it if necessary."
   [^Activity context ^TextView view on-tap content]
   (let [html-text (markdown/md-to-html-string content)
@@ -212,7 +212,7 @@
     (.getString context (get-resource-at-runtime context :string res-name))
     res-name))
 
-(defn set-state
+(defn set-state!
   "Sets the given key/value pair to the given activity's state."
   [context content-key content-val]
   (swap! (.state context) assoc content-key content-val))
