@@ -110,7 +110,7 @@
           (when (>= (.indexOf (.getDataDir torrent) their-hash-str) 0)
             (t/remove-torrent! (.getName torrent)))))
       (io/delete-file-recursively! user-dir)
-      (db/delete-user their-hash-bytes)
+      (db/delete-user! their-hash-bytes)
       (io/iterate-dir (c/get-user-dir)
                       #(remove-user-hash! (f/base32-decode %))))))
 
@@ -137,7 +137,7 @@
   "Ingests a given file from a meta torrent"
   [user-hash-bytes meta-file]
   ; insert it into the db
-  (db/insert-meta-data user-hash-bytes meta-file)
+  (db/insert-meta-data! user-hash-bytes meta-file)
   ; if this is a fav of a user, act on it if necessary
   (let [meta-contents (:contents meta-file)]
     (when (and (= "fav" (:dir-name meta-file))

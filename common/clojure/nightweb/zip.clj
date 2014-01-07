@@ -2,7 +2,7 @@
 
 (def ^:const def-pass "hunter2")
 
-(defn zip-dir 
+(defn zip-dir!
   [path dest-path password]
   (try
     (let [zip-file (net.lingala.zip4j.core.ZipFile. dest-path)
@@ -21,7 +21,7 @@
       true)
     (catch Exception e false)))
 
-(defn unzip-dir
+(defn unzip-dir!
   [path dest-path password]
   (try
     (let [zip-file (net.lingala.zip4j.core.ZipFile. path)]

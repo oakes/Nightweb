@@ -69,19 +69,19 @@
   [params]
   (-> (:userhash params)
       f/base32-decode
-      users/load-user)
+      users/load-user!)
   nil)
 
 (defn delete-user
   [params]
   (-> (:userhash params)
       f/base32-decode
-      users/delete-user)
+      users/delete-user!)
   nil)
 
 (defn create-user
   [params]
-  (users/load-user (users/create-user))
+  (users/load-user! (users/create-user!))
   (actions/fav-default-user!)
   nil)
 

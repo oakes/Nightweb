@@ -19,7 +19,7 @@
 (defn save-profile!
   [{:keys [pic-hash name-str body-str]}]
   (let [profile (f/profile-encode name-str body-str pic-hash)]
-    (db/insert-profile @c/my-hash-bytes (f/b-decode-map (f/b-decode profile)))
+    (db/insert-profile! @c/my-hash-bytes (f/b-decode-map (f/b-decode profile)))
     (io/delete-orphaned-pics! @c/my-hash-bytes)
     (io/write-profile-file! profile)
     (future (create-meta-torrent!))))
@@ -32,9 +32,9 @@
                             :ptrhash ptr-hash
                             :ptrtime ptr-time)
         file-name (or create-time (.getTime (java.util.Date.)))]
-    (db/insert-post @c/my-hash-bytes
-                    file-name
-                    (f/b-decode-map (f/b-decode post)))
+    (db/insert-post! @c/my-hash-bytes
+                     file-name
+                     (f/b-decode-map (f/b-decode post)))
     (io/delete-orphaned-pics! @c/my-hash-bytes)
     (io/write-post-file! file-name post)
     (future (create-meta-torrent!))))
@@ -46,7 +46,7 @@
         new-status (if (= 1 (:status content)) 0 1)
         fav-time (or (:time content) (.getTime (java.util.Date.)))
         fav (f/fav-encode ptr-hash ptr-time new-status)]
-    (db/insert-fav @c/my-hash-bytes fav-time (f/b-decode-map (f/b-decode fav)))
+    (db/insert-fav! @c/my-hash-bytes fav-time (f/b-decode-map (f/b-decode fav)))
     (io/write-fav-file! fav-time fav)
     (dht/add-user-hash! ptr-hash)
     (future (create-meta-torrent!))))
@@ -59,10 +59,10 @@
 (defn import-user!
   [{:keys [source-str pass-str]}]
   (let [dest-str (c/get-user-dir)]
-    (if (zip/unzip-dir source-str dest-str pass-str)
+    (if (zip/unzip-dir! source-str dest-str pass-str)
       (let [paths (zip/get-zip-headers source-str)
             user-dir (java.io/file (last paths))]
-        (if (users/create-imported-user (.getName user-dir))
+        (if (users/create-imported-user! (.getName user-dir))
           nil
           :import_error))
       :unzip_error)))
@@ -71,5 +71,5 @@
   [{:keys [dest-str pass-str]}]
   (let [source-str (c/get-user-dir @c/my-hash-str)]
     (io/delete-file! dest-str)
-    (when (zip/zip-dir source-str dest-str pass-str)
+    (when (zip/zip-dir! source-str dest-str pass-str)
       dest-str)))

@@ -26,7 +26,7 @@
         (io/file-exists? meta-dir)
         (c/is-me? user-hash-bytes true))))
 
-(defn add-user-and-meta-torrents
+(defn add-user-and-meta-torrents!
   "Starts the user and meta torrent for this user."
   [their-hash-str]
   (let [their-hash-bytes (f/base32-decode their-hash-str)
@@ -52,7 +52,7 @@
       (when-let [new-link-str (:link-hash-str link-map)]
         (t/add-hash! user-dir new-link-str false dht/on-recv-meta!)))))
 
-(defn create-user
+(defn create-user!
   "Creates a new user."
   []
   (crypto/load-user-keys nil)
@@ -65,10 +65,10 @@
     (io/write-key-file! (c/get-user-priv-file info-hash-str) @crypto/priv-key)
     (io/write-key-file! (c/get-user-pub-file info-hash-str) @crypto/pub-key)
     (io/write-user-list-file! (cons info-hash @c/my-hash-list))
-    (add-user-and-meta-torrents info-hash-str)
+    (add-user-and-meta-torrents! info-hash-str)
     info-hash))
 
-(defn load-user
+(defn load-user!
   "Loads user into memory."
   [user-hash-bytes]
   (let [user-list (io/read-user-list-file)
@@ -83,18 +83,18 @@
     (reset! c/my-hash-list user-list))
   nil)
 
-(defn delete-user
+(defn delete-user!
   "Removes user permanently."
   [user-hash-bytes]
   (let [user-list (remove #(Arrays/equals ^bytes user-hash-bytes ^bytes %)
                           @c/my-hash-list)]
     (io/write-user-list-file! (if (= 0 (count user-list))
-                              (cons (create-user) user-list)
-                              user-list))
-    (load-user nil)
+                                (cons (create-user!) user-list)
+                                user-list))
+    (load-user! nil)
     (future (dht/remove-user-hash! user-hash-bytes))))
 
-(defn create-imported-user
+(defn create-imported-user!
   "Replaces current user with imported user."
   [imported-user-str]
   (let [imported-user (f/base32-decode imported-user-str)
@@ -103,12 +103,12 @@
                        (not (c/is-me? imported-user true)))]
     (when is-valid?
       (io/write-user-list-file! (cons imported-user @c/my-hash-list))
-      (load-user imported-user)
+      (load-user! imported-user)
       (doseq [^File f (-> (c/get-meta-dir imported-user-str)
                           java.io/file
                           file-seq)]
         (when (.isFile f)
           (dht/on-recv-meta-file! imported-user
                                   (io/read-meta-file (.getCanonicalPath f)))))
-      (add-user-and-meta-torrents imported-user-str))
+      (add-user-and-meta-torrents! imported-user-str))
     is-valid?))

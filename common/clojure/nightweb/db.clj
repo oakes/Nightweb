@@ -67,7 +67,7 @@
    (format "CALL FT_CREATE_INDEX('PUBLIC', '%s', '%s');"
            table-name (clojure.string/join "," columns))])
 
-(defn create-tables
+(defn create-tables!
   []
   (when-not (check-table :user)
     (apply jdbc/db-do-commands
@@ -93,7 +93,7 @@
       true
       (create-generic-table :tag))))
 
-(defn init-db
+(defn init-db!
   [base-dir]
   (when (nil? @spec)
     (reset! spec
@@ -101,7 +101,7 @@
              :subprotocol "h2"
              :subname (-> (java.io/file base-dir c/nw-dir c/db-file)
                           .getCanonicalPath)})
-    (create-tables)))
+    (create-tables!)))
 
 ; retrieval
 
@@ -294,7 +294,7 @@
 
 ; insertion / removal
 
-(defn insert-tag-list
+(defn insert-tag-list!
   [user-hash ptr-time edit-time args]
   (let [tags (f/tags-decode (f/b-decode-string (get args "body")))
         pics (f/b-decode-list (get args "pics"))
@@ -317,7 +317,7 @@
          tag user-hash ptr-time]))
     tags))
 
-(defn insert-pic-list
+(defn insert-pic-list!
   [user-hash ptr-time edit-time args]
   (let [pics (f/b-decode-list (get args "pics"))]
     (jdbc/delete! @spec
@@ -338,11 +338,11 @@
            pic-hash user-hash ptr-time])))
     pics))
 
-(defn insert-profile
+(defn insert-profile!
   [user-hash args]
   (let [edit-time (f/b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash nil edit-time args)
-        tags (insert-tag-list user-hash nil edit-time args)]
+        pics (insert-pic-list! user-hash nil edit-time args)
+        tags (insert-tag-list! user-hash nil edit-time args)]
     (when (and edit-time
                (<= edit-time (.getTime (java.util.Date.))))
       (update-or-insert!
@@ -362,11 +362,11 @@
         {:time (.getTime (java.util.Date.))}
         ["userhash = ? AND time IS NULL" user-hash]))))
 
-(defn insert-post
+(defn insert-post!
   [user-hash post-time args]
   (let [edit-time (f/b-decode-long (get args "mtime"))
-        pics (insert-pic-list user-hash post-time edit-time args)
-        tags (insert-tag-list user-hash post-time edit-time args)]
+        pics (insert-pic-list! user-hash post-time edit-time args)
+        tags (insert-tag-list! user-hash post-time edit-time args)]
     (when (and post-time
                (<= post-time (.getTime (java.util.Date.)))
                edit-time
@@ -386,7 +386,7 @@
          :status (f/b-decode-long (get args "status"))}
         ["userhash = ? AND time = ?" user-hash post-time]))))
 
-(defn insert-fav
+(defn insert-fav!
   [user-hash fav-time args]
   (let [edit-time (f/b-decode-long (get args "mtime"))
         ptr-hash (f/b-decode-bytes (get args "ptrhash"))
@@ -409,21 +409,21 @@
         ["userhash = ? AND ptrhash = ? AND ptrtime IS ?"
          user-hash ptr-hash ptr-time]))))
 
-(defn insert-meta-data
+(defn insert-meta-data!
   [user-hash data-map]
   (case (:dir-name data-map)
-    "post" (insert-post user-hash
-                        (f/long-decode (:file-name data-map))
-                        (:contents data-map))
-    "fav" (insert-fav user-hash
-                      (f/long-decode (:file-name data-map))
-                      (:contents data-map))
+    "post" (insert-post! user-hash
+                         (f/long-decode (:file-name data-map))
+                         (:contents data-map))
+    "fav" (insert-fav! user-hash
+                       (f/long-decode (:file-name data-map))
+                       (:contents data-map))
     "meta" (case (:file-name data-map)
-             "user.profile" (insert-profile user-hash (:contents data-map))
+             "user.profile" (insert-profile! user-hash (:contents data-map))
              nil)
     nil))
 
-(defn delete-user
+(defn delete-user!
   [user-hash]
   (doseq [table [:user :post :pic :fav :tag]]
     (jdbc/delete! @spec table ["userhash = ?" user-hash])))

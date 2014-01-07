@@ -132,7 +132,7 @@
                nil
                {:positive-name (r/get-string :delete)
                 :positive-func (fn [c d b]
-                                 (users/delete-user user-hash)
+                                 (users/delete-user! user-hash)
                                  (.finish context)
                                  (actions/show-home context {}))
                 :negative-name (r/get-string :cancel)
@@ -205,7 +205,7 @@
                 select-button
                 (proxy [android.view.View$OnClickListener] []
                   (onClick [v]
-                    (users/load-user (:userhash item))
+                    (users/load-user! (:userhash item))
                     (.finish context)
                     (actions/show-home context {}))))
               (.setOnClickListener
@@ -220,7 +220,7 @@
                  view
                  {:positive-name (r/get-string :create_user)
                   :positive-func (fn [context dialog-view button-view]
-                                   (users/load-user (users/create-user))
+                                   (users/load-user! (users/create-user!))
                                    (a/fav-default-user!)
                                    (.finish context)
                                    (actions/show-home context {}))

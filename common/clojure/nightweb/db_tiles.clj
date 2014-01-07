@@ -10,7 +10,7 @@
                         (or 1)
                         (+ 1))]
       (-> results
-          (pop)
+          pop
           (conj (assoc content
                        :title :page
                        :background :next
@@ -72,7 +72,7 @@
          post-pointer-tile
          action-tile]
          (concat pics)
-         (f/remove-dupes-and-nils)
+         f/remove-dupes-and-nils
          vec)))
 
 (defn get-user-tiles
@@ -134,5 +134,5 @@
                      (add-last-tile params))]
     (-> first-tiles
         (concat results)
-        (f/remove-dupes-and-nils)
+        f/remove-dupes-and-nils
         vec)))

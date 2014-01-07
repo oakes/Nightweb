@@ -17,7 +17,7 @@
   [dir]
   ; set main dir and initialize the database
   (reset! c/base-dir dir)
-  (db/init-db dir)
+  (db/init-db! dir)
   ; start i2psnark
   (System/setProperty "i2p.dir.base" dir)
   (System/setProperty "i2p.dir.config" dir)
@@ -28,8 +28,8 @@
   ; create or load user
   (when (= 0 (count (io/read-user-list-file)))
     (reset! is-first-boot? true)
-    (users/create-user))
-  (users/load-user nil)
+    (users/create-user!))
+  (users/load-user! nil)
   ; run the rest of the initialization in a separate thread
   (future
     ; start i2p router
@@ -37,7 +37,7 @@
       (net.i2p.router.RouterLaunch/main nil)
       (Thread/sleep 10000))
     ; add all user and meta torrents
-    (io/iterate-dir (c/get-user-dir) users/add-user-and-meta-torrents)
+    (io/iterate-dir (c/get-user-dir) users/add-user-and-meta-torrents!)
     ; add default fav user
     (when @is-first-boot? (actions/fav-default-user!))))
 
