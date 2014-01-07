@@ -8,7 +8,7 @@
                                  (clojure.string/replace "\n" ""))
                           (catch Exception e nil))))
 
-(declare update-window-content)
+(declare update-window-content!)
 
 (defn open-in-browser
   "Opens the address in the default web browser."
@@ -42,8 +42,8 @@
                                   (->> (not @utils/remote?)
                                        (reset! utils/remote?)
                                        (utils/write-pref :remote))
-                                  (server/start-server)
-                                  (update-window-content ui-root))])])
+                                  (server/start-server!)
+                                  (update-window-content! ui-root))])])
 
 (defn get-remote-items
   "Returns items to only display when remote access is enabled."
@@ -51,7 +51,7 @@
   [(utils/get-string :forward_port)
    (s/text :text @server/port
            :listen [:key-released (fn [e]
-                                    (when (server/set-port (s/text e))
+                                    (when (server/set-port! (s/text e))
                                       (s/text! (s/select ui-root [:#address])
                                                (get-external-address))))])
    (utils/get-string :open_address)
@@ -59,7 +59,7 @@
            :text (get-external-address)
            :editable? false)])
 
-(defn update-window-content
+(defn update-window-content!
   "Updates the items in the window."
   [ui-root]
   (let [main-items (get-main-items ui-root)
@@ -84,5 +84,5 @@
                              (utils/get-version))
                  :content (s/grid-panel :id :grid :vgap 5 :border 20)
                  :on-close :exit)
-        update-window-content
+        update-window-content!
         s/show!)))

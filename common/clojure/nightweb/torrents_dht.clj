@@ -88,7 +88,7 @@
     (let [their-hash-str (f/base32-encode their-hash-bytes)
           path (c/get-user-dir their-hash-str)]
       (when-not (io/file-exists? path)
-        (io/make-dir path)
+        (io/make-dir! path)
         (t/add-hash path their-hash-str true send-meta-link)))))
 
 (defn remove-user-hash
@@ -109,7 +109,7 @@
         (fn [^Snark torrent]
           (when (>= (.indexOf (.getDataDir torrent) their-hash-str) 0)
             (t/remove-torrent (.getName torrent)))))
-      (io/delete-file-recursively user-dir)
+      (io/delete-file-recursively! user-dir)
       (db/delete-user their-hash-bytes)
       (io/iterate-dir (c/get-user-dir)
                       #(remove-user-hash (f/base32-decode %))))))
@@ -158,7 +158,7 @@
                          (io/read-meta-file parent-dir path-leaves)))
     ; remove any files that the torrent no longer contains
     (when-not (c/is-me? user-hash-bytes true)
-      (io/delete-orphaned-files user-hash-bytes paths))))
+      (io/delete-orphaned-files! user-hash-bytes paths))))
 
 ; receiving meta links
 
@@ -198,7 +198,7 @@
   [link-map]
   (let [user-hash-str (:user-hash-str link-map)
         link-path (c/get-meta-link-file user-hash-str)]
-    (io/write-file link-path (:link link-map))))
+    (io/write-file! link-path (:link link-map))))
 
 (defn replace-meta-link
   "Stops sharing a given meta torrent and begins downloading an updated one."
@@ -262,8 +262,8 @@
       (let [priv-node (get-private-node)
             pub-node (get-public-node)]
         (when (and priv-node pub-node)
-          (io/write-priv-node-key-file priv-node)
-          (io/write-pub-node-key-file pub-node)))
+          (io/write-priv-node-key-file! priv-node)
+          (io/write-pub-node-key-file! pub-node)))
       ; add dht bootstrap node
       (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701")
       (println "DHT initialized")))

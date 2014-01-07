@@ -42,9 +42,9 @@
              (catch Exception e nil)))
          (service/start-receiver this shutdown-receiver-name)
          (swap! (.state this) assoc shutdown-receiver-name))
-    (-> this .getFilesDir .getAbsolutePath router/start-router))
+    (-> this .getFilesDir .getAbsolutePath router/start-router!))
   :on-destroy
   (fn [this]
     (when-let [receiver (get @(.state this) shutdown-receiver-name)]
       (service/stop-receiver this receiver))
-    (router/stop-router)))
+    (router/stop-router!)))

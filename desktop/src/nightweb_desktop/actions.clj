@@ -13,7 +13,7 @@
   [params]
   (-> (assoc params :pic-hash (-> (:pic-str params)
                                   utils/decode-data-uri
-                                  io/write-pic-file))
+                                  io/write-pic-file!))
       actions/save-profile)
   nil)
 
@@ -22,7 +22,7 @@
   (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
                  .getCanonicalPath)
         file-barray (utils/decode-data-uri (:file-str params))]
-    (io/write-file path file-barray)
+    (io/write-file! path file-barray)
     (-> (assoc params :source-str path)
         actions/import-user
         utils/get-string)))
@@ -39,7 +39,7 @@
   (-> (assoc params
              :pic-hashes (for [pic (edn/read-string (:pics-str params))]
                            (-> (utils/decode-data-uri pic)
-                               io/write-pic-file))
+                               io/write-pic-file!))
              :ptr-hash (f/base32-decode (:ptr-hash params))
              :ptr-time (edn/read-string (:ptr-time params))
              :status 1)
@@ -105,7 +105,7 @@
 
 (defn shut-down
   [params]
-  (router/stop-router)
+  (router/stop-router!)
   (System/exit 0))
 
 (defn do-action

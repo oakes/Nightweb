@@ -57,14 +57,14 @@
   []
   (crypto/load-user-keys nil)
   ; temporarily write pub key to the root dir
-  (io/write-key-file (c/get-user-pub-file nil) @crypto/pub-key)
+  (io/write-key-file! (c/get-user-pub-file nil) @crypto/pub-key)
   (let [info-hash (t/get-info-hash (c/get-user-pub-file nil))
         info-hash-str (f/base32-encode info-hash)]
     ; delete pub key from root, save keys in user dir, and save user list
-    (io/delete-file (c/get-user-pub-file nil))
-    (io/write-key-file (c/get-user-priv-file info-hash-str) @crypto/priv-key)
-    (io/write-key-file (c/get-user-pub-file info-hash-str) @crypto/pub-key)
-    (io/write-user-list-file (cons info-hash @c/my-hash-list))
+    (io/delete-file! (c/get-user-pub-file nil))
+    (io/write-key-file! (c/get-user-priv-file info-hash-str) @crypto/priv-key)
+    (io/write-key-file! (c/get-user-pub-file info-hash-str) @crypto/pub-key)
+    (io/write-user-list-file! (cons info-hash @c/my-hash-list))
     (add-user-and-meta-torrents info-hash-str)
     info-hash))
 
@@ -88,9 +88,9 @@
   [user-hash-bytes]
   (let [user-list (remove #(Arrays/equals ^bytes user-hash-bytes ^bytes %)
                           @c/my-hash-list)]
-    (io/write-user-list-file (if (= 0 (count user-list))
-                             (cons (create-user) user-list)
-                             user-list))
+    (io/write-user-list-file! (if (= 0 (count user-list))
+                              (cons (create-user) user-list)
+                              user-list))
     (load-user nil)
     (future (dht/remove-user-hash user-hash-bytes))))
 
@@ -102,7 +102,7 @@
                        imported-user
                        (not (c/is-me? imported-user true)))]
     (when is-valid?
-      (io/write-user-list-file (cons imported-user @c/my-hash-list))
+      (io/write-user-list-file! (cons imported-user @c/my-hash-list))
       (load-user imported-user)
       (doseq [^File f (-> (c/get-meta-dir imported-user-str)
                           java.io/file

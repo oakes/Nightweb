@@ -13,15 +13,15 @@
   []
   (let [path (c/get-meta-dir @c/my-hash-str)]
     (t/remove-torrent (c/get-meta-torrent-file @c/my-hash-str))
-    (io/write-link-file (t/add-torrent path false dht/on-recv-meta))
+    (io/write-link-file! (t/add-torrent path false dht/on-recv-meta))
     (dht/send-meta-link)))
 
 (defn save-profile
   [{:keys [pic-hash name-str body-str]}]
   (let [profile (f/profile-encode name-str body-str pic-hash)]
     (db/insert-profile @c/my-hash-bytes (f/b-decode-map (f/b-decode profile)))
-    (io/delete-orphaned-pics @c/my-hash-bytes)
-    (io/write-profile-file profile)
+    (io/delete-orphaned-pics! @c/my-hash-bytes)
+    (io/write-profile-file! profile)
     (future (create-meta-torrent))))
 
 (defn new-post
@@ -35,8 +35,8 @@
     (db/insert-post @c/my-hash-bytes
                     file-name
                     (f/b-decode-map (f/b-decode post)))
-    (io/delete-orphaned-pics @c/my-hash-bytes)
-    (io/write-post-file file-name post)
+    (io/delete-orphaned-pics! @c/my-hash-bytes)
+    (io/write-post-file! file-name post)
     (future (create-meta-torrent))))
 
 (defn toggle-fav
@@ -47,7 +47,7 @@
         fav-time (or (:time content) (.getTime (java.util.Date.)))
         fav (f/fav-encode ptr-hash ptr-time new-status)]
     (db/insert-fav @c/my-hash-bytes fav-time (f/b-decode-map (f/b-decode fav)))
-    (io/write-fav-file fav-time fav)
+    (io/write-fav-file! fav-time fav)
     (dht/add-user-hash ptr-hash)
     (future (create-meta-torrent))))
 
@@ -70,6 +70,6 @@
 (defn export-user
   [{:keys [dest-str pass-str]}]
   (let [source-str (c/get-user-dir @c/my-hash-str)]
-    (io/delete-file dest-str)
+    (io/delete-file! dest-str)
     (when (zip/zip-dir source-str dest-str pass-str)
       dest-str)))

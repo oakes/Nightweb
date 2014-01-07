@@ -12,7 +12,7 @@
 (def ^:const enable-router? true) ; if false, I2P won't boot
 (def is-first-boot? (atom false))
 
-(defn start-router
+(defn start-router!
   "Starts the I2P router, I2PSnark manager, and the user and meta torrents."
   [dir]
   ; set main dir and initialize the database
@@ -49,7 +49,7 @@
       (when-let [context (.get contexts 0)]
         (.router context)))))
 
-(defn stop-router
+(defn stop-router!
   "Shuts down the I2P router."
   []
   (when-let [router (get-router)]

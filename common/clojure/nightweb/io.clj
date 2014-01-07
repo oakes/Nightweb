@@ -13,12 +13,13 @@
   [path]
   (.exists (java.io/file path)))
 
-(defn write-file
+(defn write-file!
   [path data-barray]
-  (when-let [parent-dir (.getParentFile (java.io/file path))]
-    (.mkdirs parent-dir))
-  (with-open [bos (java.io/output-stream path)]
-    (.write bos data-barray 0 (alength ^bytes data-barray))))
+  (io!
+    (when-let [parent-dir (.getParentFile (java.io/file path))]
+      (.mkdirs parent-dir))
+    (with-open [bos (java.io/output-stream path)]
+      (.write bos data-barray 0 (alength ^bytes data-barray)))))
 
 (defn read-file
   [path]
@@ -30,21 +31,21 @@
             (.read bis data-barray))
           data-barray)))))
 
-(defn delete-file
+(defn delete-file!
   [path]
-  (.delete (java.io/file path)))
+  (io! (.delete (java.io/file path))))
 
-(defn delete-file-recursively
+(defn delete-file-recursively!
   [path]
   (let [^File f (java.io/file path)]
     (when (.isDirectory f)
       (doseq [child (.listFiles f)]
-        (delete-file-recursively child)))
-    (delete-file f)))
+        (delete-file-recursively! child)))
+    (delete-file! f)))
 
-(defn make-dir
+(defn make-dir!
   [path]
-  (.mkdirs (java.io/file path)))
+  (io! (.mkdirs (java.io/file path))))
 
 (defn iterate-dir
   [path func]
@@ -75,9 +76,9 @@
 
 ; read/write specific files
 
-(defn write-key-file
+(defn write-key-file!
   [file-path key-obj]
-  (write-file file-path (f/key-encode key-obj)))
+  (write-file! file-path (f/key-encode key-obj)))
 
 (defn read-key-file
   [file-path]
@@ -85,10 +86,10 @@
     (when-let [sign-key-str (.get key-map "sign_key")]
       (.getBytes sign-key-str))))
 
-(defn write-priv-node-key-file
+(defn write-priv-node-key-file!
   [priv-node]
   (let [priv-node-file (java.io/file @c/base-dir c/nw-dir c/priv-node-key-file)]
-    (.write (PrivateKeyFile. priv-node-file priv-node))))
+    (io! (.write (PrivateKeyFile. priv-node-file priv-node)))))
 
 (defn read-priv-node-key-file
   []
@@ -97,11 +98,11 @@
     (when (file-exists? path)
       (java.io/input-stream (java.io/file path)))))
 
-(defn write-pub-node-key-file
+(defn write-pub-node-key-file!
   [pub-node]
-  (write-file (-> (java.io/file @c/base-dir c/nw-dir c/pub-node-key-file)
-                  .getCanonicalPath)
-              (.getBytes pub-node)))
+  (write-file! (-> (java.io/file @c/base-dir c/nw-dir c/pub-node-key-file)
+                   .getCanonicalPath)
+               (.getBytes pub-node)))
 
 (defn read-pub-node-key-file
   []
@@ -110,41 +111,41 @@
     (when (file-exists? path)
       (org.klomp.snark.dht.NodeInfo. (apply str (map char (read-file path)))))))
 
-(defn write-pic-file
+(defn write-pic-file!
   [data-barray]
   (when data-barray
     (let [image-hash (crypto/create-hash data-barray)
           file-path (-> (c/get-pic-dir @c/my-hash-str)
                         (java.io/file (f/base32-encode image-hash))
                         .getCanonicalPath)]
-      (write-file file-path data-barray)
+      (write-file! file-path data-barray)
       image-hash)))
 
-(defn write-post-file
+(defn write-post-file!
   [create-time encoded-args]
-  (write-file (-> (c/get-post-dir @c/my-hash-str)
-                  (java.io/file (str create-time))
-                  .getCanonicalPath)
-              encoded-args))
+  (write-file! (-> (c/get-post-dir @c/my-hash-str)
+                   (java.io/file (str create-time))
+                   .getCanonicalPath)
+               encoded-args))
 
-(defn write-profile-file
+(defn write-profile-file!
   [encoded-args]
-  (write-file (-> (c/get-meta-dir @c/my-hash-str)
-                  (java.io/file c/profile)
-                  .getCanonicalPath)
-              encoded-args))
+  (write-file! (-> (c/get-meta-dir @c/my-hash-str)
+                   (java.io/file c/profile)
+                   .getCanonicalPath)
+               encoded-args))
 
-(defn write-fav-file
+(defn write-fav-file!
   [create-time encoded-args]
-  (write-file (-> (c/get-fav-dir @c/my-hash-str)
-                  (java.io/file (str create-time))
-                  .getCanonicalPath)
-              encoded-args))
+  (write-file! (-> (c/get-fav-dir @c/my-hash-str)
+                   (java.io/file (str create-time))
+                   .getCanonicalPath)
+               encoded-args))
 
-(defn write-link-file
+(defn write-link-file!
   [link-hash]
-  (write-file (str (c/get-meta-dir @c/my-hash-str) c/link-ext)
-              (f/link-encode link-hash)))
+  (write-file! (str (c/get-meta-dir @c/my-hash-str) c/link-ext)
+               (f/link-encode link-hash)))
 
 (defn read-user-list-file
   []
@@ -153,9 +154,9 @@
       f/b-decode
       f/b-decode-byte-list))
 
-(defn write-user-list-file
+(defn write-user-list-file!
   [user-list]
-  (write-file (c/get-user-list-file) (f/b-encode user-list)))
+  (write-file! (c/get-user-list-file) (f/b-encode user-list)))
 
 (defn read-link-file
   [user-hash-str]
@@ -176,7 +177,7 @@
     :dir-name (.getName (.getParentFile (java.io/file path)))
     :contents (f/b-decode-map (f/b-decode (read-file path)))}))
 
-(defn delete-orphaned-pics
+(defn delete-orphaned-pics!
   [user-hash]
   (when user-hash
     (doseq [^File pic (-> (f/base32-encode user-hash)
@@ -186,12 +187,12 @@
       (when (and (.isFile pic)
                  (-> {:userhash user-hash
                       :pichash (f/base32-decode (.getName pic))}
-                     (db/get-pic-data)
-                     (count)
+                     db/get-pic-data
+                     count
                      (= 0)))
-        (.delete pic)))))
+        (io! (.delete pic))))))
 
-(defn delete-orphaned-files
+(defn delete-orphaned-files!
   [user-hash file-list]
   (when user-hash
     (let [meta-dir (c/get-meta-dir (f/base32-encode user-hash))]
@@ -200,6 +201,6 @@
                    (->> file-list
                         (filter #(= (.getCanonicalPath meta-file)
                                     (join-path meta-dir %)))
-                        (count)
+                        count
                         (= 0)))
-          (.delete meta-file))))))
+          (io! (.delete meta-file)))))))

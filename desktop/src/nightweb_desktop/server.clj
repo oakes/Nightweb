@@ -38,7 +38,7 @@
                              {:root @c/base-dir})
           (res/resource-response (:uri request)))))))
 
-(defn start-server
+(defn start-server!
   []
   (when @server (.stop @server))
   (reset! server (jetty/run-jetty (multi/wrap-multipart-params handler)
@@ -46,12 +46,12 @@
                                    :host (if @utils/remote? nil "127.0.0.1")
                                    :join? false})))
 
-(defn set-port
+(defn set-port!
   [port-str]
   (try
     (let [port-num (Integer/parseInt port-str)]
       (when (and (>= port-num 1024) (not= port-num @port))
         (utils/write-pref :port port-num)
         (reset! port port-num)
-        (start-server)))
+        (start-server!)))
     (catch Exception e nil)))
