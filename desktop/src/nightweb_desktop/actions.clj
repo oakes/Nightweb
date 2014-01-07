@@ -14,7 +14,7 @@
   (-> (assoc params :pic-hash (-> (:pic-str params)
                                   utils/decode-data-uri
                                   io/write-pic-file!))
-      actions/save-profile)
+      actions/save-profile!)
   nil)
 
 (defn import-user
@@ -24,14 +24,14 @@
         file-barray (utils/decode-data-uri (:file-str params))]
     (io/write-file! path file-barray)
     (-> (assoc params :source-str path)
-        actions/import-user
+        actions/import-user!
         utils/get-string)))
 
 (defn export-user
   [params]
   (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
                  .getCanonicalPath)]
-    (when-let [dest-str (actions/export-user (assoc params :dest-str path))]
+    (when-let [dest-str (actions/export-user! (assoc params :dest-str path))]
       (utils/get-relative-path @c/base-dir dest-str))))
 
 (defn new-post
@@ -43,7 +43,7 @@
              :ptr-hash (f/base32-decode (:ptr-hash params))
              :ptr-time (edn/read-string (:ptr-time params))
              :status 1)
-      actions/new-post)
+      actions/new-post!)
   nil)
 
 (defn edit-post
@@ -55,14 +55,14 @@
              :pic-hashes (for [pic (edn/read-string (:pic-hashes params))]
                            (f/base32-decode pic))
              :status 1)
-      actions/new-post)
+      actions/new-post!)
   nil)
 
 (defn delete-post
   [params]
   (-> {:create-time (edn/read-string (:create-time params))
        :status 0}
-      actions/new-post)
+      actions/new-post!)
   nil)
 
 (defn switch-user
@@ -82,7 +82,7 @@
 (defn create-user
   [params]
   (users/load-user (users/create-user))
-  (actions/fav-default-user)
+  (actions/fav-default-user!)
   nil)
 
 (defn toggle-fav
@@ -90,7 +90,7 @@
   (-> (assoc params
              :ptr-hash (f/base32-decode (:userhash params))
              :ptr-time (edn/read-string (:time params)))
-      actions/toggle-fav)
+      actions/toggle-fav!)
   nil)
 
 (defn check-user-exists

@@ -138,7 +138,7 @@
      (show-spinner context
                    (r/get-string :sending)
                    #(do
-                      (a/new-post
+                      (a/new-post!
                         {:pic-hashes
                          (or pic-hashes
                              (for [path attachments]
@@ -188,7 +188,7 @@
     (show-spinner context
                   (r/get-string :saving)
                   #(do
-                     (a/save-profile
+                     (a/save-profile!
                        {:pic-hash (-> image-bitmap
                                       utils/bitmap-to-byte-array
                                       io/write-pic-file!)
@@ -206,9 +206,8 @@
                        dir (Environment/getExternalStorageDirectory)
                        dest-path (-> (java.io/file dir c/user-zip-file)
                                      .getCanonicalPath)]
-                   (if (a/export-user
-                         {:dest-str dest-path
-                          :pass-str password})
+                   (if (a/export-user! {:dest-str dest-path
+                                        :pass-str password})
                      (send-file context "application/zip" dest-path)
                      (thread/on-ui
                        (notify/toast (r/get-string :zip_error)))))))
@@ -229,8 +228,8 @@
                                   temp-path)
                               (.getRawPath (java.net.URI. uri-str)))]
                    ; if unzip succeeds, import user, otherwise show error
-                   (if-let [error (a/import-user {:source-str path
-                                                  :pass-str password})]
+                   (if-let [error (a/import-user! {:source-str path
+                                                   :pass-str password})]
                      (thread/on-ui
                        (notify/toast
                          (utils/get-string-at-runtime context error)))
@@ -252,8 +251,8 @@
                    (r/get-string :removing)
                    (r/get-string :adding))
                  #(do
-                    (a/toggle-fav {:ptr-hash (:userhash content)
-                                   :ptr-time (:time content)})
+                    (a/toggle-fav! {:ptr-hash (:userhash content)
+                                    :ptr-time (:time content)})
                     (if go-home?
                       (show-home context {})
                       true)))))

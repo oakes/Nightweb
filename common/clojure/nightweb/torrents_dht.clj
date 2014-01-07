@@ -30,7 +30,7 @@
     (.getSession socket-manager)
     (println "Failed to get private node")))
 
-(defn add-node
+(defn add-node!
   [node-info-str]
   (if-let [^DHT dht (.getDHT (.util ^SnarkManager @t/manager))]
     (let [^NodeInfo ninfo (.heardAbout dht (NodeInfo. node-info-str))]
@@ -45,7 +45,7 @@
 
 ; sending meta links
 
-(defn send-custom-query
+(defn send-custom-query!
   "Sends a query over KRPC."
   [node-info method args]
   (let [query (doto (java.util.HashMap.)
@@ -55,21 +55,21 @@
         .getDHT
         (.sendQuery node-info query true))))
 
-(defn send-meta-link
+(defn send-meta-link!
   "Sends the relevant meta link to all peers in a given user torrent."
   ([]
    (when-let [torrent (-> (c/get-user-pub-torrent-file @c/my-hash-str)
                           (t/get-torrent-by-path))]
-     (send-meta-link torrent)))
+     (send-meta-link! torrent)))
   ([^Snark torrent]
    (let [info-hash-str (f/base32-encode (.getInfoHash torrent))
          args (io/read-link-file info-hash-str)]
      (t/iterate-peers torrent
                       (fn [peer]
                         (-> (get-node-info-for-peer peer)
-                            (send-custom-query "announce_meta" args)))))))
+                            (send-custom-query! "announce_meta" args)))))))
 
-(defn send-meta-link-periodically
+(defn send-meta-link-periodically!
   "Sends the relevant meta link to all peers in each user torrent."
   [seconds]
   (future
@@ -77,11 +77,11 @@
       (Thread/sleep (* seconds 1000))
       (t/iterate-torrents (fn [^Snark torrent]
                             (when (.getPersistent torrent)
-                              (send-meta-link torrent)))))))
+                              (send-meta-link! torrent)))))))
 
 ; ingest meta torrents
 
-(defn add-user-hash
+(defn add-user-hash!
   "Begins following the supplied user hash if we aren't already."
   [their-hash-bytes]
   (when their-hash-bytes
@@ -89,9 +89,9 @@
           path (c/get-user-dir their-hash-str)]
       (when-not (io/file-exists? path)
         (io/make-dir! path)
-        (t/add-hash! path their-hash-str true send-meta-link)))))
+        (t/add-hash! path their-hash-str true send-meta-link!)))))
 
-(defn remove-user-hash
+(defn remove-user-hash!
   "Removes a user completely if nobody we care about is following them."
   [their-hash-bytes]
   (when (and their-hash-bytes
@@ -112,9 +112,9 @@
       (io/delete-file-recursively! user-dir)
       (db/delete-user their-hash-bytes)
       (io/iterate-dir (c/get-user-dir)
-                      #(remove-user-hash (f/base32-decode %))))))
+                      #(remove-user-hash! (f/base32-decode %))))))
 
-(defn on-recv-fav
+(defn on-recv-fav!
   "Add or remove user if necessary based on a fav we received."
   [user-hash ptr-hash status]
   ; if this is from a user we care about
@@ -128,12 +128,12 @@
                  not))
     (case status
       ; if the fav has a status of 0, unfollow them if necessary
-      0 (remove-user-hash ptr-hash)
+      0 (remove-user-hash! ptr-hash)
       ; if the fav has a status of 1, make sure we are following them
-      1 (add-user-hash ptr-hash)
+      1 (add-user-hash! ptr-hash)
       nil)))
 
-(defn on-recv-meta-file
+(defn on-recv-meta-file!
   "Ingests a given file from a meta torrent"
   [user-hash-bytes meta-file]
   ; insert it into the db
@@ -142,11 +142,11 @@
   (let [meta-contents (:contents meta-file)]
     (when (and (= "fav" (:dir-name meta-file))
                (nil? (get meta-contents "ptrtime")))
-      (on-recv-fav user-hash-bytes
-                   (f/b-decode-bytes (get meta-contents "ptrhash"))
-                   (f/b-decode-long (get meta-contents "status"))))))
+      (on-recv-fav! user-hash-bytes
+                    (f/b-decode-bytes (get meta-contents "ptrhash"))
+                    (f/b-decode-long (get meta-contents "status"))))))
 
-(defn on-recv-meta
+(defn on-recv-meta!
   "Ingests all files in a meta torrent."
   [^Snark torrent]
   (let [parent-dir (.getParentFile (java.io/file (.getName torrent)))
@@ -154,8 +154,8 @@
         paths (.getFiles (.getMetaInfo torrent))]
     ; iterate over the files in this torrent
     (doseq [path-leaves paths]
-      (on-recv-meta-file user-hash-bytes
-                         (io/read-meta-file parent-dir path-leaves)))
+      (on-recv-meta-file! user-hash-bytes
+                          (io/read-meta-file parent-dir path-leaves)))
     ; remove any files that the torrent no longer contains
     (when-not (c/is-me? user-hash-bytes true)
       (io/delete-orphaned-files! user-hash-bytes paths))))
@@ -193,14 +193,14 @@
                                   (:sig link-map)
                                   (:data link-map)))))
 
-(defn save-meta-link
+(defn save-meta-link!
   "Saves a meta link to the disk."
   [link-map]
   (let [user-hash-str (:user-hash-str link-map)
         link-path (c/get-meta-link-file user-hash-str)]
     (io/write-file! link-path (:link link-map))))
 
-(defn replace-meta-link
+(defn replace-meta-link!
   "Stops sharing a given meta torrent and begins downloading an updated one."
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (c/get-user-dir user-hash-str)
@@ -208,11 +208,11 @@
     (t/remove-torrent! meta-torrent-path)
     (when-let [old-hash-str (:link-hash-str old-link-map)]
       (t/remove-torrent! old-hash-str))
-    (save-meta-link new-link-map)
-    (t/add-hash! user-dir (:link-hash-str new-link-map) false on-recv-meta)
+    (save-meta-link! new-link-map)
+    (t/add-hash! user-dir (:link-hash-str new-link-map) false on-recv-meta!)
     (println "Saved meta link")))
 
-(defn compare-meta-link
+(defn compare-meta-link!
   "Checks if a given meta link is newer than the one we already have."
   [link-map]
   (let [user-hash-str (:user-hash-str link-map)
@@ -223,16 +223,16 @@
     (if (not= my-time their-time)
       (if (validate-meta-link link-map)
         (if (or (nil? my-time) (> their-time my-time))
-          (replace-meta-link user-hash-str my-link-map link-map)
+          (replace-meta-link! user-hash-str my-link-map link-map)
           my-link)
         my-link)
       (comment "Received identical link"))))
 
-(defn receive-meta-link
+(defn receive-meta-link!
   "Parses and, if necessary, saves a given meta link."
   [args]
   (if-let [link (parse-meta-link args)]
-    (compare-meta-link link)
+    (compare-meta-link! link)
     (println "Meta link can't be parsed")))
 
 ; initialization
@@ -251,10 +251,10 @@
     (reify CustomQueryHandler
       (receiveQuery [this method args]
         (case method
-          "announce_meta" (receive-meta-link args)
+          "announce_meta" (receive-meta-link! args)
           nil))
       (receiveResponse [this args]
-        (receive-meta-link args))))
+        (receive-meta-link! args))))
   ; set the init callback
   (.setDHTInitCallback
     (.util ^SnarkManager @t/manager)
@@ -265,7 +265,7 @@
           (io/write-priv-node-key-file! priv-node)
           (io/write-pub-node-key-file! pub-node)))
       ; add dht bootstrap node
-      (add-node "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701")
+      (add-node! "rkJ0ws6PQz8FU7VvTW~Lelhb6DM=:rkJ0wkX6jrW3HJBNdhuLlWCUPKDAlX8T23lrTOeMGK8=:B5QFqHHlCT5fOA2QWLAlAKba1hIjW-KBt2HCqwtJg8JFa2KnjAzcexyveYT8HOcMB~W6nhwhzQ7~sywFkvcvRkKHbf6LqP0X43q9y2ADFk2t9LpUle-L-x34ZodEEDxQbwWo74f-rX5IemW2-Du-8NH-o124OGvq5N4uT4PjtxmgSVrBYVLjZRYFUWgdmgR1lVOncfMDbXzXGf~HdY97s9ZFHYyi7ymwzlk4bBN9-Pd4I1tJB2sYBzk62s3gzY1TlDKOdy7qy1Eyr4SEISAopJrvAnSkS1eIFyCoqfzzrBWM11uWppWetf3AkHxGitJIQe73wmZrrO36jHNewIct54v2iF~~3cqBVlT4ptX1Dc-thjrxXoV73A0HUASldCeFZSVJFMQgOQK9U85NQscAokftpyp4Ai89YWaUvSDcZPd-mQuA275zifPwp8s8UfYV5EBqvdHnfeJjxmyTcKR3g5Ft8ABai9yywxoA7yoABD4EGzsFtAh0nOLcmbM944zdAAAA:35701")
       (println "DHT initialized")))
   ; make sure we always have the newest meta link from our user torrents
-  (send-meta-link-periodically 60))
+  (send-meta-link-periodically! 60))

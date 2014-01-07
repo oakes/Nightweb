@@ -39,7 +39,7 @@
     ; add all user and meta torrents
     (io/iterate-dir (c/get-user-dir) users/add-user-and-meta-torrents)
     ; add default fav user
-    (when @is-first-boot? (actions/fav-default-user))))
+    (when @is-first-boot? (actions/fav-default-user!))))
 
 (defn get-router
   "Returns the router object if it exists."

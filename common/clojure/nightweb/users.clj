@@ -44,13 +44,13 @@
     ; add user torrent
     (if (or (c/is-me? their-hash-bytes true)
             (io/file-exists? pub-torrent-path))
-      (t/add-torrent! pub-path true dht/send-meta-link)
-      (t/add-hash! user-dir their-hash-str true dht/send-meta-link))
+      (t/add-torrent! pub-path true dht/send-meta-link!)
+      (t/add-hash! user-dir their-hash-str true dht/send-meta-link!))
     ; add meta torrent
     (if (io/file-exists? meta-torrent-path)
-      (t/add-torrent! meta-path false dht/on-recv-meta)
+      (t/add-torrent! meta-path false dht/on-recv-meta!)
       (when-let [new-link-str (:link-hash-str link-map)]
-        (t/add-hash! user-dir new-link-str false dht/on-recv-meta)))))
+        (t/add-hash! user-dir new-link-str false dht/on-recv-meta!)))))
 
 (defn create-user
   "Creates a new user."
@@ -92,7 +92,7 @@
                               (cons (create-user) user-list)
                               user-list))
     (load-user nil)
-    (future (dht/remove-user-hash user-hash-bytes))))
+    (future (dht/remove-user-hash! user-hash-bytes))))
 
 (defn create-imported-user
   "Replaces current user with imported user."
@@ -108,7 +108,7 @@
                           java.io/file
                           file-seq)]
         (when (.isFile f)
-          (dht/on-recv-meta-file imported-user
-                                 (io/read-meta-file (.getCanonicalPath f)))))
+          (dht/on-recv-meta-file! imported-user
+                                  (io/read-meta-file (.getCanonicalPath f)))))
       (add-user-and-meta-torrents imported-user-str))
     is-valid?))

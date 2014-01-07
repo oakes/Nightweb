@@ -221,7 +221,7 @@
                  {:positive-name (r/get-string :create_user)
                   :positive-func (fn [context dialog-view button-view]
                                    (users/load-user (users/create-user))
-                                   (a/fav-default-user)
+                                   (a/fav-default-user!)
                                    (.finish context)
                                    (actions/show-home context {}))
                   :negative-name (r/get-string :cancel)
