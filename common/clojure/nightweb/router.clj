@@ -23,7 +23,7 @@
   (System/setProperty "i2p.dir.config" dir)
   (System/setProperty "wrapper.logfile" (-> (java.io/file dir "wrapper.log")
                                             .getCanonicalPath))
-  (t/start-torrent-manager dir)
+  (t/start-torrent-manager! dir)
   (dht/init-dht)
   ; create or load user
   (when (= 0 (count (io/read-user-list-file)))

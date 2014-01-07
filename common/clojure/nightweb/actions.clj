@@ -12,8 +12,8 @@
 (defn create-meta-torrent
   []
   (let [path (c/get-meta-dir @c/my-hash-str)]
-    (t/remove-torrent (c/get-meta-torrent-file @c/my-hash-str))
-    (io/write-link-file! (t/add-torrent path false dht/on-recv-meta))
+    (t/remove-torrent! (c/get-meta-torrent-file @c/my-hash-str))
+    (io/write-link-file! (t/add-torrent! path false dht/on-recv-meta))
     (dht/send-meta-link)))
 
 (defn save-profile

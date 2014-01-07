@@ -89,7 +89,7 @@
           path (c/get-user-dir their-hash-str)]
       (when-not (io/file-exists? path)
         (io/make-dir! path)
-        (t/add-hash path their-hash-str true send-meta-link)))))
+        (t/add-hash! path their-hash-str true send-meta-link)))))
 
 (defn remove-user-hash
   "Removes a user completely if nobody we care about is following them."
@@ -108,7 +108,7 @@
       (t/iterate-torrents
         (fn [^Snark torrent]
           (when (>= (.indexOf (.getDataDir torrent) their-hash-str) 0)
-            (t/remove-torrent (.getName torrent)))))
+            (t/remove-torrent! (.getName torrent)))))
       (io/delete-file-recursively! user-dir)
       (db/delete-user their-hash-bytes)
       (io/iterate-dir (c/get-user-dir)
@@ -205,11 +205,11 @@
   [user-hash-str old-link-map new-link-map]
   (let [user-dir (c/get-user-dir user-hash-str)
         meta-torrent-path (c/get-meta-torrent-file user-hash-str)]
-    (t/remove-torrent meta-torrent-path)
+    (t/remove-torrent! meta-torrent-path)
     (when-let [old-hash-str (:link-hash-str old-link-map)]
-      (t/remove-torrent old-hash-str))
+      (t/remove-torrent! old-hash-str))
     (save-meta-link new-link-map)
-    (t/add-hash user-dir (:link-hash-str new-link-map) false on-recv-meta)
+    (t/add-hash! user-dir (:link-hash-str new-link-map) false on-recv-meta)
     (println "Saved meta link")))
 
 (defn compare-meta-link

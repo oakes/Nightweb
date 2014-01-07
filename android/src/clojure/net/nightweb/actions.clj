@@ -147,7 +147,7 @@
                                      (utils/path-to-bitmap
                                        path utils/full-size))
                                    utils/bitmap-to-byte-array
-                                   io/write-pic-file)))
+                                   io/write-pic-file!)))
                          :status status
                          :body-str text
                          :ptr-hash (:ptrhash pointers)
@@ -191,7 +191,7 @@
                      (a/save-profile
                        {:pic-hash (-> image-bitmap
                                       utils/bitmap-to-byte-array
-                                      io/write-pic-file)
+                                      io/write-pic-file!)
                         :name-str name-text
                         :body-str body-text})
                      true)))

@@ -44,13 +44,13 @@
     ; add user torrent
     (if (or (c/is-me? their-hash-bytes true)
             (io/file-exists? pub-torrent-path))
-      (t/add-torrent pub-path true dht/send-meta-link)
-      (t/add-hash user-dir their-hash-str true dht/send-meta-link))
+      (t/add-torrent! pub-path true dht/send-meta-link)
+      (t/add-hash! user-dir their-hash-str true dht/send-meta-link))
     ; add meta torrent
     (if (io/file-exists? meta-torrent-path)
-      (t/add-torrent meta-path false dht/on-recv-meta)
+      (t/add-torrent! meta-path false dht/on-recv-meta)
       (when-let [new-link-str (:link-hash-str link-map)]
-        (t/add-hash user-dir new-link-str false dht/on-recv-meta)))))
+        (t/add-hash! user-dir new-link-str false dht/on-recv-meta)))))
 
 (defn create-user
   "Creates a new user."

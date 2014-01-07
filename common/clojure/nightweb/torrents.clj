@@ -96,7 +96,7 @@
       ;(.getSavedTorrentBitField ^SnarkManager @manager snark)
       nil)))
 
-(defn add-hash
+(defn add-hash!
   "Adds an info hash to download."
   [path info-hash-str is-persistent? complete-callback]
   (future
@@ -115,7 +115,7 @@
       (catch IllegalArgumentException iae
         (println "Error adding hash:" (.getMessage iae))))))
 
-(defn add-torrent
+(defn add-torrent!
   "Adds a torrent to download or seed."
   [path is-persistent? complete-callback]
   (try
@@ -144,7 +144,7 @@
       (println "Error adding torrent:" (.getMessage ioe))
       nil)))
 
-(defn remove-torrent
+(defn remove-torrent!
   "Stops and deletes a torrent."
   [path]
   (.removeTorrent ^SnarkManager @manager path))
@@ -162,7 +162,7 @@
 
 ; initialization
 
-(defn start-torrent-manager
+(defn start-torrent-manager!
   "Starts the I2PSnark manager."
   [dir]
   (let [context (I2PAppContext/getGlobalContext)
