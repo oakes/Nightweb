@@ -12,9 +12,9 @@
 
 (def prefs (.node (java.util.prefs.Preferences/userRoot) "nightweb"))
 
-(defn write-pref
+(defn write-pref!
   [k v]
-  (.put prefs (name k) (pr-str v)))
+  (io! (.put prefs (name k) (pr-str v))))
 
 (defn read-pref
   [k]
@@ -25,7 +25,7 @@
 (def remote? (atom (read-pref :remote)))
 
 (when (nil? @update?)
-  (write-pref :update true)
+  (write-pref! :update true)
   (reset! update? true))
 
 ; language

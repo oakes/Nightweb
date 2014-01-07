@@ -9,7 +9,7 @@
             [nightweb.users :as users]
             [nightweb-desktop.utils :as utils]))
 
-(defn save-profile
+(defn save-profile!
   [params]
   (-> (assoc params :pic-hash (-> (:pic-str params)
                                   utils/decode-data-uri
@@ -17,7 +17,7 @@
       actions/save-profile!)
   nil)
 
-(defn import-user
+(defn import-user!
   [params]
   (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
                  .getCanonicalPath)
@@ -27,14 +27,14 @@
         actions/import-user!
         utils/get-string)))
 
-(defn export-user
+(defn export-user!
   [params]
   (let [path (-> (java.io/file @c/base-dir c/nw-dir c/user-zip-file)
                  .getCanonicalPath)]
     (when-let [dest-str (actions/export-user! (assoc params :dest-str path))]
       (utils/get-relative-path @c/base-dir dest-str))))
 
-(defn new-post
+(defn new-post!
   [params]
   (-> (assoc params
              :pic-hashes (for [pic (edn/read-string (:pics-str params))]
@@ -46,7 +46,7 @@
       actions/new-post!)
   nil)
 
-(defn edit-post
+(defn edit-post!
   [params]
   (-> (assoc params
              :create-time (edn/read-string (:create-time params))
@@ -58,34 +58,34 @@
       actions/new-post!)
   nil)
 
-(defn delete-post
+(defn delete-post!
   [params]
   (-> {:create-time (edn/read-string (:create-time params))
        :status 0}
       actions/new-post!)
   nil)
 
-(defn switch-user
+(defn switch-user!
   [params]
   (-> (:userhash params)
       f/base32-decode
       users/load-user!)
   nil)
 
-(defn delete-user
+(defn delete-user!
   [params]
   (-> (:userhash params)
       f/base32-decode
       users/delete-user!)
   nil)
 
-(defn create-user
+(defn create-user!
   [params]
   (users/load-user! (users/create-user!))
   (actions/fav-default-user!)
   nil)
 
-(defn toggle-fav
+(defn toggle-fav!
   [params]
   (-> (assoc params
              :ptr-hash (f/base32-decode (:userhash params))
@@ -103,26 +103,26 @@
   (when-not (users/user-has-content? (f/base32-decode (:userhash params)))
     (utils/get-string :pending_user)))
 
-(defn shut-down
+(defn shut-down!
   [params]
   (router/stop-router!)
   (System/exit 0))
 
-(defn do-action
+(defn do-action!
   [params]
-  (when-let [action (case (:type params)
-                      "save-profile" save-profile
-                      "import-user" import-user
-                      "export-user" export-user
-                      "new-post" new-post
-                      "edit-post" edit-post
-                      "delete-post" delete-post
-                      "switch-user" switch-user
-                      "delete-user" delete-user
-                      "create-user" create-user
-                      "toggle-fav" toggle-fav
-                      "check-user-exists" check-user-exists
-                      "check-user-has-content" check-user-has-content
-                      "shut-down" shut-down
-                      nil)]
-    (action params)))
+  (when-let [action! (case (:type params)
+                       "save-profile" save-profile!
+                       "import-user" import-user!
+                       "export-user" export-user!
+                       "new-post" new-post!
+                       "edit-post" edit-post!
+                       "delete-post" delete-post!
+                       "switch-user" switch-user!
+                       "delete-user" delete-user!
+                       "create-user" create-user!
+                       "toggle-fav" toggle-fav!
+                       "check-user-exists" check-user-exists
+                       "check-user-has-content" check-user-has-content
+                       "shut-down" shut-down!
+                       nil)]
+    (action! params)))

@@ -28,4 +28,4 @@
   (router/start-router! (get-data-dir))
   (server/start-server!)
   (when-not (contains? (set args) "-nw")
-    (window/start-window)))
+    (window/start-window!)))

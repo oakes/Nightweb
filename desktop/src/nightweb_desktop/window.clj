@@ -10,7 +10,7 @@
 
 (declare update-window-content!)
 
-(defn open-in-browser
+(defn open-in-browser!
   "Opens the address in the default web browser."
   [address]
   (when (java.awt.Desktop/isDesktopSupported)
@@ -29,19 +29,19 @@
   [(s/button :text (utils/get-string :open_in_browser)
              :listen [:action (fn [e]
                                 (-> (str "http://localhost:" @server/port)
-                                    open-in-browser))])
+                                    open-in-browser!))])
    (s/checkbox :text (utils/get-string :check_for_updates)
                :selected? @utils/update?
                :listen [:action (fn [e]
                                   (->> (not @utils/update?)
                                        (reset! utils/update?)
-                                       (utils/write-pref :update)))])
+                                       (utils/write-pref! :update)))])
    (s/checkbox :text (utils/get-string :enable_remote)
                :selected? @utils/remote?
                :listen [:action (fn [e]
                                   (->> (not @utils/remote?)
                                        (reset! utils/remote?)
-                                       (utils/write-pref :remote))
+                                       (utils/write-pref! :remote))
                                   (server/start-server!)
                                   (update-window-content! ui-root))])])
 
@@ -72,7 +72,7 @@
                :items items)
     (s/pack! ui-root)))
 
-(defn start-window
+(defn start-window!
   "Launches the main window."
   []
   (s/native!)
