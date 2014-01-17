@@ -1,4 +1,4 @@
-(defproject nightweb-android/Nightweb "0.0.24"
+(defproject nightweb-android/Nightweb "0.0.25"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :min-lein-version "2.0.0"
@@ -12,7 +12,7 @@
   :dependencies [[com.h2database/h2 "1.3.174"]
                  [markdown-clj "0.9.36"]
                  [neko/neko "3.0.0"]
-                 [org.clojure/java.jdbc "0.3.0"]
+                 [org.clojure/java.jdbc "0.3.2"]
                  [org.clojure-android/clojure "1.5.1-jb" :use-resources true]]
   :profiles {:dev {:dependencies [[android/tools.nrepl "0.2.0-bigstack"]]
                    :android {:aot :all-with-unused}}

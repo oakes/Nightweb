@@ -1,4 +1,4 @@
-(defproject nightweb-desktop "0.0.24"
+(defproject nightweb-desktop "0.0.25"
   :license {:name "Public Domain"
             :url "http://unlicense.org/UNLICENSE"}
   :dependencies [[com.github.insubstantial/substance "7.2.1"]
@@ -6,7 +6,7 @@
                  [hiccup "1.0.4"]
                  [markdown-clj "0.9.36"]
                  [org.clojure/clojure "1.5.1"]
-                 [org.clojure/java.jdbc "0.3.0"]
+                 [org.clojure/java.jdbc "0.3.2"]
                  [ring "1.2.1"]
                  [seesaw "1.4.4"]]
   :source-paths ["src" "../common/clojure"]
