@@ -68,7 +68,7 @@
 (defn request-files!
   "Displays an app chooser to select files of the specified file type."
   [^Activity context file-type callback]
-  (utils/set-state context :file-request callback)
+  (utils/set-state! context :file-request callback)
   (let [intent (Intent. Intent/ACTION_GET_CONTENT)]
     (.setType intent file-type)
     (.addCategory intent Intent/CATEGORY_OPENABLE)
@@ -99,13 +99,13 @@
                             [uri-str]))
         total-attachments (f/remove-dupes-and-nils
                             (concat attachments new-attachments))]
-    (utils/set-state context :attachments total-attachments)
+    (utils/set-state! context :attachments total-attachments)
     total-attachments))
 
 (defn clear-attachments!
   "Clears the list of selected attachments."
   [^Activity context]
-  (utils/set-state context :attachments nil))
+  (utils/set-state! context :attachments nil))
 
 ; misc actions
 
