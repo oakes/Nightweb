@@ -80,7 +80,7 @@
   :on-destroy
   (fn [^Activity this]
     (stop-shutdown-receiver! this)
-    (service/stop-service! (:service @(.state this))))
+    (service/stop-service! this (:service @(.state this))))
   :on-create-options-menu
   (fn [^Activity this menu]
     (menus/create-main-menu this menu true true))
@@ -173,7 +173,7 @@
   :on-destroy
   (fn [^Activity this]
     (stop-shutdown-receiver! this)
-    (service/stop-service! (:service @(.state this))))
+    (service/stop-service! this (:service @(.state this))))
   :on-create-options-menu
   (fn [^Activity this menu]
     (menus/create-main-menu this menu true false))
