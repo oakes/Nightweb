@@ -25,7 +25,9 @@
 
 (defn -main
   [& args]
-  (router/start-router! (get-data-dir))
+  (router/start-router! (if (contains? (set args) "--portable")
+                          "nightweb"
+                          (get-data-dir)))
   (server/start-server!)
   (when-not (contains? (set args) "-nw")
     (window/start-window!)))
