@@ -3,11 +3,11 @@ package net.i2p.router.networkdb.kademlia;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 
 import net.i2p.data.Hash;
 import net.i2p.data.i2np.DatabaseLookupMessage;
+import net.i2p.kademlia.KBucketSet;
 import net.i2p.router.Job;
 import net.i2p.router.MessageSelector;
 import net.i2p.router.OutNetMessage;
@@ -70,7 +70,7 @@ class FloodOnlySearchJob extends FloodSearchJob {
         //List<Hash> floodfillPeers = _facade.getFloodfillPeers();
         // new
         List<Hash> floodfillPeers;
-        KBucketSet ks = _facade.getKBuckets();
+        KBucketSet<Hash> ks = _facade.getKBuckets();
         if (ks != null) {
             Hash rkey = getContext().routingKeyGenerator().getRoutingKey(_key);
             // Ideally we would add the key to an exclude list, so we don't try to query a ff peer for itself,
@@ -216,8 +216,8 @@ class FloodOnlySearchJob extends FloodSearchJob {
             _log.info(getJobId() + ": Floodfill search for " + _key + " failed with " + timeRemaining + " remaining after " + time);
         }
         synchronized(_unheardFrom) {
-            for (Iterator<Hash> iter = _unheardFrom.iterator(); iter.hasNext(); ) 
-                getContext().profileManager().dbLookupFailed(iter.next());
+            for (Hash h : _unheardFrom)
+                getContext().profileManager().dbLookupFailed(h);
         }
         _facade.complete(_key);
         getContext().statManager().addRateData("netDb.failedTime", time, 0);

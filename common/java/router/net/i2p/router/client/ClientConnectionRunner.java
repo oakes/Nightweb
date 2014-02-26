@@ -182,7 +182,10 @@ class ClientConnectionRunner {
         //_manager = null;
     }
     
-    /** current client's config */
+    /**
+     *  Current client's config,
+     *  will be null before session is established
+     */
     public SessionConfig getConfig() { return _config; }
 
     /**
@@ -209,6 +212,10 @@ class ClientConnectionRunner {
     public LeaseSet getLeaseSet() { return _currentLeaseSet; }
     void setLeaseSet(LeaseSet ls) { _currentLeaseSet = ls; }
 
+    /**
+     *  Equivalent to getConfig().getDestination().calculateHash();
+     *  will be null before session is established
+     */
     public Hash getDestHash() { return _destHashCache; }
     
     /** current client's sessionId */
@@ -335,12 +342,14 @@ class ClientConnectionRunner {
      *  This is always bad.
      *  See ClientMessageEventListener.handleCreateSession()
      *  for why we don't send a SessionStatusMessage when we do this.
+     *  @param reason will be truncated to 255 bytes
      */
     void disconnectClient(String reason) {
         disconnectClient(reason, Log.ERROR);
     }
 
     /**
+     * @param reason will be truncated to 255 bytes
      * @param logLevel e.g. Log.WARN
      * @since 0.8.2
      */
@@ -351,6 +360,8 @@ class ClientConnectionRunner {
                      + " config: "
                      + _config);
         DisconnectMessage msg = new DisconnectMessage();
+        if (reason.length() > 255)
+            reason = reason.substring(0, 255);
         msg.setReason(reason);
         try {
             doSend(msg);

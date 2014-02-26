@@ -57,7 +57,6 @@ public class OutNetMessage implements CDPQEntry {
      * (some JVMs have less than 10ms resolution, so the Long above doesn't guarantee order)
      */
     private List<String> _timestampOrder;
-    private Object _preparationBuf;
     
     /**
      *  Priorities, higher is higher priority.
@@ -151,7 +150,7 @@ public class OutNetMessage implements CDPQEntry {
         if (_log.shouldLog(Log.INFO)) {
             synchronized (this) {
                 locked_initTimestamps();
-                return (Map<String, Long>)_timestamps.clone();
+                return new HashMap<String, Long>(_timestamps);
             }
         }
         return Collections.emptyMap();
@@ -292,16 +291,6 @@ public class OutNetMessage implements CDPQEntry {
 
     public void beginSend() { _sendBegin = _context.clock().now(); }
 
-    public void prepared(Object buf) { 
-        _preparationBuf = buf;
-    }
-
-    public Object releasePreparationBuffer() { 
-        Object rv = _preparationBuf;
-        _preparationBuf = null;
-        return rv;
-    }
-    
     public long getCreated() { return _created; }
 
     /** time since the message was created */

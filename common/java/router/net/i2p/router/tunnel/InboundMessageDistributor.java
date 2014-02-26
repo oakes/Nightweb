@@ -2,6 +2,7 @@ package net.i2p.router.tunnel;
 
 import net.i2p.data.DatabaseEntry;
 import net.i2p.data.Hash;
+import net.i2p.data.LeaseSet;
 import net.i2p.data.Payload;
 import net.i2p.data.TunnelId;
 import net.i2p.data.i2np.DataMessage;
@@ -58,38 +59,48 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
         */
         
         int type = msg.getType();
-        // FVSJ could also result in a DSRM.
+        // FVSJ or client lookups could also result in a DSRM.
         // Since there's some code that replies directly to this to gather new ff RouterInfos,
         // sanitize it
         if ( (_client != null) && 
-             (type == DatabaseSearchReplyMessage.MESSAGE_TYPE) &&
-             (_client.equals(((DatabaseSearchReplyMessage)msg).getSearchKey()))) {
+             (type == DatabaseSearchReplyMessage.MESSAGE_TYPE)) {
+            // TODO: Strip in IterativeLookupJob etc. instead, depending on
+            // LS or RI and client or expl., so that we can safely follow references
+            // in a reply to a LS lookup over client tunnels.
+            // ILJ would also have to follow references via client tunnels
             DatabaseSearchReplyMessage orig = (DatabaseSearchReplyMessage) msg;
             if (orig.getNumReplies() > 0) {
-                if (_log.shouldLog(Log.WARN))
-                    _log.warn("Removing replies from a DSRM down a tunnel for " + _client + ": " + msg);
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("Removing replies from a DSRM down a tunnel for " + _client + ": " + msg);
                 DatabaseSearchReplyMessage newMsg = new DatabaseSearchReplyMessage(_context);
                 newMsg.setFromHash(orig.getFromHash());
                 newMsg.setSearchKey(orig.getSearchKey());
                 msg = newMsg;
             }
         } else if ( (_client != null) && 
-             (type == DatabaseStoreMessage.MESSAGE_TYPE) &&
-             (((DatabaseStoreMessage)msg).getEntry().getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO)) {
-            // FVSJ may result in an unsolicited RI store if the peer went non-ff.
-            // Maybe we can figure out a way to handle this safely, so we don't ask him again.
-            // For now, just hope we eventually find out through other means.
-            // Todo: if peer was ff and RI is not ff, queue for exploration in netdb (but that isn't part of the facade now)
-            if (_log.shouldLog(Log.WARN))
-                _log.warn("Dropping DSM down a tunnel for " + _client + ": " + msg);
-            return;
+                    (type == DatabaseStoreMessage.MESSAGE_TYPE)) {
+            DatabaseStoreMessage dsm = (DatabaseStoreMessage) msg;
+            if (dsm.getEntry().getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) {
+                // FVSJ may result in an unsolicited RI store if the peer went non-ff.
+                // Maybe we can figure out a way to handle this safely, so we don't ask him again.
+                // For now, just hope we eventually find out through other means.
+                // Todo: if peer was ff and RI is not ff, queue for exploration in netdb (but that isn't part of the facade now)
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("Dropping DSM down a tunnel for " + _client + ": " + msg);
+                return;
+            } else if (dsm.getReplyToken() != 0) {
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("Dropping LS DSM w/ reply token down a tunnel for " + _client + ": " + msg);
+                return;
+            } else {
+                // allow DSM of our own key (used by FloodfillVerifyStoreJob)
+                // or other keys (used by IterativeSearchJob)
+                // as long as there's no reply token (we will never set a reply token but an attacker might)
+                ((LeaseSet)dsm.getEntry()).setReceivedAsReply();
+            }
         } else if ( (_client != null) && 
              (type != DeliveryStatusMessage.MESSAGE_TYPE) &&
              (type != GarlicMessage.MESSAGE_TYPE) &&
-             // allow DSM of our own key (used by FloodfillVerifyStoreJob)
-             // as long as there's no reply token (FVSJ will never set a reply token but an attacker might)
-             ((type != DatabaseStoreMessage.MESSAGE_TYPE)  || (!_client.equals(((DatabaseStoreMessage)msg).getKey())) ||
-              (((DatabaseStoreMessage)msg).getReplyToken() != 0)) &&
              (type != TunnelBuildReplyMessage.MESSAGE_TYPE) &&
              (type != VariableTunnelBuildReplyMessage.MESSAGE_TYPE)) {
             // drop it, since we should only get tunnel test messages and garlic messages down
@@ -188,6 +199,7 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                                     // Or, it's a normal LS bundled with data and a MessageStatusMessage.
 
                                     // ... and inject it.
+                                    ((LeaseSet)dsm.getEntry()).setReceivedAsReply();
                                     if (_log.shouldLog(Log.INFO))
                                         _log.info("Storing garlic LS down tunnel for: " + dsm.getKey() + " sent to: " + _client);
                                     _context.inNetMessagePool().add(dsm, null, null);
@@ -213,13 +225,16 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                                     _log.info("Storing garlic RI down tunnel for: " + dsm.getKey() + " sent to: " + _client);
                                 _context.inNetMessagePool().add(dsm, null, null);
                             }
-                } else if (_client != null && type == DatabaseSearchReplyMessage.MESSAGE_TYPE &&
-                           _client.equals(((DatabaseSearchReplyMessage) data).getSearchKey())) {
+                } else if (_client != null && type == DatabaseSearchReplyMessage.MESSAGE_TYPE) {
                     // DSRMs show up here now that replies are encrypted
+                    // TODO: Strip in IterativeLookupJob etc. instead, depending on
+                    // LS or RI and client or expl., so that we can safely follow references
+                    // in a reply to a LS lookup over client tunnels.
+                    // ILJ would also have to follow references via client tunnels
                     DatabaseSearchReplyMessage orig = (DatabaseSearchReplyMessage) data;
                     if (orig.getNumReplies() > 0) {
-                        if (_log.shouldLog(Log.WARN))
-                            _log.warn("Removing replies from a garlic DSRM down a tunnel for " + _client + ": " + data);
+                        if (_log.shouldLog(Log.INFO))
+                            _log.info("Removing replies from a garlic DSRM down a tunnel for " + _client + ": " + data);
                         DatabaseSearchReplyMessage newMsg = new DatabaseSearchReplyMessage(_context);
                         newMsg.setFromHash(orig.getFromHash());
                         newMsg.setSearchKey(orig.getSearchKey());

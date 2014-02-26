@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Vector;
@@ -26,6 +25,7 @@ import net.i2p.router.RouterContext;
 import net.i2p.router.transport.udp.UDPTransport;
 import net.i2p.router.util.EventLog;
 import net.i2p.util.Addresses;
+import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
 import net.i2p.util.SimpleTimer;
 import net.i2p.util.SimpleTimer2;
@@ -223,6 +223,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
     /* We hope the routerinfos are read in and things have settled down by now, but it's not required to be so */
     private static final int START_DELAY = 5*60*1000;
     private static final int LOOKUP_TIME = 30*60*1000;
+
     private void startGeoIP() {
         _context.simpleScheduler().addEvent(new QueueAll(), START_DELAY);
     }
@@ -233,8 +234,8 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
      */
     private class QueueAll implements SimpleTimer.TimedEvent {
         public void timeReached() {
-            for (Iterator<Hash> iter = _context.netDb().getAllRouters().iterator(); iter.hasNext(); ) {
-                RouterInfo ri = _context.netDb().lookupRouterInfoLocally(iter.next());
+            for (Hash h : _context.netDb().getAllRouters()) {
+                RouterInfo ri = _context.netDb().lookupRouterInfoLocally(h);
                 if (ri == null)
                     continue;
                 byte[] ip = getIP(ri);
@@ -248,7 +249,26 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
 
     private class Lookup implements SimpleTimer.TimedEvent {
         public void timeReached() {
+            (new LookupThread()).start();
+        }
+    }
+
+    /**
+     *  This takes too long to run on the SimpleTimer2 queue
+     *  @since 0.9.10
+     */
+    private class LookupThread extends I2PThread {
+
+        public LookupThread() {
+            super("GeoIP Lookup");
+            setDaemon(true);
+        }
+
+        public void run() {
+            long start = System.currentTimeMillis();
             _geoIP.blockingLookup();
+            if (_log.shouldLog(Log.INFO))
+                _log.info("GeoIP lookup took " + (System.currentTimeMillis() - start));
         }
     }
 

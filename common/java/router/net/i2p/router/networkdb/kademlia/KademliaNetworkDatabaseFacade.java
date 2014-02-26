@@ -9,6 +9,8 @@ package net.i2p.router.networkdb.kademlia;
  */
 
 import java.io.IOException;
+import java.io.Writer;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -25,6 +27,9 @@ import net.i2p.data.RouterAddress;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.DatabaseLookupMessage;
 import net.i2p.data.i2np.DatabaseStoreMessage;
+import net.i2p.kademlia.KBucketSet;
+import net.i2p.kademlia.RejectTrimmer;
+import net.i2p.kademlia.SelectionCollector;
 import net.i2p.router.Job;
 import net.i2p.router.NetworkDatabaseFacade;
 import net.i2p.router.Router;
@@ -41,7 +46,7 @@ import net.i2p.util.Log;
  */
 public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     protected final Log _log;
-    private KBucketSet _kb; // peer hashes sorted into kbuckets, but within kbuckets, unsorted
+    private KBucketSet<Hash> _kb; // peer hashes sorted into kbuckets, but within kbuckets, unsorted
     private DataStore _ds; // hash to DataStructure mapping, persisted when necessary
     /** where the data store is pushing the data */
     private String _dbDir;
@@ -132,7 +137,14 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
      */
     protected final static long PUBLISH_JOB_DELAY = 5*60*1000l;
 
-    private static final int MAX_EXPLORE_QUEUE = 128;
+    static final int MAX_EXPLORE_QUEUE = 128;
+
+    /**
+     *  kad K
+     *  Was 500 in old implementation but that was with B ~= -8!
+     */
+    private static final int BUCKET_SIZE = 24;
+    private static final int KAD_B = 4;
 
     public KademliaNetworkDatabaseFacade(RouterContext context) {
         _context = context;
@@ -168,7 +180,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return _reseedChecker;
     }
 
-    KBucketSet getKBuckets() { return _kb; }
+    KBucketSet<Hash> getKBuckets() { return _kb; }
     DataStore getDataStore() { return _ds; }
     
     long getLastExploreNewDate() { return _lastExploreNew; }
@@ -185,13 +197,13 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return Collections.unmodifiableSet(_exploreKeys);
     }
     
-    public void removeFromExploreKeys(Set<Hash> toRemove) {
+    public void removeFromExploreKeys(Collection<Hash> toRemove) {
         if (!_initialized) return;
         _exploreKeys.removeAll(toRemove);
         _context.statManager().addRateData("netDb.exploreKeySet", _exploreKeys.size(), 0);
     }
 
-    public void queueForExploration(Set<Hash> keys) {
+    public void queueForExploration(Collection<Hash> keys) {
         if (!_initialized) return;
         for (Iterator<Hash> iter = keys.iterator(); iter.hasNext() && _exploreKeys.size() < MAX_EXPLORE_QUEUE; ) {
             _exploreKeys.add(iter.next());
@@ -240,7 +252,8 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         _log.info("Starting up the kademlia network database");
         RouterInfo ri = _context.router().getRouterInfo();
         String dbDir = _context.getProperty(PROP_DB_DIR, DEFAULT_DB_DIR);
-        _kb = new KBucketSet(_context, ri.getIdentity().getHash());
+        _kb = new KBucketSet<Hash>(_context, ri.getIdentity().getHash(),
+                                   BUCKET_SIZE, KAD_B, new RejectTrimmer<Hash>());
         try {
             _ds = new PersistentDataStore(_context, dbDir, this);
         } catch (IOException ioe) {
@@ -262,9 +275,11 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         
         //// expire some routers
         // Don't run until after RefreshRoutersJob has run, and after validate() will return invalid for old routers.
-        Job erj = new ExpireRoutersJob(_context, this);
-        erj.getTiming().setStartAfter(_context.clock().now() + ROUTER_INFO_EXPIRATION_FLOODFILL + 10*60*1000);
-        _context.jobQueue().addJob(erj);
+        if (!_context.commSystem().isDummy()) {
+            Job erj = new ExpireRoutersJob(_context, this);
+            erj.getTiming().setStartAfter(_context.clock().now() + ROUTER_INFO_EXPIRATION_FLOODFILL + 10*60*1000);
+            _context.jobQueue().addJob(erj);
+        }
         
         if (!QUIET) {
             // fill the search queue with random keys in buckets that are too small
@@ -360,15 +375,31 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return rv;
     }
     
+    /**
+     *  This used to return the number of routers that were in
+     *  both the kbuckets AND the data store, which was fine when the kbuckets held everything.
+     *  But now that is probably not what you want.
+     *  Just return the count in the data store.
+     */
     @Override
     public int getKnownRouters() { 
+/****
         if (_kb == null) return 0;
         CountRouters count = new CountRouters();
         _kb.getAll(count);
         return count.size();
+****/
+        if (_ds == null) return 0;
+        int rv = 0;
+        for (DatabaseEntry ds : _ds.getEntries()) {
+            if (ds.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO)
+                rv++;
+        }
+        return rv;
     }
     
-    private class CountRouters implements SelectionCollector {
+/****
+    private class CountRouters implements SelectionCollector<Hash> {
         private int _count;
         public int size() { return _count; }
         public void add(Hash entry) {
@@ -378,6 +409,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
                 _count++;
         }
     }
+****/
     
     /**
      *  This is only used by StatisticsManager to publish
@@ -403,6 +435,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
      *  This is fast and doesn't use synchronization,
      *  but it includes both routerinfos and leasesets.
      *  Use it to avoid deadlocks.
+     *  No - not true - the KBS contains RIs only.
      */
     protected int getKBucketSetSize() {  
         if (_kb == null) return 0;
@@ -446,7 +479,20 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return _ds.get(key);
     }
 
+    /**
+     *  Lookup using exploratory tunnels
+     */
     public void lookupLeaseSet(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs) {
+        lookupLeaseSet(key, onFindJob, onFailedLookupJob, timeoutMs, null);
+    }
+
+    /**
+     *  Lookup using the client's tunnels
+     *  @param fromLocalDest use these tunnels for the lookup, or null for exploratory
+     *  @since 0.9.10
+     */
+    public void lookupLeaseSet(Hash key, Job onFindJob, Job onFailedLookupJob,
+                               long timeoutMs, Hash fromLocalDest) {
         if (!_initialized) return;
         LeaseSet ls = lookupLeaseSetLocally(key);
         if (ls != null) {
@@ -457,7 +503,7 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         } else {
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("leaseSet not found locally, running search");
-            search(key, onFindJob, onFailedLookupJob, timeoutMs, true);
+            search(key, onFindJob, onFailedLookupJob, timeoutMs, true, fromLocalDest);
         }
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("after lookupLeaseSet");
@@ -527,14 +573,17 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
     
     private static final long PUBLISH_DELAY = 3*1000;
 
-    public void publish(LeaseSet localLeaseSet) {
+    /**
+     * @throws IllegalArgumentException if the leaseSet is not valid
+     */
+    public void publish(LeaseSet localLeaseSet) throws IllegalArgumentException {
         if (!_initialized) return;
         Hash h = localLeaseSet.getDestination().calculateHash();
         try {
             store(h, localLeaseSet);
         } catch (IllegalArgumentException iae) {
             _log.error("wtf, locally published leaseSet is not valid?", iae);
-            return;
+            throw iae;
         }
         if (!_context.clientManager().shouldPublishLeaseSet(h))
             return;
@@ -984,6 +1033,16 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
         return searchJob;
     }
     
+    /**
+     * Unused - see FNDF
+     * @throws UnsupportedOperationException always
+     * @since 0.9.10
+     */
+    SearchJob search(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs, boolean isLease,
+                     Hash fromLocalDest) {
+        throw new UnsupportedOperationException();
+    }
+    
     /** public for NetDbRenderer in routerconsole */
     @Override
     public Set<LeaseSet> getLeases() {
@@ -1041,5 +1100,14 @@ public class KademliaNetworkDatabaseFacade extends NetworkDatabaseFacade {
             return;
         }
         _context.jobQueue().addJob(new StoreJob(_context, this, key, ds, onSuccess, onFailure, sendTimeout, toIgnore));
+    }
+
+    /**
+     * Debug info, HTML formatted
+     * @since 0.9.10
+     */
+    @Override
+    public void renderStatusHTML(Writer out) throws IOException {
+        out.write(_kb.toString().replace("\n", "<br>\n"));
     }
 }

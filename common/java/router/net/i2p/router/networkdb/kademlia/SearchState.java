@@ -10,6 +10,7 @@ import java.util.Set;
 import java.util.TreeSet;
 
 import net.i2p.data.Hash;
+import net.i2p.kademlia.XORComparator;
 import net.i2p.router.RouterContext;
 
 /**
@@ -44,12 +45,12 @@ class SearchState {
     public Hash getTarget() { return _searchKey; }
     public Set<Hash> getPending() {
         synchronized (_pendingPeers) {
-            return (Set<Hash>)_pendingPeers.clone();
+            return new HashSet<Hash>(_pendingPeers);
         }
     }
     public Set<Hash> getAttempted() {
         synchronized (_attemptedPeers) {
-            return (Set<Hash>)_attemptedPeers.clone();
+            return new HashSet<Hash>(_attemptedPeers);
         }
     }
     public Set<Hash> getClosestAttempted(int max) {
@@ -61,7 +62,7 @@ class SearchState {
     private Set<Hash> locked_getClosest(Set<Hash> peers, int max, Hash target) {
         if (_attemptedPeers.size() <= max)
             return new HashSet<Hash>(_attemptedPeers);
-        TreeSet<Hash> closest = new TreeSet<Hash>(new XORComparator(target));
+        TreeSet<Hash> closest = new TreeSet<Hash>(new XORComparator<Hash>(target));
         closest.addAll(_attemptedPeers);
         Set<Hash> rv = new HashSet<Hash>(max);
         int i = 0;
@@ -78,12 +79,12 @@ class SearchState {
     }
     public Set<Hash> getSuccessful() {
         synchronized (_successfulPeers) {
-            return (Set<Hash>)_successfulPeers.clone();
+            return new HashSet<Hash>(_successfulPeers);
         }
     }
     public Set<Hash> getFailed() {
         synchronized (_failedPeers) {
-            return (Set<Hash>)_failedPeers.clone();
+            return new HashSet<Hash>(_failedPeers);
         }
     }
     public boolean completed() { return _completed != -1; }
@@ -155,7 +156,7 @@ class SearchState {
         }
     }
     
-    public Set<Hash> getRepliedPeers() { synchronized (_repliedPeers) { return (Set<Hash>)_repliedPeers.clone(); } }
+    public Set<Hash> getRepliedPeers() { synchronized (_repliedPeers) { return new HashSet<Hash>(_repliedPeers); } }
     
     public void replyTimeout(Hash peer) {
         synchronized (_pendingPeers) {

@@ -43,6 +43,9 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
     
     private static final int FLOOD_PRIORITY = OutNetMessage.PRIORITY_NETDB_FLOOD;
     private static final int FLOOD_TIMEOUT = 30*1000;
+    private static final long NEXT_RKEY_RI_ADVANCE_TIME = 45*60*1000;
+    private static final long NEXT_RKEY_LS_ADVANCE_TIME = 10*60*1000;
+    private static final int NEXT_FLOOD_QTY = 2;
     
     public FloodfillNetworkDatabaseFacade(RouterContext context) {
         super(context);
@@ -197,6 +200,23 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
         Hash rkey = _context.routingKeyGenerator().getRoutingKey(key);
         FloodfillPeerSelector sel = (FloodfillPeerSelector)getPeerSelector();
         List<Hash> peers = sel.selectFloodfillParticipants(rkey, MAX_TO_FLOOD, getKBuckets());
+        long until = _context.routingKeyGenerator().getTimeTillMidnight();
+        if (until < NEXT_RKEY_LS_ADVANCE_TIME ||
+            (ds.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO && until < NEXT_RKEY_RI_ADVANCE_TIME)) {
+            // to avoid lookup failures after midnight, also flood to some closest to the
+            // next routing key for a period of time before midnight.
+            Hash nkey = _context.routingKeyGenerator().getNextRoutingKey(key);
+            List<Hash> nextPeers = sel.selectFloodfillParticipants(nkey, NEXT_FLOOD_QTY, getKBuckets());
+            int i = 0;
+            for (Hash h : nextPeers) {
+                if (!peers.contains(h)) {
+                    peers.add(h);
+                    i++;
+                }
+            }
+            if (i > 0 && _log.shouldLog(Log.INFO))
+                _log.info("Flooding the entry for " + key + " to " + i + " more, just before midnight");
+        }
         int flooded = 0;
         for (int i = 0; i < peers.size(); i++) {
             Hash peer = peers.get(i);
@@ -279,6 +299,8 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
     }
     
     /**
+     * Lookup using exploratory tunnels
+     *
      * Begin a kademlia style search for the key specified, which can take up to timeoutMs and
      * will fire the appropriate jobs on success or timeout (or if the kademlia search completes
      * without any match)
@@ -287,6 +309,17 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
      */
     @Override
     SearchJob search(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs, boolean isLease) {
+        return search(key, onFindJob, onFailedLookupJob, timeoutMs, isLease, null);
+    }
+
+    /**
+     * Lookup using the client's tunnels
+     * @param fromLocalDest use these tunnels for the lookup, or null for exploratory
+     * @return null always
+     * @since 0.9.10
+     */
+    SearchJob search(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs, boolean isLease,
+                     Hash fromLocalDest) {
         //if (true) return super.search(key, onFindJob, onFailedLookupJob, timeoutMs, isLease);
         if (key == null) throw new IllegalArgumentException("searchin for nothin, eh?");
         boolean isNew = false;
@@ -296,7 +329,8 @@ public class FloodfillNetworkDatabaseFacade extends KademliaNetworkDatabaseFacad
             if (searchJob == null) {
                 //if (SearchJob.onlyQueryFloodfillPeers(_context)) {
                     //searchJob = new FloodOnlySearchJob(_context, this, key, onFindJob, onFailedLookupJob, (int)timeoutMs, isLease);
-                    searchJob = new IterativeSearchJob(_context, this, key, onFindJob, onFailedLookupJob, (int)timeoutMs, isLease);
+                    searchJob = new IterativeSearchJob(_context, this, key, onFindJob, onFailedLookupJob, (int)timeoutMs,
+                                                       isLease, fromLocalDest);
                 //} else {
                 //    searchJob = new FloodSearchJob(_context, this, key, onFindJob, onFailedLookupJob, (int)timeoutMs, isLease);
                 //}

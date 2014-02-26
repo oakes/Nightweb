@@ -40,6 +40,14 @@ public abstract class NetworkDatabaseFacade implements Service {
      */
     public abstract DatabaseEntry lookupLocally(Hash key);
     public abstract void lookupLeaseSet(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs);
+    
+    /**
+     *  Lookup using the client's tunnels
+     *  @param fromLocalDest use these tunnels for the lookup, or null for exploratory
+     *  @since 0.9.10
+     */
+    public abstract void lookupLeaseSet(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs, Hash fromLocalDest);
+
     public abstract LeaseSet lookupLeaseSetLocally(Hash key);
     public abstract void lookupRouterInfo(Hash key, Job onFindJob, Job onFailedLookupJob, long timeoutMs);
     public abstract RouterInfo lookupRouterInfoLocally(Hash key);
@@ -74,7 +82,8 @@ public abstract class NetworkDatabaseFacade implements Service {
     public int getKnownLeaseSets() { return 0; }
     public boolean isInitialized() { return true; }
     public void rescan() {}
-    /** @deprecated moved to router console */
+
+    /** Debug only - all user info moved to NetDbRenderer in router console */
     public void renderStatusHTML(Writer out) throws IOException {}
     /** public for NetDbRenderer in routerconsole */
     public Set<LeaseSet> getLeases() { return Collections.emptySet(); }

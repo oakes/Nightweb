@@ -16,6 +16,8 @@ import net.i2p.data.Hash;
 import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.DatabaseLookupMessage;
 import net.i2p.data.i2np.I2NPMessage;
+import net.i2p.kademlia.KBucketSet;
+import net.i2p.kademlia.XORComparator;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Job;
 import net.i2p.router.MessageSelector;
@@ -23,6 +25,7 @@ import net.i2p.router.OutNetMessage;
 import net.i2p.router.ReplyJob;
 import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelInfo;
+import net.i2p.router.TunnelManagerFacade;
 import net.i2p.router.util.RandomIterator;
 import net.i2p.util.Log;
 
@@ -61,6 +64,7 @@ class IterativeSearchJob extends FloodSearchJob {
     private final Hash _rkey;
     /** this is a marker to register with the MessageRegistry, it is never sent */
     private OutNetMessage _out;
+    private final Hash _fromLocalDest;
     /** testing */
     private static Hash _alwaysQueryHash;
 
@@ -87,16 +91,31 @@ class IterativeSearchJob extends FloodSearchJob {
     /** testing */
     private static final String PROP_ENCRYPT_RI = "router.encryptRouterLookups";
 
-    public IterativeSearchJob(RouterContext ctx, FloodfillNetworkDatabaseFacade facade, Hash key, Job onFind, Job onFailed, int timeoutMs, boolean isLease) {
+    /**
+     *  Lookup using exploratory tunnels
+     */
+    public IterativeSearchJob(RouterContext ctx, FloodfillNetworkDatabaseFacade facade, Hash key,
+                              Job onFind, Job onFailed, int timeoutMs, boolean isLease) {
+        this(ctx, facade, key, onFind, onFailed, timeoutMs, isLease, null);
+    }
+
+    /**
+     *  Lookup using the client's tunnels
+     *  @param fromLocalDest use these tunnels for the lookup, or null for exploratory
+     *  @since 0.9.10
+     */
+    public IterativeSearchJob(RouterContext ctx, FloodfillNetworkDatabaseFacade facade, Hash key,
+                              Job onFind, Job onFailed, int timeoutMs, boolean isLease, Hash fromLocalDest) {
         super(ctx, facade, key, onFind, onFailed, timeoutMs, isLease);
         // these override the settings in super
         _timeoutMs = Math.min(timeoutMs, MAX_SEARCH_TIME);
         _expiration = _timeoutMs + ctx.clock().now();
         _rkey = ctx.routingKeyGenerator().getRoutingKey(key);
-        _toTry = new TreeSet<Hash>(new XORComparator(_rkey));
+        _toTry = new TreeSet<Hash>(new XORComparator<Hash>(_rkey));
         _unheardFrom = new HashSet<Hash>(CONCURRENT_SEARCHES);
         _failedPeers = new HashSet<Hash>(TOTAL_SEARCH_LIMIT);
         _sentTime = new ConcurrentHashMap<Hash, Long>(TOTAL_SEARCH_LIMIT);
+        _fromLocalDest = fromLocalDest;
     }
 
     @Override
@@ -109,7 +128,7 @@ class IterativeSearchJob extends FloodSearchJob {
         }
         // pick some floodfill peers and send out the searches
         List<Hash> floodfillPeers;
-        KBucketSet ks = _facade.getKBuckets();
+        KBucketSet<Hash> ks = _facade.getKBuckets();
         if (ks != null) {
             // Ideally we would add the key to an exclude list, so we don't try to query a ff peer for itself,
             // but we're passing the rkey not the key, so we do it below instead in certain cases.
@@ -230,8 +249,23 @@ class IterativeSearchJob extends FloodSearchJob {
      */
     private void sendQuery(Hash peer) {
             DatabaseLookupMessage dlm = new DatabaseLookupMessage(getContext(), true);
-            TunnelInfo replyTunnel = getContext().tunnelManager().selectInboundExploratoryTunnel(peer);
-            TunnelInfo outTunnel = getContext().tunnelManager().selectOutboundExploratoryTunnel(peer);
+            TunnelManagerFacade tm = getContext().tunnelManager();
+            TunnelInfo outTunnel;
+            TunnelInfo replyTunnel;
+            boolean isClientReplyTunnel;
+            if (_fromLocalDest != null) {
+                outTunnel = tm.selectOutboundTunnel(_fromLocalDest, peer);
+                if (outTunnel == null)
+                    outTunnel = tm.selectOutboundExploratoryTunnel(peer);
+                replyTunnel = tm.selectInboundTunnel(_fromLocalDest, peer);
+                isClientReplyTunnel = replyTunnel != null;
+                if (!isClientReplyTunnel)
+                    replyTunnel = tm.selectInboundExploratoryTunnel(peer);
+            } else {
+                outTunnel = tm.selectOutboundExploratoryTunnel(peer);
+                replyTunnel = tm.selectInboundExploratoryTunnel(peer);
+                isClientReplyTunnel = false;
+            }
             if ( (replyTunnel == null) || (outTunnel == null) ) {
                 failed();
                 return;
@@ -258,7 +292,10 @@ class IterativeSearchJob extends FloodSearchJob {
                 synchronized(this) {
                     tries = _unheardFrom.size() + _failedPeers.size();
                 }
-                _log.info(getJobId() + ": ISJ try " + tries + " for " + _key + " to " + peer);
+                _log.info(getJobId() + ": ISJ try " + tries + " for " +
+                          (_isLease ? "LS " : "RI ") +
+                          _key + " to " + peer +
+                          " reply via client tunnel? " + isClientReplyTunnel);
             }
             long now = getContext().clock().now();
             _sentTime.put(peer, Long.valueOf(now));
@@ -271,10 +308,16 @@ class IterativeSearchJob extends FloodSearchJob {
                 if (ri != null) {
                     // request encrypted reply
                     if (DatabaseLookupMessage.supportsEncryptedReplies(ri)) {
-                        MessageWrapper.OneTimeSession sess = MessageWrapper.generateSession(getContext());
-                        if (_log.shouldLog(Log.INFO))
-                            _log.info(getJobId() + ": Requesting encrypted reply from " + peer + ' ' + sess.key + ' ' + sess.tag);
-                        dlm.setReplySession(sess.key, sess.tag);
+                        MessageWrapper.OneTimeSession sess;
+                        if (isClientReplyTunnel)
+                            sess = MessageWrapper.generateSession(getContext(), _fromLocalDest);
+                        else
+                            sess = MessageWrapper.generateSession(getContext());
+                        if (sess != null) {
+                            if (_log.shouldLog(Log.INFO))
+                                _log.info(getJobId() + ": Requesting encrypted reply from " + peer + ' ' + sess.key + ' ' + sess.tag);
+                            dlm.setReplySession(sess.key, sess.tag);
+                        } // else client went away, but send it anyway
                     }
                     outMsg = MessageWrapper.wrap(getContext(), dlm, ri);
                     // ElG can take a while so do a final check before we send it,
@@ -383,8 +426,8 @@ class IterativeSearchJob extends FloodSearchJob {
         synchronized(this) {
             tries = _unheardFrom.size() + _failedPeers.size();
             // blame the unheard-from (others already blamed in failed() above)
-            for (Iterator<Hash> iter = _unheardFrom.iterator(); iter.hasNext(); ) 
-                getContext().profileManager().dbLookupFailed(iter.next());
+            for (Hash h : _unheardFrom)
+                getContext().profileManager().dbLookupFailed(h);
         }
         long time = System.currentTimeMillis() - _created;
         if (_log.shouldLog(Log.INFO)) {

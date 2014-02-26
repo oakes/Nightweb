@@ -6,7 +6,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Properties;
 
@@ -192,13 +191,21 @@ public class PrivateKeyFile {
         this.dest = d;
     }
     
-    /** change cert type - caller must also call write() */
+    /**
+     * Change cert type - caller must also call write().
+     * Side effect - creates new Destination object.
+     */
     public Certificate setCertType(int t) {
         if (this.dest == null)
             throw new IllegalArgumentException("Dest is null");
         Certificate c = new Certificate();
         c.setCertificateType(t);
-        this.dest.setCertificate(c);
+        // dests now immutable, must create new
+        Destination newdest = new Destination();
+        newdest.setPublicKey(dest.getPublicKey());
+        newdest.setSigningPublicKey(dest.getSigningPublicKey());
+        newdest.setCertificate(c);
+        dest = newdest;
         return c;
     }
     
@@ -402,8 +409,7 @@ public class PrivateKeyFile {
                             System.out.println("Attempting to verify using " + sz + " hosts, this may take a while");
                     }
                     
-                    for (Iterator iter = hosts.entrySet().iterator(); iter.hasNext(); )  {
-                        Map.Entry entry = (Map.Entry)iter.next();
+                    for (Map.Entry<Object, Object> entry : hosts.entrySet())  {
                         String s = (String) entry.getValue();
                         Destination signer = new Destination(s);
                         // make it go faster if we have the signerHash hint

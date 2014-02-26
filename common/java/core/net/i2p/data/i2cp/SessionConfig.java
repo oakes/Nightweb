@@ -89,7 +89,8 @@ public class SessionConfig extends DataStructureImpl {
     }
 
     /**
-     * Configure the session with the given options
+     * Configure the session with the given options;
+     * keys and values 255 bytes (not chars) max each
      *
      * @param options Properties for this session
      */
@@ -225,7 +226,7 @@ public class SessionConfig extends DataStructureImpl {
         buf.append("\n\tOptions: #: ").append(_options.size());
         Properties sorted = new OrderedProperties();
         sorted.putAll(_options);
-        for (Map.Entry e : sorted.entrySet()) {
+        for (Map.Entry<Object, Object> e : sorted.entrySet()) {
             String key = (String) e.getKey();
             String val = (String) e.getValue();
             buf.append("\n\t\t[").append(key).append("] = [").append(val).append("]");

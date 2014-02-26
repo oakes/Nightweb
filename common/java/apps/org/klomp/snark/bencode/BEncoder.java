@@ -59,9 +59,9 @@ public class BEncoder
     else if (o instanceof Number)
       bencode((Number)o, out);
     else if (o instanceof List)
-      bencode((List)o, out);
+      bencode((List<?>)o, out);
     else if (o instanceof Map)
-      bencode((Map<String, Object>)o, out);
+      bencode((Map<?, ?>)o, out);
     else if (o instanceof BEValue)
       bencode(((BEValue)o).getValue(), out);
     else
@@ -110,7 +110,7 @@ public class BEncoder
     out.write('e');
   }
 
-  public static byte[] bencode(List l)
+  public static byte[] bencode(List<?> l)
   {
     try
       {
@@ -124,10 +124,10 @@ public class BEncoder
       }
   }
 
-  public static void bencode(List l, OutputStream out) throws IOException
+  public static void bencode(List<?> l, OutputStream out) throws IOException
   {
     out.write('l');
-    Iterator it = l.iterator();
+    Iterator<?> it = l.iterator();
     while (it.hasNext())
       bencode(it.next(), out);
     out.write('e');
@@ -155,7 +155,7 @@ public class BEncoder
     out.write(bs);
   }
 
-  public static byte[] bencode(Map<String, Object> m)
+  public static byte[] bencode(Map<?, ?> m)
   {
     try
       {
@@ -169,23 +169,29 @@ public class BEncoder
       }
   }
 
-  public static void bencode(Map<String, Object> m, OutputStream out) throws IOException
+  public static void bencode(Map<?, ?> m, OutputStream out)
+    throws IOException, IllegalArgumentException
   {
     out.write('d');
 
     // Keys must be sorted. XXX - But is this the correct order?
-    Set<String> s = m.keySet();
-    List<String> l = new ArrayList(s);
+    Set<?> s = m.keySet();
+    List<String> l = new ArrayList<String>(s.size());
+    for (Object k : s) {
+      // Keys must be Strings.
+      if (String.class.isAssignableFrom(k.getClass()))
+        l.add((String) k);
+      else
+        throw new IllegalArgumentException("Cannot bencode map: contains non-String key of type " + k.getClass());
+    }
     Collections.sort(l);
 
     Iterator<String> it = l.iterator();
     while(it.hasNext())
       {
-        // Keys must be Strings.
         String key = it.next();
-        Object value = m.get(key);
         bencode(key, out);
-        bencode(value, out);
+        bencode(m.get(key), out);
       }
 
     out.write('e');
