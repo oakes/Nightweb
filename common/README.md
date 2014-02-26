@@ -14,4 +14,4 @@
 	- `cp -r i2p-X.X.X/router/java/src/ common/java/router/`
 4. Commit the changes
 5. Re-apply changes to I2PSnark
-	- `git cherry-pick fe71fedd508030803f92a16e131821d6d238261f`
+	- `git cherry-pick 84c82d0563887e9bb1689b6b2e9159ae47f5c53f`
