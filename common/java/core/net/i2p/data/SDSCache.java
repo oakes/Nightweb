@@ -6,6 +6,7 @@ import java.io.InputStream;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
 import java.util.Map;
 
 import net.i2p.I2PAppContext;
@@ -90,9 +91,16 @@ public class SDSCache<V extends SimpleDataStructure> {
      */
     private class Shutdown implements Runnable {
         public void run() {
-            synchronized(_cache) {
-                _cache.clear();
-            }
+            clear();
+        }
+    }
+
+    /**
+     * @since 0.9.17
+     */
+    public void clear() {
+        synchronized(_cache) {
+            _cache.clear();
         }
     }
 
@@ -120,7 +128,7 @@ public class SDSCache<V extends SimpleDataStructure> {
                 rv = ref.get();
             else
                 rv = null;
-            if (rv != null && DataHelper.eq(data, rv.getData())) {
+            if (rv != null && Arrays.equals(data, rv.getData())) {
                 // found it, we don't need the data passed in any more
                 SimpleByteCache.release(data);
                 found = 1;

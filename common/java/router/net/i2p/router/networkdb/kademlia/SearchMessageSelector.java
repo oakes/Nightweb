@@ -3,7 +3,7 @@ package net.i2p.router.networkdb.kademlia;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.DatabaseSearchReplyMessage;
 import net.i2p.data.i2np.DatabaseStoreMessage;
 import net.i2p.data.i2np.I2NPMessage;
@@ -21,7 +21,7 @@ class SearchMessageSelector implements MessageSelector {
     private final RouterContext _context;
     private static final AtomicInteger __searchSelectorId = new AtomicInteger();
     private final Hash _peer;
-    private boolean _found;
+    private volatile boolean _found;
     private final int _id;
     private final long _exp;
     private final SearchState _state;
@@ -30,7 +30,6 @@ class SearchMessageSelector implements MessageSelector {
         _context = context;
         _log = context.logManager().getLog(SearchMessageSelector.class);
         _peer = peer.getIdentity().getHash();
-        _found = false;
         _exp = expiration;
         _state = state;
         _id = __searchSelectorId.incrementAndGet();
@@ -40,7 +39,7 @@ class SearchMessageSelector implements MessageSelector {
     
     @Override
     public String toString() { 
-        return "Search selector [" + _id + "] looking for a reply from " + _peer 
+        return "Search selector [" + _id + "] looking for a reply from " + _peer
                + " with regards to " + _state.getTarget(); 
     }
     
@@ -62,7 +61,9 @@ class SearchMessageSelector implements MessageSelector {
             return true;
         }
     }
+
     public long getExpiration() { return _exp; }
+
     public boolean isMatch(I2NPMessage message) {
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("[" + _id + "] isMatch("+message.getClass().getName() 

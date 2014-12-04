@@ -13,7 +13,7 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.i2p.data.RouterAddress;
+import net.i2p.data.router.RouterAddress;
 import net.i2p.router.RouterContext;
 
 /**
@@ -124,6 +124,8 @@ public abstract class TransportUtil {
             // Assigned to UK Ministry of Defence
             // http://blog.logmein.com/products/changes-to-hamachi-on-november-19th
             if (a0 == 25) return false;
+            // Carrier Grade NAT RFC 6598
+            if (a0 == 100 && a1 >= 64 && a1 <= 127) return false;
             return true; // or at least possible to be true
         } else if (addr.length == 16) {
             if (allowIPv6) {
@@ -166,5 +168,16 @@ public abstract class TransportUtil {
             }
         }
         return false;
+    }
+
+    /**
+     *  Is this a valid port for us or a remote router?
+     *
+     *  @since 0.9.17 moved from logic in individual transports
+     */
+    public static boolean isValidPort(int port) {
+        return port >= 1024 &&
+               port <= 65535 &&
+               port != 1900;    // UPnP SSDP
     }
 }

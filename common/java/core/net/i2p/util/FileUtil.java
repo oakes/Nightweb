@@ -109,8 +109,12 @@ public class FileUtil {
             Enumeration<? extends ZipEntry> entries = zip.entries();
             while (entries.hasMoreElements()) {
                 ZipEntry entry = (ZipEntry)entries.nextElement();
-                if (entry.getName().indexOf("..") != -1) {
+                if (entry.getName().contains("..")) {
                     System.err.println("ERROR: Refusing to extract a zip entry with '..' in it [" + entry.getName() + "]");
+                    return false;
+                }
+                if (entry.getName().indexOf(0) >= 0) {
+                    System.err.println("ERROR: Refusing to extract a zip entry with null in it [" + entry.getName() + "]");
                     return false;
                 }
                 File target = new File(targetDir, entry.getName());
@@ -355,9 +359,10 @@ public class FileUtil {
         File f = new File(filename);
         if (!f.exists()) return null;
         FileInputStream fis = null;
+        BufferedReader in = null;
         try {
             fis = new FileInputStream(f);
-            BufferedReader in = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
+            in = new BufferedReader(new InputStreamReader(fis, "UTF-8"));
             List<String> lines = new ArrayList<String>(maxNumLines > 0 ? maxNumLines : 64);
             String line = null;
             while ( (line = in.readLine()) != null) {
@@ -377,7 +382,7 @@ public class FileUtil {
         } catch (IOException ioe) {
             return null;
         } finally {
-            if (fis != null) try { fis.close(); } catch (IOException ioe) {}
+            if (in != null) try { in.close(); } catch (IOException ioe) {}
         }
     }
     
@@ -479,11 +484,12 @@ public class FileUtil {
         boolean success = false;
         boolean isWindows = SystemVersion.isWindows();
         // overwrite fails on windows
-        if (!isWindows)
+        boolean exists = to.exists();
+        if (!isWindows || !exists)
             success = from.renameTo(to);
         if (!success) {
-            to.delete();
-            success = from.renameTo(to);
+            if (exists && to.delete())
+                success = from.renameTo(to);
             if (!success) {
                 // hard way
                 success = copy(from, to, true, true);
@@ -495,12 +501,12 @@ public class FileUtil {
     }
 
     /**
-     * Usage: FileUtil (delete path | copy source dest | unzip path.zip)
+     * Usage: FileUtil (delete path | copy source dest | rename from to | unzip path.zip)
      *
      */
     public static void main(String args[]) {
         if ( (args == null) || (args.length < 2) ) {
-            System.err.println("Usage: delete path | copy source dest | unzip path.zip");
+            System.err.println("Usage: delete path | copy source dest | rename from to | unzip path.zip");
             //testRmdir();
         } else if ("delete".equals(args[0])) {
             boolean deleted = FileUtil.rmdir(args[1], false);
@@ -522,6 +528,12 @@ public class FileUtil {
                 System.err.println("Unzipped [" + args[1] + "] to [" + to + "]");
             else
                 System.err.println("Error unzipping [" + args[1] + "] to [" + to + "]");
+        } else if ("rename".equals(args[0])) {
+            boolean success = rename(new File(args[1]), new File(args[2]));
+            if (!success) 
+                System.err.println("Error renaming [" + args[1] + "] to [" + args[2] + "]");
+        } else {
+            System.err.println("Usage: delete path | copy source dest | rename from to | unzip path.zip");
         }
     }
     

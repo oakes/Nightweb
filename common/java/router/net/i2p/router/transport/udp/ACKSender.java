@@ -84,7 +84,18 @@ class ACKSender implements Runnable {
     }
     
     public void run() {
+        try {
+            run2();
+        } finally {
+            // prevent OOM on thread death
+            if (_alive) {
+                _alive = false;
+                _log.error("ACK Sender died");
+            }
+        }
+    }
 
+    private void run2() {
         // we use a Set to strip out dups that come in on the Queue
         Set<PeerState> notYet = new HashSet<PeerState>();
         while (_alive) {
@@ -177,7 +188,7 @@ class ACKSender implements Runnable {
                     ack.setMessageType(PacketBuilder.TYPE_ACK);
                     
                     if (_log.shouldLog(Log.INFO))
-                        _log.info("Sending ACK for " + ackBitfields);
+                        _log.info("Sending " + ackBitfields + " to " + peer);
                     // locking issues, we ignore the result, and acks are small,
                     // so don't even bother allocating
                     //peer.allocateSendingBytes(ack.getPacket().getLength(), true);

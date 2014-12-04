@@ -11,13 +11,14 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.data.Base64;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.router.RouterContext;
 import net.i2p.util.Addresses;
 import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.Log;
+import net.i2p.router.transport.TransportUtil;
 
 /**
  *  Keep track of inbound and outbound introductions.
@@ -119,7 +120,7 @@ class IntroductionManager {
     public void add(PeerState peer) {
         if (peer == null) return;
         // let's not use an introducer on a privileged port, sounds like trouble
-        if (peer.getRemotePort() < 1024)
+        if (!TransportUtil.isValidPort(peer.getRemotePort()))
             return;
         // Only allow relay as Bob or Charlie if the Bob-Charlie session is IPv4
         if (peer.getRemoteIP().length != 4)
@@ -218,9 +219,12 @@ class IntroductionManager {
                 _log.info("Picking introducer: " + cur);
             cur.setIntroducerTime();
             UDPAddress ura = new UDPAddress(ra);
+            byte[] ikey = ura.getIntroKey();
+            if (ikey == null)
+                continue;
             ssuOptions.setProperty(UDPAddress.PROP_INTRO_HOST_PREFIX + found, Addresses.toString(ip));
             ssuOptions.setProperty(UDPAddress.PROP_INTRO_PORT_PREFIX + found, String.valueOf(port));
-            ssuOptions.setProperty(UDPAddress.PROP_INTRO_KEY_PREFIX + found, Base64.encode(ura.getIntroKey()));
+            ssuOptions.setProperty(UDPAddress.PROP_INTRO_KEY_PREFIX + found, Base64.encode(ikey));
             ssuOptions.setProperty(UDPAddress.PROP_INTRO_TAG_PREFIX + found, String.valueOf(cur.getTheyRelayToUsAs()));
             found++;
         }
@@ -411,13 +415,34 @@ class IntroductionManager {
         // TODO throttle based on alice identity and/or intro tag?
 
         _context.statManager().addRateData("udp.receiveRelayRequest", 1, 0);
-        byte key[] = new byte[SessionKey.KEYSIZE_BYTES];
-        reader.getRelayRequestReader().readAliceIntroKey(key, 0);
-        SessionKey aliceIntroKey = new SessionKey(key);
+
         // send that peer an introduction for alice
         _transport.send(_builder.buildRelayIntro(alice, charlie, reader.getRelayRequestReader()));
+
         // send alice back charlie's info
-        _transport.send(_builder.buildRelayResponse(alice, charlie, reader.getRelayRequestReader().readNonce(), aliceIntroKey));
+        // lookup session so we can use session key if available
+        SessionKey cipherKey = null;
+        SessionKey macKey = null;
+        PeerState aliceState = _transport.getPeerState(alice);
+        if (aliceState != null) {
+            // established session (since 0.9.12)
+            cipherKey = aliceState.getCurrentCipherKey();
+            macKey = aliceState.getCurrentMACKey();
+        }
+        if (cipherKey == null || macKey == null) {
+            // no session, use intro key (was only way before 0.9.12)
+            byte key[] = new byte[SessionKey.KEYSIZE_BYTES];
+            reader.getRelayRequestReader().readAliceIntroKey(key, 0);
+            cipherKey = new SessionKey(key);
+            macKey = cipherKey;
+            if (_log.shouldLog(Log.INFO))
+                _log.info("Sending relay response (w/ intro key) to " + alice);
+        } else {
+            if (_log.shouldLog(Log.INFO))
+                _log.info("Sending relay response (in-session) to " + alice);
+        }
+        _transport.send(_builder.buildRelayResponse(alice, charlie, reader.getRelayRequestReader().readNonce(),
+                                                    cipherKey, macKey));
     }
 
     /**
@@ -427,8 +452,7 @@ class IntroductionManager {
      *  @since 0.9.3
      */
     private boolean isValid(byte[] ip, int port) {
-        return port >= UDPTransport.MIN_PEER_PORT &&
-               port <= 65535 &&
+        return TransportUtil.isValidPort(port) &&
                ip != null && ip.length == 4 &&
                _transport.isValid(ip) &&
                (!_transport.isTooClose(ip)) &&

@@ -4,9 +4,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import net.i2p.data.Certificate;
 import net.i2p.data.DatabaseEntry;
+import net.i2p.data.Destination;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.LeaseSet;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.DatabaseLookupMessage;
 import net.i2p.data.i2np.DatabaseSearchReplyMessage;
 import net.i2p.data.i2np.DatabaseStoreMessage;
@@ -157,7 +160,9 @@ class FloodfillVerifyStoreJob extends JobImpl {
             _log.info("Starting verify (stored " + _key + " to " + _sentTo + "), asking " + _target);
         _sendTime = getContext().clock().now();
         _expiration = _sendTime + VERIFY_TIMEOUT;
-        getContext().messageRegistry().registerPending(new VerifyReplySelector(), new VerifyReplyJob(getContext()), new VerifyTimeoutJob(getContext()), VERIFY_TIMEOUT);
+        getContext().messageRegistry().registerPending(new VerifyReplySelector(),
+                                                       new VerifyReplyJob(getContext()),
+                                                       new VerifyTimeoutJob(getContext()));
         getContext().tunnelDispatcher().dispatchOutbound(sent, outTunnel.getSendTunnelId(0), _target);
     }
     
@@ -167,9 +172,33 @@ class FloodfillVerifyStoreJob extends JobImpl {
     private Hash pickTarget() {
         Hash rkey = getContext().routingKeyGenerator().getRoutingKey(_key);
         FloodfillPeerSelector sel = (FloodfillPeerSelector)_facade.getPeerSelector();
-        List<Hash> peers = sel.selectFloodfillParticipants(rkey, 1, _ignore, _facade.getKBuckets());
-        if (!peers.isEmpty())
-            return peers.get(0);
+        Certificate keyCert = null;
+        if (!_isRouterInfo) {
+            Destination dest = _facade.lookupDestinationLocally(_key);
+            if (dest != null) {
+                Certificate cert = dest.getCertificate();
+                if (cert.getCertificateType() == Certificate.CERTIFICATE_TYPE_KEY)
+                    keyCert = cert;
+            }
+        }
+        if (keyCert != null) {
+            while (true) {
+                List<Hash> peers = sel.selectFloodfillParticipants(rkey, 1, _ignore, _facade.getKBuckets());
+                if (peers.isEmpty())
+                    break;
+                Hash peer = peers.get(0);
+                RouterInfo ri = _facade.lookupRouterInfoLocally(peer);
+                if (ri != null && StoreJob.supportsCert(ri, keyCert))
+                    return peer;
+                if (_log.shouldLog(Log.INFO))
+                    _log.info(getJobId() + ": Skipping verify w/ router that doesn't support key certs " + peer);
+                _ignore.add(peer);
+            }
+        } else {
+            List<Hash> peers = sel.selectFloodfillParticipants(rkey, 1, _ignore, _facade.getKBuckets());
+            if (!peers.isEmpty())
+                return peers.get(0);
+        }
         
         if (_log.shouldLog(Log.WARN))
             _log.warn("No other peers to verify floodfill with, using the one we sent to");
@@ -186,6 +215,7 @@ class FloodfillVerifyStoreJob extends JobImpl {
         m.setReplyTunnel(replyTunnelInfo.getReceiveTunnelId(0));
         m.setFrom(replyTunnelInfo.getPeer(0));
         m.setSearchKey(_key);
+        m.setSearchType(_isRouterInfo ? DatabaseLookupMessage.Type.RI : DatabaseLookupMessage.Type.LS);
         return m;
     }
     

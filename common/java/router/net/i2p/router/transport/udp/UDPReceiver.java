@@ -1,6 +1,7 @@
 package net.i2p.router.transport.udp;
 
 import java.io.IOException;
+import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.util.Arrays;
 
@@ -30,15 +31,18 @@ class UDPReceiver {
     private final Runner _runner;
     private final UDPTransport _transport;
     private final PacketHandler _handler;
+    private final SocketListener _endpoint;
 
     private static final boolean _isAndroid = SystemVersion.isAndroid();
 
-    public UDPReceiver(RouterContext ctx, UDPTransport transport, DatagramSocket socket, String name) {
+    public UDPReceiver(RouterContext ctx, UDPTransport transport, DatagramSocket socket, String name,
+                       SocketListener lsnr) {
         _context = ctx;
         _log = ctx.logManager().getLog(UDPReceiver.class);
         _name = name;
         _socket = socket;
         _transport = transport;
+        _endpoint = lsnr;
         _handler = transport.getPacketHandler();
         if (_handler == null)
             throw new IllegalStateException();
@@ -50,6 +54,9 @@ class UDPReceiver {
         _context.statManager().createRateStat("udp.ignorePacketFromDroplist", "Packet lifetime for those dropped on the drop list", "udp", UDPTransport.RATES);
     }
     
+    /**
+     *  Cannot be restarted (socket is final)
+     */
     public synchronized void startup() {
         //adjustDropProbability();
         _keepRunning = true;
@@ -220,11 +227,12 @@ class UDPReceiver {
                 //    _socketChanged = false;
                 //}
                 UDPPacket packet = UDPPacket.acquire(_context, true);
+                DatagramPacket dpacket = packet.getPacket();
 
                 // Android ICS bug
                 // http://code.google.com/p/android/issues/detail?id=24748
                 if (_isAndroid)
-                    packet.getPacket().setLength(UDPPacket.MAX_PACKET_SIZE);
+                    dpacket.setLength(UDPPacket.MAX_PACKET_SIZE);
                 
                 // block before we read...
                 //if (_log.shouldLog(Log.DEBUG))
@@ -236,9 +244,9 @@ class UDPReceiver {
                     //if (_log.shouldLog(Log.INFO))
                     //    _log.info("Before blocking socket.receive on " + System.identityHashCode(packet));
                     //synchronized (Runner.this) {
-                        _socket.receive(packet.getPacket());
+                        _socket.receive(dpacket);
                     //}
-                    int size = packet.getPacket().getLength();
+                    int size = dpacket.getLength();
                     if (_log.shouldLog(Log.INFO))
                         _log.info("After blocking socket.receive: packet is " + size + " bytes on " + System.identityHashCode(packet));
                     packet.resetBegin();
@@ -266,7 +274,8 @@ class UDPReceiver {
                         _context.statManager().addRateData("udp.receiveHolePunch", 1);
                         // nat hole punch packets are 0 bytes
                         if (_log.shouldLog(Log.INFO))
-                            _log.info("Received a 0 byte udp packet from " + packet.getPacket().getAddress() + ":" + packet.getPacket().getPort());
+                            _log.info("Received a 0 byte udp packet from " + dpacket.getAddress() + ":" + dpacket.getPort());
+                        _transport.getEstablisher().receiveHolePunch(dpacket.getAddress(), dpacket.getPort());
                         packet.release();
                     }
                 } catch (IOException ioe) {
@@ -278,10 +287,19 @@ class UDPReceiver {
                             _log.warn("Error receiving", ioe);
                     //}
                     packet.release();
+                    if (_socket.isClosed()) {
+                        if (_keepRunning) {
+                            _keepRunning = false;
+                            _endpoint.fail();
+                        }
+                    } else if (_keepRunning) {
+                        // TODO count consecutive errors, give up after too many?
+                        try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    }
                 }
             }
-            if (_log.shouldLog(Log.DEBUG))
-                _log.debug("Stop receiving...");
+            if (_log.shouldLog(Log.WARN))
+                _log.warn("Stop receiving on " + _endpoint);
         }
         
      /******

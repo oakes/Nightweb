@@ -18,6 +18,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -28,15 +29,11 @@ import java.io.UnsupportedEncodingException;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -44,6 +41,7 @@ import java.util.zip.Deflater;
 
 import net.i2p.I2PAppContext;
 import net.i2p.util.ByteCache;
+import net.i2p.util.FileUtil;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.ReusableGZIPInputStream;
 import net.i2p.util.ReusableGZIPOutputStream;
@@ -469,25 +467,40 @@ public class DataHelper {
     public static void storeProps(Properties props, File file) throws IOException {
         PrintWriter out = null;
         IllegalArgumentException iae = null;
+        File tmpFile = new File(file.getPath() + ".tmp");
         try {
-            out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(new SecureFileOutputStream(file), "UTF-8")));
+            FileOutputStream fos = new SecureFileOutputStream(tmpFile);
+            out = new PrintWriter(new BufferedWriter(new OutputStreamWriter(fos, "UTF-8")));
             out.println("# NOTE: This I2P config file must use UTF-8 encoding");
             for (Map.Entry<Object, Object> entry : props.entrySet()) {
                 String name = (String) entry.getKey();
                 String val = (String) entry.getValue();
                 if (name.contains("#") ||
                     name.contains("=") ||
+                    name.contains("\r") ||
                     name.contains("\n") ||
-                    name.startsWith(";") ||
-                    val.contains("#") ||
+                    name.startsWith(";")) {
+                    if (iae == null)
+                        iae = new IllegalArgumentException("Invalid character (one of \"#;=\\r\\n\") in key: \"" +
+                                                           name + "\" = \"" + val + '\"');
+                    continue;
+                }
+                if (val.contains("#") ||
+                    val.contains("\r") ||
                     val.contains("\n")) {
                     if (iae == null)
-                        iae = new IllegalArgumentException("Invalid character (one of \"#;=\\n\") in key or value: \"" +
+                        iae = new IllegalArgumentException("Invalid character (one of \"#\\r\\n\") in value: \"" +
                                                            name + "\" = \"" + val + '\"');
                     continue;
                 }
                 out.println(name + "=" + val);
             }
+            out.flush();
+            fos.getFD().sync();
+            out.close();
+            out = null;
+            if (!FileUtil.rename(tmpFile, file))
+                throw new IOException("Failed rename from " + tmpFile + " to " + file);
         } finally {
             if (out != null) out.close();
         }
@@ -525,7 +538,7 @@ public class DataHelper {
         return toString(buf, buf.length);
     }
 
-    private static final byte[] EMPTY_BUFFER = "".getBytes();
+    private static final byte[] EMPTY_BUFFER = new byte[0];
     
     /**
      *  Lower-case hex with leading zeros.
@@ -551,10 +564,18 @@ public class DataHelper {
         return out.toString();
     }
 
+    /**
+     *  Positive decimal without leading zeros.
+     *  @param buf may be null (returns "0")
+     *  @param len unused
+     *  @return (new BigInteger(1, buf)).toString()
+     *  @deprecated unused
+     */
     public static String toDecimalString(byte buf[], int len) {
-        if (buf == null) buf = EMPTY_BUFFER;
+        if (buf == null)
+            return "0";
         BigInteger val = new BigInteger(1, buf);
-        return val.toString(10);
+        return val.toString();
     }
 
     /**
@@ -568,6 +589,11 @@ public class DataHelper {
         return bi.toString(16);
     }
 
+    /**
+     *  @param val non-null, may have leading minus sign
+     *  @return minimum-length representation (with possible leading 0 byte)
+     *  @deprecated unused
+     */
     public final static byte[] fromHexString(String val) {
         BigInteger bv = new BigInteger(val, 16);
         return bv.toByteArray();
@@ -617,13 +643,17 @@ public class DataHelper {
      * Integers are a fixed number of bytes (numBytes), stored as unsigned integers in network byte order.
      * @param value value to write out, non-negative
      * @param rawStream stream to write to
-     * @param numBytes number of bytes to write the number into (padding as necessary)
-     * @throws DataFormatException if value is negative
+     * @param numBytes number of bytes to write the number into, 1-8 (padding as necessary)
+     * @throws DataFormatException if value is negative or if numBytes not 1-8
      * @throws IOException if there is an IO error writing to the stream
      */
     public static void writeLong(OutputStream rawStream, int numBytes, long value) 
         throws DataFormatException, IOException {
-        if (value < 0) throw new DataFormatException("Value is negative (" + value + ")");
+        if (numBytes <= 0 || numBytes > 8)
+            // probably got the args backwards
+            throw new DataFormatException("Bad byte count " + numBytes);
+        if (value < 0)
+            throw new DataFormatException("Value is negative (" + value + ")");
         for (int i = (numBytes - 1) * 8; i >= 0; i -= 8) {
             byte cur = (byte) (value >> i);
             rawStream.write(cur);
@@ -646,7 +676,7 @@ public class DataHelper {
      * @param value non-negative
      */
     public static void toLong(byte target[], int offset, int numBytes, long value) throws IllegalArgumentException {
-        if (numBytes <= 0) throw new IllegalArgumentException("Invalid number of bytes");
+        if (numBytes <= 0 || numBytes > 8) throw new IllegalArgumentException("Invalid number of bytes");
         if (value < 0) throw new IllegalArgumentException("Negative value not allowed");
 
         for (int i = offset + numBytes - 1; i >= offset; i--) {
@@ -983,6 +1013,8 @@ public class DataHelper {
      * This treats (null == null) as true, (null == (!null)) as false, 
      * and unequal length arrays as false.
      *
+     * Variable time.
+     *
      * @return Arrays.equals(lhs, rhs)
      */
     public final static boolean eq(byte lhs[], byte rhs[]) {
@@ -1018,22 +1050,40 @@ public class DataHelper {
 
     /**
      *  Unlike eq(byte[], byte[]), this returns false if either lhs or rhs is null.
-     *  @throws AIOOBE if either array isn't long enough
+     *  Variable time.
+     *
+     *  @throws ArrayIndexOutOfBoundsException if either array isn't long enough
      */
     public final static boolean eq(byte lhs[], int offsetLeft, byte rhs[], int offsetRight, int length) {
         if ( (lhs == null) || (rhs == null) ) return false;
-        if (length <= 0) return true;
         for (int i = 0; i < length; i++) {
             if (lhs[offsetLeft + i] != rhs[offsetRight + i]) 
                 return false;
         }
         return true;
     }
+
+    /**
+     *  Unlike eq(), this throws NPE if either lhs or rhs is null.
+     *  Constant time.
+     *
+     *  @throws NullPointerException if lhs or rhs is null
+     *  @throws ArrayIndexOutOfBoundsException if either array isn't long enough
+     *  @since 0.9.13
+     */
+    public final static boolean eqCT(byte lhs[], int offsetLeft, byte rhs[], int offsetRight, int length) {
+        int r = 0;
+        for (int i = 0; i < length; i++) {
+            r |=  lhs[offsetLeft + i] ^ rhs[offsetRight + i];
+        }
+        return r == 0;
+    }
     
     /**
      *  Big endian compare, treats bytes as unsigned.
      *  Shorter arg is lesser.
      *  Args may be null, null is less than non-null.
+     *  Variable time.
      */
     public final static int compareTo(byte lhs[], byte rhs[]) {
         if ((rhs == null) && (lhs == null)) return 0;
@@ -1385,58 +1435,6 @@ public class DataHelper {
     }
 
     /**
-     *  Sort based on the Hash of the DataStructure.
-     *  Warning - relatively slow.
-     *  WARNING - this sort order must be consistent network-wide, so while the order is arbitrary,
-     *  it cannot be changed.
-     *  Why? Just because it has to be consistent so signing will work.
-     *  How to spec as returning the same type as the param?
-     *  DEPRECATED - Only used by RouterInfo.
-     *
-     *  @return a new list
-     */
-    public static List<? extends DataStructure> sortStructures(Collection<? extends DataStructure> dataStructures) {
-        if (dataStructures == null) return Collections.emptyList();
-
-        // This used to use Hash.toString(), which is insane, since a change to toString()
-        // would break the whole network. Now use Hash.toBase64().
-        // Note that the Base64 sort order is NOT the same as the raw byte sort order,
-        // despite what you may read elsewhere.
-
-        //ArrayList<DataStructure> rv = new ArrayList(dataStructures.size());
-        //TreeMap<String, DataStructure> tm = new TreeMap();
-        //for (DataStructure struct : dataStructures) {
-        //    tm.put(struct.calculateHash().toString(), struct);
-        //}
-        //for (DataStructure struct : tm.values()) {
-        //    rv.add(struct);
-        //}
-        ArrayList<DataStructure> rv = new ArrayList<DataStructure>(dataStructures);
-        sortStructureList(rv);
-        return rv;
-    }
-
-    /**
-     *  See above.
-     *  DEPRECATED - Only used by RouterInfo.
-     *
-     *  @since 0.9
-     */
-    static void sortStructureList(List<? extends DataStructure> dataStructures) {
-        Collections.sort(dataStructures, new DataStructureComparator());
-    }
-
-    /**
-     * See sortStructures() comments.
-     * @since 0.8.3
-     */
-    private static class DataStructureComparator implements Comparator<DataStructure> {
-        public int compare(DataStructure l, DataStructure r) {
-            return l.calculateHash().toBase64().compareTo(r.calculateHash().toBase64());
-        }
-    }
-
-    /**
      *  NOTE: formatDuration2() recommended in most cases for readability
      */
     public static String formatDuration(long ms) {
@@ -1588,11 +1586,13 @@ public class DataHelper {
         if (orig == null) return "";
         String t1 = orig.replace('<', ' ');
         String rv = t1.replace('>', ' ');
+        rv = rv.replace('\"', ' ');
+        rv = rv.replace('\'', ' ');
         return rv;
     }
 
-    private static final String escapeChars[] = {"&", "\"", "<", ">"};
-    private static final String escapeCodes[] = {"&amp;", "&quot;", "&lt;", "&gt;"};
+    private static final String escapeChars[] = {"&", "\"", "<", ">", "'"};
+    private static final String escapeCodes[] = {"&amp;", "&quot;", "&lt;", "&gt;", "&apos;"};
 
     /**
      * Escape a string for inclusion in HTML

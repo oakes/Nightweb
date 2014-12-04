@@ -20,8 +20,8 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.I2PAppContext;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.RouterContext;
 import net.i2p.router.transport.FIFOBandwidthLimiter;
@@ -211,7 +211,7 @@ class EventPumper implements Runnable {
                         int failsafeInvalid = 0;
 
                         // Increase allowed idle time if we are well under allowed connections, otherwise decrease
-                        if (_transport.haveCapacity(45))
+                        if (_transport.haveCapacity(33))
                             _expireIdleWriteTime = Math.min(_expireIdleWriteTime + 1000, MAX_EXPIRE_IDLE_TIME);
                         else
                             _expireIdleWriteTime = Math.max(_expireIdleWriteTime - 3000, MIN_EXPIRE_IDLE_TIME);
@@ -532,14 +532,14 @@ class EventPumper implements Runnable {
                 con.outboundConnected();
                 _context.statManager().addRateData("ntcp.connectSuccessful", 1);
             } else {
-                con.close();
+                con.closeOnTimeout("connect failed", null);
                 _transport.markUnreachable(con.getRemotePeer().calculateHash());
                 _context.statManager().addRateData("ntcp.connectFailedTimeout", 1);
             }
         } catch (IOException ioe) {   // this is the usual failure path for a timeout or connect refused
             if (_log.shouldLog(Log.INFO))
                 _log.info("Failed outbound " + con, ioe);
-            con.close();
+            con.closeOnTimeout("connect failed", ioe);
             //_context.banlist().banlistRouter(con.getRemotePeer().calculateHash(), "Error connecting", NTCPTransport.STYLE);
             _transport.markUnreachable(con.getRemotePeer().calculateHash());
             _context.statManager().addRateData("ntcp.connectFailedTimeoutIOE", 1);

@@ -12,9 +12,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import net.i2p.crypto.SigType;
+import net.i2p.data.Certificate;
 import net.i2p.data.DatabaseEntry;
+import net.i2p.data.DataFormatException;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.LeaseSet;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.TunnelId;
 import net.i2p.data.i2np.DatabaseStoreMessage;
 import net.i2p.data.i2np.I2NPMessage;
@@ -110,7 +114,10 @@ class StoreJob extends JobImpl {
         }
     }
     
+    /** overridden in FSJ */
     protected int getParallelization() { return PARALLELIZATION; }
+
+    /** overridden in FSJ */
     protected int getRedundancy() { return REDUNDANCY; }
 
     /**
@@ -155,14 +162,29 @@ class StoreJob extends JobImpl {
             }
         } else {
             //_state.addPending(closestHashes);
-            if (_log.shouldLog(Log.INFO))
-                _log.info(getJobId() + ": Continue sending key " + _state.getTarget() + " after " + _state.getAttempted().size() + " tries to " + closestHashes);
+            int queued = 0;
+            int skipped = 0;
             for (Hash peer : closestHashes) {
                 DatabaseEntry ds = _facade.getDataStore().get(peer);
                 if ( (ds == null) || !(ds.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) ) {
                     if (_log.shouldLog(Log.INFO))
                         _log.info(getJobId() + ": Error selecting closest hash that wasnt a router! " + peer + " : " + ds);
                     _state.addSkipped(peer);
+                    skipped++;
+                } else if (_state.getData().getType() == DatabaseEntry.KEY_TYPE_LEASESET &&
+                           !supportsCert((RouterInfo)ds,
+                                         ((LeaseSet)_state.getData()).getDestination().getCertificate())) {
+                    if (_log.shouldLog(Log.INFO))
+                        _log.info(getJobId() + ": Skipping router that doesn't support key certs " + peer);
+                    _state.addSkipped(peer);
+                    skipped++;
+                } else if (_state.getData().getType() == DatabaseEntry.KEY_TYPE_LEASESET &&
+                           ((LeaseSet)_state.getData()).getLeaseCount() > 6 &&
+                           !supportsBigLeaseSets((RouterInfo)ds)) {
+                    if (_log.shouldLog(Log.INFO))
+                        _log.info(getJobId() + ": Skipping router that doesn't support big leasesets " + peer);
+                    _state.addSkipped(peer);
+                    skipped++;
                 } else {
                     int peerTimeout = _facade.getPeerTimeout(peer);
 
@@ -192,10 +214,20 @@ class StoreJob extends JobImpl {
                     // ERR: see hidden mode comments in HandleDatabaseLookupMessageJob
                     // // Do not store to hidden nodes
                     // if (!((RouterInfo)ds).isHidden()) {
+                       if (_log.shouldLog(Log.INFO))
+                           _log.info(getJobId() + ": Continue sending key " + _state.getTarget() +
+                                     " after " + _state.getAttempted().size() + " tries to " + closestHashes);
                         _state.addPending(peer);
                         sendStore((RouterInfo)ds, peerTimeout);
+                        queued++;
                     //}
                 }
+            }
+            if (queued == 0 && _state.getPending().isEmpty()) {
+                if (_log.shouldLog(Log.INFO))
+                    _log.info(getJobId() + ": No more peers left after skipping " + skipped + " and none pending");
+                // queue a job to go around again rather than recursing
+                getContext().jobQueue().addJob(new WaitJob(getContext()));
             }
         }
     }
@@ -362,7 +394,7 @@ class StoreJob extends JobImpl {
     
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("sending store to " + peer.getIdentity().getHash() + " through " + outTunnel + ": " + msg);
-            getContext().messageRegistry().registerPending(selector, onReply, onFail, (int)(expiration - getContext().clock().now()));
+            getContext().messageRegistry().registerPending(selector, onReply, onFail);
             getContext().tunnelDispatcher().dispatchOutbound(msg, outTunnel.getSendTunnelId(0), null, to);
         } else {
             if (_log.shouldLog(Log.WARN))
@@ -442,7 +474,7 @@ class StoreJob extends JobImpl {
                     _log.debug("sending store to " + peer.getIdentity().getHash() + " through " + outTunnel + ": " + sent);
                 //_log.debug("Expiration is " + new Date(sent.getMessageExpiration()));
             }
-            getContext().messageRegistry().registerPending(selector, onReply, onFail, (int)(expiration - getContext().clock().now()));
+            getContext().messageRegistry().registerPending(selector, onReply, onFail);
             getContext().tunnelDispatcher().dispatchOutbound(sent, outTunnel.getSendTunnelId(0), null, to);
         } else {
             if (_log.shouldLog(Log.WARN))
@@ -488,6 +520,42 @@ class StoreJob extends JobImpl {
     }
 
     /**
+     * Does this router understand this cert?
+     * @return true if not a key cert
+     * @since 0.9.12
+     */
+    public static boolean supportsCert(RouterInfo ri, Certificate cert) {
+        if (cert.getCertificateType() != Certificate.CERTIFICATE_TYPE_KEY)
+            return true;
+        SigType type;
+        try {
+            type = cert.toKeyCertificate().getSigType();
+        } catch (DataFormatException dfe) {
+            return false;
+        }
+        if (type == null)
+            return false;
+        String v = ri.getOption("router.version");
+        if (v == null)
+            return false;
+        String since = type.getSupportedSince();
+        return VersionComparator.comp(v, since) >= 0;
+    }
+
+    private static final String MIN_BIGLEASESET_VERSION = "0.9";
+
+    /**
+     * Does he support more than 6 leasesets?
+     * @since 0.9.12
+     */
+    public static boolean supportsBigLeaseSets(RouterInfo ri) {
+        String v = ri.getOption("router.version");
+        if (v == null)
+            return false;
+        return VersionComparator.comp(v, MIN_BIGLEASESET_VERSION) >= 0;
+    }
+
+    /**
      * Called after sending a dbStore to a peer successfully, 
      * marking the store as successful
      *
@@ -511,6 +579,7 @@ class StoreJob extends JobImpl {
         }
 
         public String getName() { return "Kademlia Store Send Success"; }
+
         public void runJob() {
             Hash hash = _peer.getIdentity().getHash();
             MessageWrapper.WrappedMessage wm = _state.getPendingMessage(hash);
@@ -525,8 +594,8 @@ class StoreJob extends JobImpl {
             getContext().statManager().addRateData("netDb.ackTime", howLong, howLong);
 
             if ( (_sendThrough != null) && (_msgSize > 0) ) {
-                if (_log.shouldLog(Log.WARN))
-                    _log.warn("sent a " + _msgSize + "byte netDb message through tunnel " + _sendThrough + " after " + howLong);
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("sent a " + _msgSize + " byte netDb message through tunnel " + _sendThrough + " after " + howLong);
                 for (int i = 0; i < _sendThrough.getLength(); i++)
                     getContext().profileManager().tunnelDataPushed(_sendThrough.getPeer(i), howLong, _msgSize);
                 _sendThrough.incrementVerifiedBytesTransferred(_msgSize);

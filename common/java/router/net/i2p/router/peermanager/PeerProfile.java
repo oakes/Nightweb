@@ -41,10 +41,10 @@ public class PeerProfile {
     // periodic rates
     //private RateStat _sendSuccessSize = null;
     //private RateStat _receiveSize = null;
-    private RateStat _dbResponseTime = null;
-    private RateStat _tunnelCreateResponseTime = null;
-    private RateStat _tunnelTestResponseTime = null;
-    private RateStat _dbIntroduction = null;
+    private RateStat _dbResponseTime;
+    private RateStat _tunnelCreateResponseTime;
+    private RateStat _tunnelTestResponseTime;
+    private RateStat _dbIntroduction;
     // calculation bonuses
     private long _speedBonus;
     private long _capacityBonus;
@@ -65,7 +65,7 @@ public class PeerProfile {
     // does this peer profile contain expanded data, or just the basics?
     private boolean _expanded;
     private boolean _expandedDB;
-    private int _consecutiveBanlists;
+    //private int _consecutiveBanlists;
     private final int _distance;
     
     /**
@@ -80,16 +80,22 @@ public class PeerProfile {
         _bigCountries.addAll(Arrays.asList(big));
     }
 
+    /**
+     *  @param peer non-null
+     */
     public PeerProfile(RouterContext context, Hash peer) {
         this(context, peer, true);
     }
 
     /**
+     *  @param peer non-null
      *  @param expand must be true (see below)
      */
-    public PeerProfile(RouterContext context, Hash peer, boolean expand) {
+    private PeerProfile(RouterContext context, Hash peer, boolean expand) {
         _context = context;
         _log = context.logManager().getLog(PeerProfile.class);
+        if (peer == null)
+            throw new NullPointerException();
         _peer = peer;
         // this is always true, and there are several places in the router that will NPE
         // if it is false, so all need to be fixed before we can have non-expanded profiles
@@ -102,7 +108,7 @@ public class PeerProfile {
             _distance = 0;
     }
     
-    /** what peer is being profiled */
+    /** what peer is being profiled, non-null */
     public Hash getPeer() { return _peer; }
     
     /**
@@ -114,8 +120,8 @@ public class PeerProfile {
     public boolean getIsExpanded() { return _expanded; }
     public boolean getIsExpandedDB() { return _expandedDB; }
     
-    public int incrementBanlists() { return _consecutiveBanlists++; }
-    public void unbanlist() { _consecutiveBanlists = 0; }
+    //public int incrementBanlists() { return _consecutiveBanlists++; }
+    //public void unbanlist() { _consecutiveBanlists = 0; }
     
     /**
      * Is this peer active at the moment (sending/receiving messages within the last

@@ -11,14 +11,19 @@ package net.i2p.data;
 
 import java.io.InputStream;
 import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Arrays;
 
 import net.i2p.crypto.SigType;
 
 /**
  * Defines the SigningPublicKey as defined by the I2P data structure spec.
- * A signing public key is 128 byte Integer. The public key represents only the 
+ * A signing public key is by default 128 byte Integer. The public key represents only the 
  * exponent, not the primes, which are constant and defined in the crypto spec.
  * This key varies from the PrivateKey in its usage (verifying signatures, not encrypting)
+ *
+ * As of release 0.9.8, keys of arbitrary length and type are supported.
+ * See SigType.
  *
  * @author jrandom
  */
@@ -55,6 +60,7 @@ public class SigningPublicKey extends SimpleDataStructure {
     }
 
     /**
+     *  @param type if null, type is unknown
      *  @since 0.9.8
      */
     public SigningPublicKey(SigType type) {
@@ -67,12 +73,16 @@ public class SigningPublicKey extends SimpleDataStructure {
     }
 
     /**
+     *  @param type if null, type is unknown
      *  @since 0.9.8
      */
     public SigningPublicKey(SigType type, byte data[]) {
         super();
         _type = type;
-        setData(data);
+        if (type != null || data == null)
+            setData(data);
+        else
+            _data = data;  // bypass length check
     }
 
     /** constructs from base64
@@ -84,15 +94,93 @@ public class SigningPublicKey extends SimpleDataStructure {
         fromBase64(base64Data);
     }
 
+    /**
+     *  @return if type unknown, the length of the data, or 128 if no data
+     */
     public int length() {
-        return _type.getPubkeyLen();
+        if (_type != null)
+            return _type.getPubkeyLen();
+        if (_data != null)
+            return _data.length;
+        return KEYSIZE_BYTES;
     }
 
     /**
+     *  @return null if unknown
      *  @since 0.9.8
      */
     public SigType getType() {
         return _type;
+    }
+
+    /**
+     *  Up-convert this from an untyped (type 0) SPK to a typed SPK based on the Key Cert given.
+     *  The type of the returned key will be null if the kcert sigtype is null.
+     *
+     *  @throws IllegalArgumentException if this is already typed to a different type
+     *  @since 0.9.12
+     */
+    public SigningPublicKey toTypedKey(KeyCertificate kcert) {
+        if (_data == null)
+            throw new IllegalStateException();
+        SigType newType = kcert.getSigType();
+        if (_type == newType)
+            return this;
+        if (_type != SigType.DSA_SHA1)
+            throw new IllegalArgumentException("Cannot convert " + _type + " to " + newType);
+        // unknown type, keep the 128 bytes of data
+        if (newType == null)
+            return new SigningPublicKey(null, _data);
+        int newLen = newType.getPubkeyLen();
+        if (newLen == SigType.DSA_SHA1.getPubkeyLen())
+            return new SigningPublicKey(newType, _data);
+        byte[] newData = new byte[newLen];
+        if (newLen < SigType.DSA_SHA1.getPubkeyLen()) {
+            // right-justified
+            System.arraycopy(_data, _data.length - newLen, newData, 0, newLen);
+        } else {
+            // full 128 bytes + fragment in kcert
+            System.arraycopy(_data, 0, newData, 0, _data.length);
+            System.arraycopy(kcert.getPayload(), KeyCertificate.HEADER_LENGTH, newData, _data.length, newLen - _data.length);
+        }
+        return new SigningPublicKey(newType, newData);
+    }
+
+    /**
+     *  Get the portion of this (type 0) SPK that is really padding based on the Key Cert type given,
+     *  if any
+     *
+     *  @return leading padding length > 0 or null if no padding or type is unknown
+     *  @throws IllegalArgumentException if this is already typed to a different type
+     *  @since 0.9.12
+     */
+    public byte[] getPadding(KeyCertificate kcert) {
+        if (_data == null)
+            throw new IllegalStateException();
+        SigType newType = kcert.getSigType();
+        if (_type == newType || newType == null)
+            return null;
+        if (_type != SigType.DSA_SHA1)
+            throw new IllegalStateException("Cannot convert " + _type + " to " + newType);
+        int newLen = newType.getPubkeyLen();
+        if (newLen >= SigType.DSA_SHA1.getPubkeyLen())
+            return null;
+        int padLen = SigType.DSA_SHA1.getPubkeyLen() - newLen;
+        byte[] pad = new byte[padLen];
+        System.arraycopy(_data, 0, pad, 0, padLen);
+        return pad;
+    }
+    
+    /**
+     *  Write the data up to a max of 128 bytes.
+     *  If longer, the rest will be written in the KeyCertificate.
+     *  @since 0.9.12
+     */
+    public void writeTruncatedBytes(OutputStream out) throws DataFormatException, IOException {
+        if (_type.getPubkeyLen() <= KEYSIZE_BYTES)
+            out.write(_data);
+        else
+            out.write(_data, 0, KEYSIZE_BYTES);
     }
 
     /**
@@ -109,5 +197,31 @@ public class SigningPublicKey extends SimpleDataStructure {
         }
         buf.append(']');
         return buf.toString();
+    }
+
+    /**
+     *  @since 0.9.17
+     */
+    public static void clearCache() {
+        _cache.clear();
+    }
+
+    /**
+     *  @since 0.9.17
+     */
+    @Override
+    public int hashCode() {
+        return DataHelper.hashCode(_type) ^ super.hashCode();
+    }
+
+    /**
+     *  @since 0.9.17
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || !(obj instanceof SigningPublicKey)) return false;
+        SigningPublicKey s = (SigningPublicKey) obj;
+        return _type == s._type && Arrays.equals(_data, s._data);
     }
 }

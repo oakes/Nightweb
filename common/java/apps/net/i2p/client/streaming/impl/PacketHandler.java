@@ -136,7 +136,7 @@ class PacketHandler {
         if (packet.isFlagSet(Packet.FLAG_ECHO)) {
             if (packet.getSendStreamId() > 0) {
                 if (con.getOptions().getAnswerPings())
-                    receivePing(packet);
+                    receivePing(con, packet);
                 else if (_log.shouldLog(Log.WARN))
                     _log.warn("Dropping Echo packet on existing con: " + packet);
             } else if (packet.getReceiveStreamId() > 0) {
@@ -207,7 +207,7 @@ class PacketHandler {
                     if (!con.getResetSent()) {
                         // someone is sending us a packet on the wrong stream 
                         // It isn't a SYN so it isn't likely to have a FROM to send a reset back to
-                        if (_log.shouldLog(Log.ERROR)) {
+                        if (_log.shouldLog(Log.WARN)) {
                             StringBuilder buf = new StringBuilder(512);
                             buf.append("Received a packet on the wrong stream: ");
                             buf.append(packet);
@@ -217,7 +217,7 @@ class PacketHandler {
                             for (Connection cur : _manager.listConnections()) {
                                 buf.append('\n').append(cur);
                             }
-                            _log.error(buf.toString(), new Exception("Wrong stream"));
+                            _log.warn(buf.toString(), new Exception("Wrong stream"));
                         }
                     }
                     packet.releasePayload();
@@ -247,6 +247,8 @@ class PacketHandler {
         reply.setSendStreamId(packet.getReceiveStreamId());
         reply.setReceiveStreamId(packet.getSendStreamId());
         reply.setOptionalFrom(_manager.getSession().getMyDestination());
+        reply.setLocalPort(packet.getLocalPort());
+        reply.setRemotePort(packet.getRemotePort());
         // this just sends the packet - no retries or whatnot
         _manager.getPacketQueue().enqueue(reply);
     }
@@ -255,7 +257,7 @@ class PacketHandler {
         if (packet.isFlagSet(Packet.FLAG_ECHO)) {
             if (packet.getSendStreamId() > 0) {
                 if (_manager.answerPings())
-                    receivePing(packet);
+                    receivePing(null, packet);
                 else if (_log.shouldLog(Log.WARN))
                     _log.warn("Dropping Echo packet on unknown con: " + packet);
             } else if (packet.getReceiveStreamId() > 0) {
@@ -286,8 +288,11 @@ class PacketHandler {
                 }
             } else {
                 // if it has a send ID, it's almost certainly for a recently removed connection.
-                if (_log.shouldLog(Log.WARN))
-                    _log.warn("Dropping pkt w/ send ID but no con found, recently disconnected? " + packet);
+                if (_log.shouldLog(Log.WARN)) {
+                    boolean recent = _manager.wasRecentlyClosed(packet.getSendStreamId());
+                    _log.warn("Dropping pkt w/ send ID but no con found, recently disconnected? " +
+                              recent + ' ' + packet);
+                }
                 // don't bother sending reset
                 packet.releasePayload();
                 return;
@@ -335,7 +340,10 @@ class PacketHandler {
         }
     }
     
-    private void receivePing(Packet packet) {
+    /**
+     *  @param con null if unknown
+     */
+    private void receivePing(Connection con, Packet packet) {
         boolean ok = packet.verifySignature(_context, packet.getOptionalFrom(), null);
         if (!ok) {
             if (_log.shouldLog(Log.WARN)) {
@@ -348,10 +356,7 @@ class PacketHandler {
                               + " sig=" + packet.getOptionalSignature().toBase64() + ")");
             }
         } else {
-            PacketLocal pong = new PacketLocal(_context, packet.getOptionalFrom());
-            pong.setFlag(Packet.FLAG_ECHO | Packet.FLAG_NO_ACK);
-            pong.setReceiveStreamId(packet.getSendStreamId());
-            _manager.getPacketQueue().enqueue(pong);
+            _manager.receivePing(con, packet);
         }
     }
     

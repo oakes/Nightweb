@@ -9,6 +9,7 @@ package net.i2p.router.transport;
  */
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.Writer;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -29,9 +30,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.I2NPMessage;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.Job;
@@ -233,6 +234,11 @@ public abstract class TransportImpl implements Transport {
      * @param allowRequeue true if we should try other transports if available
      */
     protected void afterSend(OutNetMessage msg, boolean sendSuccessful, boolean allowRequeue, long msToSend) {
+        if (msg.getTarget() == null) {
+            // Probably injected by the transport.
+            // Bail out now as it will NPE in a dozen places below.
+            return;
+        }
         boolean log = false;
         if (sendSuccessful)
             msg.timestamp("afterSend(successful)");
@@ -244,7 +250,7 @@ public abstract class TransportImpl implements Transport {
 
         if (msToSend > 1500) {
             if (_log.shouldLog(Log.INFO))
-                _log.warn(getStyle() + " afterSend slow: " + (sendSuccessful ? "success " : "FAIL ")
+                _log.info(getStyle() + " afterSend slow: " + (sendSuccessful ? "success " : "FAIL ")
                           + msg.getMessageSize() + " byte "
                           + msg.getMessageType() + ' ' + msg.getMessageId() + " to "
                           + msg.getTarget().getIdentity().calculateHash().toBase64().substring(0,6) + " took " + msToSend + " ms");
@@ -254,9 +260,9 @@ public abstract class TransportImpl implements Transport {
 
         long lifetime = msg.getLifetime();
         if (lifetime > 3000) {
-            int level = Log.WARN;
+            int level = Log.INFO;
             if (!sendSuccessful)
-                level = Log.INFO;
+                level = Log.DEBUG;
             if (_log.shouldLog(level))
                 _log.log(level, getStyle() + " afterSend slow (" + (sendSuccessful ? "success " : "FAIL ")
                           + lifetime + "/" + msToSend + "): " + msg.getMessageSize() + " byte "
@@ -429,7 +435,7 @@ public abstract class TransportImpl implements Transport {
             level = Log.WARN;
         if (_log.shouldLog(level)) {
             StringBuilder buf = new StringBuilder(128);
-            buf.append("Message received: ").append(inMsg.getClass().getName());
+            buf.append("Message received: ").append(inMsg.getClass().getSimpleName());
             buf.append(" / ").append(inMsg.getUniqueId());
             buf.append(" in ").append(msToReceive).append("ms containing ");
             buf.append(bytesReceived).append(" bytes ");
@@ -622,7 +628,7 @@ public abstract class TransportImpl implements Transport {
      *  Lowest cost (most preferred) first.
      *  @since IPv6
      */
-    private static class AddrComparator implements Comparator<RouterAddress> {
+    private static class AddrComparator implements Comparator<RouterAddress>, Serializable {
         private final int adj;
 
         public AddrComparator(int ipv6Adjustment) {
@@ -698,7 +704,12 @@ public abstract class TransportImpl implements Transport {
     public void renderStatusHTML(Writer out, String urlBase, int sortFlags) throws IOException { renderStatusHTML(out); }
 
     public short getReachabilityStatus() { return CommSystemFacade.STATUS_UNKNOWN; }
+
+    /**
+     * @deprecated unused
+     */
     public void recheckReachability() {}
+
     public boolean isBacklogged(Hash dest) { return false; }
     public boolean isEstablished(Hash dest) { return false; }
 

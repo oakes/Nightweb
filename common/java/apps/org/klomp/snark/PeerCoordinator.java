@@ -134,9 +134,6 @@ class PeerCoordinator implements PeerListener
   private final CoordinatorListener listener;
   private final I2PSnarkUtil _util;
   private final Random _random;
-
-  /** Maintain connections with peers even after the torrent has finished. */
-  private boolean persistent = false;
   
   /**
    *  @param metainfo null if in magnet mode
@@ -285,6 +282,14 @@ class PeerCoordinator implements PeerListener
   }
 
   /**
+   *  Sets the initial total of uploaded bytes of all peers (from a saved status)
+   *  @since 0.9.15
+   */
+  public void setUploaded(long up) {
+      uploaded = up;
+  }
+
+  /**
    * Returns the total number of downloaded bytes of all peers.
    */
   public long getDownloaded()
@@ -380,7 +385,7 @@ class PeerCoordinator implements PeerListener
   public boolean needOutboundPeers() {
         //return wantedBytes != 0 && needPeers();
         // minus two to make it a little easier for new peers to get in on large swarms
-        return (wantedBytes != 0 || persistent) &&
+        return wantedBytes != 0 &&
                !halted &&
                peers.size() < getMaxConnections() - 2 &&
                (storage == null || !storage.isChecking());
@@ -408,14 +413,6 @@ class PeerCoordinator implements PeerListener
     //if (size <= 1024*1024)
     //  return (max + max + 2) / 3;
     //return (max + 2) / 3;
-  }
-
-  public void setPersistent(boolean isPersistent) {
-    persistent = isPersistent;
-  }
-
-  public boolean getPersistent() {
-    return persistent;
   }
 
   public boolean halted() { return halted; }
@@ -699,7 +696,7 @@ class PeerCoordinator implements PeerListener
             }
         }
     }
-    return rv || (wantedBytes == 0 && persistent);
+    return rv;
   }
 
   /**
@@ -1042,10 +1039,8 @@ class PeerCoordinator implements PeerListener
     }
 
     if (done) {
-        if (!persistent) {
-            for (Peer p : toDisconnect) {
-                p.disconnect(true);
-            }
+        for (Peer p : toDisconnect) {
+            p.disconnect(true);
         }
     
         // put msg on the console if partial, since Storage won't do it
@@ -1215,22 +1210,23 @@ class PeerCoordinator implements PeerListener
                  boolean skipped = false;
                  for(Piece piece : wantedPieces) {
                      if (piece.getId() == savedPiece) {
-                         if (peer.isCompleted() && piece.getPeerCount() > 1) {
+                         if (peer.isCompleted() && piece.getPeerCount() > 1 &&
+                             wantedPieces.size() > 2*END_GAME_THRESHOLD) {
                              // Try to preserve rarest-first
-                             // by not requesting a partial piece that non-seeders also have
+                             // by not requesting a partial piece that at least two non-seeders also have
                              // from a seeder
-                             boolean nonSeeds = false;
+                             int nonSeeds = 0;
                              for (Peer pr : peers) {
                                  PeerState state = pr.state;
                                  if (state == null) continue;
                                  BitField bf = state.bitfield;
                                  if (bf == null) continue;
                                  if (bf.get(savedPiece) && !pr.isCompleted()) {
-                                     nonSeeds = true;
-                                     break;
+                                     if (++nonSeeds > 1)
+                                         break;
                                  }
                              }
-                             if (nonSeeds) {
+                             if (nonSeeds > 1) {
                                  skipped = true;
                                  break;
                              }

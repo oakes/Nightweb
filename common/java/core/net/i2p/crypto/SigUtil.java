@@ -5,7 +5,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.IOException;
-
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.security.InvalidKeyException;
@@ -33,6 +32,11 @@ import java.security.spec.RSAPublicKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Map;
 
+import net.i2p.crypto.eddsa.EdDSAPrivateKey;
+import net.i2p.crypto.eddsa.EdDSAPublicKey;
+import net.i2p.crypto.eddsa.spec.EdDSAParameterSpec;
+import net.i2p.crypto.eddsa.spec.EdDSAPrivateKeySpec;
+import net.i2p.crypto.eddsa.spec.EdDSAPublicKeySpec;
 import net.i2p.data.Signature;
 import net.i2p.data.SigningPrivateKey;
 import net.i2p.data.SigningPublicKey;
@@ -43,12 +47,14 @@ import net.i2p.util.NativeBigInteger;
 /**
  * Utilities for Signing keys and Signatures
  *
- * @since 0.9.9
+ * @since 0.9.9, public since 0.9.12
  */
-class SigUtil {
+public class SigUtil {
 
-    private static final Map<SigningPublicKey, ECPublicKey> _pubkeyCache = new LHMCache<SigningPublicKey, ECPublicKey>(64);
-    private static final Map<SigningPrivateKey, ECPrivateKey> _privkeyCache = new LHMCache<SigningPrivateKey, ECPrivateKey>(16);
+    private static final Map<SigningPublicKey, ECPublicKey> _ECPubkeyCache = new LHMCache<SigningPublicKey, ECPublicKey>(64);
+    private static final Map<SigningPrivateKey, ECPrivateKey> _ECPrivkeyCache = new LHMCache<SigningPrivateKey, ECPrivateKey>(16);
+    private static final Map<SigningPublicKey, EdDSAPublicKey> _EdPubkeyCache = new LHMCache<SigningPublicKey, EdDSAPublicKey>(64);
+    private static final Map<SigningPrivateKey, EdDSAPrivateKey> _EdPrivkeyCache = new LHMCache<SigningPrivateKey, EdDSAPrivateKey>(16);
 
     private SigUtil() {}
 
@@ -62,6 +68,8 @@ class SigUtil {
                 return toJavaDSAKey(pk);
             case EC:
                 return toJavaECKey(pk);
+            case EdDSA:
+                return toJavaEdDSAKey(pk);
             case RSA:
                 return toJavaRSAKey(pk);
             default:
@@ -79,6 +87,8 @@ class SigUtil {
                 return toJavaDSAKey(pk);
             case EC:
                 return toJavaECKey(pk);
+            case EdDSA:
+                return toJavaEdDSAKey(pk);
             case RSA:
                 return toJavaRSAKey(pk);
             default:
@@ -96,6 +106,8 @@ class SigUtil {
                 return fromJavaKey((DSAPublicKey) pk);
             case EC:
                 return fromJavaKey((ECPublicKey) pk, type);
+            case EdDSA:
+                return fromJavaKey((EdDSAPublicKey) pk, type);
             case RSA:
                 return fromJavaKey((RSAPublicKey) pk, type);
             default:
@@ -113,6 +125,8 @@ class SigUtil {
                 return fromJavaKey((DSAPrivateKey) pk);
             case EC:
                 return fromJavaKey((ECPrivateKey) pk, type);
+            case EdDSA:
+                return fromJavaKey((EdDSAPrivateKey) pk, type);
             case RSA:
                 return fromJavaKey((RSAPrivateKey) pk, type);
             default:
@@ -126,14 +140,14 @@ class SigUtil {
     public static ECPublicKey toJavaECKey(SigningPublicKey pk)
                               throws GeneralSecurityException {
         ECPublicKey rv;
-        synchronized (_pubkeyCache) {
-            rv = _pubkeyCache.get(pk);
+        synchronized (_ECPubkeyCache) {
+            rv = _ECPubkeyCache.get(pk);
         }
         if (rv != null)
             return rv;
         rv = cvtToJavaECKey(pk);
-        synchronized (_pubkeyCache) {
-            _pubkeyCache.put(pk, rv);
+        synchronized (_ECPubkeyCache) {
+            _ECPubkeyCache.put(pk, rv);
         }
         return rv;
     }
@@ -144,14 +158,14 @@ class SigUtil {
     public static ECPrivateKey toJavaECKey(SigningPrivateKey pk)
                               throws GeneralSecurityException {
         ECPrivateKey rv;
-        synchronized (_privkeyCache) {
-            rv = _privkeyCache.get(pk);
+        synchronized (_ECPrivkeyCache) {
+            rv = _ECPrivkeyCache.get(pk);
         }
         if (rv != null)
             return rv;
         rv = cvtToJavaECKey(pk);
-        synchronized (_privkeyCache) {
-            _privkeyCache.put(pk, rv);
+        synchronized (_ECPrivkeyCache) {
+            _ECPrivkeyCache.put(pk, rv);
         }
         return rv;
     }
@@ -194,6 +208,86 @@ class SigUtil {
         int len = type.getPrivkeyLen();
         byte[] bs = rectify(s, len);
         return new SigningPrivateKey(type, bs);
+    }
+
+    /**
+     *  @return JAVA EdDSA public key!
+     *  @since 0.9.15
+     */
+    public static EdDSAPublicKey toJavaEdDSAKey(SigningPublicKey pk)
+                              throws GeneralSecurityException {
+        EdDSAPublicKey rv;
+        synchronized (_EdPubkeyCache) {
+            rv = _EdPubkeyCache.get(pk);
+        }
+        if (rv != null)
+            return rv;
+        rv = cvtToJavaEdDSAKey(pk);
+        synchronized (_EdPubkeyCache) {
+            _EdPubkeyCache.put(pk, rv);
+        }
+        return rv;
+    }
+
+    /**
+     *  @return JAVA EdDSA private key!
+     *  @since 0.9.15
+     */
+    public static EdDSAPrivateKey toJavaEdDSAKey(SigningPrivateKey pk)
+                              throws GeneralSecurityException {
+        EdDSAPrivateKey rv;
+        synchronized (_EdPrivkeyCache) {
+            rv = _EdPrivkeyCache.get(pk);
+        }
+        if (rv != null)
+            return rv;
+        rv = cvtToJavaEdDSAKey(pk);
+        synchronized (_EdPrivkeyCache) {
+            _EdPrivkeyCache.put(pk, rv);
+        }
+        return rv;
+    }
+
+    /**
+     *  @since 0.9.15
+     */
+    private static EdDSAPublicKey cvtToJavaEdDSAKey(SigningPublicKey pk)
+                              throws GeneralSecurityException {
+        try {
+            return new EdDSAPublicKey(new EdDSAPublicKeySpec(
+                pk.getData(), (EdDSAParameterSpec) pk.getType().getParams()));
+        } catch (IllegalArgumentException iae) {
+            throw new InvalidKeyException(iae);
+        }
+    }
+
+    /**
+     *  @since 0.9.15
+     */
+    private static EdDSAPrivateKey cvtToJavaEdDSAKey(SigningPrivateKey pk)
+                              throws GeneralSecurityException {
+        try {
+            return new EdDSAPrivateKey(new EdDSAPrivateKeySpec(
+                pk.getData(), (EdDSAParameterSpec) pk.getType().getParams()));
+        } catch (IllegalArgumentException iae) {
+            throw new InvalidKeyException(iae);
+        }
+    }
+
+    /**
+     *  @since 0.9.15
+     */
+    public static SigningPublicKey fromJavaKey(EdDSAPublicKey pk, SigType type)
+            throws GeneralSecurityException {
+        return new SigningPublicKey(type, pk.getAbyte());
+    }
+
+    /**
+     *  @since 0.9.15
+     */
+    public static SigningPrivateKey fromJavaKey(EdDSAPrivateKey pk, SigType type)
+            throws GeneralSecurityException {
+        return new SigningPrivateKey(type, pk.getSeed());
     }
 
     public static DSAPublicKey toJavaDSAKey(SigningPublicKey pk)
@@ -251,7 +345,7 @@ class SigUtil {
     }
 
     /**
-     *  @deprecated unused
+     *
      */
     public static RSAPrivateKey toJavaRSAKey(SigningPrivateKey pk)
                               throws GeneralSecurityException {
@@ -264,7 +358,7 @@ class SigUtil {
     }
 
     /**
-     *  @deprecated unused
+     *
      */
     public static SigningPublicKey fromJavaKey(RSAPublicKey pk, SigType type)
                               throws GeneralSecurityException {
@@ -290,8 +384,8 @@ class SigUtil {
      *  @return ASN.1 representation
      */
     public static byte[] toJavaSig(Signature sig) {
-        // RSA sigs are not ASN encoded
-        if (sig.getType().getBaseAlgorithm() == SigAlgo.RSA)
+        // RSA and EdDSA sigs are not ASN encoded
+        if (sig.getType().getBaseAlgorithm() == SigAlgo.RSA || sig.getType().getBaseAlgorithm() == SigAlgo.EdDSA)
             return sig.getData();
         return sigBytesToASN1(sig.getData());
     }
@@ -302,8 +396,8 @@ class SigUtil {
      */
     public static Signature fromJavaSig(byte[] asn, SigType type)
                               throws SignatureException {
-        // RSA sigs are not ASN encoded
-        if (type.getBaseAlgorithm() == SigAlgo.RSA)
+        // RSA and EdDSA sigs are not ASN encoded
+        if (type.getBaseAlgorithm() == SigAlgo.RSA || type.getBaseAlgorithm() == SigAlgo.EdDSA)
             return new Signature(type, asn);
         return new Signature(type, aSN1ToSigBytes(asn, type.getSigLen()));
     }
@@ -530,11 +624,17 @@ class SigUtil {
     }
 
     public static void clearCaches() {
-        synchronized(_pubkeyCache) {
-            _pubkeyCache.clear();
+        synchronized(_ECPubkeyCache) {
+            _ECPubkeyCache.clear();
         }
-        synchronized(_privkeyCache) {
-            _privkeyCache.clear();
+        synchronized(_ECPrivkeyCache) {
+            _ECPrivkeyCache.clear();
+        }
+        synchronized(_EdPubkeyCache) {
+            _EdPubkeyCache.clear();
+        }
+        synchronized(_EdPrivkeyCache) {
+            _EdPrivkeyCache.clear();
         }
     }
 }

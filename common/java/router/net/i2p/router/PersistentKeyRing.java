@@ -16,7 +16,9 @@ import net.i2p.util.KeyRing;
  *  Caution - not all HashMap methods are overridden.
  */
 public class PersistentKeyRing extends KeyRing {
-    private RouterContext _ctx;
+
+    private static final long serialVersionUID = 1L;
+    private transient final RouterContext _ctx;
     private static final String PROP_PFX = "router.keyring.key.";
 
     public PersistentKeyRing(RouterContext ctx) {
@@ -68,9 +70,8 @@ public class PersistentKeyRing extends KeyRing {
             Hash h = e.getKey();
             buf.append(h.toBase64().substring(0, 6)).append("&hellip;");
             buf.append("<td>");
-            LeaseSet ls = _ctx.netDb().lookupLeaseSetLocally(h);
-            if (ls != null) {
-                Destination dest = ls.getDestination();
+            Destination dest = _ctx.netDb().lookupDestinationLocally(h);
+            if (dest != null) {
                 if (_ctx.clientManager().isLocal(dest)) {
                     TunnelPoolSettings in = _ctx.tunnelManager().getInboundSettings(h);
                     if (in != null && in.getDestinationNickname() != null)

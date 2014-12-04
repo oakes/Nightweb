@@ -9,6 +9,7 @@ package net.i2p.router;
  */
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.Collections;
@@ -209,9 +210,9 @@ public class JobQueue {
             }
         }
         
-        _context.statManager().addRateData("jobQueue.readyJobs", numReady, 0);
+        _context.statManager().addRateData("jobQueue.readyJobs", numReady);
         if (dropped) {
-            _context.statManager().addRateData("jobQueue.droppedJobs", 1, 0);
+            _context.statManager().addRateData("jobQueue.droppedJobs", 1);
             _log.logAlways(Log.WARN, "Dropping job due to overload!  # ready jobs: " 
                           + numReady + ": job = " + job);
         }
@@ -285,9 +286,14 @@ public class JobQueue {
             // we don't really *need* to answer DB lookup messages
             // This is pretty lame, there's actually a ton of different jobs we
             // could drop, but is it worth making a list?
-            if (cls == HandleFloodfillDatabaseLookupMessageJob.class)
-                return true;
-
+            if (cls == HandleFloodfillDatabaseLookupMessageJob.class) {
+                 JobTiming jt = job.getTiming();
+                 if (jt != null) {
+                     long lag =  _context.clock().now() - jt.getStartAfter();
+                     if (lag > 2*1000L)
+                         return true;
+                }
+            }
         }
         return false;
     }
@@ -658,7 +664,7 @@ public class JobQueue {
      *  Ensure different jobs with the same timing are different so they aren't removed.
      *  @since 0.8.9
      */
-    private static class JobComparator implements Comparator<Job> {
+    private static class JobComparator implements Comparator<Job>, Serializable {
          public int compare(Job l, Job r) {
              // equals first, Jobs generally don't override so this should be fast
              // And this MUST be first so we can remove a job even if its timing has changed.

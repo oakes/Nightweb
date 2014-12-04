@@ -17,7 +17,7 @@ import java.util.Set;
 import net.i2p.I2PAppContext;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.data.SessionTag;
 import net.i2p.data.TunnelId;
@@ -40,6 +40,7 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
     private List<Hash> _dontIncludePeers;
     private SessionKey _replyKey;
     private SessionTag _replyTag;
+    private Type _type;
     
     //private static volatile long _currentLookupPeriod = 0;
     //private static volatile int _currentLookupCount = 0;
@@ -52,7 +53,26 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
     private static final int MAX_NUM_PEERS = 512;
     
     private static final byte FLAG_TUNNEL = 0x01;
+    // any flags below here will confuse routers 0.9.5 or lower
     private static final byte FLAG_ENCRYPT = 0x02;
+    private static final byte FLAG_TYPE_MASK = 0x0c;
+    private static final byte FLAG_TYPE_ANY = 0;
+    private static final byte FLAG_TYPE_LS = 0x04;
+    private static final byte FLAG_TYPE_RI = 0x08;
+    private static final byte FLAG_TYPE_EXPL = 0x0c;
+
+    /** @since 0.9.16 */
+    public enum Type {
+        /** default - LS or RI */
+        ANY,
+        /** lease set only */
+        LS,
+        /** router info only */
+        RI,
+        /** exploratory - return closest non-floodfill router infos */
+        EXPL
+    }
+
 
     /**
      *  It's not supported until 0.9.7, but as of
@@ -86,6 +106,7 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
         //                      + " messages so far)", new Exception("Flood cause"));
         //    }
         //}
+        _type = Type.ANY;
     }
     
     /**
@@ -128,6 +149,30 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
         if (_key != null)
             throw new IllegalStateException();
         _key = key;
+    }
+    
+    /**
+     *  Defines the type of data being searched for.
+     *  Default ANY.
+     *
+     *  @return non-null
+     *  @since 0.9.16
+     */
+    public Type getSearchType() { return _type; }
+
+    /**
+     *  Defines the type of data being searched for.
+     *  Default ANY.
+     *  Must be ANY for queried routers 0.9.5 or lower, but there are few if
+     *  any floodfills that old left, so not even worth checking.
+     *
+     *  @param type non-null
+     *  @since 0.9.16
+     */
+    public void setSearchType(Type type) {
+        if (type == null)
+            throw new IllegalArgumentException();
+        _type = type;
     }
     
     /**
@@ -285,6 +330,21 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
         // TODO store the whole flag byte
         boolean tunnelSpecified = (data[curIndex] & FLAG_TUNNEL) != 0;
         boolean replyKeySpecified = (data[curIndex] & FLAG_ENCRYPT) != 0;
+        switch (data[curIndex] & FLAG_TYPE_MASK) {
+            case FLAG_TYPE_LS:
+                _type = Type.LS;
+                break;
+            case FLAG_TYPE_RI:
+                _type = Type.RI;
+                break;
+            case FLAG_TYPE_EXPL:
+                _type = Type.EXPL;
+                break;
+            case FLAG_TYPE_ANY:
+            default:
+                _type = Type.ANY;
+                break;
+        }
         curIndex++;
         
         if (tunnelSpecified) {
@@ -297,7 +357,7 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
         
         if ( (numPeers < 0) || (numPeers > MAX_NUM_PEERS) )
             throw new I2NPMessageException("Invalid number of peers - " + numPeers);
-        List<Hash> peers = new ArrayList<Hash>(numPeers);
+        List<Hash> peers = numPeers > 0 ? new ArrayList<Hash>(numPeers) : null;
         for (int i = 0; i < numPeers; i++) {
             //byte peer[] = new byte[Hash.HASH_LENGTH];
             //System.arraycopy(data, curIndex, peer, 0, Hash.HASH_LENGTH);
@@ -344,18 +404,33 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
         System.arraycopy(_fromHash.getData(), 0, out, curIndex, Hash.HASH_LENGTH);
         curIndex += Hash.HASH_LENGTH;
         // Generate the flag byte
+        byte flag;
+        if (_replyKey != null)
+            flag = FLAG_ENCRYPT;
+        else
+            flag = 0;
+        switch (_type) {
+            case LS:
+                flag |= FLAG_TYPE_LS;
+                break;
+            case RI:
+                flag |= FLAG_TYPE_RI;
+                break;
+            case EXPL:
+                flag |= FLAG_TYPE_EXPL;
+                break;
+            case ANY:
+            default:
+                // lookup type bits are 0
+                break;
+        }
         if (_replyTunnel != null) {
-            byte flag = FLAG_TUNNEL;
-            if (_replyKey != null)
-                flag |= FLAG_ENCRYPT;
+            flag |= FLAG_TUNNEL;
             out[curIndex++] = flag;
-            byte id[] = DataHelper.toLong(4, _replyTunnel.getTunnelId());
-            System.arraycopy(id, 0, out, curIndex, 4);
+            DataHelper.toLong(out, curIndex, 4, _replyTunnel.getTunnelId());
             curIndex += 4;
-        } else if (_replyKey != null) {
-            out[curIndex++] = FLAG_ENCRYPT;
         } else {
-            out[curIndex++] = 0x00;
+            out[curIndex++] = flag;
         }
         if ( (_dontIncludePeers == null) || (_dontIncludePeers.isEmpty()) ) {
             out[curIndex++] = 0x0;
@@ -364,9 +439,8 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
             int size = _dontIncludePeers.size();
             if (size > MAX_NUM_PEERS)
                 throw new I2NPMessageException("Too many peers: " + size);
-            byte len[] = DataHelper.toLong(2, size);
-            out[curIndex++] = len[0];
-            out[curIndex++] = len[1];
+            DataHelper.toLong(out, curIndex, 2, size);
+            curIndex += 2;
             for (Hash peer : _dontIncludePeers) {
                 System.arraycopy(peer.getData(), 0, out, curIndex, Hash.HASH_LENGTH);
                 curIndex += Hash.HASH_LENGTH;
@@ -408,18 +482,24 @@ public class DatabaseLookupMessage extends FastI2NPMessageImpl {
     
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder();
+        StringBuilder buf = new StringBuilder(256);
         buf.append("[DatabaseLookupMessage: ");
+        buf.append("\n\tSearch Type: ").append(_type);
         buf.append("\n\tSearch Key: ").append(_key);
-        buf.append("\n\tFrom: ").append(_fromHash);
+        if (_replyKey != null)
+            buf.append("\n\tReply GW: ");
+        else
+            buf.append("\n\tFrom: ");
+        buf.append(_fromHash);
         buf.append("\n\tReply Tunnel: ").append(_replyTunnel);
         if (_replyKey != null)
             buf.append("\n\tReply Key: ").append(_replyKey);
         if (_replyTag != null)
             buf.append("\n\tReply Tag: ").append(_replyTag);
-        buf.append("\n\tDont Include Peers: ");
-        if (_dontIncludePeers != null)
+        if (_dontIncludePeers != null) {
+            buf.append("\n\tDon't Include Peers: ");
             buf.append(_dontIncludePeers.size());
+        }
         buf.append("]");
         return buf.toString();
     }

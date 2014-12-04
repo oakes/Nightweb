@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -39,6 +40,7 @@ import net.i2p.util.I2PAppThread;
 import net.i2p.util.Log;
 import net.i2p.util.SimpleTimer2;
 
+import org.klomp.snark.SnarkManager;
 import org.klomp.snark.TrackerClient;
 import org.klomp.snark.bencode.BDecoder;
 import org.klomp.snark.bencode.BEncoder;
@@ -106,8 +108,6 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private final NID _myNID;
     /** 20 byte random id + 32 byte Hash + 2 byte port */
     private final NodeInfo _myNodeInfo;
-    /** if not null, run this when receiving an unrecognized query */
-    private CustomQueryHandler _customQueryHandler;
     /** unsigned dgrams */
     private final int _rPort;
     /** signed dgrams */
@@ -153,7 +153,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     private static final long CLEAN_TIME = 63*1000;
     private static final long EXPLORE_TIME = 877*1000;
     private static final long BLACKLIST_CLEAN_TIME = 17*60*1000;
-    private static final String DHT_FILE_SUFFIX = ".dht.dat";
+    public static final String DHT_FILE_SUFFIX = ".dht.dat";
 
     private static final int SEND_CRYPTO_TAGS = 8;
     private static final int LOW_CRYPTO_TAGS = 4;
@@ -162,15 +162,10 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param baseName generally "i2psnark"
      */
     public KRPC(I2PAppContext ctx, String baseName, I2PSession session) {
-        this(ctx, baseName, session, null, null);
-    }
-
-    public KRPC(I2PAppContext ctx, String baseName, I2PSession session, NodeInfo myNodeInfo, CustomQueryHandler handler) {
         _context = ctx;
         _session = session;
         _log = ctx.logManager().getLog(KRPC.class);
         _tracker = new DHTTracker(ctx);
-        _customQueryHandler = handler;
 
         _sentQueries = new ConcurrentHashMap<MsgID, ReplyWaiter>();
         _outgoingTokens = new ConcurrentHashMap<Token, NodeInfo>();
@@ -180,26 +175,25 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         // Construct my NodeInfo
         // Pick ports over a big range to marginally increase security
         // If we add a search DHT, adjust to stay out of each other's way
-        if (myNodeInfo == null) {
-            _qPort = TrackerClient.PORT + 10 + ctx.random().nextInt(65535 - 20 - TrackerClient.PORT);
-            if (SECURE_NID) {
-                _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
-                _myID = _myNID.getData();
-            } else {
-                _myID = new byte[NID.HASH_LENGTH];
-                ctx.random().nextBytes(_myID);
-                _myNID = new NID(_myID);
-            }
-            _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
-        } else {
-            _qPort = myNodeInfo.getPort();
-            _myNID = myNodeInfo.getNID();
-            _myID = _myNID.getData();
-            _myNodeInfo = myNodeInfo;
-        }
+        _qPort = TrackerClient.PORT + 10 + ctx.random().nextInt(65535 - 20 - TrackerClient.PORT);
         _rPort = _qPort + 1;
-        _dhtFile = new File(ctx.getConfigDir(), baseName + DHT_FILE_SUFFIX);
-        _backupDhtFile = baseName.equals("i2psnark") ? null : new File(ctx.getConfigDir(), "i2psnark" + DHT_FILE_SUFFIX);
+        if (SECURE_NID) {
+            _myNID = NodeInfo.generateNID(session.getMyDestination().calculateHash(), _qPort, _context.random());
+            _myID = _myNID.getData();
+        } else {
+            _myID = new byte[NID.HASH_LENGTH];
+            ctx.random().nextBytes(_myID);
+            _myNID = new NID(_myID);
+        }
+        _myNodeInfo = new NodeInfo(_myNID, session.getMyDestination(), _qPort);
+        File conf = new File(ctx.getConfigDir(), baseName + ".config" + SnarkManager.CONFIG_DIR_SUFFIX);
+        _dhtFile = new File(conf, "i2psnark" + DHT_FILE_SUFFIX);
+        if (baseName.equals("i2psnark")) {
+            _backupDhtFile = null;
+        } else {
+            File bconf = new File(ctx.getConfigDir(), "i2psnark.config" + SnarkManager.CONFIG_DIR_SUFFIX);
+            _backupDhtFile = new File(bconf, "i2psnark" + DHT_FILE_SUFFIX);
+        }
         _knownNodes = new DHTNodes(ctx, _myNID);
 
         start();
@@ -226,23 +220,6 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      */
     public int getRPort() {
         return _rPort;
-    }
-
-    /**
-     * @return The NodeInfo object
-     */
-    public NodeInfo getNodeInfo(Destination dest) {
-        if (dest == null) {
-            return _myNodeInfo;
-        }
-
-        for (NodeInfo nInfo : _knownNodes.values()) {
-            if (dest.equals(nInfo.getDestination())) {
-                return nInfo;
-            }
-        }
-
-        return null;
     }
 
     /**
@@ -336,7 +313,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     }
 
     /**
-     *  Get peers for a torrent, and announce to the closest node we find.
+     *  Get peers for a torrent, and announce to the closest annMax nodes we find.
      *  This is an iterative lookup in the DHT.
      *  Blocking!
      *  Caller should run in a thread.
@@ -346,12 +323,16 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param maxWait the maximum time to wait (ms) must be > 0
      *  @param annMax the number of peers to announce to
      *  @param annMaxWait the maximum total time to wait for announces, may be 0 to return immediately without waiting for acks
+     *  @param isSeed true if seed, false if leech
+     *  @param noSeeds true if we do not want seeds in the result
      *  @return possibly empty (never null)
      */
-    public Collection<Hash> getPeersAndAnnounce(byte[] ih, int max, long maxWait, int annMax, long annMaxWait) {
+    public Collection<Hash> getPeersAndAnnounce(byte[] ih, int max, long maxWait,
+                                                int annMax, long annMaxWait,
+                                                boolean isSeed, boolean noSeeds) {
         // check local tracker first
         InfoHash iHash = new InfoHash(ih);
-        Collection<Hash> rv = _tracker.getPeers(iHash, max);
+        Collection<Hash> rv = _tracker.getPeers(iHash, max, noSeeds);
         rv.remove(_myNodeInfo.getHash());
         if (rv.size() >= max)
             return rv;
@@ -387,7 +368,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("Try " + i + ": " + nInfo);
 
-            ReplyWaiter waiter = sendGetPeers(nInfo, iHash);
+            ReplyWaiter waiter = sendGetPeers(nInfo, iHash, noSeeds);
             if (waiter == null)
                 continue;
             synchronized(waiter) {
@@ -446,7 +427,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         }
         // now announce
         if (!heardFrom.isEmpty()) {
-            announce(ih);
+            announce(ih, isSeed);
             // announce to the closest we've heard from
             int annCnt = 0;
             long start = _context.clock().now();
@@ -455,7 +436,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
                 if (_log.shouldLog(Log.INFO))
                     _log.info("Announcing to closest from get peers: " + annTo);
                 long toWait = annMaxWait > 0 ? Math.min(annMaxWait, 60*1000) : 0;
-                if (announce(ih, annTo, toWait))
+                if (announce(ih, annTo, toWait, isSeed))
                     annCnt++;
                 if (annMaxWait > 0) {
                     annMaxWait -= _context.clock().now() - start;
@@ -468,7 +449,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             // so this is essentially just a retry
             if (_log.shouldLog(Log.INFO))
                _log.info("Announcing to closest in kbuckets after get peers failed");
-            announce(ih, annMax, annMaxWait);
+            announce(ih, annMax, annMaxWait, isSeed);
         }
         if (_log.shouldLog(Log.INFO)) {
             _log.info("Finished get Peers, returning " + rv.size());
@@ -485,21 +466,21 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *
      *  @param ih the Info Hash (torrent)
      */
-    public void announce(byte[] ih) {
+    public void announce(byte[] ih, boolean isSeed) {
         InfoHash iHash = new InfoHash(ih);
-        _tracker.announce(iHash, _myNodeInfo.getHash());
+        _tracker.announce(iHash, _myNodeInfo.getHash(), isSeed);
     }
 
     /**
-     *  Announce somebody else we know about.
+     *  Announce somebody else we know about to ourselves.
      *  Non-blocking.
      *
      *  @param ih the Info Hash (torrent)
      *  @param peerHash the peer's Hash
      */
-    public void announce(byte[] ih, byte[] peerHash) {
+    public void announce(byte[] ih, byte[] peerHash, boolean isSeed) {
         InfoHash iHash = new InfoHash(ih);
-        _tracker.announce(iHash, new Hash(peerHash));
+        _tracker.announce(iHash, new Hash(peerHash), isSeed);
         // Do NOT do this, corrupts the Hash cache and the Peer ID
         //_tracker.announce(iHash, Hash.create(peerHash));
     }
@@ -531,10 +512,11 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param ih the Info Hash (torrent)
      *  @param max maximum number of peers to announce to
      *  @param maxWait the maximum total time to wait (ms) or 0 to do all in parallel and return immediately.
+     *  @param isSeed true if seed, false if leech
      *  @return the number of successful announces, not counting ourselves.
      */
-    public int announce(byte[] ih, int max, long maxWait) {
-        announce(ih);
+    public int announce(byte[] ih, int max, long maxWait, boolean isSeed) {
+        announce(ih, isSeed);
         int rv = 0;
         long start = _context.clock().now();
         InfoHash iHash = new InfoHash(ih);
@@ -544,7 +526,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         for (NodeInfo nInfo : nodes) {
             if (!_isRunning)
                 break;
-            if (announce(ih, nInfo, Math.min(maxWait, 60*1000)))
+            if (announce(ih, nInfo, Math.min(maxWait, 60*1000), isSeed))
                 rv++;
             maxWait -= _context.clock().now() - start;
             if (maxWait < 1000)
@@ -562,9 +544,10 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param ih the Info Hash (torrent)
      *  @param nInfo the peer to announce to
      *  @param maxWait the maximum time to wait (ms) or 0 to return immediately.
+     *  @param isSeed true if seed, false if leech
      *  @return success
      */
-    private boolean announce(byte[] ih, NodeInfo nInfo, long maxWait) {
+    private boolean announce(byte[] ih, NodeInfo nInfo, long maxWait, boolean isSeed) {
         InfoHash iHash = new InfoHash(ih);
         // it isn't clear from BEP 5 if a token is bound to a single infohash?
         // for now, just bind to the NID
@@ -580,7 +563,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
                 return false;
             if (_log.shouldLog(Log.INFO))
                 _log.info("No token for announce to " + nInfo + ", sending get_peers first");
-            ReplyWaiter waiter = sendGetPeers(nInfo, iHash);
+            ReplyWaiter waiter = sendGetPeers(nInfo, iHash, false);
             if (waiter == null)
                 return false;
             long start = _context.clock().now();
@@ -611,7 +594,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         }
 
         // send and wait on rcv msg lock unless maxWait <= 0
-        ReplyWaiter waiter = sendAnnouncePeer(nInfo, iHash, token);
+        ReplyWaiter waiter = sendAnnouncePeer(nInfo, iHash, token, isSeed);
         if (waiter == null)
             return false;
         if (maxWait <= 0)
@@ -753,15 +736,18 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  Blocking if we have to look up the dest for the nodeinfo
      *
      *  @param nInfo who to send it to
+     *  @param noSeeds true if we do not want seeds in the result
      *  @return null on error
      */
-    private ReplyWaiter sendGetPeers(NodeInfo nInfo, InfoHash ih) {
+    private ReplyWaiter sendGetPeers(NodeInfo nInfo, InfoHash ih, boolean noSeeds) {
         if (_log.shouldLog(Log.INFO))
-            _log.info("Sending get peers of " + ih + " to: " + nInfo);
+            _log.info("Sending get peers of " + ih + " to: " + nInfo + " noseeds? " + noSeeds);
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("q", "get_peers");
         Map<String, Object> args = new HashMap<String, Object>();
         args.put("info_hash", ih.getData());
+        if (noSeeds)
+            args.put("noseed", Integer.valueOf(1));
         map.put("a", args);
         ReplyWaiter rv = sendQuery(nInfo, map, true);
         // save the InfoHash so we can get it later
@@ -774,11 +760,12 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  Non-blocking, will fail if we don't have the dest for the nodeinfo
      *
      *  @param nInfo who to send it to
+     *  @param isSeed true if seed, false if leech
      *  @return null on error
      */
-    private ReplyWaiter sendAnnouncePeer(NodeInfo nInfo, InfoHash ih, Token token) {
+    private ReplyWaiter sendAnnouncePeer(NodeInfo nInfo, InfoHash ih, Token token, boolean isSeed) {
         if (_log.shouldLog(Log.INFO))
-            _log.info("Sending announce of " + ih + " to: " + nInfo);
+            _log.info("Sending announce of " + ih + " to: " + nInfo + " seed? " + isSeed);
         Map<String, Object> map = new HashMap<String, Object>();
         map.put("q", "announce_peer");
         Map<String, Object> args = new HashMap<String, Object>();
@@ -786,6 +773,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         // port ignored
         args.put("port", Integer.valueOf(TrackerClient.PORT));
         args.put("token", token.getData());
+        args.put("seed", Integer.valueOf(isSeed ? 1 : 0));
         map.put("a", args);
         // an announce need not be signed, we have a token
         ReplyWaiter rv = sendQuery(nInfo, map, false);
@@ -845,16 +833,20 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     // All errors use the response port.
 
     /**
+     *  Unused
+     *
      *  @param nInfo who to send it to
      *  @return success
      */
     private boolean sendError(NodeInfo nInfo, MsgID msgID, int err, String msg) {
         if (_log.shouldLog(Log.INFO))
             _log.info("Sending error " + msg + " to: " + nInfo);
-        Map<String, Object> map = new HashMap<String, Object>();
-        Map<String, Object> resps = new HashMap<String, Object>();
-        map.put("r", resps);
-        return sendResponse(nInfo, msgID, map);
+        Map<String, Object> map = new HashMap<String, Object>(4);
+        List<Object> error = new ArrayList(2);
+        error.add(Integer.valueOf(err));
+        error.add(msg);
+        map.put("e", error);
+        return sendError(nInfo, msgID, map);
     }
 
     // Low-level send methods
@@ -866,7 +858,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @param repliable true for all but announce
      *  @return null on error
      */
-    public ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
+    private ReplyWaiter sendQuery(NodeInfo nInfo, Map<String, Object> map, boolean repliable) {
         if (nInfo.equals(_myNodeInfo))
             throw new IllegalArgumentException("wtf don't send to ourselves");
         if (_log.shouldLog(Log.DEBUG))
@@ -941,7 +933,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     }
 
     /**
-     *  @param toPort the query port, we will increment here
+     *  Unused
+     *
      *  @return success
      */
     private boolean sendError(NodeInfo nInfo, MsgID msgID, Map<String, Object> map) {
@@ -1144,26 +1137,25 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         } else if (method.equals("get_peers")) {
             byte[] hash = args.get("info_hash").getBytes();
             InfoHash ih = new InfoHash(hash);
-            receiveGetPeers(msgID, nInfo, ih);
+            boolean noSeeds = false;
+            BEValue nos = args.get("noseed");
+            if (nos != null)
+                noSeeds = nos.getInt() == 1;
+            receiveGetPeers(msgID, nInfo, ih, noSeeds);
         } else if (method.equals("announce_peer")) {
             byte[] hash = args.get("info_hash").getBytes();
             InfoHash ih = new InfoHash(hash);
             // this is the "TCP" port, we don't care
             //int port = args.get("port").getInt();
             byte[] token = args.get("token").getBytes();
-            receiveAnnouncePeer(msgID, ih, token);
+            boolean isSeed = false;
+            BEValue iss = args.get("seed");
+            if (iss != null)
+                isSeed = iss.getInt() == 1;
+            receiveAnnouncePeer(msgID, ih, token, isSeed);
         } else {
-            if (_customQueryHandler != null) {
-                Map<String, Object> resps =
-                    _customQueryHandler.receiveQuery(method, args);
-                if (resps != null) {
-                    Map<String, Object> map = new HashMap();
-                    map.put("r", resps);
-                    sendResponse(nInfo, msgID, map);
-                }
-            } else if (_log.shouldLog(Log.WARN)) {
+            if (_log.shouldLog(Log.WARN))
                 _log.warn("Unknown query method rcvd: " + method);
-            }
         }
     }
 
@@ -1202,7 +1194,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  Package private for PersistDHT.
      *  @return non-null nodeInfo from DB if present, otherwise the nInfo parameter is returned
      */
-    public NodeInfo heardAbout(NodeInfo nInfo) {
+    NodeInfo heardAbout(NodeInfo nInfo) {
         // try to keep ourselves out of the DHT
         if (nInfo.equals(_myNodeInfo))
             return _myNodeInfo;
@@ -1273,18 +1265,22 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     /**
      *  Handle and respond to the query
      */
-    private void receiveGetPeers(MsgID msgID, NodeInfo nInfo, InfoHash ih) throws InvalidBEncodingException {
+    private void receiveGetPeers(MsgID msgID, NodeInfo nInfo,
+                                 InfoHash ih, boolean noSeeds) throws InvalidBEncodingException {
         if (_log.shouldLog(Log.INFO))
-             _log.info("Rcvd get_peers from: " + nInfo + " for: " + ih);
+             _log.info("Rcvd get_peers from: " + nInfo + " for: " + ih + " noseeds? " + noSeeds);
         // generate and save random token
         Token token = new Token(_context);
         _outgoingTokens.put(token, nInfo);
         if (_log.shouldLog(Log.INFO))
              _log.info("Stored new OB token: " + token + " for: " + nInfo);
 
-        List<Hash> peers = _tracker.getPeers(ih, MAX_WANT);
+        List<Hash> peers = _tracker.getPeers(ih, MAX_WANT, noSeeds);
+        // Check this before removing him, so we don't needlessly send nodes
+        // if he's the only one on the torrent.
+        boolean noPeers = peers.isEmpty();
         peers.remove(nInfo.getHash());   // him
-        if (peers.isEmpty()) {
+        if (noPeers) {
             // similar to find node, but with token
             // get closest from DHT
             List<NodeInfo> nodes = _knownNodes.findClosest(ih, K);
@@ -1296,9 +1292,14 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             }
             sendNodes(nInfo, msgID, token, nodeArray);
         } else {
-            List<byte[]> hashes = new ArrayList<byte[]>(peers.size());
-            for (Hash peer : peers) {
-                 hashes.add(peer.getData());
+            List<byte[]> hashes;
+            if (peers.isEmpty()) {
+                hashes = Collections.EMPTY_LIST;
+            } else {
+                hashes = new ArrayList<byte[]>(peers.size());
+                for (Hash peer : peers) {
+                     hashes.add(peer.getData());
+                }
             }
             sendPeers(nInfo, msgID, token, hashes);
         }
@@ -1309,7 +1310,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  We have no node info here, it came on response port, we have to get it from the token.
      *  So we can't verify that it came from the same peer, as BEP 5 specifies.
      */
-    private void receiveAnnouncePeer(MsgID msgID, InfoHash ih, byte[] tok) throws InvalidBEncodingException {
+    private void receiveAnnouncePeer(MsgID msgID, InfoHash ih,
+                                     byte[] tok, boolean isSeed) throws InvalidBEncodingException {
         Token token = new Token(tok);
         NodeInfo nInfo = _outgoingTokens.get(token);
         if (nInfo == null) {
@@ -1320,9 +1322,9 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             return;
         }
         if (_log.shouldLog(Log.INFO))
-             _log.info("Rcvd announce from: " + nInfo + " for: " + ih);
+             _log.info("Rcvd announce from: " + nInfo + " for: " + ih + " seed? " + isSeed);
 
-        _tracker.announce(ih, nInfo.getHash());
+        _tracker.announce(ih, nInfo.getHash(), isSeed);
         // the reply for an announce is the same as the reply for a ping
         sendPong(nInfo, msgID);
     }
@@ -1367,8 +1369,6 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
             List<BEValue> peers = values.getList();
             List<Hash> rlist = receivePeers(nInfo, peers);
             waiter.gotReply(REPLY_PEERS, rlist);
-        } else if (_customQueryHandler != null && response.size() > 1) {
-            _customQueryHandler.receiveResponse(response);
         } else {
             // a ping response or an announce peer response
             byte[] nid = response.get("id").getBytes();
@@ -1383,7 +1383,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
      *  @throws NPE, IllegalArgumentException, and others too
      */
     private List<NodeInfo> receiveNodes(NodeInfo nInfo, byte[] ids) throws InvalidBEncodingException {
-        int max = Math.min(K, ids.length / NodeInfo.LENGTH);
+        // Azureus sends 20
+        int max = Math.min(3 * K, ids.length / NodeInfo.LENGTH);
         List<NodeInfo> rv = new ArrayList<NodeInfo>(max);
         for (int off = 0; off < ids.length && rv.size() < max; off += NodeInfo.LENGTH) {
             NodeInfo nInf = new NodeInfo(ids, off);
@@ -1441,6 +1442,7 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
     // Errors.....
 
     /**
+     *  @param error 1st item is error code, 2nd is message string
      *  @throws NPE, and others too
      */
     private void receiveError(ReplyWaiter waiter, List<BEValue> error) throws InvalidBEncodingException {
@@ -1578,6 +1580,8 @@ public class KRPC implements I2PSessionMuxedListener, DHT {
         // TODO throttle
         try {
             byte[] payload = session.receiveMessage(msgId);
+            if (payload == null)
+                return;
             _rxPkts.incrementAndGet();
             _rxBytes.addAndGet(payload.length);
             if (toPort == _qPort) {

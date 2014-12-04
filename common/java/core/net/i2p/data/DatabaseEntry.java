@@ -9,6 +9,9 @@ package net.i2p.data;
  *
  */
 
+import java.util.Arrays;
+
+import net.i2p.I2PAppContext;
 import net.i2p.crypto.DSAEngine;
 
 /**
@@ -45,7 +48,7 @@ public abstract class DatabaseEntry extends DataStructureImpl {
 
     protected volatile Signature _signature;
     protected volatile Hash _currentRoutingKey;
-    protected volatile byte[] _routingKeyGenMod;
+    protected volatile long _routingKeyGenMod;
 
     /**
      * A common interface to the timestamp of the two subclasses.
@@ -65,9 +68,9 @@ public abstract class DatabaseEntry extends DataStructureImpl {
      * and getIdentity() in RouterInfo.
      *
      * @return KAC or null
-     * @since 0.8.2
+     * @since 0.8.2, public since 0.9.17
      */
-    protected abstract KeysAndCert getKeysAndCert();
+    public abstract KeysAndCert getKeysAndCert();
 
     /**
      * A common interface to the Hash of the two subclasses.
@@ -104,11 +107,15 @@ public abstract class DatabaseEntry extends DataStructureImpl {
      * Get the routing key for the structure using the current modifier in the RoutingKeyGenerator.
      * This only calculates a new one when necessary though (if the generator's key modifier changes)
      *
+     * @throws IllegalStateException if not in RouterContext
      */
     public Hash getRoutingKey() {
-        RoutingKeyGenerator gen = RoutingKeyGenerator.getInstance();
-        byte[] mod = gen.getModData();
-        if (!DataHelper.eq(mod, _routingKeyGenMod)) {
+        I2PAppContext ctx = I2PAppContext.getGlobalContext();
+        if (!ctx.isRouterContext())
+            throw new IllegalStateException("Not in router context");
+        RoutingKeyGenerator gen = ctx.routingKeyGenerator();
+        long mod = gen.getLastChanged();
+        if (mod != _routingKeyGenMod) {
             _currentRoutingKey = gen.getRoutingKey(getHash());
             _routingKeyGenMod = mod;
         }
@@ -122,9 +129,16 @@ public abstract class DatabaseEntry extends DataStructureImpl {
         _currentRoutingKey = key;
     }
 
+    /**
+     * @throws IllegalStateException if not in RouterContext
+     */
     public boolean validateRoutingKey() {
+        I2PAppContext ctx = I2PAppContext.getGlobalContext();
+        if (!ctx.isRouterContext())
+            throw new IllegalStateException("Not in router context");
+        RoutingKeyGenerator gen = ctx.routingKeyGenerator();
         Hash destKey = getHash();
-        Hash rk = RoutingKeyGenerator.getInstance().getRoutingKey(destKey);
+        Hash rk = gen.getRoutingKey(destKey);
         return rk.equals(getRoutingKey());
     }
 

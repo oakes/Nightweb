@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.I2NPMessage;
 import net.i2p.router.util.CDPQEntry;
 import net.i2p.util.Log;
@@ -69,23 +69,23 @@ public class OutNetMessage implements CDPQEntry {
     public static final int PRIORITY_EXPLORATORY = 455;
     /** may be adjusted +/- 25 for outbound traffic */
     public static final int PRIORITY_MY_DATA = 425;
-    public static final int PRIORITY_MY_NETDB_STORE_LOW = 300;
     public static final int PRIORITY_HIS_BUILD_REQUEST = 300;
     public static final int PRIORITY_BUILD_REPLY = 300;
     public static final int PRIORITY_NETDB_REPLY = 300;
     public static final int PRIORITY_HIS_NETDB_STORE = 200;
     public static final int PRIORITY_NETDB_FLOOD = 200;
     public static final int PRIORITY_PARTICIPATING = 200;
+    public static final int PRIORITY_MY_NETDB_STORE_LOW = 150;
     public static final int PRIORITY_NETDB_EXPLORE = 100;
     public static final int PRIORITY_NETDB_HARVEST = 100;
     public static final int PRIORITY_LOWEST = 100;
 
     /**
-     *  Null msg and target (used in OutboundMessageRegistry only)
+     *  Null msg and target, zero expiration (used in OutboundMessageRegistry only)
      *  @since 0.9.9
      */
-    public OutNetMessage(RouterContext context, long expiration) {
-        this(context, null, expiration, -1, null);
+    public OutNetMessage(RouterContext context) {
+        this(context, null, 0, -1, null);
     }
 
     /**
@@ -182,13 +182,13 @@ public class OutNetMessage implements CDPQEntry {
     
     /**
      * Specifies the router to which the message should be delivered.
-     *
+     * Generally non-null but may be null in special cases.
      */
     public RouterInfo getTarget() { return _target; }
 
     /**
-     * Specifies the message to be sent
-     *
+     * Specifies the message to be sent.
+     * Generally non-null but may be null in special cases.
      */
     public I2NPMessage getMessage() { return _message; }
 

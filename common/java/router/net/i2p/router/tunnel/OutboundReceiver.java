@@ -1,7 +1,7 @@
 package net.i2p.router.tunnel;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.TunnelDataMessage;
 import net.i2p.router.JobImpl;
 import net.i2p.router.OutNetMessage;
@@ -99,7 +99,7 @@ class OutboundReceiver implements TunnelGateway.Receiver {
             } else {
                 stat = 0;
             }
-            _context.statManager().addRateData("tunnel.outboundLookupSuccess", stat, 0);
+            _context.statManager().addRateData("tunnel.outboundLookupSuccess", stat);
         }
     }
     
@@ -114,7 +114,7 @@ class OutboundReceiver implements TunnelGateway.Receiver {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("lookup of " + _config.getPeer(1)
                            + " failed for " + _config);
-            _context.statManager().addRateData("tunnel.outboundLookupSuccess", 0, 0);
+            _context.statManager().addRateData("tunnel.outboundLookupSuccess", 0);
         }
     }
 }

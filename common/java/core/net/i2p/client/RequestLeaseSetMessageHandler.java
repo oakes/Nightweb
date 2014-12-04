@@ -9,11 +9,13 @@ package net.i2p.client;
  *
  */
 
+import java.security.GeneralSecurityException;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.I2PAppContext;
 import net.i2p.crypto.KeyGenerator;
+import net.i2p.crypto.SigType;
 import net.i2p.data.DataFormatException;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Destination;
@@ -24,6 +26,7 @@ import net.i2p.data.PublicKey;
 import net.i2p.data.SessionKey;
 import net.i2p.data.SigningPrivateKey;
 import net.i2p.data.SigningPublicKey;
+import net.i2p.data.SimpleDataStructure;
 import net.i2p.data.i2cp.I2CPMessage;
 import net.i2p.data.i2cp.RequestLeaseSetMessage;
 import net.i2p.util.Log;
@@ -105,7 +108,16 @@ class RequestLeaseSetMessageHandler extends HandlerImpl {
         }
         try {
             leaseSet.sign(session.getPrivateKey());
-            session.getProducer().createLeaseSet(session, leaseSet, li.getSigningPrivateKey(), li.getPrivateKey());
+            // Workaround for unparsable serialized signing private key for revocation
+            // Send him a dummy DSA_SHA1 private key since it's unused anyway
+            // See CreateLeaseSetMessage.doReadMessage()
+            SigningPrivateKey spk = li.getSigningPrivateKey();
+            if (!_context.isRouterContext() && spk.getType() != SigType.DSA_SHA1) {
+                byte[] dummy = new byte[SigningPrivateKey.KEYSIZE_BYTES];
+                _context.random().nextBytes(dummy);
+                spk = new SigningPrivateKey(dummy);
+            }
+            session.getProducer().createLeaseSet(session, leaseSet, spk, li.getPrivateKey());
             session.setLeaseSet(leaseSet);
         } catch (DataFormatException dfe) {
             session.propogateError("Error signing the leaseSet", dfe);
@@ -119,9 +131,16 @@ class RequestLeaseSetMessageHandler extends HandlerImpl {
         private final PrivateKey _privKey;
         private final SigningPublicKey _signingPubKey;
         private final SigningPrivateKey _signingPrivKey;
+
         public LeaseInfo(Destination dest) {
             Object encKeys[] = KeyGenerator.getInstance().generatePKIKeypair();
-            Object signKeys[] = KeyGenerator.getInstance().generateSigningKeypair();
+            // must be same type as the Destination's signing key
+            SimpleDataStructure signKeys[];
+            try {
+                signKeys = KeyGenerator.getInstance().generateSigningKeys(dest.getSigningPublicKey().getType());
+            } catch (GeneralSecurityException gse) {
+                throw new IllegalStateException(gse);
+            }
             _pubKey = (PublicKey) encKeys[0];
             _privKey = (PrivateKey) encKeys[1];
             _signingPubKey = (SigningPublicKey) signKeys[0];

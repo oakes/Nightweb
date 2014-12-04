@@ -9,13 +9,14 @@ package net.i2p.router.networkdb;
  */
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 import net.i2p.data.DatabaseEntry;
 import net.i2p.data.Hash;
 import net.i2p.data.LeaseSet;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.data.TunnelId;
 import net.i2p.data.i2np.DatabaseLookupMessage;
@@ -82,9 +83,11 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
             return;
         }
 
+        DatabaseLookupMessage.Type lookupType = _message.getSearchType();
         // only lookup once, then cast to correct type
         DatabaseEntry dbe = getContext().netDb().lookupLocally(_message.getSearchKey());
-        if (dbe != null && dbe.getType() == DatabaseEntry.KEY_TYPE_LEASESET) {
+        if (dbe != null && dbe.getType() == DatabaseEntry.KEY_TYPE_LEASESET &&
+            (lookupType == DatabaseLookupMessage.Type.ANY || lookupType == DatabaseLookupMessage.Type.LS)) {
             LeaseSet ls = (LeaseSet) dbe;
             // We have to be very careful here to decide whether or not to send out the leaseSet,
             // to avoid anonymity vulnerabilities.
@@ -111,7 +114,7 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
                 // Local leasesets are not handled here
                 if (_log.shouldLog(Log.INFO))
                     _log.info("We have the published LS " + _message.getSearchKey() + ", answering query");
-                getContext().statManager().addRateData("netDb.lookupsMatchedReceivedPublished", 1, 0);
+                getContext().statManager().addRateData("netDb.lookupsMatchedReceivedPublished", 1);
                 sendData(_message.getSearchKey(), ls, fromKey, _message.getReplyTunnel());
             } else if (shouldPublishLocal && answerAllQueries()) {
                 // We are floodfill, and this is our local leaseset, and we publish it.
@@ -124,14 +127,14 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
                     // It's in our keyspace, so give it to them
                     if (_log.shouldLog(Log.INFO))
                         _log.info("We have local LS " + _message.getSearchKey() + ", answering query, in our keyspace");
-                    getContext().statManager().addRateData("netDb.lookupsMatchedLocalClosest", 1, 0);
+                    getContext().statManager().addRateData("netDb.lookupsMatchedLocalClosest", 1);
                     sendData(_message.getSearchKey(), ls, fromKey, _message.getReplyTunnel());
                 } else {
                     // Lie, pretend we don't have it
                     if (_log.shouldLog(Log.INFO))
                         _log.info("We have local LS " + _message.getSearchKey() + ", NOT answering query, out of our keyspace");
-                    getContext().statManager().addRateData("netDb.lookupsMatchedLocalNotClosest", 1, 0);
-                    Set<Hash> routerHashSet = getNearestRouters();
+                    getContext().statManager().addRateData("netDb.lookupsMatchedLocalNotClosest", 1);
+                    Set<Hash> routerHashSet = getNearestRouters(lookupType);
                     sendClosest(_message.getSearchKey(), routerHashSet, fromKey, _message.getReplyTunnel());
                 }
             } else {
@@ -143,26 +146,19 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
                     _log.info("We have LS " + _message.getSearchKey() +
                                ", NOT answering query - local? " + isLocal + " shouldPublish? " + shouldPublishLocal +
                                " RAP? " + ls.getReceivedAsPublished() + " RAR? " + ls.getReceivedAsReply());
-                getContext().statManager().addRateData("netDb.lookupsMatchedRemoteNotClosest", 1, 0);
-                Set<Hash> routerHashSet = getNearestRouters();
+                getContext().statManager().addRateData("netDb.lookupsMatchedRemoteNotClosest", 1);
+                Set<Hash> routerHashSet = getNearestRouters(lookupType);
                 sendClosest(_message.getSearchKey(), routerHashSet, fromKey, _message.getReplyTunnel());
             }
-        } else if (dbe != null && dbe.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) {
+        } else if (dbe != null && dbe.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO &&
+                   lookupType != DatabaseLookupMessage.Type.LS) {
             RouterInfo info = (RouterInfo) dbe;
             if (info.isCurrent(EXPIRE_DELAY)) {
-                if ( (info.getIdentity().isHidden()) || (isUnreachable(info) && !publishUnreachable()) ) {
+                if ( (info.isHidden()) || (isUnreachable(info) && !publishUnreachable()) ) {
                     if (_log.shouldLog(Log.DEBUG))
                         _log.debug("Not answering a query for a netDb peer who isn't reachable");
                     Set<Hash> us = Collections.singleton(getContext().routerHash());
                     sendClosest(_message.getSearchKey(), us, fromKey, _message.getReplyTunnel());
-                //} else if (info.isHidden()) {
-                //    // Don't return hidden nodes
-                //    ERR: we don't want to explicitly reject lookups for hidden nodes, since they
-                //         may have just sent the hidden mode to only us and bundled a lookup with
-                //         a payload targetting some hidden destination (and if we refused to answer,
-                //         yet answered the bundled data message [e.g. HTTP GET], they'd know that
-                //         *we* were hosting that destination).  To operate safely,
-                //         perhaps we should refuse to honor lookups bundled down client tunnels?
                 } else {
                     // send that routerInfo to the _message.getFromHash peer
                     if (_log.shouldLog(Log.DEBUG))
@@ -172,7 +168,7 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
                 }
             } else {
                 // expired locally - return closest peer hashes
-                Set<Hash> routerHashSet = getNearestRouters();
+                Set<Hash> routerHashSet = getNearestRouters(lookupType);
 
                 // ERR: see above
                 // // Remove hidden nodes from set..
@@ -190,7 +186,7 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
             }
         } else {
             // not found locally - return closest peer hashes
-            Set<Hash> routerHashSet = getNearestRouters();
+            Set<Hash> routerHashSet = getNearestRouters(lookupType);
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("We do not have key " + _message.getSearchKey() + 
                            " locally.  sending back " + routerHashSet.size() + " peers to " + fromKey);
@@ -204,13 +200,23 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
      *  Will not include us.
      *  Side effect - adds us to the message's dontInclude set.
      */
-    private Set<Hash> getNearestRouters() {
+    private Set<Hash> getNearestRouters(DatabaseLookupMessage.Type lookupType) {
+        // convert the new EXPL type flag to the old-style FAKE_HASH
+        // to pass to findNearestRouters()
         Set<Hash> dontInclude = _message.getDontIncludePeers();
         Hash us = getContext().routerHash();
-        if (dontInclude == null)
-            dontInclude = Collections.singleton(us);
-        else
+        if (dontInclude == null && lookupType == DatabaseLookupMessage.Type.EXPL) {
+            dontInclude = new HashSet<Hash>(2);
             dontInclude.add(us);
+            dontInclude.add(Hash.FAKE_HASH);
+        } else if (dontInclude == null) {
+            dontInclude = Collections.singleton(us);
+        } else if (lookupType == DatabaseLookupMessage.Type.EXPL) {
+            dontInclude.add(us);
+            dontInclude.add(Hash.FAKE_HASH);
+        } else {
+            dontInclude.add(us);
+        }
         // Honor flag to exclude all floodfills
         //if (dontInclude.contains(Hash.FAKE_HASH)) {
         // This is handled in FloodfillPeerSelector
@@ -246,11 +252,11 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
                        + " tunnel " + replyTunnel);
         DatabaseStoreMessage msg = new DatabaseStoreMessage(getContext());
         if (data.getType() == DatabaseEntry.KEY_TYPE_LEASESET) {
-            getContext().statManager().addRateData("netDb.lookupsMatchedLeaseSet", 1, 0);
+            getContext().statManager().addRateData("netDb.lookupsMatchedLeaseSet", 1);
         }
         msg.setEntry(data);
-        getContext().statManager().addRateData("netDb.lookupsMatched", 1, 0);
-        getContext().statManager().addRateData("netDb.lookupsHandled", 1, 0);
+        getContext().statManager().addRateData("netDb.lookupsMatched", 1);
+        getContext().statManager().addRateData("netDb.lookupsHandled", 1);
         sendMessage(msg, toPeer, replyTunnel);
     }
     
@@ -267,7 +273,7 @@ public class HandleDatabaseLookupMessageJob extends JobImpl {
             if (++i >= MAX_ROUTERS_RETURNED)
                 break;
         }
-        getContext().statManager().addRateData("netDb.lookupsHandled", 1, 0);
+        getContext().statManager().addRateData("netDb.lookupsHandled", 1);
         sendMessage(msg, toPeer, replyTunnel); // should this go via garlic messages instead?
     }
     

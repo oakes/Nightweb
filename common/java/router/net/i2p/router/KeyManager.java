@@ -18,6 +18,7 @@ import java.io.OutputStream;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.i2p.crypto.SigType;
 import net.i2p.data.DataFormatException;
 import net.i2p.data.DataStructure;
 import net.i2p.data.Destination;
@@ -26,6 +27,7 @@ import net.i2p.data.PrivateKey;
 import net.i2p.data.PublicKey;
 import net.i2p.data.SigningPrivateKey;
 import net.i2p.data.SigningPublicKey;
+import net.i2p.router.startup.CreateRouterInfoJob;
 import net.i2p.util.Log;
 import net.i2p.util.SecureDirectory;
 import net.i2p.util.SecureFileOutputStream;
@@ -47,10 +49,10 @@ public class KeyManager {
     
     public final static String PROP_KEYDIR = "router.keyBackupDir";
     public final static String DEFAULT_KEYDIR = "keyBackup";
-    private final static String KEYFILE_PRIVATE_ENC = "privateEncryption.key";
-    private final static String KEYFILE_PUBLIC_ENC = "publicEncryption.key";
-    private final static String KEYFILE_PRIVATE_SIGNING = "privateSigning.key";
-    private final static String KEYFILE_PUBLIC_SIGNING = "publicSigning.key";
+    public final static String KEYFILE_PRIVATE_ENC = "privateEncryption.key";
+    public final static String KEYFILE_PUBLIC_ENC = "publicEncryption.key";
+    public final static String KEYFILE_PRIVATE_SIGNING = "privateSigning.key";
+    public final static String KEYFILE_PUBLIC_SIGNING = "publicSigning.key";
     
     public KeyManager(RouterContext context) {
         _context = context;
@@ -77,16 +79,22 @@ public class KeyManager {
         queueWrite();
     }
 
+    /** router */
     public PrivateKey getPrivateKey() { return _privateKey; }
 
+    /** router */
     public PublicKey getPublicKey() { return _publicKey; }
 
+    /** router */
     public SigningPrivateKey getSigningPrivateKey() { return _signingPrivateKey; }
 
+    /** router */
     public SigningPublicKey getSigningPublicKey() { return _signingPublicKey; }
     
+    /** client */
     public void registerKeys(Destination dest, SigningPrivateKey leaseRevocationPrivateKey, PrivateKey endpointDecryptionKey) {
-        _log.info("Registering keys for destination " + dest.calculateHash().toBase64());
+        if (_log.shouldLog(Log.INFO))
+            _log.info("Registering keys for destination " + dest.calculateHash().toBase64());
         LeaseSetKeys keys = new LeaseSetKeys(dest, leaseRevocationPrivateKey, endpointDecryptionKey);
         _leaseSetKeys.put(dest.calculateHash(), keys);
     }
@@ -98,16 +106,19 @@ public class KeyManager {
         _context.jobQueue().addJob(new SynchronizeKeysJob());
     }
 
+    /** client */
     public LeaseSetKeys unregisterKeys(Destination dest) {
         if (_log.shouldLog(Log.INFO))
             _log.info("Unregistering keys for destination " + dest.calculateHash().toBase64());
         return _leaseSetKeys.remove(dest.calculateHash());
     }
     
+    /** client */
     public LeaseSetKeys getKeys(Destination dest) {
         return getKeys(dest.calculateHash());
     }
 
+    /** client */
     public LeaseSetKeys getKeys(Hash dest) {
             return _leaseSetKeys.get(dest);
     }
@@ -142,8 +153,9 @@ public class KeyManager {
         private void syncKeys(File keyDir) {
             syncPrivateKey(keyDir);
             syncPublicKey(keyDir);
-            syncSigningKey(keyDir);
-            syncVerificationKey(keyDir);
+            SigType type = CreateRouterInfoJob.getSigTypeConfig(getContext());
+            syncSigningKey(keyDir, type);
+            syncVerificationKey(keyDir, type);
         }
 
         private void syncPrivateKey(File keyDir) {
@@ -172,27 +184,33 @@ public class KeyManager {
                 _publicKey = (PublicKey) readin;
         }
 
-        private void syncSigningKey(File keyDir) {
+        /**
+         *  @param type the SigType to expect on read-in, ignored on write
+         */
+        private void syncSigningKey(File keyDir, SigType type) {
             DataStructure ds;
             File keyFile = new File(keyDir, KEYFILE_PRIVATE_SIGNING);
             boolean exists = (_signingPrivateKey != null);
             if (exists)
                 ds = _signingPrivateKey;
             else
-                ds = new SigningPrivateKey();
+                ds = new SigningPrivateKey(type);
             DataStructure readin = syncKey(keyFile, ds, exists);
             if (readin != null && !exists)
                 _signingPrivateKey = (SigningPrivateKey) readin;
         }
 
-        private void syncVerificationKey(File keyDir) {
+        /**
+         *  @param type the SigType to expect on read-in, ignored on write
+         */
+        private void syncVerificationKey(File keyDir, SigType type) {
             DataStructure ds;
             File keyFile = new File(keyDir, KEYFILE_PUBLIC_SIGNING);
             boolean exists = (_signingPublicKey != null);
             if (exists)
                 ds = _signingPublicKey;
             else
-                ds = new SigningPublicKey();
+                ds = new SigningPublicKey(type);
             DataStructure readin = syncKey(keyFile, ds, exists);
             if (readin != null && !exists)
                 _signingPublicKey  = (SigningPublicKey) readin;

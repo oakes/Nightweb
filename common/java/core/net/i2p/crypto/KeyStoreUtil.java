@@ -94,9 +94,14 @@ public class KeyStoreUtil {
             success = loadCerts(new File(override), ks);
         if (!success) {
             if (SystemVersion.isAndroid()) {
-                // thru API 13. As of API 14 (ICS), the file is gone, but
-                // ks.load(null, pw) will bring in the default certs?
-                success = loadCerts(new File(System.getProperty("java.home"), "etc/security/cacerts.bks"), ks);
+                if (SystemVersion.getAndroidVersion() >= 14) {
+                    try {
+                        ks.load(null, DEFAULT_KEYSTORE_PASSWORD.toCharArray());
+                        success = addCerts(new File(System.getProperty("java.home"), "etc/security/cacerts"), ks) > 0;
+                    } catch (Exception e) {}
+                } else {
+                    success = loadCerts(new File(System.getProperty("java.home"), "etc/security/cacerts.bks"), ks);
+                }
             } else {
                 success = loadCerts(new File(System.getProperty("java.home"), "lib/security/jssecacerts"), ks);
                 if (!success)
@@ -224,7 +229,12 @@ public class KeyStoreUtil {
             try {
                 cert.checkValidity();
             } catch (CertificateExpiredException cee) {
-                error("Rejecting expired X509 Certificate: " + file.getAbsolutePath(), cee);
+                String s = "Rejecting expired X509 Certificate: " + file.getAbsolutePath();
+                // Android often has old system certs
+                if (SystemVersion.isAndroid())
+                    warn(s, cee);
+                else
+                    error(s, cee);
                 return false;
             } catch (CertificateNotYetValidException cnyve) {
                 error("Rejecting X509 Certificate not yet valid: " + file.getAbsolutePath(), cnyve);
@@ -456,6 +466,11 @@ public class KeyStoreUtil {
 
     private static void info(String msg) {
         log(I2PAppContext.getGlobalContext(), Log.INFO, msg, null);
+    }
+
+    /** @since 0.9.17 */
+    private static void warn(String msg, Throwable t) {
+        log(I2PAppContext.getGlobalContext(), Log.WARN, msg, t);
     }
 
     private static void error(String msg, Throwable t) {

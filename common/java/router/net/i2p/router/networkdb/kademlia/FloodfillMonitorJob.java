@@ -3,13 +3,17 @@ package net.i2p.router.networkdb.kademlia;
 import java.util.List;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.JobImpl;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
 import net.i2p.router.peermanager.PeerProfile;
+import net.i2p.router.util.EventLog;
+import net.i2p.stat.Rate;
+import net.i2p.stat.RateStat;
 import net.i2p.util.Log;
+import net.i2p.util.SystemVersion;
 
 /**
  * Simple job to monitor the floodfill pool.
@@ -42,8 +46,14 @@ class FloodfillMonitorJob extends JobImpl {
         boolean wasFF = _facade.floodfillEnabled();
         boolean ff = shouldBeFloodfill();
         _facade.setFloodfillEnabled(ff);
-        if (ff != wasFF)
+        if (ff != wasFF) {
+			if(ff) {
+				getContext().router().eventLog().addEvent(EventLog.BECAME_FLOODFILL);
+			} else {
+				getContext().router().eventLog().addEvent(EventLog.NOT_FLOODFILL);
+			}
             getContext().router().rebuildRouterInfo();
+        }
         if (_log.shouldLog(Log.INFO))
             _log.info("Should we be floodfill? " + ff);
         int delay = (REQUEUE_DELAY / 2) + getContext().random().nextInt(REQUEUE_DELAY);
@@ -70,6 +80,17 @@ class FloodfillMonitorJob extends JobImpl {
             return false;
 
         // auto from here down
+
+        // ARM ElG decrypt is too slow
+        if (SystemVersion.isARM())
+            return false;
+
+        if (getContext().commSystem().isInBadCountry())
+            return false;
+        String country = getContext().commSystem().getOurCountry();
+        // anonymous proxy, satellite provider (not in bad country list)
+        if ("a1".equals(country) || "a2".equals(country))
+            return false;
 
         // Only if up a while...
         if (getContext().router().getUptime() < MIN_UPTIME)
@@ -141,12 +162,22 @@ class FloodfillMonitorJob extends JobImpl {
                    happy = false;
             }
         }
-        
+
+        double elG = 0;
+        RateStat stat = getContext().statManager().getRate("crypto.elGamal.decrypt");
+        if (stat != null) {
+            Rate rate = stat.getRate(60*60*1000L);
+            if (rate != null) {
+                elG = rate.getAvgOrLifetimeAvg();
+                happy = happy && elG <= 40.0d;
+            }
+        }
+
         if (_log.shouldLog(Log.DEBUG)) {
             final RouterContext rc = getContext();
             final String log = String.format(
                     "FF criteria breakdown: happy=%b, capabilities=%s, maxLag=%d, known=%d, " +
-                    "active=%d, participating=%d, offset=%d, ssuAddr=%s",
+                    "active=%d, participating=%d, offset=%d, ssuAddr=%s ElG=%f",
                     happy, 
                     rc.router().getRouterInfo().getCapabilities(),
                     rc.jobQueue().getMaxLag(),
@@ -154,7 +185,8 @@ class FloodfillMonitorJob extends JobImpl {
                     rc.commSystem().countActivePeers(),
                     rc.tunnelManager().getParticipatingCount(),
                     Math.abs(rc.clock().getOffset()),
-                    rc.router().getRouterInfo().getTargetAddress("SSU").toString()
+                    rc.router().getRouterInfo().getTargetAddress("SSU").toString(),
+                    elG
                     );
             _log.debug(log);
         }

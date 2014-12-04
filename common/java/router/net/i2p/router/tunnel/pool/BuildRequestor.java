@@ -8,7 +8,7 @@ import net.i2p.data.ByteArray;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
 import net.i2p.data.PublicKey;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.TunnelId;
 import net.i2p.data.i2np.TunnelBuildMessage;
 import net.i2p.data.i2np.VariableTunnelBuildMessage;
@@ -166,7 +166,10 @@ abstract class BuildRequestor {
             exec.buildComplete(cfg, pool);
             // Not even an exploratory tunnel? We are in big trouble.
             // Let's not spin through here too fast.
-            try { Thread.sleep(250); } catch (InterruptedException ie) {}
+            // But don't let a client tunnel waiting for exploratories slow things down too much,
+            // as there may be other tunnel pools who can build
+            int ms = pool.getSettings().isExploratory() ? 250 : 25;
+            try { Thread.sleep(ms); } catch (InterruptedException ie) {}
             return false;
         }
         
@@ -248,7 +251,9 @@ abstract class BuildRequestor {
      *  then use that, otherwise the old 8-entry version.
      *  @return null on error
      */
-    private static TunnelBuildMessage createTunnelBuildMessage(RouterContext ctx, TunnelPool pool, PooledTunnelCreatorConfig cfg, TunnelInfo pairedTunnel, BuildExecutor exec) {
+    private static TunnelBuildMessage createTunnelBuildMessage(RouterContext ctx, TunnelPool pool,
+                                                               PooledTunnelCreatorConfig cfg,
+                                                               TunnelInfo pairedTunnel, BuildExecutor exec) {
         Log log = ctx.logManager().getLog(BuildRequestor.class);
         long replyTunnel = 0;
         Hash replyRouter = null;

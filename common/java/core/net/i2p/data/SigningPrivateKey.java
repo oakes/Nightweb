@@ -9,14 +9,19 @@ package net.i2p.data;
  *
  */
 
+import java.util.Arrays;
+
 import net.i2p.crypto.KeyGenerator;
 import net.i2p.crypto.SigType;
 
 /**
  * Defines the SigningPrivateKey as defined by the I2P data structure spec.
- * A signing private key is 20 byte Integer. The private key represents only the 
+ * A signing private key is by default a 20 byte Integer. The private key represents only the 
  * exponent, not the primes, which are constant and defined in the crypto spec.
  * This key varies from the PrivateKey in its usage (signing, not decrypting)
+ *
+ * As of release 0.9.8, keys of arbitrary length and type are supported.
+ * See SigType.
  *
  * @author jrandom
  */
@@ -72,8 +77,12 @@ public class SigningPrivateKey extends SimpleDataStructure {
         return _type;
     }
 
-    /** converts this signing private key to its public equivalent
-     * @return a SigningPublicKey object derived from this private key
+    /**
+     *  Converts this signing private key to its public equivalent.
+     *  As of 0.9.16, supports all key types.
+     *
+     *  @return a SigningPublicKey object derived from this private key
+     *  @throws IllegalArgumentException on bad key or unknown or unsupported type
      */
     public SigningPublicKey toPublic() {
         return KeyGenerator.getSigningPublicKey(this);
@@ -96,5 +105,24 @@ public class SigningPrivateKey extends SimpleDataStructure {
         }
         buf.append(']');
         return buf.toString();
+    }
+
+    /**
+     *  @since 0.9.17
+     */
+    @Override
+    public int hashCode() {
+        return DataHelper.hashCode(_type) ^ super.hashCode();
+    }
+
+    /**
+     *  @since 0.9.17
+     */
+    @Override
+    public boolean equals(Object obj) {
+        if (obj == this) return true;
+        if (obj == null || !(obj instanceof SigningPrivateKey)) return false;
+        SigningPrivateKey s = (SigningPrivateKey) obj;
+        return _type == s._type && Arrays.equals(_data, s._data);
     }
 }

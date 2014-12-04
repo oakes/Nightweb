@@ -1,6 +1,7 @@
 package net.i2p.router.transport.ntcp;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.net.InetSocketAddress;
 import java.net.InetAddress;
 import java.net.Inet6Address;
@@ -22,11 +23,14 @@ import java.util.TreeSet;
 import java.util.Vector;
 import java.util.concurrent.ConcurrentHashMap;
 
+import net.i2p.crypto.SigType;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
+import net.i2p.data.i2np.DatabaseStoreMessage;
+import net.i2p.data.i2np.I2NPMessage;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.OutNetMessage;
 import net.i2p.router.RouterContext;
@@ -37,11 +41,14 @@ import net.i2p.router.transport.TransportImpl;
 import net.i2p.router.transport.TransportUtil;
 import static net.i2p.router.transport.TransportUtil.IPv6Config.*;
 import net.i2p.router.transport.crypto.DHSessionKeyBuilder;
+import net.i2p.router.util.DecayingHashSet;
+import net.i2p.router.util.DecayingBloomFilter;
 import net.i2p.util.Addresses;
 import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
 import net.i2p.util.SystemVersion;
+import net.i2p.util.VersionComparator;
 
 /**
  *  The NIO TCP transport
@@ -69,6 +76,8 @@ public class NTCPTransport extends TransportImpl {
      * want to remove on establishment or close on timeout
      */
     private final Set<NTCPConnection> _establishing;
+    /** "bloom filter" */
+    private final DecayingBloomFilter _replayFilter;
 
     /**
      *  Do we have a public IPv6 address?
@@ -90,16 +99,15 @@ public class NTCPTransport extends TransportImpl {
     private long _lastBadSkew;
     private static final long[] RATES = { 10*60*1000 };
 
-    /**
-     *  To prevent trouble. 1024 as of 0.9.4.
-     *
-     *  @since 0.9.3
-     */
-    private static final int MIN_PEER_PORT = 1024;
-
     // Opera doesn't have the char, TODO check UA
     //private static final String THINSP = "&thinsp;/&thinsp;";
     private static final String THINSP = " / ";
+
+    /**
+     *  RI sigtypes supported in 0.9.16
+     */
+    private static final String MIN_SIGTYPE_VERSION = "0.9.16";
+
 
     public NTCPTransport(RouterContext ctx, DHSessionKeyBuilder.Factory dh) {
         super(ctx);
@@ -135,11 +143,11 @@ public class NTCPTransport extends TransportImpl {
         _context.statManager().createRateStat("ntcp.corruptSkew", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.corruptTooLargeI2NP", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.dontSendOnBacklog", "", "ntcp", RATES);
-        _context.statManager().createRateStat("ntcp.inboundCheckConnection", "", "ntcp", RATES);
+        //_context.statManager().createRateStat("ntcp.inboundCheckConnection", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.inboundEstablished", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.inboundEstablishedDuplicate", "", "ntcp", RATES);
-        _context.statManager().createRateStat("ntcp.infoMessageEnqueued", "", "ntcp", RATES);
-        _context.statManager().createRateStat("ntcp.floodInfoMessageEnqueued", "", "ntcp", RATES);
+        //_context.statManager().createRateStat("ntcp.infoMessageEnqueued", "", "ntcp", RATES);
+        //_context.statManager().createRateStat("ntcp.floodInfoMessageEnqueued", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.invalidDH", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.invalidHXY", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.invalidHXxorBIH", "", "ntcp", RATES);
@@ -162,6 +170,7 @@ public class NTCPTransport extends TransportImpl {
         _context.statManager().createRateStat("ntcp.receiveCorruptEstablishment", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.receiveMeta", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.registerConnect", "", "ntcp", RATES);
+        _context.statManager().createRateStat("ntcp.replayHXxorBIH", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.throttledReadComplete", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.throttledWriteComplete", "", "ntcp", RATES);
         _context.statManager().createRateStat("ntcp.wantsQueuedWrite", "", "ntcp", RATES);
@@ -171,6 +180,7 @@ public class NTCPTransport extends TransportImpl {
         _establishing = new ConcurrentHashSet<NTCPConnection>(16);
         _conLock = new Object();
         _conByIdent = new ConcurrentHashMap<Hash, NTCPConnection>(64);
+        _replayFilter = new DecayingHashSet(ctx, 10*60*1000, 8, "NTCP-Hx^HI");
 
         _finisher = new NTCPSendFinisher(ctx, this);
 
@@ -235,8 +245,26 @@ public class NTCPTransport extends TransportImpl {
                 return;
             }
             if (isNew) {
-                con.enqueueInfoMessage(); // enqueues a netDb store of our own info
                 con.send(msg); // doesn't do anything yet, just enqueues it
+                // As of 0.9.12, don't send our info if the first message is
+                // doing the same (common when connecting to a floodfill).
+                // Also, put the info message after whatever we are trying to send
+                // (it's a priority queue anyway and the info is low priority)
+                // Prior to 0.9.12, Bob would not send his RI unless he had ours,
+                // but that's fixed in 0.9.12.
+                boolean shouldSkipInfo = false;
+                I2NPMessage m = msg.getMessage();
+                if (m.getType() == DatabaseStoreMessage.MESSAGE_TYPE) {
+                    DatabaseStoreMessage dsm = (DatabaseStoreMessage) m;
+                    if (dsm.getKey().equals(_context.routerHash())) {
+                        shouldSkipInfo = true;
+                    }
+                }
+                if (!shouldSkipInfo) {
+                    con.enqueueInfoMessage();
+                } else if (_log.shouldLog(Log.INFO)) {
+                    _log.info("SKIPPING INFO message: " + con);
+                }
 
                 try {
                     SocketChannel channel = SocketChannel.open();
@@ -335,6 +363,26 @@ public class NTCPTransport extends TransportImpl {
             return null;
         }
 
+        // Check for supported sig type
+        SigType type = toAddress.getIdentity().getSigType();
+        if (type == null || !type.isAvailable()) {
+            markUnreachable(peer);
+            return null;
+        }
+
+        // Can we connect to them if we are not DSA?
+        RouterInfo us = _context.router().getRouterInfo();
+        if (us != null) {
+            RouterIdentity id = us.getIdentity();
+            if (id.getSigType() != SigType.DSA_SHA1) {
+                String v = toAddress.getOption("router.version");
+                if (v != null && VersionComparator.comp(v, MIN_SIGTYPE_VERSION) < 0) {
+                    markUnreachable(peer);
+                    return null;
+                }
+            }
+        }
+
         if (!allowConnection()) {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("no bid when trying to send to " + peer + ", max connection limit reached");
@@ -369,7 +417,7 @@ public class NTCPTransport extends TransportImpl {
         for (int i = 0; i < addrs.size(); i++) {
             RouterAddress addr = addrs.get(i);
             byte[] ip = addr.getIP();
-            if (addr.getPort() < MIN_PEER_PORT || ip == null) {
+            if (!TransportUtil.isValidPort(addr.getPort()) || ip == null) {
                 //_context.statManager().addRateData("ntcp.connectFailedInvalidPort", 1);
                 //_context.banlist().banlistRouter(toAddress.getIdentity().calculateHash(), "Invalid NTCP address", STYLE);
                 //if (_log.shouldLog(Log.DEBUG))
@@ -486,6 +534,19 @@ public class NTCPTransport extends TransportImpl {
         return skews;
     }
 
+    /**
+     *  Incoming connection replay detection.
+     *  As there is no timestamp in the first message, we can't detect
+     *  something long-delayed. To be fixed in next version of NTCP.
+     *
+     *  @param hxhi 32 bytes
+     *  @return valid
+     *  @since 0.9.12
+     */
+    boolean isHXHIValid(byte[] hxhi) {
+        return !_replayFilter.add(hxhi, 0, 8);
+    }
+
     private static final int MIN_CONCURRENT_READERS = 2;  // unless < 32MB
     private static final int MIN_CONCURRENT_WRITERS = 2;  // unless < 32MB
     private static final int MAX_CONCURRENT_READERS = 4;
@@ -539,6 +600,7 @@ public class NTCPTransport extends TransportImpl {
      *
      *  Doesn't actually restart unless addr is non-null and
      *  the port is different from the current listen port.
+     *  If addr is null, removes all addresses.
      *
      *  If we had interface addresses before, we lost them.
      *
@@ -552,6 +614,8 @@ public class NTCPTransport extends TransportImpl {
             else
                 replaceAddress(addr);
             // UDPTransport.rebuildExternalAddress() calls router.rebuildRouterInfo()
+        } else {
+            replaceAddress(null);
         }
     }
 
@@ -646,8 +710,8 @@ public class NTCPTransport extends TransportImpl {
                     // FIXME just close and unregister
                     stopWaitAndRestart();
                 }
-                if (port < 1024)
-                    _log.logAlways(Log.WARN, "Specified NTCP port is " + port + ", ports lower than 1024 not recommended");
+                if (!TransportUtil.isValidPort(port))
+                    _log.error("Specified NTCP port is " + port + ", ports lower than 1024 not recommended");
                 ServerSocketChannel chan = ServerSocketChannel.open();
                 chan.configureBlocking(false);
                 chan.socket().bind(addr);
@@ -724,6 +788,17 @@ public class NTCPTransport extends TransportImpl {
      */
     DHSessionKeyBuilder getDHBuilder() {
         return _dhFactory.getBuilder();
+    }
+
+    /**
+     * Return an unused DH key builder
+     * to be put back onto the queue for reuse.
+     *
+     * @param builder must not have a peerPublicValue set
+     * @since 0.9.16
+     */
+    void returnUnused(DHSessionKeyBuilder builder) {
+        _dhFactory.returnUnused(builder);
     }
 
     /**
@@ -903,14 +978,14 @@ public class NTCPTransport extends TransportImpl {
                 nport = Integer.toString(port);
         }
         if (_log.shouldLog(Log.INFO))
-            _log.info("old: " + oport + " config: " + cport + " new: " + nport);
-        if (nport == null || nport.length() <= 0)
-            return;
+            _log.info("old port: " + oport + " config: " + cport + " new: " + nport);
+        //if (nport == null || nport.length() <= 0)
+        //    return;
         // 0.9.6 change
         // Don't have NTCP "chase" SSU's external port,
         // as it may change, possibly frequently.
         //if (oport == null || ! oport.equals(nport)) {
-        if (oport == null) {
+        if (oport == null && nport != null && nport.length() > 0) {
             newProps.setProperty(RouterAddress.PROP_PORT, nport);
             changed = true;
         }
@@ -937,6 +1012,11 @@ public class NTCPTransport extends TransportImpl {
             _log.info("old: " + ohost + " config: " + name + " auto: " + enabled + " ssuOK? " + ssuOK);
         if (enabled.equals("always") ||
             (Boolean.parseBoolean(enabled) && ssuOK)) {
+            if (!ssuOK) {
+                if (_log.shouldLog(Log.WARN))
+                    _log.warn("null address with always config", new Exception());
+                return;
+            }
             // ip non-null
             String nhost = Addresses.toString(ip);
             if (_log.shouldLog(Log.INFO))
@@ -954,7 +1034,7 @@ public class NTCPTransport extends TransportImpl {
             // but we probably only get here if the port is auto,
             // otherwise createNTCPAddress() would have done it already
             if (_log.shouldLog(Log.INFO))
-                _log.info("old: " + ohost + " config: " + name + " new: " + name);
+                _log.info("old host: " + ohost + " config: " + name + " new: " + name);
             newProps.setProperty(RouterAddress.PROP_HOST, name);
             changed = true;
         } else if (ohost == null || ohost.length() <= 0) {
@@ -965,7 +1045,7 @@ public class NTCPTransport extends TransportImpl {
             // because UPnP was successful, but a subsequent SSU Peer Test determines
             // we are still firewalled (SW firewall, bad UPnP indication, etc.)
             if (_log.shouldLog(Log.INFO))
-                _log.info("old: " + ohost + " config: " + name + " new: null");
+                _log.info("old host: " + ohost + " config: " + name + " new: null");
             newAddr = null;
             changed = true;
         }
@@ -1233,7 +1313,7 @@ public class NTCPTransport extends TransportImpl {
         public static final AlphaComparator instance() { return _instance; }
     }
 
-    private static class PeerComparator implements Comparator<NTCPConnection> {
+    private static class PeerComparator implements Comparator<NTCPConnection>, Serializable {
         public int compare(NTCPConnection l, NTCPConnection r) {
             if (l == null || r == null)
                 throw new IllegalArgumentException();

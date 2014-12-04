@@ -1,5 +1,6 @@
 package net.i2p.router.tunnel.pool;
 
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -9,7 +10,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.data.Hash;
 import net.i2p.data.i2np.I2NPMessage;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelManagerFacade;
@@ -284,6 +285,26 @@ class BuildExecutor implements Runnable {
 
     public void run() {
         _isRunning = true;
+        try {
+            run2();
+        } catch (NoSuchMethodError nsme) {
+            // http://zzz.i2p/topics/1668
+            // https://gist.github.com/AlainODea/1375759b8720a3f9f094
+            // at ObjectCounter.objects()
+            String s = "Fatal error:" +
+                       "\nJava 8 compiler used with JRE version " + System.getProperty("java.version") +
+                       " and no bootclasspath specified." +
+                       "\nUpdate to Java 8 or contact packager." +
+                       "\nStop I2P now, it will not build tunnels.";
+            _log.log(Log.CRIT, s, nsme);
+            System.out.println(s);
+            throw nsme;
+        } finally {
+            _isRunning = false;
+        }
+    }
+
+    private void run2() {
         List<TunnelPool> wanted = new ArrayList<TunnelPool>(MAX_CONCURRENT_BUILDS);
         List<TunnelPool> pools = new ArrayList<TunnelPool>(8);
         
@@ -339,8 +360,15 @@ class BuildExecutor implements Runnable {
                     if ( (allowed > 0) && (!wanted.isEmpty()) ) {
                         if (wanted.size() > 1) {
                             Collections.shuffle(wanted, _context.random());
+                            // We generally prioritize pools with no tunnels,
+                            // but sometimes (particularly at startup), the paired tunnel endpoint
+                            // can start dropping the build messages... or hit connection limits,
+                            // or be broken in other ways. So we allow other pools to go
+                            // to the front of the line sometimes, to prevent being "locked up"
+                            // for several minutes.
+                            boolean preferEmpty = _context.random().nextInt(4) != 0;
                             try {
-                                Collections.sort(wanted, new TunnelPoolComparator());
+                                Collections.sort(wanted, new TunnelPoolComparator(preferEmpty));
                             } catch (IllegalArgumentException iae) {
                                 // Java 7 TimSort - see info in TunnelPoolComparator
                                 continue;
@@ -415,7 +443,6 @@ class BuildExecutor implements Runnable {
         
         if (_log.shouldLog(Log.WARN))
             _log.warn("Done building");
-        _isRunning = false;
     }
     
     /**
@@ -429,16 +456,25 @@ class BuildExecutor implements Runnable {
      *  WARNING - this sort may be unstable, as a pool's tunnel count may change
      *  during the sort. This will cause Java 7 sort to throw an IAE.
      */
-    private static class TunnelPoolComparator implements Comparator<TunnelPool> {
+    private static class TunnelPoolComparator implements Comparator<TunnelPool>, Serializable {
+
+        private final boolean _preferEmpty;
+
+        public TunnelPoolComparator(boolean preferEmptyPools) {
+            _preferEmpty = preferEmptyPools;
+        }
+
         public int compare(TunnelPool tpl, TunnelPool tpr) {
             if (tpl.getSettings().isExploratory() && !tpr.getSettings().isExploratory())
                 return -1;
             if (tpr.getSettings().isExploratory() && !tpl.getSettings().isExploratory())
                 return 1;
-            if (tpl.getTunnelCount() <= 0 && tpr.getTunnelCount() > 0)
-                return -1;
-            if (tpr.getTunnelCount() <= 0 && tpl.getTunnelCount() > 0)
-                return 1;
+            if (_preferEmpty) {
+                if (tpl.getTunnelCount() <= 0 && tpr.getTunnelCount() > 0)
+                    return -1;
+                if (tpr.getTunnelCount() <= 0 && tpl.getTunnelCount() > 0)
+                    return 1;
+            }
             return 0;
         }
     }

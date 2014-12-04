@@ -1,5 +1,6 @@
 package net.i2p.client.streaming.impl;
 
+import java.net.ConnectException;
 import java.net.SocketTimeoutException;
 
 import net.i2p.I2PException;
@@ -14,30 +15,38 @@ import net.i2p.client.streaming.I2PSocketManager;
  */
 class I2PServerSocketFull implements I2PServerSocket {
     private final I2PSocketManagerFull _socketManager;
-    private volatile AcceptingChannel _channel;
     
     public I2PServerSocketFull(I2PSocketManagerFull mgr) {
         _socketManager = mgr;
     }
     
     /**
-     * Warning, unlike regular ServerSocket, may return null
+     * Waits for the next socket connecting.  If a remote user tried to make a 
+     * connection and the local application wasn't .accept()ing new connections,
+     * they should get refused (if .accept() doesnt occur in some small period).
+     * Warning - unlike regular ServerSocket, may return null (through 0.9.16 only).
      * 
-     * @return I2PSocket OR NULL
-     * @throws net.i2p.I2PException
-     * @throws SocketTimeoutException 
+     * @return a connected I2PSocket OR NULL through 0.9.16; never null as of 0.9.17
+     *
+     * @throws I2PException if there is a problem with reading a new socket
+     *         from the data available (e.g. the I2PSession is closed)
+     * @throws ConnectException if the I2PServerSocket is closed, or if interrupted.
+     *         Not actually thrown through 0.9.16; thrown as of 0.9.17
+     * @throws SocketTimeoutException if a timeout was previously set with setSoTimeout and the timeout has been reached.
      */
-    public I2PSocket accept() throws I2PException, SocketTimeoutException {
+    public I2PSocket accept() throws I2PException, ConnectException, SocketTimeoutException {
         return _socketManager.receiveSocket();
     }
 
     /**
+     *  Unimplemented, unlikely to ever be implemented.
+     *
+     *  @deprecated
+     *  @return null always
      *  @since 0.8.11
      */
     public synchronized AcceptingChannel getChannel() {
-        if (_channel == null)
-            _channel = new AcceptingChannelImpl(_socketManager);
-        return _channel;
+        return null;
     }
     
     public long getSoTimeout() {

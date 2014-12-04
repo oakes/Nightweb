@@ -9,12 +9,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.data.Base64;
 import net.i2p.data.DataHelper;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.RouterContext;
 import static net.i2p.router.transport.udp.PeerTestState.Role.*;
+import net.i2p.router.transport.TransportUtil;
 import net.i2p.util.Addresses;
 import net.i2p.util.Log;
 import net.i2p.util.SimpleTimer;
@@ -266,8 +267,9 @@ class PeerTestManager {
         if (!expired()) {
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("Sending test to Bob: " + test);
-            _transport.send(_packetBuilder.buildPeerTestFromAlice(test.getBobIP(), test.getBobPort(), test.getBobCipherKey(), test.getBobMACKey(), //_bobIntroKey, 
-                            test.getNonce(), _transport.getIntroKey()));
+            _transport.send(_packetBuilder.buildPeerTestFromAlice(test.getBobIP(), test.getBobPort(),
+                                                                  test.getBobCipherKey(), test.getBobMACKey(), //_bobIntroKey, 
+                                                                  test.getNonce(), _transport.getIntroKey()));
         } else {
             _currentTest = null;
         }
@@ -279,8 +281,9 @@ class PeerTestManager {
         if (!expired()) {
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("Sending test to Charlie: " + test);
-            _transport.send(_packetBuilder.buildPeerTestFromAlice(test.getCharlieIP(), test.getCharliePort(), test.getCharlieIntroKey(), 
-                            test.getNonce(), _transport.getIntroKey()));
+            _transport.send(_packetBuilder.buildPeerTestFromAlice(test.getCharlieIP(), test.getCharliePort(),
+                                                                  test.getCharlieIntroKey(), 
+                                                                  test.getNonce(), _transport.getIntroKey()));
         } else {
             _currentTest = null;
         }
@@ -493,7 +496,7 @@ class PeerTestManager {
         _context.statManager().addRateData("udp.receiveTest", 1);
         byte[] fromIP = from.getIP();
         int fromPort = from.getPort();
-        if (fromPort < 1024 || fromPort > 65535 ||
+        if (!TransportUtil.isValidPort(fromPort) ||
             (!_transport.isValid(fromIP)) ||
             _transport.isTooClose(fromIP) ||
             _context.blocklist().isBlocklisted(fromIP)) {
@@ -512,7 +515,7 @@ class PeerTestManager {
             testInfo.readIP(testIP, 0);
         }
 
-        if ((testPort > 0 && (testPort < 1024 || testPort > 65535)) ||
+        if ((testPort > 0 && (!TransportUtil.isValidPort(testPort))) ||
             (testIP != null &&
                                ((!_transport.isValid(testIP)) ||
                                 testIP.length != 4 ||
@@ -580,6 +583,13 @@ class PeerTestManager {
                 if (_activeTests.size() >= MAX_ACTIVE_TESTS) {
                     if (_log.shouldLog(Log.WARN))
                         _log.warn("Too many active tests, droppping from Alice " + Addresses.toString(fromIP, fromPort));
+                    return;
+                }
+                if (_transport.getPeerState(from) == null) {
+                    // Require an existing session to start a test,
+                    // as a way of preventing trouble
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn("No session, dropping new test from Alice " + Addresses.toString(fromIP, fromPort));
                     return;
                 }
                 if (_log.shouldLog(Log.DEBUG))
@@ -695,10 +705,13 @@ class PeerTestManager {
                 _context.simpleScheduler().addEvent(new RemoveTest(nonce), MAX_CHARLIE_LIFETIME);
             }
 
-            UDPPacket packet = _packetBuilder.buildPeerTestToBob(bobIP, from.getPort(), aliceIP, alicePort, aliceIntroKey, nonce, state.getBobCipherKey(), state.getBobMACKey());
+            UDPPacket packet = _packetBuilder.buildPeerTestToBob(bobIP, from.getPort(), aliceIP, alicePort,
+                                                                 aliceIntroKey, nonce,
+                                                                 state.getBobCipherKey(), state.getBobMACKey());
             _transport.send(packet);
             
-            packet = _packetBuilder.buildPeerTestToAlice(aliceIP, alicePort, aliceIntroKey, _transport.getIntroKey(), nonce);
+            packet = _packetBuilder.buildPeerTestToAlice(aliceIP, alicePort, aliceIntroKey,
+                                                         _transport.getIntroKey(), nonce);
             _transport.send(packet);
         } catch (UnknownHostException uhe) {
             if (_log.shouldLog(Log.WARN))

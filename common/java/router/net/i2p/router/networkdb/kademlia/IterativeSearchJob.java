@@ -13,9 +13,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import net.i2p.data.Base64;
 import net.i2p.data.DataHelper;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
 import net.i2p.data.i2np.DatabaseLookupMessage;
 import net.i2p.data.i2np.I2NPMessage;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.kademlia.KBucketSet;
 import net.i2p.kademlia.XORComparator;
 import net.i2p.router.CommSystemFacade;
@@ -28,6 +28,8 @@ import net.i2p.router.TunnelInfo;
 import net.i2p.router.TunnelManagerFacade;
 import net.i2p.router.util.RandomIterator;
 import net.i2p.util.Log;
+import net.i2p.util.NativeBigInteger;
+import net.i2p.util.SystemVersion;
 
 /**
  * A traditional Kademlia search that continues to search
@@ -88,8 +90,13 @@ class IterativeSearchJob extends FloodSearchJob {
      */
     private static final int MAX_CONCURRENT = 1;
 
-    /** testing */
-    private static final String PROP_ENCRYPT_RI = "router.encryptRouterLookups";
+    public static final String PROP_ENCRYPT_RI = "router.encryptRouterLookups";
+
+    /** only on fast boxes, for now */
+    public static final boolean DEFAULT_ENCRYPT_RI =
+            SystemVersion.isX86() && SystemVersion.is64Bit() &&
+            !SystemVersion.isApache() && !SystemVersion.isGNU() &&
+            NativeBigInteger.isNative();
 
     /**
      *  Lookup using exploratory tunnels
@@ -100,7 +107,9 @@ class IterativeSearchJob extends FloodSearchJob {
     }
 
     /**
-     *  Lookup using the client's tunnels
+     *  Lookup using the client's tunnels.
+     *  Do not use for RI lookups down client tunnels,
+     *  as the response will be dropped in InboundMessageDistributor.
      *  @param fromLocalDest use these tunnels for the lookup, or null for exploratory
      *  @since 0.9.10
      */
@@ -116,6 +125,8 @@ class IterativeSearchJob extends FloodSearchJob {
         _failedPeers = new HashSet<Hash>(TOTAL_SEARCH_LIMIT);
         _sentTime = new ConcurrentHashMap<Hash, Long>(TOTAL_SEARCH_LIMIT);
         _fromLocalDest = fromLocalDest;
+        if (fromLocalDest != null && !isLease && _log.shouldLog(Log.WARN))
+            _log.warn("Search for RI " + key + " down client tunnel " + fromLocalDest, new Exception());
     }
 
     @Override
@@ -185,7 +196,7 @@ class IterativeSearchJob extends FloodSearchJob {
         MessageSelector replySelector = new IterativeLookupSelector(getContext(), this);
         ReplyJob onReply = new FloodOnlyLookupMatchJob(getContext(), this);
         Job onTimeout = new FloodOnlyLookupTimeoutJob(getContext(), this);
-        _out = getContext().messageRegistry().registerPending(replySelector, onReply, onTimeout, _timeoutMs);
+        _out = getContext().messageRegistry().registerPending(replySelector, onReply, onTimeout);
         if (_log.shouldLog(Log.INFO))
             _log.info(getJobId() + ": New ISJ for " +
                       (_isLease ? "LS " : "RI ") +
@@ -248,7 +259,6 @@ class IterativeSearchJob extends FloodSearchJob {
      *  Send a DLM to the peer
      */
     private void sendQuery(Hash peer) {
-            DatabaseLookupMessage dlm = new DatabaseLookupMessage(getContext(), true);
             TunnelManagerFacade tm = getContext().tunnelManager();
             TunnelInfo outTunnel;
             TunnelInfo replyTunnel;
@@ -277,15 +287,27 @@ class IterativeSearchJob extends FloodSearchJob {
             // if it happens to be closest to itself and we are using zero-hop exploratory tunnels.
             // If we don't, the OutboundMessageDistributor ends up logging erors for
             // not being able to send to the floodfill, if we don't have an older netdb entry.
-            if (outTunnel.getLength() <= 1 && peer.equals(_key)) {
-                failed(peer, false);
-                return;
+            if (outTunnel.getLength() <= 1) {
+                if (peer.equals(_key)) {
+                    failed(peer, false);
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn(getJobId() + ": not doing zero-hop self-lookup of " + peer);
+                    return;
+                }
+                if (_facade.lookupLocallyWithoutValidation(peer) == null) {
+                    failed(peer, false);
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn(getJobId() + ": not doing zero-hop lookup to unknown " + peer);
+                    return;
+                }
             }
             
+            DatabaseLookupMessage dlm = new DatabaseLookupMessage(getContext(), true);
             dlm.setFrom(replyTunnel.getPeer(0));
             dlm.setMessageExpiration(getContext().clock().now() + SINGLE_SEARCH_MSG_TIME);
             dlm.setReplyTunnel(replyTunnel.getReceiveTunnelId(0));
             dlm.setSearchKey(_key);
+            dlm.setSearchType(_isLease ? DatabaseLookupMessage.Type.LS : DatabaseLookupMessage.Type.RI);
             
             if (_log.shouldLog(Log.INFO)) {
                 int tries;
@@ -301,7 +323,7 @@ class IterativeSearchJob extends FloodSearchJob {
             _sentTime.put(peer, Long.valueOf(now));
 
             I2NPMessage outMsg = null;
-            if (_isLease || getContext().getBooleanProperty(PROP_ENCRYPT_RI)) {
+            if (_isLease || getContext().getProperty(PROP_ENCRYPT_RI, DEFAULT_ENCRYPT_RI)) {
                 // Full ElG is fairly expensive so only do it for LS lookups
                 // if we have the ff RI, garlic encrypt it
                 RouterInfo ri = getContext().netDb().lookupRouterInfoLocally(peer);
@@ -382,11 +404,17 @@ class IterativeSearchJob extends FloodSearchJob {
         if (peer.equals(getContext().routerHash()) ||
             peer.equals(_key))
             return;
+        if (getContext().banlist().isBanlistedForever(peer)) {
+            if (_log.shouldLog(Log.INFO))
+                _log.info(getJobId() + ": banlisted peer from DSRM " + peer);
+            return;
+        }
         RouterInfo ri = getContext().netDb().lookupRouterInfoLocally(peer);
-        if (!FloodfillNetworkDatabaseFacade.isFloodfill(ri))
+        if (ri != null && !FloodfillNetworkDatabaseFacade.isFloodfill(ri)) {
+            if (_log.shouldLog(Log.INFO))
+                _log.info(getJobId() + ": non-ff peer from DSRM " + peer);
             return;
-        if (getContext().banlist().isBanlistedForever(peer))
-            return;
+        }
         synchronized (this) {
             if (_failedPeers.contains(peer) ||
                 _unheardFrom.contains(peer))
@@ -395,10 +423,28 @@ class IterativeSearchJob extends FloodSearchJob {
                 return;  // already in the list
         }
         if (_log.shouldLog(Log.INFO))
-            _log.info(getJobId() + ": new peer from DSRM " + peer);
+            _log.info(getJobId() + ": new peer from DSRM: known? " + (ri != null) + ' ' + peer);
         retry();
     }
 
+    /**
+     *  Hash of the dest this query is from
+     *  @return null for router
+     *  @since 0.9.13
+     */
+    public Hash getFromHash() {
+        return _fromLocalDest;
+    }
+
+    /**
+     *  Did we send a request to this peer?
+     *  @since 0.9.13
+     */
+    public boolean wasQueried(Hash peer) {
+        synchronized (this) {
+            return _unheardFrom.contains(peer) || _failedPeers.contains(peer);
+        }
+    }
 
     /**
      *  When did we send the query to the peer?

@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.kademlia.KBucketSet;
 import net.i2p.kademlia.SelectionCollector;
 import net.i2p.router.RouterContext;
@@ -131,7 +131,7 @@ class PeerSelector {
             RouterInfo info = _context.netDb().lookupRouterInfoLocally(entry);
             if (info == null)
                 return;
-            if (info.getIdentity().isHidden())
+            if (info.isHidden())
                 return;
             
             BigInteger diff = HashDistance.getDistance(_key, entry);

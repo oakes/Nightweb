@@ -18,6 +18,7 @@ import net.i2p.I2PAppContext;
 import net.i2p.data.Base64;
 import net.i2p.util.Log;
 import net.i2p.util.SecureFileOutputStream;
+import net.i2p.util.SystemVersion;
 
 /**
  *  Java X.509 certificate utilities, consolidated from various places.
@@ -39,11 +40,12 @@ public class CertUtil {
      */
     public static boolean saveCert(Certificate cert, File file) {
         OutputStream os = null;
+        PrintWriter wr = null;
         try {
            // Get the encoded form which is suitable for exporting
            byte[] buf = cert.getEncoded();
            os = new SecureFileOutputStream(file);
-           PrintWriter wr = new PrintWriter(os);
+           wr = new PrintWriter(os);
            wr.println("-----BEGIN CERTIFICATE-----");
            String b64 = Base64.encode(buf, true);     // true = use standard alphabet
            for (int i = 0; i < b64.length(); i += LINE_LENGTH) {
@@ -64,11 +66,18 @@ public class CertUtil {
     }
 
     /**
-     *  Get a value out of the subject distinguished name
+     *  Get a value out of the subject distinguished name.
+     *
+     *  Warning - unsupported in Android (no javax.naming), returns null.
+     *
      *  @param type e.g. "CN"
      *  @return value or null if not found
      */
     public static String getSubjectValue(X509Certificate cert, String type) {
+        if (SystemVersion.isAndroid()) {
+            error("Don't call this in Android", new UnsupportedOperationException("I did it"));
+            return null;
+        }
         type = type.toUpperCase(Locale.US);
         X500Principal p = cert.getSubjectX500Principal();
         String subj = p.getName();

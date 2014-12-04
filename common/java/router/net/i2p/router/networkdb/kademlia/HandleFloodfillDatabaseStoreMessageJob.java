@@ -14,9 +14,9 @@ import java.util.Date;
 import net.i2p.data.DatabaseEntry;
 import net.i2p.data.Hash;
 import net.i2p.data.LeaseSet;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.i2np.DatabaseStoreMessage;
 import net.i2p.data.i2np.DeliveryStatusMessage;
 import net.i2p.router.JobImpl;
@@ -51,12 +51,14 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
         long recvBegin = System.currentTimeMillis();
         
         String invalidMessage = null;
+        // set if invalid store but not his fault
+        boolean dontBlamePeer = false;
         boolean wasNew = false;
         RouterInfo prevNetDb = null;
         Hash key = _message.getKey();
         DatabaseEntry entry = _message.getEntry();
         if (entry.getType() == DatabaseEntry.KEY_TYPE_LEASESET) {
-            getContext().statManager().addRateData("netDb.storeLeaseSetHandled", 1, 0);
+            getContext().statManager().addRateData("netDb.storeLeaseSetHandled", 1);
             if (_log.shouldLog(Log.INFO))
                 _log.info("Handling dbStore of leaseset " + _message);
                 //_log.info("Handling dbStore of leasset " + key + " with expiration of " 
@@ -72,6 +74,7 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                 if (getContext().clientManager().isLocal(key)) {
                     //getContext().statManager().addRateData("netDb.storeLocalLeaseSetAttempt", 1, 0);
                     // throw rather than return, so that we send the ack below (prevent easy attack)
+                    dontBlamePeer = true;
                     throw new IllegalArgumentException("Peer attempted to store local leaseSet: " +
                                                        key.toBase64().substring(0, 4));
                 }
@@ -114,12 +117,15 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                     //if (!ls.getReceivedAsReply())
                     //    match.setReceivedAsPublished(true);
                 }
+            } catch (UnsupportedCryptoException uce) {
+                invalidMessage = uce.getMessage();
+                dontBlamePeer = true;
             } catch (IllegalArgumentException iae) {
                 invalidMessage = iae.getMessage();
             }
         } else if (entry.getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) {
             RouterInfo ri = (RouterInfo) entry;
-            getContext().statManager().addRateData("netDb.storeRouterInfoHandled", 1, 0);
+            getContext().statManager().addRateData("netDb.storeRouterInfoHandled", 1);
             if (_log.shouldLog(Log.INFO))
                 _log.info("Handling dbStore of router " + key + " with publishDate of " 
                           + new Date(ri.getPublished()));
@@ -131,8 +137,10 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                 if (getContext().routerHash().equals(key)) {
                     //getContext().statManager().addRateData("netDb.storeLocalRouterInfoAttempt", 1, 0);
                     // throw rather than return, so that we send the ack below (prevent easy attack)
+                    dontBlamePeer = true;
                     throw new IllegalArgumentException("Peer attempted to store our RouterInfo");
                 }
+                getContext().profileManager().heardAbout(key);
                 prevNetDb = getContext().netDb().store(key, ri);
                 wasNew = ((null == prevNetDb) || (prevNetDb.getPublished() < ri.getPublished()));
                 // Check new routerinfo address against blocklist
@@ -152,7 +160,9 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                                 _log.warn("New address received, Blocklisting old peer " + key + ' ' + ri);
                     }
                 }
-                getContext().profileManager().heardAbout(key);
+            } catch (UnsupportedCryptoException uce) {
+                invalidMessage = uce.getMessage();
+                dontBlamePeer = true;
             } catch (IllegalArgumentException iae) {
                 invalidMessage = iae.getMessage();
             }
@@ -163,24 +173,26 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
         }
         
         long recvEnd = System.currentTimeMillis();
-        getContext().statManager().addRateData("netDb.storeRecvTime", recvEnd-recvBegin, 0);
+        getContext().statManager().addRateData("netDb.storeRecvTime", recvEnd-recvBegin);
         
-        if (_message.getReplyToken() > 0) 
+        // ack even if invalid or unsupported
+        // TODO any cases where we shouldn't?
+        if (_message.getReplyToken() > 0)
             sendAck();
         long ackEnd = System.currentTimeMillis();
         
         if (_from != null)
             _fromHash = _from.getHash();
         if (_fromHash != null) {
-            if (invalidMessage == null) {
+            if (invalidMessage == null || dontBlamePeer) {
                 getContext().profileManager().dbStoreReceived(_fromHash, wasNew);
-                getContext().statManager().addRateData("netDb.storeHandled", ackEnd-recvEnd, 0);
+                getContext().statManager().addRateData("netDb.storeHandled", ackEnd-recvEnd);
             } else {
                 // Should we record in the profile?
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("Peer " + _fromHash.toBase64() + " sent bad data: " + invalidMessage);
             }
-        } else if (invalidMessage != null) {
+        } else if (invalidMessage != null && !dontBlamePeer) {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Unknown peer sent bad data: " + invalidMessage);
         }
@@ -195,7 +207,7 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                 if (_facade.shouldThrottleFlood(key)) {
                     if (_log.shouldLog(Log.WARN))
                         _log.warn("Too many recent stores, not flooding key: " + key);
-                    getContext().statManager().addRateData("netDb.floodThrottled", 1, 0);
+                    getContext().statManager().addRateData("netDb.floodThrottled", 1);
                     return;
                 }
                 long floodBegin = System.currentTimeMillis();
@@ -203,10 +215,10 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                 // ERR: see comment in HandleDatabaseLookupMessageJob regarding hidden mode
                 //else if (!_message.getRouterInfo().isHidden())
                 long floodEnd = System.currentTimeMillis();
-                getContext().statManager().addRateData("netDb.storeFloodNew", floodEnd-floodBegin, 0);
+                getContext().statManager().addRateData("netDb.storeFloodNew", floodEnd-floodBegin);
             } else {
                 // don't flood it *again*
-                getContext().statManager().addRateData("netDb.storeFloodOld", 1, 0);
+                getContext().statManager().addRateData("netDb.storeFloodOld", 1);
             }
         }
     }
@@ -214,7 +226,11 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
     private void sendAck() {
         DeliveryStatusMessage msg = new DeliveryStatusMessage(getContext());
         msg.setMessageId(_message.getReplyToken());
-        msg.setArrival(getContext().clock().now());
+        // Randomize for a little protection against clock-skew fingerprinting.
+        // But the "arrival" isn't used for anything, right?
+        // TODO just set to 0?
+        // TODO we have no session to garlic wrap this with, needs new message
+        msg.setArrival(getContext().clock().now() - getContext().random().nextInt(3*1000));
         /*
         if (FloodfillNetworkDatabaseFacade.floodfillEnabled(getContext())) {
             // no need to do anything but send it where they ask
@@ -232,7 +248,8 @@ public class HandleFloodfillDatabaseStoreMessageJob extends JobImpl {
                     _log.warn("No outbound tunnel could be found");
                 return;
             } else {
-                getContext().tunnelDispatcher().dispatchOutbound(msg, outTunnel.getSendTunnelId(0), _message.getReplyTunnel(), _message.getReplyGateway());
+                getContext().tunnelDispatcher().dispatchOutbound(msg, outTunnel.getSendTunnelId(0),
+                                                                 _message.getReplyTunnel(), _message.getReplyGateway());
             }
         //}
     }

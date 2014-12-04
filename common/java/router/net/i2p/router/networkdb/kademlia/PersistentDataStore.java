@@ -29,7 +29,7 @@ import net.i2p.data.Base64;
 import net.i2p.data.DatabaseEntry;
 import net.i2p.data.DataFormatException;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.JobImpl;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
@@ -54,8 +54,8 @@ class PersistentDataStore extends TransientDataStore {
     
     private final static int READ_DELAY = 2*60*1000;
     private static final String PROP_FLAT = "router.networkDatabase.flat";
-    private static final String DIR_PREFIX = "r";
-    private static final String B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-~";
+    static final String DIR_PREFIX = "r";
+    static final String B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-~";
     
     /**
      *  @param dbDir relative path
@@ -496,7 +496,8 @@ class PersistentDataStore extends TransientDataStore {
                         // prevent injection from reseeding
                         // this is checked in KNDF.validate() but catch it sooner and log as error.
                         corrupt = true;
-                        _log.error(ri.getIdentity().calculateHash() + " does not match " + _key + " from " + _routerFile);
+                        if (_log.shouldLog(Log.WARN))
+                            _log.warn(ri.getIdentity().calculateHash() + " does not match " + _key + " from " + _routerFile);
                     } else if (ri.getPublished() <= _knownDate) {
                         // Don't store but don't delete
                         if (_log.shouldLog(Log.WARN))
@@ -522,6 +523,11 @@ class PersistentDataStore extends TransientDataStore {
                 } catch (IOException ioe) {
                     if (_log.shouldLog(Log.INFO))
                         _log.info("Unable to read the router reference in " + _routerFile.getName(), ioe);
+                    corrupt = true;
+                } catch (Exception e) {
+                    // key certificate problems, etc., don't let one bad RI kill the whole thing
+                    if (_log.shouldLog(Log.INFO))
+                        _log.info("Unable to read the router reference in " + _routerFile.getName(), e);
                     corrupt = true;
                 } finally {
                     if (fis != null) try { fis.close(); } catch (IOException ioe) {}
@@ -608,7 +614,7 @@ class PersistentDataStore extends TransientDataStore {
         return DIR_PREFIX + b64.charAt(0) + File.separatorChar + ROUTERINFO_PREFIX + b64 + ROUTERINFO_SUFFIX;
     }
     
-    private static Hash getRouterInfoHash(String filename) {
+    static Hash getRouterInfoHash(String filename) {
         return getHash(filename, ROUTERINFO_PREFIX, ROUTERINFO_SUFFIX);
     }
     
@@ -645,7 +651,7 @@ class PersistentDataStore extends TransientDataStore {
         }
     }
     
-    private final static class RouterInfoFilter implements FilenameFilter {
+    static class RouterInfoFilter implements FilenameFilter {
         private static final FilenameFilter _instance = new RouterInfoFilter();
         public static final FilenameFilter getInstance() { return _instance; }
         public boolean accept(File dir, String name) {

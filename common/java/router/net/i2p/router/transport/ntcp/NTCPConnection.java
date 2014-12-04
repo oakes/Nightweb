@@ -17,9 +17,9 @@ import java.util.zip.Adler32;
 import net.i2p.data.Base64;
 import net.i2p.data.ByteArray;
 import net.i2p.data.DataHelper;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.data.i2np.DatabaseStoreMessage;
 import net.i2p.data.i2np.I2NPMessage;
@@ -36,6 +36,7 @@ import net.i2p.util.ConcurrentHashSet;
 import net.i2p.util.HexDump;
 import net.i2p.util.Log;
 import net.i2p.util.SystemVersion;
+import net.i2p.util.VersionComparator;
 
 /**
  * Coordinate the connection to a single peer.
@@ -118,7 +119,8 @@ class NTCPConnection {
     private long _lastReceiveTime;
     private long _lastRateUpdated;
     private final long _created;
-    private long _nextMetaTime;
+    // prevent sending meta before established
+    private long _nextMetaTime = Long.MAX_VALUE;
     private int _consecutiveZeroReads;
 
     private static final int BLOCK_SIZE = 16;
@@ -143,7 +145,8 @@ class NTCPConnection {
     private static final int META_FREQUENCY = 45*60*1000;
 
     /** how often we send our routerinfo unsolicited */
-    private static final int INFO_FREQUENCY = 90*60*1000;
+    private static final int INFO_FREQUENCY = 50*60*1000;
+
     /**
      *  Why this is 16K, and where it is documented, good question?
      *  We claim we can do 32K datagrams so this is a problem.
@@ -156,7 +159,8 @@ class NTCPConnection {
     /** 2 bytes for length and 4 for CRC */
     public static final int MAX_MSG_SIZE = BUFFER_SIZE - (2 + 4);
 
-    private static final int PRIORITY = OutNetMessage.PRIORITY_MY_NETDB_STORE_LOW;
+    private static final int INFO_PRIORITY = OutNetMessage.PRIORITY_MY_NETDB_STORE_LOW;
+    private static final String FIXED_RI_VERSION = "0.9.12";
     
     /**
      * Create an inbound connected (though not established) NTCP connection
@@ -262,6 +266,8 @@ class NTCPConnection {
     /** 
      * @param clockSkew alice's clock minus bob's clock in seconds (may be negative, obviously, but |val| should
      *                  be under 1 minute)
+     * @param prevWriteEnd exactly 16 bytes, not copied, do not corrupt
+     * @param prevReadEnd 16 or more bytes, last 16 bytes copied
      */
     public void finishInboundEstablishment(SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
         NTCPConnection toClose = locked_finishInboundEstablishment(key, clockSkew, prevWriteEnd, prevReadEnd);
@@ -271,8 +277,15 @@ class NTCPConnection {
             _context.statManager().addRateData("ntcp.inboundEstablishedDuplicate", toClose.getUptime());
             toClose.close();
         }
+        enqueueInfoMessage();
     }
     
+    /** 
+     * @param clockSkew alice's clock minus bob's clock in seconds (may be negative, obviously, but |val| should
+     *                  be under 1 minute)
+     * @param prevWriteEnd exactly 16 bytes, not copied, do not corrupt
+     * @param prevReadEnd 16 or more bytes, last 16 bytes copied
+     */
     private synchronized NTCPConnection locked_finishInboundEstablishment(
             SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
         _sessionKey = key;
@@ -301,7 +314,9 @@ class NTCPConnection {
     }
 
     public long getMessagesSent() { return _messagesWritten; }
+
     public long getMessagesReceived() { return _messagesRead; }
+
     public long getOutboundQueueSize() {
             int queued;
             synchronized(_outbound) {
@@ -364,10 +379,21 @@ class NTCPConnection {
         }
     }
     
+    /**
+     *  Close and release EstablishState resources.
+     *  @param e may be null
+     *  @since 0.9.16
+     */
+    public void closeOnTimeout(String cause, Exception e) {
+        EstablishState es = _establishState;
+        close();
+        es.close(cause, e);
+    }
+
     private synchronized NTCPConnection locked_close(boolean allowRequeue) {
         if (_chan != null) try { _chan.close(); } catch (IOException ioe) { }
         if (_conKey != null) _conKey.cancel();
-        _establishState = EstablishState.VERIFIED;
+        _establishState = EstablishState.FAILED;
         NTCPConnection old = _transport.removeCon(this);
         _transport.getReader().connectionClosed(this);
         _transport.getWriter().connectionClosed(this);
@@ -487,25 +513,36 @@ class NTCPConnection {
         }
     }
     
+    /**
+     *  Inject a DatabaseStoreMessage with our RouterInfo
+     */
     public void enqueueInfoMessage() {
-        RouterInfo target = _context.netDb().lookupRouterInfoLocally(_remotePeer.calculateHash());
-        if (target != null) {
-            DatabaseStoreMessage dsm = new DatabaseStoreMessage(_context);
-            dsm.setEntry(_context.router().getRouterInfo());
-            OutNetMessage infoMsg = new OutNetMessage(_context, dsm, _context.clock().now()+10*1000, PRIORITY, target);
-            infoMsg.beginSend();
-            _context.statManager().addRateData("ntcp.infoMessageEnqueued", 1);
-            send(infoMsg);
-            
-            // See comment below
-            //enqueueFloodfillMessage(target);
-        } else {
-            if (_isInbound) {
-                // ok, we shouldn't have enqueued it yet, as we havent received their info
-            } else {
-                // how did we make an outbound connection to someone we don't know about?
-            }
-        }
+        int priority = INFO_PRIORITY;
+        //if (!_isInbound) {
+            // Workaround for bug at Bob's end.
+            // This probably isn't helpful because Bob puts the store on the job queue.
+            // Prior to 0.9.12, Bob would only send his RI if he had our RI after
+            // the first received message, so make sure it is first in our queue.
+            // As of 0.9.12 this is fixed and Bob will always send his RI.
+        //    RouterInfo target = _context.netDb().lookupRouterInfoLocally(_remotePeer.calculateHash());
+        //    if (target != null) {
+        //        String v = target.getOption("router.version");
+        //        if (v == null || VersionComparator.comp(v, FIXED_RI_VERSION) < 0) {
+        //            priority = OutNetMessage.PRIORITY_HIGHEST;
+        //        }
+        //    } else {
+        //        priority = OutNetMessage.PRIORITY_HIGHEST;
+        //    }
+        //}
+        if (_log.shouldLog(Log.INFO))
+            _log.info("SENDING INFO message pri. " + priority + ": " + toString());
+        DatabaseStoreMessage dsm = new DatabaseStoreMessage(_context);
+        dsm.setEntry(_context.router().getRouterInfo());
+        // We are injecting directly, so we can use a null target.
+        OutNetMessage infoMsg = new OutNetMessage(_context, dsm, _context.clock().now()+10*1000, priority, null);
+        infoMsg.beginSend();
+        //_context.statManager().addRateData("ntcp.infoMessageEnqueued", 1);
+        send(infoMsg);
     }
 
     //private static final int PEERS_TO_FLOOD = 3;
@@ -553,6 +590,8 @@ class NTCPConnection {
     /** 
      * @param clockSkew alice's clock minus bob's clock in seconds (may be negative, obviously, but |val| should
      *                  be under 1 minute)
+     * @param prevWriteEnd exactly 16 bytes, not copied, do not corrupt
+     * @param prevReadEnd 16 or more bytes, last 16 bytes copied
      */
     public synchronized void finishOutboundEstablishment(SessionKey key, long clockSkew, byte prevWriteEnd[], byte prevReadEnd[]) {
         if (_log.shouldLog(Log.DEBUG))
@@ -1474,8 +1513,6 @@ class NTCPConnection {
 
                     if (read != null) {
                         _transport.messageReceived(read, _remotePeer, null, timeToRecv, _size);
-                        if (_messagesRead <= 0)
-                            enqueueInfoMessage();
                         _lastReceiveTime = System.currentTimeMillis();
                         _messagesRead++;
                     }

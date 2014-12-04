@@ -17,11 +17,12 @@ import java.util.Locale;
 import java.util.Vector;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.CommSystemFacade;
 import net.i2p.router.OutNetMessage;
 import net.i2p.router.RouterContext;
+import net.i2p.router.transport.crypto.DHSessionKeyBuilder;
 import net.i2p.router.transport.udp.UDPTransport;
 import net.i2p.router.util.EventLog;
 import net.i2p.util.Addresses;
@@ -115,7 +116,7 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
         // Sum skew values
         long sum = 0;
         for (int i = first; i <= last; i++) {
-            long value = ((Long) (skews.get(i))).longValue();
+            long value = skews.get(i).longValue();
             //if (_log.shouldLog(Log.DEBUG))
             //    _log.debug("Adding clock skew " + i + " valued " + value + " s.");
             sum = sum + value;
@@ -173,6 +174,10 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
             return STATUS_OK;
         return rv; 
     }
+
+    /**
+     * @deprecated unused
+     */
     @Override
     public void recheckReachability() { _manager.recheckReachability(); }
 
@@ -202,14 +207,62 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
      */
     @Override
     public void notifyReplaceAddress(RouterAddress udpAddr) {
-        byte[] ip = udpAddr != null ? udpAddr.getIP() : null;
-        int port = udpAddr != null ? udpAddr.getPort() : 0;
+        byte[] ip = null;
+        int port = 0;
+        // Don't pass IP along if address has introducers
+        // Right now we publish the direct UDP address, even if publishing introducers,
+        // we probably shouldn't, see UDPTransport rebuildExternalAddress() TODO
+        if (udpAddr != null && udpAddr.getOption("ihost0") == null) {
+            ip = udpAddr.getIP();
+            port = udpAddr.getPort();
+        }
         if (port < 0) {
             Transport udp = _manager.getTransport(UDPTransport.STYLE);
             if (udp != null)
                 port = udp.getRequestedPort();
         }
         _manager.externalAddressReceived(Transport.AddressSource.SOURCE_SSU, ip, port);
+    }
+
+    /**
+     *  Pluggable transports. Not for NTCP or SSU.
+     *
+     *  Do not call from transport constructor. Transport must be ready to be started.
+     *
+     *  Following transport methods will be called:
+     *    setListener()
+     *    externalAddressReceived() (zero or more times, one for each known address)
+     *    startListening();
+     *
+     *  @since 0.9.16
+     */
+    @Override
+    public void registerTransport(Transport t) {
+        _manager.registerAndStart(t);
+    }
+
+    /**
+     *  Pluggable transports. Not for NTCP or SSU.
+     *
+     *  Following transport methods will be called:
+     *    setListener(null)
+     *    stoptListening();
+     *
+     *  @since 0.9.16
+     */
+    @Override
+    public void unregisterTransport(Transport t) {
+        _manager.stopAndUnregister(t);
+    }
+
+    /**
+     *  Hook for pluggable transport creation.
+     *
+     *  @since 0.9.16
+     */
+    @Override
+    public DHSessionKeyBuilder.Factory getDHFactory() {
+        return _manager.getDHFactory();
     }
     
     /*
@@ -290,15 +343,42 @@ public class CommSystemFacadeImpl extends CommSystemFacade {
      *  Are we in a bad place
      *  @since 0.8.13
      */
+    @Override
     public boolean isInBadCountry() {
         String us = getOurCountry();
-        return us != null && (BadCountries.contains(us) || _context.getBooleanProperty("router.forceBadCountry"));
+        return (us != null && BadCountries.contains(us)) || _context.getBooleanProperty("router.forceBadCountry");
+    }
+
+    /**
+     *  Are they in a bad place
+     *  @param peer non-null
+     *  @since 0.9.16
+     */
+    @Override
+    public boolean isInBadCountry(Hash peer) {
+        String c = getCountry(peer);
+        return c != null && BadCountries.contains(c);
+    }
+
+    /**
+     *  Are they in a bad place
+     *  @param ri non-null
+     *  @since 0.9.16
+     */
+    @Override
+    public boolean isInBadCountry(RouterInfo ri) {
+        byte[] ip = getIP(ri);
+        if (ip == null)
+            return false;
+        String c = _geoIP.get(ip);
+        return c != null && BadCountries.contains(c);
     }
 
     /**
      *  Uses the transport IP first because that lookup is fast,
      *  then the IP from the netDb.
      *
+     *  @param peer not ourselves - use getOurCountry() for that
      *  @return two-letter lower-case country code or null
      */
     @Override

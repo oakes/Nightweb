@@ -10,9 +10,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterIdentity;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterIdentity;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.SessionKey;
 import net.i2p.data.i2np.DatabaseStoreMessage;
 import net.i2p.data.i2np.DeliveryStatusMessage;
@@ -20,9 +20,12 @@ import net.i2p.data.i2np.I2NPMessage;
 import net.i2p.router.OutNetMessage;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
+import net.i2p.router.transport.TransportUtil;
 import net.i2p.router.transport.crypto.DHSessionKeyBuilder;
 import static net.i2p.router.transport.udp.InboundEstablishState.InboundState.*;
 import static net.i2p.router.transport.udp.OutboundEstablishState.OutboundState.*;
+import net.i2p.router.util.DecayingHashSet;
+import net.i2p.router.util.DecayingBloomFilter;
 import net.i2p.util.Addresses;
 import net.i2p.util.I2PThread;
 import net.i2p.util.Log;
@@ -82,6 +85,9 @@ class EstablishmentManager {
     private volatile boolean _alive;
     private final Object _activityLock;
     private int _activity;
+
+    /** "bloom filter" */
+    private final DecayingBloomFilter _replayFilter;
     
     /** max outbound in progress - max inbound is half of this */
     private final int DEFAULT_MAX_CONCURRENT_ESTABLISH;
@@ -132,6 +138,7 @@ class EstablishmentManager {
         _outboundByClaimedAddress = new ConcurrentHashMap<RemoteHostId, OutboundEstablishState>();
         _outboundByHash = new ConcurrentHashMap<Hash, OutboundEstablishState>();
         _activityLock = new Object();
+        _replayFilter = new DecayingHashSet(ctx, 10*60*1000, 8, "SSU-DH-X");
         DEFAULT_MAX_CONCURRENT_ESTABLISH = Math.max(DEFAULT_LOW_MAX_CONCURRENT_ESTABLISH,
                                                     Math.min(DEFAULT_HIGH_MAX_CONCURRENT_ESTABLISH,
                                                              ctx.bandwidthLimiter().getOutboundKBytesPerSecond() / 2));
@@ -159,6 +166,7 @@ class EstablishmentManager {
         _context.statManager().createRateStat("udp.rejectConcurrentSequence", "How many consecutive concurrency rejections have we had when we stop rejecting (period is how many concurrent packets we are on)", "udp", UDPTransport.RATES);
         //_context.statManager().createRateStat("udp.queueDropSize", "How many messages were queued up when it was considered full, causing a tail drop?", "udp", UDPTransport.RATES);
         //_context.statManager().createRateStat("udp.queueAllowTotalLifetime", "When a peer is retransmitting and we probabalistically allow a new message, what is the sum of the pending message lifetimes? (period is the new message's lifetime)?", "udp", UDPTransport.RATES);
+        _context.statManager().createRateStat("udp.dupDHX", "Session request replay", "udp", new long[] { 24*60*60*1000L } );
     }
     
     public synchronized void startup() {
@@ -418,7 +426,7 @@ class EstablishmentManager {
      *
      */
     void receiveSessionRequest(RemoteHostId from, UDPPacketReader reader) {
-        if (from.getPort() < UDPTransport.MIN_PEER_PORT || !_transport.isValid(from.getIP())) {
+        if (!TransportUtil.isValidPort(from.getPort()) || !_transport.isValid(from.getIP())) {
             if (_log.shouldLog(Log.WARN))
                 _log.warn("Receive session request from invalid: " + from);
             return;
@@ -450,6 +458,14 @@ class EstablishmentManager {
                                                   _transport.getExternalPort(fromIP.length == 16),
                                                   _transport.getDHBuilder());
                 state.receiveSessionRequest(reader.getSessionRequestReader());
+
+                if (_replayFilter.add(state.getReceivedX(), 0, 8)) {
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn("Duplicate X in session request from: " + from);
+                    _context.statManager().addRateData("udp.dupDHX", 1);
+                    return; // drop the packet
+                }
+
                 InboundEstablishState oldState = _inboundStates.putIfAbsent(from, state);
                 isNew = oldState == null;
                 if (!isNew)
@@ -792,7 +808,11 @@ class EstablishmentManager {
         _transport.setIP(remote.calculateHash(), state.getSentIP());
         
         _context.statManager().addRateData("udp.outboundEstablishTime", state.getLifetime(), 0);
-        sendOurInfo(peer, false);
+        if (!state.isFirstMessageOurDSM()) {
+            sendOurInfo(peer, false);
+        } else if (_log.shouldLog(Log.INFO)) {
+            _log.info("Skipping publish: " + state);
+        }
         
         OutNetMessage msg;
         while ((msg = state.getNextQueuedMessage()) != null) {
@@ -938,8 +958,8 @@ class EstablishmentManager {
             if (!oldId.equals(newId)) {
                 _outboundStates.remove(oldId);
                 _outboundStates.put(newId, state);
-                if (_log.shouldLog(Log.WARN))
-                    _log.warn("RR replaced " + oldId + " with " + newId + ", claimed address was " + claimed);
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("RR replaced " + oldId + " with " + newId + ", claimed address was " + claimed);
             }
             //
             if (claimed != null)
@@ -949,14 +969,39 @@ class EstablishmentManager {
     }
 
     /**
+     *  Called from UDPReceiver.
+     *  Accelerate response to RelayResponse if we haven't sent it yet.
+     *
+     *  @since 0.9.15
+     */
+    void receiveHolePunch(InetAddress from, int fromPort) {
+        RemoteHostId id = new RemoteHostId(from.getAddress(), fromPort);
+        OutboundEstablishState state = _outboundStates.get(id);
+        if (state != null) {
+            boolean sendNow = state.receiveHolePunch();
+            if (sendNow) {
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("Hole punch from " + state + ", sending SessionRequest now");
+                notifyActivity();
+            } else {
+                if (_log.shouldLog(Log.INFO))
+                    _log.info("Hole punch from " + state + ", already sent SessionRequest");
+            }
+        } else {
+            // HolePunch received before RelayResponse, and we didn't know the IP/port, or it changed
+            if (_log.shouldLog(Log.INFO))
+                _log.info("No state found for hole punch from " + from + " port " + fromPort);
+        }
+    }
+
+    /**
      *  Are IP and port valid? This is only for checking the relay response.
      *  Reject all IPv6, for now, even if we are configured for it.
      *  Refuse anybody in the same /16
      *  @since 0.9.3
      */
     private boolean isValid(byte[] ip, int port) {
-        return port >= UDPTransport.MIN_PEER_PORT &&
-               port <= 65535 &&
+        return TransportUtil.isValidPort(port) &&
                ip != null && ip.length == 4 &&
                _transport.isValid(ip) &&
                (!_transport.isTooClose(ip)) &&
@@ -1318,6 +1363,7 @@ class EstablishmentManager {
             _transport.markUnreachable(peer);
             _transport.dropPeer(peer, false, err);
             //_context.profileManager().commErrorOccurred(peer);
+            outboundState.fail();
         } else {
             OutNetMessage msg;
             while ((msg = outboundState.getNextQueuedMessage()) != null) {

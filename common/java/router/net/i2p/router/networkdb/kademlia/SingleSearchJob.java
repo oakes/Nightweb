@@ -19,6 +19,9 @@ class SingleSearchJob extends FloodOnlySearchJob {
 
     private static final int TIMEOUT = 8*1000;
 
+    /**
+     *  @param key for Router Info ONLY
+     */
     public SingleSearchJob(RouterContext ctx, Hash key, Hash to) {
         // warning, null FloodfillNetworkDatabaseFacade ...
         // define our own failed() and success() below so _facade isn't used.
@@ -34,7 +37,7 @@ class SingleSearchJob extends FloodOnlySearchJob {
 
     @Override
     public void runJob() {
-        _onm = getContext().messageRegistry().registerPending(_replySelector, _onReply, _onTimeout, _timeoutMs);
+        _onm = getContext().messageRegistry().registerPending(_replySelector, _onReply, _onTimeout);
         DatabaseLookupMessage dlm = new DatabaseLookupMessage(getContext(), true);
         TunnelInfo replyTunnel = getContext().tunnelManager().selectInboundExploratoryTunnel(_to);
         TunnelInfo outTunnel = getContext().tunnelManager().selectOutboundExploratoryTunnel(_to);
@@ -46,6 +49,7 @@ class SingleSearchJob extends FloodOnlySearchJob {
         dlm.setMessageExpiration(getContext().clock().now()+5*1000);
         dlm.setReplyTunnel(replyTunnel.getReceiveTunnelId(0));
         dlm.setSearchKey(_key);
+        dlm.setSearchType(DatabaseLookupMessage.Type.RI);
         
         if (_log.shouldLog(Log.INFO))
             _log.info(getJobId() + ": Single search for " + _key + " to " + _to);

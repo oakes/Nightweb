@@ -19,8 +19,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import net.i2p.crypto.SHA256Generator;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterAddress;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterAddress;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.NetworkDatabaseFacade;
 import net.i2p.router.RouterContext;
 import net.i2p.router.tunnel.pool.TunnelPeerSelector;
@@ -184,7 +184,6 @@ public class ProfileOrganizer {
         if (profile == null) return null;
 
         Hash peer = profile.getPeer();
-        if (peer == null) return null;
 
         if (_log.shouldLog(Log.DEBUG))
             _log.debug("New profile created for " + peer);
@@ -1335,12 +1334,13 @@ public class ProfileOrganizer {
      *  others.
      *  @return 0-3
      */
-    private static int getSubTier(Hash peer, Hash randomKey) {
-        byte[] data = new byte[Hash.HASH_LENGTH + 4];
+    private int getSubTier(Hash peer, Hash randomKey) {
+        // input is first 36 bytes; output is last 32 bytes
+        byte[] data = new byte[Hash.HASH_LENGTH + 4 + Hash.HASH_LENGTH];
         System.arraycopy(peer.getData(), 0, data, 0, Hash.HASH_LENGTH);
         System.arraycopy(randomKey.getData(), 0, data, Hash.HASH_LENGTH, 4);
-        Hash rh = SHA256Generator.getInstance().calculateHash(data);
-        return rh.getData()[0] & 0x03;
+        _context.sha().calculateHash(data, 0, Hash.HASH_LENGTH + 4, data, Hash.HASH_LENGTH + 4);
+        return data[Hash.HASH_LENGTH + 4] & 0x03;
     }
 
     public boolean isSelectable(Hash peer) {
@@ -1356,7 +1356,7 @@ public class ProfileOrganizer {
             
         RouterInfo info = _context.netDb().lookupRouterInfoLocally(peer);
         if (null != info) {
-            if (info.getIdentity().isHidden()) {
+            if (info.isHidden()) {
                if (_log.shouldLog(Log.WARN))
                     _log.warn("Peer " + peer.toBase64() + " is marked as hidden, disallowing its use");
                 return false;
@@ -1405,7 +1405,8 @@ public class ProfileOrganizer {
             // if not selectable for a tunnel (banlisted for example),
             // don't allow them in the high-cap pool, what would the point of that be?
             if (_thresholdCapacityValue <= profile.getCapacityValue() &&
-                isSelectable(peer)) {
+                isSelectable(peer) &&
+                !_context.commSystem().isInBadCountry(peer)) {
                 _highCapacityPeers.put(peer, profile);
                 if (_log.shouldLog(Log.DEBUG))
                     _log.debug("High capacity: \t" + peer);

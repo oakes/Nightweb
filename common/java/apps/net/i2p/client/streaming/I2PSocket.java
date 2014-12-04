@@ -43,6 +43,10 @@ public interface I2PSocket extends Closeable {
     public OutputStream getOutputStream() throws IOException;
 
     /**
+     *  Unimplemented, unlikely to ever be implemented.
+     *
+     *  @deprecated
+     *  @return null always
      *  @since 0.8.9
      */
     public SelectableChannel getChannel() throws IOException;
@@ -76,6 +80,9 @@ public interface I2PSocket extends Closeable {
 
     public boolean isClosed();
 
+    /**
+     *  Deprecated, unimplemented, does nothing
+     */
     public void setSocketErrorListener(SocketErrorListener lsnr);
 
     /**
@@ -93,6 +100,8 @@ public interface I2PSocket extends Closeable {
     public int getLocalPort();
 
     /**
+     * Deprecated, unimplemented, does nothing. Original description:
+     *
      * Allow notification of underlying errors communicating across I2P without
      * waiting for any sort of cleanup process.  For example, if some data could
      * not be sent, this listener is notified immediately, and while the input/output

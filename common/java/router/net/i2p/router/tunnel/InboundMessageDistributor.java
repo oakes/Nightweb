@@ -4,6 +4,7 @@ import net.i2p.data.DatabaseEntry;
 import net.i2p.data.Hash;
 import net.i2p.data.LeaseSet;
 import net.i2p.data.Payload;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.data.TunnelId;
 import net.i2p.data.i2np.DataMessage;
 import net.i2p.data.i2np.DatabaseSearchReplyMessage;
@@ -18,7 +19,7 @@ import net.i2p.router.ClientMessage;
 import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelInfo;
 import net.i2p.router.message.GarlicMessageReceiver;
-//import net.i2p.router.networkdb.kademlia.FloodfillNetworkDatabaseFacade;
+import net.i2p.router.networkdb.kademlia.FloodfillNetworkDatabaseFacade;
 import net.i2p.util.Log;
 
 /**
@@ -31,6 +32,9 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
     private final Hash _client;
     private final GarlicMessageReceiver _receiver;
     
+    /**
+     *  @param client null for router tunnel
+     */
     public InboundMessageDistributor(RouterContext ctx, Hash client) {
         _context = ctx;
         _client = client;
@@ -68,6 +72,7 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
             // LS or RI and client or expl., so that we can safely follow references
             // in a reply to a LS lookup over client tunnels.
             // ILJ would also have to follow references via client tunnels
+          /****
             DatabaseSearchReplyMessage orig = (DatabaseSearchReplyMessage) msg;
             if (orig.getNumReplies() > 0) {
                 if (_log.shouldLog(Log.INFO))
@@ -77,16 +82,34 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                 newMsg.setSearchKey(orig.getSearchKey());
                 msg = newMsg;
             }
+          ****/
         } else if ( (_client != null) && 
                     (type == DatabaseStoreMessage.MESSAGE_TYPE)) {
             DatabaseStoreMessage dsm = (DatabaseStoreMessage) msg;
             if (dsm.getEntry().getType() == DatabaseEntry.KEY_TYPE_ROUTERINFO) {
                 // FVSJ may result in an unsolicited RI store if the peer went non-ff.
-                // Maybe we can figure out a way to handle this safely, so we don't ask him again.
-                // For now, just hope we eventually find out through other means.
+                // We handle this safely, so we don't ask him again.
                 // Todo: if peer was ff and RI is not ff, queue for exploration in netdb (but that isn't part of the facade now)
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("Dropping DSM down a tunnel for " + _client + ": " + msg);
+                // Handle safely by just updating the caps table, after doing basic validation
+                Hash key = dsm.getKey();
+                if (_context.routerHash().equals(key))
+                    return;
+                RouterInfo ri = (RouterInfo) dsm.getEntry();
+                if (!key.equals(ri.getIdentity().getHash()))
+                    return;
+                if (!ri.isValid())
+                    return;
+                RouterInfo oldri = _context.netDb().lookupRouterInfoLocally(key);
+                // only update if RI is newer and non-ff
+                if (oldri != null && oldri.getPublished() < ri.getPublished() &&
+                    !FloodfillNetworkDatabaseFacade.isFloodfill(ri)) {
+                    if (_log.shouldLog(Log.WARN))
+                        _log.warn("Updating caps for RI " + key + " from \"" +
+                                  oldri.getCapabilities() + "\" to \"" + ri.getCapabilities() + '"');
+                    _context.peerManager().setCapabilities(key, ri.getCapabilities());
+                }
                 return;
             } else if (dsm.getReplyToken() != 0) {
                 if (_log.shouldLog(Log.WARN))
@@ -140,14 +163,15 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
         } else {
             // ok, they want us to send it remotely, but that'd bust our anonymity,
             // so we send it out a tunnel first
-            TunnelInfo out = _context.tunnelManager().selectOutboundTunnel(_client);
+            // TODO use the OCMOSJ cache to pick OB tunnel we are already using?
+            TunnelInfo out = _context.tunnelManager().selectOutboundTunnel(_client, target);
             if (out == null) {
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("no outbound tunnel to send the client message for " + _client + ": " + msg);
                 return;
             }
-            if (_log.shouldLog(Log.INFO))
-                _log.info("distributing inbound tunnel message back out " + out
+            if (_log.shouldLog(Log.DEBUG))
+                _log.debug("distributing IB tunnel msg type " + type + " back out " + out
                           + " targetting " + target);
             TunnelId outId = out.getSendTunnelId(0);
             if (outId == null) {
@@ -156,8 +180,9 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                                + " failing to distribute " + msg);
                 return;
             }
-            if (msg.getMessageExpiration() < _context.clock().now() + 10*1000)
-                msg.setMessageExpiration(_context.clock().now() + 10*1000);
+            long exp = _context.clock().now() + 20*1000;
+            if (msg.getMessageExpiration() < exp)
+                msg.setMessageExpiration(exp);
             _context.tunnelDispatcher().dispatchOutbound(msg, outId, tunnel, target);
         }
     }
@@ -170,7 +195,7 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
         switch (instructions.getDeliveryMode()) {
             case DeliveryInstructions.DELIVERY_MODE_LOCAL:
                 if (_log.shouldLog(Log.DEBUG))
-                    _log.debug("local delivery instructions for clove: " + data.getClass().getName());
+                    _log.debug("local delivery instructions for clove: " + data.getClass().getSimpleName());
                 int type = data.getType();
                 if (type == GarlicMessage.MESSAGE_TYPE) {
                     _receiver.receive((GarlicMessage)data);
@@ -232,6 +257,7 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                     // in a reply to a LS lookup over client tunnels.
                     // ILJ would also have to follow references via client tunnels
                     DatabaseSearchReplyMessage orig = (DatabaseSearchReplyMessage) data;
+                  /****
                     if (orig.getNumReplies() > 0) {
                         if (_log.shouldLog(Log.INFO))
                             _log.info("Removing replies from a garlic DSRM down a tunnel for " + _client + ": " + data);
@@ -240,11 +266,12 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                         newMsg.setSearchKey(orig.getSearchKey());
                         orig = newMsg;
                      }
+                   ****/
                     _context.inNetMessagePool().add(orig, null, null);
                 } else if (type == DataMessage.MESSAGE_TYPE) {
                         // a data message targetting the local router is how we send load tests (real
                         // data messages target destinations)
-                        _context.statManager().addRateData("tunnel.handleLoadClove", 1, 0);
+                        _context.statManager().addRateData("tunnel.handleLoadClove", 1);
                         data = null;
                         //_context.inNetMessagePool().add(data, null, null);
                 } else if (_client != null && type != DeliveryStatusMessage.MESSAGE_TYPE) {
@@ -261,7 +288,7 @@ class InboundMessageDistributor implements GarlicMessageReceiver.CloveReceiver {
                 // Can we route UnknownI2NPMessages to a destination too?
                 if (!(data instanceof DataMessage)) {
                     if (_log.shouldLog(Log.ERROR))
-                        _log.error("cant send a " + data.getClass().getName() + " to a destination");
+                        _log.error("cant send a " + data.getClass().getSimpleName() + " to a destination");
                 } else if ( (_client != null) && (_client.equals(instructions.getDestination())) ) {
                     if (_log.shouldLog(Log.DEBUG))
                         _log.debug("data message came down a tunnel for " 

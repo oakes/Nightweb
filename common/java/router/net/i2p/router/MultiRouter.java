@@ -10,7 +10,7 @@ import java.util.Scanner;
 
 import net.i2p.I2PAppContext;
 import net.i2p.data.DataHelper;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.Router;
 
 /**
@@ -240,7 +240,7 @@ public class MultiRouter {
         while (true) {
             int alive = 0;
             for (int i = 0; i < _routers.size(); i++) {
-                Router r = (Router)_routers.get(i);
+                Router r = _routers.get(i);
                 if (!r.isAlive()) {
                 	_out.println("Router " + i + " is dead");
                 } else {

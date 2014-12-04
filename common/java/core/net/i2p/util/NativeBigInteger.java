@@ -96,9 +96,11 @@ import net.i2p.crypto.CryptoConstants;
  */
 public class NativeBigInteger extends BigInteger {
     /** did we load the native lib correctly? */
-    private static boolean _nativeOk = false;
+    private static boolean _nativeOk;
     private static String _loadStatus = "uninitialized";
     private static String _cpuModel = "uninitialized";
+    private static String _extractedResource;
+
     /** 
      * do we want to dump some basic success/failure info to stderr during 
      * initialization?  this would otherwise use the Log component, but this makes
@@ -181,8 +183,7 @@ public class NativeBigInteger extends BigInteger {
      */
     private static final boolean _is64 = SystemVersion.is64Bit();
 
-    private static final boolean _isX86 = System.getProperty("os.arch").contains("86") ||
-	                                 System.getProperty("os.arch").equals("amd64");
+    private static final boolean _isX86 = SystemVersion.isX86();
 
     private static final boolean _isArm = SystemVersion.isARM();
 
@@ -341,8 +342,22 @@ public class NativeBigInteger extends BigInteger {
         return _nativeOk;
     }
  
+    /**
+     * @return A string suitable for display to the user
+     */
     public static String loadStatus() {
         return _loadStatus;
+    }
+ 
+    /**
+     *  The name of the library loaded, if known.
+     *  Null if unknown or not loaded.
+     *  Currently non-null only if extracted from jbigi.jar.
+     *
+     *  @since 0.9.17
+     */
+    public static String getLoadedResourceName() {
+        return _extractedResource;
     }
  
     public static String cpuType() {
@@ -460,7 +475,11 @@ public class NativeBigInteger extends BigInteger {
                 boolean loaded = loadGeneric("jbigi");
                 if (loaded) {
                     _nativeOk = true;
-                    info("Locally optimized native BigInteger library loaded from file");
+                    String s = I2PAppContext.getGlobalContext().getProperty("jbigi.loadedResource");
+                    if (s != null)
+                        info("Locally optimized library " + s + " loaded from file");
+                    else
+                        info("Locally optimized native BigInteger library loaded from file");
                 } else {
                     List<String> toTry = getResourceList();
                     debug("loadResource list to try is: " + toTry);
@@ -468,6 +487,7 @@ public class NativeBigInteger extends BigInteger {
                         debug("trying loadResource " + s);
                         if (loadFromResource(s)) {
                             _nativeOk = true;
+                            _extractedResource = s;
                             info("Native BigInteger library " + s + " loaded from resource");
                             break;
                         }
@@ -476,7 +496,7 @@ public class NativeBigInteger extends BigInteger {
             }
             if (!_nativeOk) {
                 warn("Native BigInteger library jbigi not loaded - using pure Java - " +
-                     "poor performance may result - see http://www.i2p2.i2p/jbigi for help");
+                     "poor performance may result - see http://i2p-projekt.i2p/jbigi for help");
             }
         } catch(Exception e) {
             warn("Native BigInteger library jbigi not loaded, using pure java", e);
@@ -805,5 +825,17 @@ public class NativeBigInteger extends BigInteger {
         //throw new RuntimeException("Dont know jbigi library name for os type '"+System.getProperty("os.name")+"'");
         // use linux as the default, don't throw exception
         return "jbigi-linux-";
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        // for findbugs
+        return super.equals(o);
+    }
+
+    @Override
+    public int hashCode() {
+        // for findbugs
+        return super.hashCode();
     }
 }

@@ -1,5 +1,6 @@
 package net.i2p.router.tunnel.pool;
 
+import java.io.Serializable;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -13,9 +14,10 @@ import java.util.StringTokenizer;
 
 import net.i2p.I2PAppContext;
 import net.i2p.crypto.SHA256Generator;
+import net.i2p.crypto.SigType;
 import net.i2p.data.DataFormatException;
 import net.i2p.data.Hash;
-import net.i2p.data.RouterInfo;
+import net.i2p.data.router.RouterInfo;
 import net.i2p.router.Router;
 import net.i2p.router.RouterContext;
 import net.i2p.router.TunnelPoolSettings;
@@ -326,6 +328,40 @@ public abstract class TunnelPeerSelector {
         return peers;
     }
     
+    /** 
+     *  Pick peers that we want to avoid for the first OB hop or last IB hop.
+     *  This is only filled in if our router sig type is not DSA.
+     *
+     *  @param isInbound unused
+     *  @return null if none
+     *  @since 0.9.17
+     */
+    protected Set<Hash> getClosestHopExclude(boolean isInbound) {
+        RouterInfo ri = ctx.router().getRouterInfo();
+        if (ri == null)
+            return null;
+        SigType type = ri.getIdentity().getSigType();
+        if (type == SigType.DSA_SHA1)
+            return null;
+        Set<Hash> rv = new HashSet<Hash>(1024);
+        FloodfillNetworkDatabaseFacade fac = (FloodfillNetworkDatabaseFacade)ctx.netDb();
+        List<RouterInfo> known = fac.getKnownRouterData();
+        if (known != null) {
+            for (int i = 0; i < known.size(); i++) {
+                RouterInfo peer = known.get(i);
+                String v = peer.getOption("router.version");
+                if (v == null)
+                    continue;
+                // RI sigtypes added in 0.9.16
+                // SSU inbound connection bug fixed in 0.9.17, but it won't bid, so NTCP only,
+                // no need to check
+                if (VersionComparator.comp(v, "0.9.16") < 0)
+                    rv.add(peer.getIdentity().calculateHash());
+            }
+        }
+        return rv;
+    }
+    
     /** warning, this is also called by ProfileOrganizer.isSelectable() */
     public static boolean shouldExclude(RouterContext ctx, RouterInfo peer) {
         Log log = ctx.logManager().getLog(TunnelPeerSelector.class);
@@ -525,7 +561,7 @@ public abstract class TunnelPeerSelector {
      *  Now:
      *     d((H(l+h), h) - d(H(r+h), h)
      */
-    private static class HashComparator implements Comparator<Hash> {
+    private static class HashComparator implements Comparator<Hash>, Serializable {
         private final Hash _hash, tmp;
         private final byte[] data;
 

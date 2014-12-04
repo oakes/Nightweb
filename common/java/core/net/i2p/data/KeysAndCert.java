@@ -13,8 +13,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
 
 import net.i2p.crypto.SHA256Generator;
+import net.i2p.crypto.SigType;
 
 /**
  * KeysAndCert has a public key, a signing key, and a certificate.
@@ -34,7 +36,8 @@ public class KeysAndCert extends DataStructureImpl {
     protected PublicKey _publicKey;
     protected SigningPublicKey _signingKey;
     protected Certificate _certificate;
-    protected Hash __calculatedHash;
+    private Hash __calculatedHash;
+    protected byte[] _padding;
 
     public Certificate getCertificate() {
         return _certificate;
@@ -47,7 +50,22 @@ public class KeysAndCert extends DataStructureImpl {
         if (_certificate != null)
             throw new IllegalStateException();
         _certificate = cert;
-        __calculatedHash = null;
+    }
+
+    /**
+     *  @return null if not set or unknown
+     *  @since 0.9.17
+     */
+    public SigType getSigType() {
+        if (_certificate == null)
+            return null;
+        if (_certificate.getCertificateType() == Certificate.CERTIFICATE_TYPE_KEY) {
+            try {
+                KeyCertificate kcert = _certificate.toKeyCertificate();
+                return kcert.getSigType();
+            } catch (DataFormatException dfe) {}
+        }
+        return SigType.DSA_SHA1;
     }
 
     public PublicKey getPublicKey() {
@@ -61,7 +79,6 @@ public class KeysAndCert extends DataStructureImpl {
         if (_publicKey != null)
             throw new IllegalStateException();
         _publicKey = key;
-        __calculatedHash = null;
     }
 
     public SigningPublicKey getSigningPublicKey() {
@@ -75,7 +92,23 @@ public class KeysAndCert extends DataStructureImpl {
         if (_signingKey != null)
             throw new IllegalStateException();
         _signingKey = key;
-        __calculatedHash = null;
+    }
+    
+    /**
+     * @since 0.9.16
+     */
+    public byte[] getPadding() {
+        return _padding;
+    }
+    
+    /**
+     * @throws IllegalStateException if was already set
+     * @since 0.9.12
+     */
+    public void setPadding(byte[] padding) {
+        if (_padding != null)
+            throw new IllegalStateException();
+        _padding = padding;
     }
     
     /**
@@ -85,16 +118,29 @@ public class KeysAndCert extends DataStructureImpl {
         if (_publicKey != null || _signingKey != null || _certificate != null)
             throw new IllegalStateException();
         _publicKey = PublicKey.create(in);
-        _signingKey = SigningPublicKey.create(in);
-        _certificate = Certificate.create(in);
-        __calculatedHash = null;
+        SigningPublicKey spk = SigningPublicKey.create(in);
+        Certificate  cert = Certificate.create(in);
+        if (cert.getCertificateType() == Certificate.CERTIFICATE_TYPE_KEY) {
+            // convert SPK to new SPK and padding
+            KeyCertificate kcert = cert.toKeyCertificate();
+            _signingKey = spk.toTypedKey(kcert);
+            _padding = spk.getPadding(kcert);
+            _certificate = kcert;
+        } else {
+            _signingKey = spk;
+            _certificate = cert;
+        }
     }
     
     public void writeBytes(OutputStream out) throws DataFormatException, IOException {
         if ((_certificate == null) || (_publicKey == null) || (_signingKey == null))
             throw new DataFormatException("Not enough data to format the router identity");
         _publicKey.writeBytes(out);
-        _signingKey.writeBytes(out);
+        if (_padding != null)
+            out.write(_padding);
+        else if (_signingKey.length() < SigningPublicKey.KEYSIZE_BYTES)
+            throw new DataFormatException("No padding set");
+        _signingKey.writeTruncatedBytes(out);
         _certificate.writeBytes(out);
     }
     
@@ -106,44 +152,63 @@ public class KeysAndCert extends DataStructureImpl {
         return
                DataHelper.eq(_signingKey, ident._signingKey)
                && DataHelper.eq(_publicKey, ident._publicKey)
+               && Arrays.equals(_padding, ident._padding)
                && DataHelper.eq(_certificate, ident._certificate);
     }
     
-    /** the public key has enough randomness in it to use it by itself for speed */
+    /** the signing key has enough randomness in it to use it by itself for speed */
     @Override
     public int hashCode() {
-        if (_publicKey == null)
+        // don't use public key, some app devs thinking of using
+        // an all-zeros or leading-zeros public key for destinations
+        if (_signingKey == null)
             return 0;
-        return _publicKey.hashCode();
+        return _signingKey.hashCode();
     }
     
     @Override
     public String toString() {
-        StringBuilder buf = new StringBuilder(64);
+        StringBuilder buf = new StringBuilder(256);
         buf.append('[').append(getClass().getSimpleName()).append(": ");
         buf.append("\n\tHash: ").append(getHash().toBase64());
         buf.append("\n\tCertificate: ").append(_certificate);
         buf.append("\n\tPublicKey: ").append(_publicKey);
         buf.append("\n\tSigningPublicKey: ").append(_signingKey);
+        if (_padding != null)
+            buf.append("\n\tPadding: ").append(_padding.length).append(" bytes");
         buf.append(']');
         return buf.toString();
     }
     
+    /**
+     *  Throws IllegalStateException if keys and cert are not initialized,
+     *  as of 0.9.12. Prior to that, returned null.
+     *
+     *  @throws IllegalStateException
+     */
     @Override
     public Hash calculateHash() {
         return getHash();
     }
 
+    /**
+     *  Throws IllegalStateException if keys and cert are not initialized,
+     *  as of 0.9.12. Prior to that, returned null.
+     *
+     *  @throws IllegalStateException
+     */
     public Hash getHash() {
         if (__calculatedHash != null)
             return __calculatedHash;
         byte identBytes[];
         try {
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream(400);
             writeBytes(baos);
             identBytes = baos.toByteArray();
-        } catch (Throwable t) {
-            return null;
+        } catch (IOException ioe) {
+            throw new IllegalStateException("KAC hash error", ioe);
+        } catch (DataFormatException dfe) {
+            throw new IllegalStateException("KAC hash error", dfe);
         }
         __calculatedHash = SHA256Generator.getInstance().calculateHash(identBytes);
         return __calculatedHash;

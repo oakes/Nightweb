@@ -13,6 +13,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.Serializable;
 
 import net.i2p.I2PAppContext;
 import net.i2p.crypto.SHA256Generator;
@@ -23,7 +24,7 @@ import net.i2p.util.Log;
  *
  * @author jrandom
  */
-public abstract class DataStructureImpl implements DataStructure {
+public abstract class DataStructureImpl implements DataStructure, Serializable {
     
     public String toBase64() {
         byte data[] = toByteArray();
@@ -36,6 +37,7 @@ public abstract class DataStructureImpl implements DataStructure {
     public void fromBase64(String data) throws DataFormatException {
         if (data == null) throw new DataFormatException("Null data passed in");
         byte bytes[] = Base64.decode(data);
+        if (bytes == null) throw new DataFormatException("Bad Base64 \"" + data + '"');
         fromByteArray(bytes);
     }
 

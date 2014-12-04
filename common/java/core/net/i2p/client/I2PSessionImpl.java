@@ -51,7 +51,8 @@ import net.i2p.util.I2PSSLSocketFactory;
 import net.i2p.util.LHMCache;
 import net.i2p.util.Log;
 import net.i2p.util.OrderedProperties;
-import net.i2p.util.SimpleTimer;
+import net.i2p.util.SimpleTimer2;
+import net.i2p.util.SystemVersion;
 import net.i2p.util.VersionComparator;
 
 /**
@@ -67,7 +68,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     /** private key for decryption */
     private final PrivateKey _privateKey;
     /** private key for signing */
-    private final SigningPrivateKey _signingPrivateKey;
+    private   /* final */   SigningPrivateKey _signingPrivateKey;
     /** configuration options */
     private final Properties _options;
     /** this session's Id */
@@ -148,7 +149,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
      *  Since 0.9.11, key is either a Hash or a String
      *  @since 0.8.9
      */
-    private static final Map<Object, Destination> _lookupCache = new LHMCache<Object, Destination>(16);
+    private static final Map<Object, Destination> _lookupCache = new LHMCache<Object, Destination>(64);
     private static final String MIN_HOST_LOOKUP_VERSION = "0.9.11";
     private static final boolean TEST_LOOKUP = false;
 
@@ -156,6 +157,12 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     protected static final String PROP_ENABLE_SSL = "i2cp.SSL";
     protected static final String PROP_USER = "i2cp.username";
     protected static final String PROP_PW = "i2cp.password";
+
+    /**
+     * Use Unix domain socket (or similar) to connect to a router
+     * @since 0.9.14
+     */
+    protected static final String PROP_DOMAIN_SOCKET = "i2cp.domainSocket";
 
     private static final long VERIFY_USAGE_TIME = 60*1000;
 
@@ -279,6 +286,10 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         if (_context.isRouterContext())
             // just for logging
             return "[internal connection]";
+        else if (SystemVersion.isAndroid() &&
+                Boolean.parseBoolean(_options.getProperty(PROP_DOMAIN_SOCKET)))
+            // just for logging
+            return "[Domain socket connection]";
         return _options.getProperty(I2PClient.PROP_TCP_HOST, "127.0.0.1");
     }
 
@@ -287,7 +298,9 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
      * @since 0.9.7 was in loadConfig()
      */
     private int getPort() {
-        if (_context.isRouterContext())
+        if (_context.isRouterContext() ||
+                (SystemVersion.isAndroid() &&
+                        Boolean.parseBoolean(_options.getProperty(PROP_DOMAIN_SOCKET))))
             // just for logging
             return 0;
         String portNum = _options.getProperty(I2PClient.PROP_TCP_PORT, LISTEN_PORT + "");
@@ -390,6 +403,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     private void readDestination(InputStream destKeyStream) throws DataFormatException, IOException {
         _myDestination.readBytes(destKeyStream);
         _privateKey.readBytes(destKeyStream);
+        _signingPrivateKey = new SigningPrivateKey(_myDestination.getSigningPublicKey().getType());
         _signingPrivateKey.readBytes(destKeyStream);
     }
 
@@ -446,7 +460,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         try {
             // protect w/ closeSocket()
             synchronized(_stateLock) {
-                // If we are in the router JVM, connect using the interal queue
+                // If we are in the router JVM, connect using the internal queue
                 if (_context.isRouterContext()) {
                     // _socket and _writer remain null
                     InternalClientManager mgr = _context.internalClientManager();
@@ -456,7 +470,11 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
                     _queue = mgr.connect();
                     _reader = new QueuedI2CPMessageReader(_queue, this);
                 } else {
-                    if (Boolean.parseBoolean(_options.getProperty(PROP_ENABLE_SSL))) {
+                    if (SystemVersion.isAndroid() &&
+                            Boolean.parseBoolean(_options.getProperty(PROP_DOMAIN_SOCKET))) {
+                        final DomainSocketFactory fact = new DomainSocketFactory(_context);
+                        _socket = fact.createSocket(DomainSocketFactory.I2CP_SOCKET_ADDRESS);
+                    } else if (Boolean.parseBoolean(_options.getProperty(PROP_ENABLE_SSL))) {
                         try {
                             I2PSSLSocketFactory fact = new I2PSSLSocketFactory(_context, false, "certificates/i2cp");
                             _socket = fact.createSocket(_hostname, _portNum);
@@ -617,20 +635,24 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     }
 
     /**
-     *  Fire up a periodic task to check for unclamed messages
+     *  Fire up a periodic task to check for unclaimed messages
      *  @since 0.9.1
      */
-    private void startVerifyUsage() {
-        _context.simpleScheduler().addEvent(new VerifyUsage(), VERIFY_USAGE_TIME);
+    protected void startVerifyUsage() {
+        new VerifyUsage();
     }
 
     /**
      *  Check for unclaimed messages, without wastefully setting a timer for each
-     *  message. Just copy all unclaimed ones and check 30 seconds later.
+     *  message. Just copy all unclaimed ones and check some time later.
      */
-    private class VerifyUsage implements SimpleTimer.TimedEvent {
+    private class VerifyUsage extends SimpleTimer2.TimedEvent {
         private final List<Long> toCheck = new ArrayList<Long>();
         
+        public VerifyUsage() {
+             super(_context.simpleTimer2(), VERIFY_USAGE_TIME);
+        }
+
         public void timeReached() {
             if (isClosed())
                 return;
@@ -640,12 +662,12 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
                 for (Long msgId : toCheck) {
                     MessagePayloadMessage removed = _availableMessages.remove(msgId);
                     if (removed != null)
-                        _log.error("Message NOT removed!  id=" + msgId + ": " + removed);
+                        _log.error(getPrefix() + " Client not responding? Message not processed! id=" + msgId + ": " + removed);
                 }
                 toCheck.clear();
             }
             toCheck.addAll(_availableMessages.keySet());
-            _context.simpleScheduler().addEvent(this, VERIFY_USAGE_TIME);
+            schedule(VERIFY_USAGE_TIME);
         }
     }
 
@@ -877,6 +899,8 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
      * Close the socket carefully.
      */
     private void closeSocket() {
+        if (_log.shouldLog(Log.INFO))
+            _log.info(getPrefix() + "Closing the socket", new Exception("closeSocket"));
         synchronized(_stateLock) {
             changeState(State.CLOSING);
             locked_closeSocket();
@@ -889,7 +913,6 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
      * Caller must change state.
      */
     private void locked_closeSocket() {
-        if (_log.shouldLog(Log.INFO)) _log.info(getPrefix() + "Closing the socket", new Exception("closeSocket"));
         if (_reader != null) {
             _reader.stopReading();
             _reader = null;
@@ -1007,6 +1030,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     /**
      *  Called by the message handler
      *  on reception of DestReplyMessage
+     *  @param d non-null
      */
     void destReceived(Destination d) {
         Hash h = d.calculateHash();
@@ -1015,8 +1039,8 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         }
         for (LookupWaiter w : _pendingLookups) {
             if (h.equals(w.hash)) {
-                w.destination = d;
                 synchronized (w) {
+                    w.destination = d;
                     w.notifyAll();
                 }
             }
@@ -1026,6 +1050,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     /**
      *  Called by the message handler
      *  on reception of DestReplyMessage
+     *  @param h non-null
      */
     void destLookupFailed(Hash h) {
         for (LookupWaiter w : _pendingLookups) {
@@ -1040,21 +1065,21 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
     /**
      *  Called by the message handler
      *  on reception of HostReplyMessage
+     *  @param d non-null
      *  @since 0.9.11
      */
     void destReceived(long nonce, Destination d) {
-        // notify by hash
-        destReceived(d);
-        // notify by nonce
+        // notify by nonce and hash
+        Hash h = d.calculateHash();
         for (LookupWaiter w : _pendingLookups) {
-            if (nonce == w.nonce) {
-                w.destination = d;
-                if (w.name != null) {
-                    synchronized (_lookupCache) {
+            if (nonce == w.nonce || h.equals(w.hash)) {
+                synchronized (_lookupCache) {
+                    if (w.name != null)
                         _lookupCache.put(w.name, d);
-                    }
+                    _lookupCache.put(h, d);
                 }
                 synchronized (w) {
+                    w.destination = d;
                     w.notifyAll();
                 }
             }
@@ -1095,8 +1120,8 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         public final String name;
         /** the request (nonce mode) */
         public final long nonce;
-        /** the reply */
-        public volatile Destination destination;
+        /** the reply; synch on this */
+        public Destination destination;
 
         public LookupWaiter(Hash h) {
             this(h, -1);
@@ -1156,6 +1181,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
             waiter = new LookupWaiter(h);
         }
         _pendingLookups.offer(waiter);
+        Destination rv = null;
         try {
             if (_routerSupportsHostLookup) {
                 if (_log.shouldLog(Log.INFO))
@@ -1172,6 +1198,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
             try {
                 synchronized (waiter) {
                     waiter.wait(maxWait);
+                    rv = waiter.destination;
                 }
             } catch (InterruptedException ie) {
                 throw new I2PSessionException("Interrupted", ie);
@@ -1179,7 +1206,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         } finally {
             _pendingLookups.remove(waiter);
         }
-        return waiter.destination;
+        return rv;
     }
 
     /**
@@ -1247,6 +1274,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         int nonce = _lookupID.incrementAndGet() & 0x7fffffff;
         LookupWaiter waiter = new LookupWaiter(name, nonce);
         _pendingLookups.offer(waiter);
+        Destination rv = null;
         try {
             if (_log.shouldLog(Log.INFO))
                 _log.info("Sending HostLookup for " + name);
@@ -1257,6 +1285,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
             try {
                 synchronized (waiter) {
                     waiter.wait(maxWait);
+                    rv = waiter.destination;
                 }
             } catch (InterruptedException ie) {
                 throw new I2PSessionException("Interrupted", ie);
@@ -1264,7 +1293,7 @@ abstract class I2PSessionImpl implements I2PSession, I2CPMessageReader.I2CPMessa
         } finally {
             _pendingLookups.remove(waiter);
         }
-        return waiter.destination;
+        return rv;
     }
 
     /**

@@ -147,7 +147,7 @@ public class WorkingDir {
         // Check for a router.keys file or logs dir, if either exists it's an old install,
         // and only migrate the data files if told to do so
         // (router.keys could be deleted later by a killkeys())
-        test = new File(oldDirf, "router.keys");
+        test = new File(oldDirf, CreateRouterInfoJob.KEYS_FILENAME);
         boolean oldInstall = test.exists();
         if (!oldInstall) {
             test = new File(oldDirf, "logs");
@@ -271,11 +271,13 @@ public class WorkingDir {
         // We don't currently have a default addressbook/ in the base distribution,
         // but distros might put one in
         "addressbook,eepsite," +
+        // 0.9.15 support bundled router infos
+        "netDb," +
         // base install - files
-        // We don't currently have a default router.config, logger.config, or webapps.config in the base distribution,
+        // We don't currently have a default router.config, logger.config, susimail.config, or webapps.config in the base distribution,
         // but distros might put one in
         "blocklist.txt,hosts.txt,i2psnark.config,i2ptunnel.config,jetty-i2psnark.xml," +
-        "logger.config,router.config,systray.config,webapps.config";
+        "logger.config,router.config,susimail.config,systray.config,webapps.config";
 
     private static boolean migrate(String list, File olddir, File todir) {
         boolean rv = true;

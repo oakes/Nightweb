@@ -57,6 +57,13 @@ public interface I2PSocketManager {
      */
     public I2PSocketOptions getDefaultOptions();
 
+    /**
+     *  Returns non-null socket.
+     *  This method does not throw exceptions, but methods on the returned socket
+     *  may throw exceptions if the socket or socket manager is closed.
+     *
+     *  @return non-null
+     */
     public I2PServerSocket getServerSocket();
     
     /**
@@ -126,11 +133,30 @@ public interface I2PSocketManager {
      * Ping the specified peer, returning true if they replied to the ping within 
      * the timeout specified, false otherwise.  This call blocks.
      *
+     * Uses the ports from the default options.
+     *
      * @param peer Destination to ping
-     * @param timeoutMs timeout in ms
+     * @param timeoutMs timeout in ms, greater than zero
+     * @throws IllegalArgumentException
      * @return success or failure
      */
     public boolean ping(Destination peer, long timeoutMs);
+
+    /**
+     * Ping the specified peer, returning true if they replied to the ping within 
+     * the timeout specified, false otherwise.  This call blocks.
+     *
+     * Uses the ports specified.
+     *
+     * @param peer Destination to ping
+     * @param localPort 0 - 65535
+     * @param remotePort 0 - 65535
+     * @param timeoutMs timeout in ms, greater than zero
+     * @return success or failure
+     * @throws IllegalArgumentException
+     * @since 0.9.12
+     */
+    public boolean ping(Destination peer, int localPort, int remotePort, long timeoutMs);
 
     public String getName();
     public void setName(String name);

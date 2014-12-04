@@ -106,7 +106,7 @@ class PeerState {
      * an ACK for.  We keep a few of these around to retransmit with _currentACKs,
      * hopefully saving some spurious retransmissions
      */
-    private final Queue<Long> _currentACKsResend;
+    private final Queue<ResendACK> _currentACKsResend;
 
     /** when did we last send ACKs to the peer? */
     private volatile long _lastACKSend;
@@ -242,6 +242,9 @@ class PeerState {
     private static final int MINIMUM_WINDOW_BYTES = DEFAULT_SEND_WINDOW_BYTES;
     private static final int MAX_SEND_WINDOW_BYTES = 1024*1024;
 
+    /** max number of msgs returned from allocateSend() */
+    private static final int MAX_ALLOCATE_SEND = 2;
+
     /**
      *  Was 32 before 0.9.2, but since the streaming lib goes up to 128,
      *  we would just drop our own msgs right away during slow start.
@@ -303,6 +306,22 @@ class PeerState {
     private static final int MAX_RTO = 15*1000;
     private static final int CLOCK_SKEW_FUDGE = (ACKSender.ACK_FREQUENCY * 2) / 3;
     
+    /**
+     *  The max number of acks we save to send as duplicates
+     */
+    private static final int MAX_RESEND_ACKS = 64;
+    /**
+     *  The max number of duplicate acks sent in each ack-only messge.
+     *  Doesn't really matter, we have plenty of room...
+     *  @since 0.7.13
+     */
+    private static final int MAX_RESEND_ACKS_LARGE = MAX_RESEND_ACKS / 3;
+    /** for small MTU */
+    private static final int MAX_RESEND_ACKS_SMALL = MAX_RESEND_ACKS / 5;
+
+    private static final long RESEND_ACK_TIMEOUT = 5*60*1000;
+
+    
     public PeerState(RouterContext ctx, UDPTransport transport,
                      byte[] remoteIP, int remotePort, Hash remotePeer, boolean isInbound) {
         _context = ctx;
@@ -314,7 +333,7 @@ class PeerState {
         _lastSendTime = now;
         _lastReceiveTime = now;
         _currentACKs = new ConcurrentHashSet<Long>();
-        _currentACKsResend = new LinkedBlockingQueue<Long>();
+        _currentACKsResend = new LinkedBlockingQueue<ResendACK>();
         _sendWindowBytes = DEFAULT_SEND_WINDOW_BYTES;
         _sendWindowBytesRemaining = DEFAULT_SEND_WINDOW_BYTES;
         _slowStartThreshold = MAX_SEND_WINDOW_BYTES/2;
@@ -874,10 +893,25 @@ class PeerState {
      * @since 0.8.12 was included in getCurrentFullACKs()
      */
     public List<Long> getCurrentResendACKs() {
-            List<Long> randomResends = new ArrayList<Long>(_currentACKsResend);
-            Collections.shuffle(randomResends, _context.random());
-            //if (_log.shouldLog(Log.DEBUG))
-            //    _log.debug("Returning " + randomResends.size() + " resend acks");
+            int sz = _currentACKsResend.size();
+            List<Long> randomResends = new ArrayList<Long>(sz);
+            if (sz > 0) {
+                long cutoff = _context.clock().now() - RESEND_ACK_TIMEOUT;
+                int i = 0;
+                for (Iterator<ResendACK> iter = _currentACKsResend.iterator(); iter.hasNext(); ) {
+                    ResendACK rack  = iter.next();
+                    if (rack.time > cutoff && i++ < MAX_RESEND_ACKS) {
+                        randomResends.add(rack.id);
+                    } else {
+                        iter.remove();
+                        if (_log.shouldLog(Log.INFO))
+                            _log.info("Expired ack " + rack.id + " sent " + (cutoff + RESEND_ACK_TIMEOUT - rack.time) +
+                                      " ago, now " + i + " resend acks");
+                    }
+                }
+                if (i > 1)
+                    Collections.shuffle(randomResends, _context.random());
+            }
             return randomResends;
     }
 
@@ -888,12 +922,10 @@ class PeerState {
     public void removeACKMessage(Long messageId) {
             boolean removed = _currentACKs.remove(messageId);
             if (removed) {
-                // only add if reoved from current, as this may be called for
+                // only add if removed from current, as this may be called for
                 // acks already in _currentACKsResend.
-                _currentACKsResend.offer(messageId);
-                // trim down the resends
-                while (_currentACKsResend.size() > MAX_RESEND_ACKS)
-                    _currentACKsResend.poll();
+                _currentACKsResend.offer(new ResendACK(messageId, _context.clock().now()));
+                // trim happens in getCurrentResendACKs above
                 if (_log.shouldLog(Log.INFO))
                     _log.info("Sent ack " + messageId + " now " + _currentACKs.size() + " current and " +
                               _currentACKsResend.size() + " resend acks");
@@ -901,19 +933,6 @@ class PeerState {
             // should we only do this if removed?
             _lastACKSend = _context.clock().now();
     }
-    
-    /**
-     *  The max number of acks we save to send as duplicates
-     */
-    private static final int MAX_RESEND_ACKS = 64;
-    /**
-     *  The max number of duplicate acks sent in each ack-only messge.
-     *  Doesn't really matter, we have plenty of room...
-     *  @since 0.7.13
-     */
-    private static final int MAX_RESEND_ACKS_LARGE = MAX_RESEND_ACKS / 3;
-    /** for small MTU */
-    private static final int MAX_RESEND_ACKS_SMALL = MAX_RESEND_ACKS / 5;
     
     /** 
      * grab a list of ACKBitfield instances, some of which may fully 
@@ -967,13 +986,11 @@ class PeerState {
             if (_currentACKs.isEmpty())
                 _wantACKSendSince = -1;
             if (alwaysIncludeRetransmissions || !rv.isEmpty()) {
-                List<Long> randomResends = new ArrayList<Long>(_currentACKsResend);
+                List<Long> randomResends = getCurrentResendACKs();
                 // now repeat by putting in some old ACKs
                 // randomly selected from the Resend queue.
                 // Maybe we should only resend each one a certain number of times...
                 int oldIndex = Math.min(resendSize, maxResendAcks);
-                if (oldIndex > 0 && oldIndex < resendSize)
-                    Collections.shuffle(randomResends, _context.random());
                 iter = randomResends.iterator();
                 while (bytesRemaining >= 4 && oldIndex-- > 0 && iter.hasNext()) {
                     Long cur = iter.next();
@@ -988,13 +1005,18 @@ class PeerState {
                         bytesRemaining -= 4;
                     //}
                 }
-                for (Long val : currentACKsRemoved) {
-                    _currentACKsResend.offer(val);
+                if (!currentACKsRemoved.isEmpty()) {
+                    long now = _context.clock().now();
+                    for (Long val : currentACKsRemoved) {
+                        _currentACKsResend.offer(new ResendACK(val, now));
+                    }
+                    // trim happens in getCurrentResendACKs above
                 }
             }
-            // trim down the resends
-            while (_currentACKsResend.size() > MAX_RESEND_ACKS)
-                _currentACKsResend.poll();
+
+
+
+
 
         int partialIncluded = 0;
         if (bytesRemaining > 4) {
@@ -1032,7 +1054,7 @@ class PeerState {
      *            no full bitfields are included.
      */
     void fetchPartialACKs(List<ACKBitfield> rv) {
-        InboundMessageState states[] = null;
+        List<InboundMessageState> states = null;
         int curState = 0;
         synchronized (_inboundMessages) {
             int numMessages = _inboundMessages.size();
@@ -1049,17 +1071,17 @@ class PeerState {
                 } else {
                     if (!state.isComplete()) {
                         if (states == null)
-                            states = new InboundMessageState[numMessages];
-                        states[curState++] = state;
+                            states = new ArrayList<InboundMessageState>(numMessages);
+                        states.add(state);
                     }
                 }
             }
         }
         if (states != null) {
-            // _inboundMessages is a Map (unordered), so why bother going backwards?
-            for (int i = curState-1; i >= 0; i--) {
-                if (states[i] != null)
-                    rv.add(states[i].createACKBitfield());
+            for (InboundMessageState ims : states) {
+                ACKBitfield abf = ims.createACKBitfield();
+                if (!abf.receivedComplete())
+                    rv.add(abf);
             }
         }
     }
@@ -1072,7 +1094,9 @@ class PeerState {
 
         public FullACKBitfield(long id) { _msgId = id; }
 
-        public int fragmentCount() { return 0; }
+        public int fragmentCount() { return 1; }
+        public int ackCount() { return 1; }
+        public int highestReceived() { return 0; }
         public long getMessageId() { return _msgId; }
         public boolean received(int fragmentNum) { return true; }
         public boolean receivedComplete() { return true; }
@@ -1084,7 +1108,7 @@ class PeerState {
             return _msgId == ((ACKBitfield)o).getMessageId();
         }
         @Override
-        public String toString() { return "Full ACK of " + _msgId; }
+        public String toString() { return "Full ACK " + _msgId; }
     }
         
     /**
@@ -1538,7 +1562,6 @@ class PeerState {
         for (int i = 0; succeeded != null && i < succeeded.size(); i++) {
             OutboundMessageState state = succeeded.get(i);
             _transport.succeeded(state);
-            state.releaseResources();
             OutNetMessage msg = state.getMessage();
             if (msg != null)
                 msg.timestamp("sending complete");
@@ -1556,22 +1579,22 @@ class PeerState {
                 if (_log.shouldLog(Log.WARN))
                     _log.warn("Unable to send a direct message: " + state);
             }
-            state.releaseResources();
         }
         
         return rv + _outboundQueue.size();
     }
     
     /**
-     * Pick a message we want to send and allocate it out of our window
+     * Pick one or more messages we want to send and allocate them out of our window
      * High usage -
      * OutboundMessageFragments.getNextVolley() calls this 2nd, if finishMessages() returned > 0.
      * TODO combine finishMessages(), allocateSend(), and getNextDelay() so we don't iterate 3 times.
      *
-     * @return allocated message to send, or null if no messages or no resources
+     * @return allocated messages to send (never empty), or null if no messages or no resources
      */
-    public OutboundMessageState allocateSend() {
+    public List<OutboundMessageState> allocateSend() {
         if (_dead) return null;
+        List<OutboundMessageState> rv = null;
         synchronized (_outboundMessages) {
             for (OutboundMessageState state : _outboundMessages) {
                 // We have 3 return values, because if allocateSendingBytes() returns false,
@@ -1588,44 +1611,54 @@ class PeerState {
                             msg.timestamp("not reached for allocation " + msgs.size() + " other peers");
                     }
                      */
-                    return state;
+                    if (rv == null)
+                        rv = new ArrayList<OutboundMessageState>(MAX_ALLOCATE_SEND);
+                    rv.add(state);
+                    if (rv.size() >= MAX_ALLOCATE_SEND)
+                        return rv;
                 } else if (should == ShouldSend.NO_BW) {
                     // no more bandwidth available
                     // we don't bother looking for a smaller msg that would fit.
                     // By not looking further, we keep strict sending order, and that allows
                     // some efficiency in acked() below.
-                    if (_log.shouldLog(Log.DEBUG))
+                    if (rv == null && _log.shouldLog(Log.DEBUG))
                         _log.debug("Nothing to send (BW) to " + _remotePeer + ", with " + _outboundMessages.size() +
                                    " / " + _outboundQueue.size() + " remaining");
-                    return null;
+                    return rv;
                 } /* else {
                     OutNetMessage msg = state.getMessage();
                     if (msg != null)
                         msg.timestamp("passed over for allocation with " + msgs.size() + " peers");
                 } */
             }
+
             // Peek at head of _outboundQueue and see if we can send it.
             // If so, pull it off, put it in _outbundMessages, test
             // again for bandwidth if necessary, and return it.
-            OutboundMessageState state = _outboundQueue.peek();
-            if (state != null && ShouldSend.YES == locked_shouldSend(state)) {
+            OutboundMessageState state;
+            while ((state = _outboundQueue.peek()) != null &&
+                   ShouldSend.YES == locked_shouldSend(state)) {
                 // we could get a different state, or null, when we poll,
                 // due to AQM drops, so we test again if necessary
                 OutboundMessageState dequeuedState = _outboundQueue.poll();
                 if (dequeuedState != null) {
                     _outboundMessages.add(dequeuedState);
-                    if (dequeuedState == state || ShouldSend.YES == locked_shouldSend(dequeuedState)) {
+                    if (dequeuedState == state || ShouldSend.YES == locked_shouldSend(state)) {
                         if (_log.shouldLog(Log.DEBUG))
                             _log.debug("Allocate sending (NEW) to " + _remotePeer + ": " + dequeuedState.getMessageId());
-                        return dequeuedState;
+                        if (rv == null)
+                            rv = new ArrayList<OutboundMessageState>(MAX_ALLOCATE_SEND);
+                        rv.add(state);
+                        if (rv.size() >= MAX_ALLOCATE_SEND)
+                            return rv;
                     }
                 }
             }
         }
-        if (_log.shouldLog(Log.DEBUG))
+        if ( rv == null && _log.shouldLog(Log.DEBUG))
             _log.debug("Nothing to send to " + _remotePeer + ", with " + _outboundMessages.size() +
                        " / " + _outboundQueue.size() + " remaining");
-        return null;
+        return rv;
     }
     
     /**
@@ -1694,9 +1727,9 @@ class PeerState {
      *  how much payload data can we shove in there?
      *  @return MTU - 87, i.e. 533 or 1397 (IPv4), MTU - 107 (IPv6)
      */
-    private int fragmentSize() {
+    public int fragmentSize() {
         // 46 + 20 + 8 + 13 = 74 + 13 = 87 (IPv4)
-        // 46 + 40 + 8 + 13 = 74 + 13 = 107 (IPv6)
+        // 46 + 40 + 8 + 13 = 94 + 13 = 107 (IPv6)
         return _mtu -
                (_remoteIP.length == 4 ? PacketBuilder.MIN_DATA_PACKET_OVERHEAD : PacketBuilder.MIN_IPV6_DATA_PACKET_OVERHEAD) -
                MIN_ACK_SIZE;
@@ -1713,16 +1746,6 @@ class PeerState {
     private ShouldSend locked_shouldSend(OutboundMessageState state) {
         long now = _context.clock().now();
         if (state.getNextSendTime() <= now) {
-            if (!state.isFragmented()) {
-                state.fragment(fragmentSize());
-                if (state.getMessage() != null)
-                    state.getMessage().timestamp("fragment into " + state.getFragmentCount());
-
-                if (_log.shouldLog(Log.INFO))
-                    _log.info("Fragmenting " + state);
-            }
-
-            
             OutboundMessageState retrans = _retransmitter;
             if ( (retrans != null) && ( (retrans.isExpired() || retrans.isComplete()) ) ) {
                 _retransmitter = null;
@@ -1844,7 +1867,6 @@ class PeerState {
             //if (getSendWindowBytesRemaining() > 0)
             //    _throttle.unchoke(peer.getRemotePeer());
             
-            state.releaseResources();
         } else {
             // dupack, likely
             //if (_log.shouldLog(Log.DEBUG))
@@ -1894,12 +1916,7 @@ class PeerState {
         if (state != null) {
             int numSends = state.getMaxSends();
                         
-            int bits = bitfield.fragmentCount();
-            int numACKed = 0;
-            for (int i = 0; i < bits; i++)
-                if (bitfield.received(i))
-                    numACKed++;
-            
+            int numACKed = bitfield.ackCount();
             _context.statManager().addRateData("udp.partialACKReceived", numACKed);
             
             if (_log.shouldLog(Log.INFO))
@@ -1921,7 +1938,6 @@ class PeerState {
                 //if (state.getPeer().getSendWindowBytesRemaining() > 0)
                 //    _throttle.unchoke(state.getPeer().getRemotePeer());
 
-                state.releaseResources();
             } else {
                 //if (state.getMessage() != null)
                 //    state.getMessage().timestamp("partial ack after " + numSends + ": " + bitfield.toString());
@@ -1959,13 +1975,13 @@ class PeerState {
         if (!_dead) {
             _currentACKs.addAll(tmp);
 	}
-        tmp.clear();
         
-        tmp.addAll(oldPeer._currentACKsResend);
+        List<ResendACK> tmp3 = new ArrayList<ResendACK>();
+        tmp3.addAll(oldPeer._currentACKsResend);
         oldPeer._currentACKsResend.clear();
 
         if (!_dead) {
-            _currentACKsResend.addAll(tmp);
+            _currentACKsResend.addAll(tmp3);
 	}
         
         Map<Long, InboundMessageState> msgs = new HashMap<Long, InboundMessageState>();
@@ -2000,6 +2016,20 @@ class PeerState {
      */
     public UDPTransport getTransport() {
         return _transport;
+    }
+
+    /**
+     *  A message ID and a timestamp. Used for the resend ACKS.
+     *  @since 0.9.17
+     */
+    private static class ResendACK {
+        public final Long id;
+        public final long time;
+
+        public ResendACK(Long id, long time) {
+            this.id = id;
+            this.time = time;
+        }
     }
 
     // why removed? Some risk of dups in OutboundMessageFragments._activePeers ???

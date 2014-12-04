@@ -1,6 +1,7 @@
 package net.i2p.client.streaming.impl;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.NoRouteToHostException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -121,40 +122,60 @@ public class I2PSocketManagerFull implements I2PSocketManager {
     }
 
     /**
+     * The accept() call.
      * 
-     * @return connected I2PSocket OR NULL
-     * @throws net.i2p.I2PException
-     * @throws java.net.SocketTimeoutException
+     * @return connected I2PSocket, or null through 0.9.16, non-null as of 0.9.17
+     * @throws I2PException if session is closed
+     * @throws ConnectException (since 0.9.17; I2PServerSocket interface always declared it)
+     * @throws SocketTimeoutException if a timeout was previously set with setSoTimeout and the timeout has been reached.
      */
-    public I2PSocket receiveSocket() throws I2PException, SocketTimeoutException {
+    public I2PSocket receiveSocket() throws I2PException, ConnectException, SocketTimeoutException {
         verifySession();
         Connection con = _connectionManager.getConnectionHandler().accept(_connectionManager.getSoTimeout());
-        if(_log.shouldLog(Log.DEBUG)) {
-            _log.debug("receiveSocket() called: " + con);
-        }
-        if (con != null) {
-            I2PSocketFull sock = new I2PSocketFull(con,_context);
-            con.setSocket(sock);
-            return sock;
-        } else { 
-            if(_connectionManager.getSoTimeout() == -1) {
-                return null;
-            }
-            throw new SocketTimeoutException("I2PSocket timed out");
-        }
+        I2PSocketFull sock = new I2PSocketFull(con, _context);
+        con.setSocket(sock);
+        return sock;
     }
     
     /**
      * Ping the specified peer, returning true if they replied to the ping within 
      * the timeout specified, false otherwise.  This call blocks.
      *
+     * Uses the ports from the default options.
      * 
      * @param peer
-     * @param timeoutMs
+     * @param timeoutMs timeout in ms, greater than zero
      * @return true on success, false on failure
+     * @throws IllegalArgumentException
      */
     public boolean ping(Destination peer, long timeoutMs) {
-        return _connectionManager.ping(peer, timeoutMs);
+        if (timeoutMs <= 0)
+            throw new IllegalArgumentException("bad timeout");
+        return _connectionManager.ping(peer, _defaultOptions.getLocalPort(),
+                                       _defaultOptions.getPort(), timeoutMs);
+    }
+
+    /**
+     * Ping the specified peer, returning true if they replied to the ping within 
+     * the timeout specified, false otherwise.  This call blocks.
+     *
+     * Uses the ports specified.
+     *
+     * @param peer Destination to ping
+     * @param localPort 0 - 65535
+     * @param remotePort 0 - 65535
+     * @param timeoutMs timeout in ms, greater than zero
+     * @return success or failure
+     * @throws IllegalArgumentException
+     * @since 0.9.12
+     */
+    public boolean ping(Destination peer, int localPort, int remotePort, long timeoutMs) {
+        if (localPort < 0 || localPort > 65535 ||
+            remotePort < 0 || remotePort > 65535)
+            throw new IllegalArgumentException("bad port");
+        if (timeoutMs <= 0)
+            throw new IllegalArgumentException("bad timeout");
+        return _connectionManager.ping(peer, localPort, remotePort, timeoutMs);
     }
 
     /**
@@ -189,6 +210,13 @@ public class I2PSocketManagerFull implements I2PSocketManager {
         return _defaultOptions;
     }
 
+    /**
+     *  Returns non-null socket.
+     *  This method does not throw exceptions, but methods on the returned socket
+     *  may throw exceptions if the socket or socket manager is closed.
+     *
+     *  @return non-null
+     */
     public I2PServerSocket getServerSocket() {
         _connectionManager.setAllowIncomingConnections(true);
         return _serverSocket;

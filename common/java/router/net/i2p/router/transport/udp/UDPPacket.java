@@ -7,8 +7,10 @@ import java.util.Queue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 import net.i2p.I2PAppContext;
+import net.i2p.data.Base64;
 import net.i2p.data.DataHelper;
 import net.i2p.data.SessionKey;
+import net.i2p.router.RouterContext;
 import net.i2p.router.util.CDQEntry;
 import net.i2p.util.Addresses;
 import net.i2p.util.Log;
@@ -164,7 +166,11 @@ class UDPPacket implements CDQEntry {
     int getMessageType() { return _messageType; }
     /** only for debugging and stats, does not go on the wire */
     void setMessageType(int type) { _messageType = type; }
+
+    /** only for debugging and stats */
     int getFragmentCount() { return _fragmentCount; }
+
+    /** only for debugging and stats */
     void setFragmentCount(int count) { _fragmentCount = count; }
 
     RemoteHostId getRemoteHost() {
@@ -206,24 +212,32 @@ class UDPPacket implements CDQEntry {
             off += 2;
 
             eq = _context.hmac().verify(macKey, _validateBuf, 0, off, _data, _packet.getOffset(), MAC_SIZE);
-            /*
-            Hash hmac = _context.hmac().calculate(macKey, buf.getData(), 0, off);
 
-            if (_log.shouldLog(Log.DEBUG)) {
-                StringBuilder str = new StringBuilder(128);
-                str.append(_packet.getLength()).append(" byte packet received, payload length ");
-                str.append(payloadLength);
-                str.append("\nIV: ").append(Base64.encode(buf.getData(), payloadLength, IV_SIZE));
-                str.append("\nIV2: ").append(Base64.encode(_data, MAC_SIZE, IV_SIZE));
-                str.append("\nlen: ").append(DataHelper.fromLong(buf.getData(), payloadLength + IV_SIZE, 2));
-                str.append("\nMAC key: ").append(macKey.toBase64());
-                str.append("\ncalc HMAC: ").append(Base64.encode(hmac.getData()));
-                str.append("\nread HMAC: ").append(Base64.encode(_data, _packet.getOffset(), MAC_SIZE));
-                str.append("\nraw: ").append(Base64.encode(_data, _packet.getOffset(), _packet.getLength()));
-                _log.debug(str.toString());
+            if (!eq) {
+                // this is relatively frequent, as you can get old keys in PacketHandler.
+                Log log = _context.logManager().getLog(UDPPacket.class);
+                if (log.shouldLog(Log.INFO)) {
+                    byte[] calc = new byte[32];
+                    _context.hmac().calculate(macKey, _validateBuf, 0, off, calc, 0);
+                    StringBuilder str = new StringBuilder(512);
+                    str.append("Bad HMAC:\n\t");
+                    str.append(_packet.getLength()).append(" byte pkt, ");
+                    str.append(payloadLength).append(" byte payload");
+                    str.append("\n\tFrom: ").append(getRemoteHost().toString());
+                    str.append("\n\tIV:   ").append(Base64.encode(_validateBuf, payloadLength, IV_SIZE));
+                    str.append("\n\tIV2:  ").append(Base64.encode(_data, MAC_SIZE, IV_SIZE));
+                    str.append("\n\tGiven Len: ").append(DataHelper.fromLong(_validateBuf, payloadLength + IV_SIZE, 2));
+                    str.append("\n\tCalc HMAC: ").append(Base64.encode(calc, 0, MAC_SIZE));
+                    str.append("\n\tRead HMAC: ").append(Base64.encode(_data, _packet.getOffset(), MAC_SIZE));
+                    str.append("\n\tUsing key: ").append(macKey.toBase64());
+                    if (DataHelper.eq(macKey.getData(), 0, ((RouterContext)_context).routerHash().getData(), 0, 32))
+                        str.append(" (Intro)");
+                    else
+                        str.append(" (Session)");
+                    str.append("\n\tRaw:       ").append(Base64.encode(_data, _packet.getOffset(), _packet.getLength()));
+                    log.info(str.toString(), new Exception());
+                }
             }
-            eq = DataHelper.eq(hmac.getData(), 0, _data, _packet.getOffset(), MAC_SIZE);
-             */
         } else {
             //if (_log.shouldLog(Log.WARN))
             //    _log.warn("Payload length is " + payloadLength);
@@ -309,9 +323,9 @@ class UDPPacket implements CDQEntry {
         if (_fragmentCount > 0)
             buf.append(" fragCount=").append(_fragmentCount);
 
-        if (_enqueueTime >= 0)
+        if (_enqueueTime > 0)
             buf.append(" sinceEnqueued=").append(_context.clock().now() - _enqueueTime);
-        if (_receivedTime >= 0)
+        if (_receivedTime > 0)
             buf.append(" sinceReceived=").append(_context.clock().now() - _receivedTime);
         //buf.append(" beforeReceiveFragments=").append((_beforeReceiveFragments > 0 ? _context.clock().now()-_beforeReceiveFragments : -1));
         //buf.append(" sinceHandled=").append((_afterHandlingTime > 0 ? _context.clock().now()-_afterHandlingTime : -1));

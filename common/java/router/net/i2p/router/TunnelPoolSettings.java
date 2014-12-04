@@ -4,6 +4,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 
+import net.i2p.data.Base64;
 import net.i2p.data.Hash;
 import net.i2p.util.NativeBigInteger;
 import net.i2p.util.RandomSource;
@@ -28,7 +29,7 @@ public class TunnelPoolSettings {
     private boolean _allowZeroHop;
     private int _IPRestriction;
     private final Properties _unknownOptions;
-    private final Hash _randomKey;
+    private Hash _randomKey;
     private int _priority;
     
     /** prefix used to override the router's defaults for clients */
@@ -51,6 +52,8 @@ public class TunnelPoolSettings {
     public static final String  PROP_ALLOW_ZERO_HOP = "allowZeroHop";
     public static final String  PROP_IP_RESTRICTION = "IPRestriction";
     public static final String  PROP_PRIORITY = "priority";
+    /** @since 0.9.17 */
+    public static final String  PROP_RANDOM_KEY = "randomKey";
     
     public static final int     DEFAULT_QUANTITY = 2;
     public static final int     DEFAULT_BACKUP_QUANTITY = 0;
@@ -69,8 +72,10 @@ public class TunnelPoolSettings {
     private static final int    DEFAULT_LENGTH_VARIANCE = 0;
     /** expl only */
     private static final int    DEFAULT_IB_EXPL_LENGTH = 2;
+    //private static final int    DEFAULT_OB_EXPL_LENGTH = isSlow ? 2 : 3;
     private static final int    DEFAULT_OB_EXPL_LENGTH = 2;
     private static final int    DEFAULT_IB_EXPL_LENGTH_VARIANCE = isSlow ? 0 : 1;
+    //private static final int    DEFAULT_OB_EXPL_LENGTH_VARIANCE = 0;
     private static final int    DEFAULT_OB_EXPL_LENGTH_VARIANCE = isSlow ? 0 : 1;
 
     public static final boolean DEFAULT_ALLOW_ZERO_HOP = true;
@@ -79,23 +84,33 @@ public class TunnelPoolSettings {
     private static final int MAX_PRIORITY = 25;
     private static final int EXPLORATORY_PRIORITY = 30;
     
-    public TunnelPoolSettings(Hash dest, boolean isExploratory, boolean isInbound) {
+    /**
+     *  Exploratory tunnel
+     */
+    public TunnelPoolSettings(boolean isInbound) {
+        this(null, isInbound);
+    }
+
+    /**
+     *  Client tunnel unless dest == null
+     */
+    public TunnelPoolSettings(Hash dest, boolean isInbound) {
         _destination = dest;
-        _isExploratory = isExploratory;
+        _isExploratory = dest == null;
         _isInbound = isInbound;
         _quantity = DEFAULT_QUANTITY;
         _backupQuantity = DEFAULT_BACKUP_QUANTITY;
         // _rebuildPeriod = DEFAULT_REBUILD_PERIOD;
         //_duration = DEFAULT_DURATION;
         if (isInbound) {
-            _length = isExploratory ? DEFAULT_IB_EXPL_LENGTH : DEFAULT_IB_LENGTH;
-            _lengthVariance = isExploratory ? DEFAULT_IB_EXPL_LENGTH_VARIANCE : DEFAULT_LENGTH_VARIANCE;
+            _length = _isExploratory ? DEFAULT_IB_EXPL_LENGTH : DEFAULT_IB_LENGTH;
+            _lengthVariance = _isExploratory ? DEFAULT_IB_EXPL_LENGTH_VARIANCE : DEFAULT_LENGTH_VARIANCE;
         } else {
-            _length = isExploratory ? DEFAULT_OB_EXPL_LENGTH : DEFAULT_OB_LENGTH;
-            _lengthVariance = isExploratory ? DEFAULT_OB_EXPL_LENGTH_VARIANCE : DEFAULT_LENGTH_VARIANCE;
+            _length = _isExploratory ? DEFAULT_OB_EXPL_LENGTH : DEFAULT_OB_LENGTH;
+            _lengthVariance = _isExploratory ? DEFAULT_OB_EXPL_LENGTH_VARIANCE : DEFAULT_LENGTH_VARIANCE;
         }
         _lengthOverride = -1;
-        if (isExploratory)
+        if (_isExploratory)
             _allowZeroHop = true;
         else
             _allowZeroHop = DEFAULT_ALLOW_ZERO_HOP;
@@ -189,10 +204,14 @@ public class TunnelPoolSettings {
     //public int getDuration() { return _duration; }
     //public void setDuration(int ms) { _duration = ms; }
     
-    /** what destination is this a tunnel for (or null if none) */
+    /** what destination is this a client tunnel for (or null if exploratory) */
     public Hash getDestination() { return _destination; }
 
-    /** random key used for peer ordering */
+    /**
+     *  random key used for peer ordering
+     *
+     *  @return non-null
+     */
     public Hash getRandomKey() { return _randomKey; }
 
     /** what user supplied name was given to the client connected (can be null) */
@@ -225,9 +244,10 @@ public class TunnelPoolSettings {
             String name = (String) e.getKey();
             String value = (String) e.getValue();
             if (name.startsWith(prefix)) {
-                if (name.equalsIgnoreCase(prefix + PROP_ALLOW_ZERO_HOP))
-                    _allowZeroHop = getBoolean(value, DEFAULT_ALLOW_ZERO_HOP);
-                else if (name.equalsIgnoreCase(prefix + PROP_BACKUP_QUANTITY))
+                if (name.equalsIgnoreCase(prefix + PROP_ALLOW_ZERO_HOP)) {
+                    if (!_isExploratory)
+                        _allowZeroHop = getBoolean(value, DEFAULT_ALLOW_ZERO_HOP);
+                } else if (name.equalsIgnoreCase(prefix + PROP_BACKUP_QUANTITY))
                     _backupQuantity = getInt(value, DEFAULT_BACKUP_QUANTITY);
                 //else if (name.equalsIgnoreCase(prefix + PROP_DURATION))
                 //    _duration = getInt(value, DEFAULT_DURATION);
@@ -253,6 +273,10 @@ public class TunnelPoolSettings {
                      int def = _isExploratory ? EXPLORATORY_PRIORITY : 0;
                      int max = _isExploratory ? EXPLORATORY_PRIORITY : MAX_PRIORITY;
                     _priority = Math.min(max, Math.max(MIN_PRIORITY, getInt(value, def)));
+                } else if (name.equalsIgnoreCase(prefix + PROP_RANDOM_KEY)) {
+                    byte[] rk = Base64.decode(value);
+                    if (rk != null && rk.length == Hash.HASH_LENGTH)
+                        _randomKey = new Hash(rk);
                 } else
                     _unknownOptions.setProperty(name.substring(prefix.length()), value);
             }

@@ -11,8 +11,11 @@ package net.i2p.router.client;
 import java.util.Properties;
 
 import net.i2p.CoreVersion;
+import net.i2p.crypto.SigType;
+import net.i2p.data.Destination;
 import net.i2p.data.Hash;
 import net.i2p.data.Payload;
+import net.i2p.data.PublicKey;
 import net.i2p.data.i2cp.BandwidthLimitsMessage;
 import net.i2p.data.i2cp.CreateLeaseSetMessage;
 import net.i2p.data.i2cp.CreateSessionMessage;
@@ -36,6 +39,7 @@ import net.i2p.data.i2cp.SessionId;
 import net.i2p.data.i2cp.SessionStatusMessage;
 import net.i2p.data.i2cp.SetDateMessage;
 import net.i2p.router.ClientTunnelSettings;
+import net.i2p.router.LeaseSetKeys;
 import net.i2p.router.RouterContext;
 import net.i2p.util.Log;
 import net.i2p.util.PasswordManager;
@@ -80,8 +84,8 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
             _log.debug("Message received: \n" + message);
         int type = message.getType();
         if (!_authorized) {
-            // TODO change to default true
-            boolean strict = _context.getBooleanProperty(PROP_AUTH_STRICT);
+            // Default true as of 0.9.16
+            boolean strict = _context.getBooleanPropertyDefaultTrue(PROP_AUTH_STRICT);
             if ((strict && type != GetDateMessage.MESSAGE_TYPE) ||
                 (type != CreateSessionMessage.MESSAGE_TYPE &&
                  type != GetDateMessage.MESSAGE_TYPE &&
@@ -195,9 +199,16 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
             if (_log.shouldLog(Log.DEBUG))
                 _log.debug("Signature verified correctly on create session message");
         } else {
-            if (_log.shouldLog(Log.ERROR))
-                _log.error("Signature verification *FAILED* on a create session message.  Hijack attempt?");
-            _runner.disconnectClient("Invalid signature on CreateSessionMessage");
+            // For now, we do NOT send a SessionStatusMessage - see javadoc above
+            int itype = in.getDestination().getCertificate().getCertificateType();
+            SigType stype = SigType.getByCode(itype);
+            if (stype == null || !stype.isAvailable()) {
+                _log.error("Client requested unsupported signature type " + itype);
+                _runner.disconnectClient("Unsupported signature type " + itype);
+            } else {
+                _log.error("Signature verification failed on a create session message");
+                _runner.disconnectClient("Invalid signature on CreateSessionMessage");
+            }
             return;
         }
 
@@ -206,10 +217,11 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
         if (!checkAuth(inProps))
             return;
 
-        SessionId sessionId = new SessionId();
-        sessionId.setSessionId(getNextSessionId()); 
-        _runner.setSessionId(sessionId);
-        sendStatusMessage(SessionStatusMessage.STATUS_CREATED);
+        SessionId id = _runner.getSessionId();
+        if (id != null) {
+            _runner.disconnectClient("Already have session " + id);
+            return;
+        }
 
         // Copy over the whole config structure so we don't later corrupt it on
         // the client side if we change settings or later get a
@@ -219,10 +231,25 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
         Properties props = new Properties();
         props.putAll(in.getOptions());
         cfg.setOptions(props);
-        _runner.sessionEstablished(cfg);
+        int status = _runner.sessionEstablished(cfg);
+        if (status != SessionStatusMessage.STATUS_CREATED) {
+            // For now, we do NOT send a SessionStatusMessage - see javadoc above
+            if (_log.shouldLog(Log.ERROR))
+                _log.error("Session establish failed: code = " + status);
+            String msg;
+            if (status == SessionStatusMessage.STATUS_INVALID)
+                msg = "duplicate destination";
+            else if (status == SessionStatusMessage.STATUS_REFUSED)
+                msg = "session limit exceeded";
+            else
+                msg = "unknown error";
+            _runner.disconnectClient(msg);
+            return;
+        }
+        sendStatusMessage(status);
 
-        if (_log.shouldLog(Log.DEBUG))
-            _log.debug("after sessionEstablished for " + _runner.getDestHash());
+        if (_log.shouldLog(Log.INFO))
+            _log.info("Session " + _runner.getSessionId() + " established for " + _runner.getDestHash());
         startCreateSessionJob();
     }
     
@@ -286,8 +313,8 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
         long timeToDistribute = _context.clock().now() - beforeDistribute;
         _runner.ackSendMessage(id, message.getNonce());
         _context.statManager().addRateData("client.distributeTime", timeToDistribute);
-        if ( (timeToDistribute > 50) && (_log.shouldLog(Log.WARN)) )
-            _log.warn("Took too long to distribute the message (which holds up the ack): " + timeToDistribute);
+        if ( (timeToDistribute > 50) && (_log.shouldLog(Log.INFO)) )
+            _log.info("Took too long to distribute the message (which holds up the ack): " + timeToDistribute);
     }
 
     
@@ -343,8 +370,41 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
             _runner.disconnectClient("Invalid CreateLeaseSetMessage");
             return;
         }
-
-        _context.keyManager().registerKeys(message.getLeaseSet().getDestination(), message.getSigningPrivateKey(), message.getPrivateKey());
+        Destination dest = _runner.getConfig().getDestination();
+        Destination ndest = message.getLeaseSet().getDestination();
+        if (!dest.equals(ndest)) {
+            if (_log.shouldLog(Log.ERROR))
+                _log.error("Different destination in LS");
+            _runner.disconnectClient("Different destination in LS");
+            return;
+        }
+        LeaseSetKeys keys = _context.keyManager().getKeys(dest);
+        if (keys == null ||
+            !message.getPrivateKey().equals(keys.getDecryptionKey())) {
+            // Verify and register crypto keys if new or if changed
+            // Private crypto key should never change, and if it does,
+            // one of the checks below will fail
+            PublicKey pk;
+            try {
+                pk = message.getPrivateKey().toPublic();
+            } catch (IllegalArgumentException iae) {
+                if (_log.shouldLog(Log.ERROR))
+                    _log.error("Bad private key in LS");
+                _runner.disconnectClient("Bad private key in LS");
+                return;
+            }
+            if (!pk.equals(message.getLeaseSet().getEncryptionKey())) {
+                if (_log.shouldLog(Log.ERROR))
+                    _log.error("Private/public crypto key mismatch in LS");
+                _runner.disconnectClient("Private/public crypto key mismatch in LS");
+                return;
+            }
+            // just register new SPK, don't verify, unused
+            _context.keyManager().registerKeys(dest, message.getSigningPrivateKey(), message.getPrivateKey());
+        } else if (!message.getSigningPrivateKey().equals(keys.getRevocationKey())) {
+            // just register new SPK, don't verify, unused
+            _context.keyManager().registerKeys(dest, message.getSigningPrivateKey(), message.getPrivateKey());
+        }
         try {
             _context.netDb().publish(message.getLeaseSet());
         } catch (IllegalArgumentException iae) {
@@ -410,7 +470,10 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
     
     private void sendStatusMessage(int status) {
         SessionStatusMessage msg = new SessionStatusMessage();
-        msg.setSessionId(_runner.getSessionId());
+        SessionId id = _runner.getSessionId();
+        if (id == null)
+            id = ClientManager.UNKNOWN_SESSION_ID;
+        msg.setSessionId(id);
         msg.setStatus(status);
         try {
             _runner.doSend(msg);
@@ -435,23 +498,8 @@ class ClientMessageEventListener implements I2CPMessageReader.I2CPMessageEventLi
             _runner.doSend(msg);
         } catch (I2CPMessageException ime) {
             if (_log.shouldLog(Log.WARN))
-                _log.warn("Error writing out the session status message", ime);
+                _log.warn("Error writing bw limits msg", ime);
         }
     }
 
-    // this *should* be mod 65536, but UnsignedInteger is still b0rked.  FIXME
-    private final static int MAX_SESSION_ID = 32767;
-
-    private static volatile int _id = RandomSource.getInstance().nextInt(MAX_SESSION_ID); // sessionId counter
-    private final static Object _sessionIdLock = new Object();
-    
-    /** generate a new sessionId */
-    private final static int getNextSessionId() { 
-        synchronized (_sessionIdLock) {
-            int id = (++_id)%MAX_SESSION_ID;
-            if (_id >= MAX_SESSION_ID)
-                _id = 0; 
-            return id; 
-        }
-    }
 }
