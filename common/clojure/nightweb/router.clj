@@ -26,10 +26,11 @@
   (t/start-torrent-manager! dir)
   (dht/init-dht)
   ; create or load user
-  (when (= 0 (count (io/read-user-list-file)))
-    (reset! is-first-boot? true)
-    (users/create-user!))
-  (users/load-user! nil)
+  (if (= 0 (count (io/read-user-list-file)))
+    (do
+      (reset! is-first-boot? true)
+      (users/create-user!))
+    (users/load-user! nil))
   ; run the rest of the initialization in a separate thread
   (future
     ; start i2p router

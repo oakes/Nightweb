@@ -52,22 +52,6 @@
       (when-let [new-link-str (:link-hash-str link-map)]
         (t/add-hash! user-dir new-link-str false dht/on-recv-meta!)))))
 
-(defn create-user!
-  "Creates a new user."
-  []
-  (crypto/load-user-keys! nil)
-  ; temporarily write pub key to the root dir
-  (io/write-key-file! (c/get-user-pub-file nil) @crypto/pub-key)
-  (let [info-hash (t/get-info-hash (c/get-user-pub-file nil))
-        info-hash-str (f/base32-encode info-hash)]
-    ; delete pub key from root, save keys in user dir, and save user list
-    (io/delete-file! (c/get-user-pub-file nil))
-    (io/write-key-file! (c/get-user-priv-file info-hash-str) @crypto/priv-key)
-    (io/write-key-file! (c/get-user-pub-file info-hash-str) @crypto/pub-key)
-    (io/write-user-list-file! (cons info-hash @c/my-hash-list))
-    (add-user-and-meta-torrents! info-hash-str)
-    info-hash))
-
 (defn load-user!
   "Loads user into memory."
   [user-hash-bytes]
@@ -82,6 +66,23 @@
     (reset! c/my-hash-str user-hash-str)
     (reset! c/my-hash-list user-list))
   nil)
+
+(defn create-user!
+  "Creates a new user."
+  []
+  (crypto/load-user-keys! nil)
+  ; temporarily write pub key to the root dir
+  (io/write-key-file! (c/get-user-pub-file nil) @crypto/pub-key)
+  (let [info-hash (t/get-info-hash (c/get-user-pub-file nil))
+        info-hash-str (f/base32-encode info-hash)]
+    ; delete pub key from root, save keys in user dir, and save user list
+    (io/delete-file! (c/get-user-pub-file nil))
+    (io/write-key-file! (c/get-user-priv-file info-hash-str) @crypto/priv-key)
+    (io/write-key-file! (c/get-user-pub-file info-hash-str) @crypto/pub-key)
+    (io/write-user-list-file! (cons info-hash @c/my-hash-list))
+    (load-user! info-hash)
+    (add-user-and-meta-torrents! info-hash-str)
+    info-hash))
 
 (defn delete-user!
   "Removes user permanently."
