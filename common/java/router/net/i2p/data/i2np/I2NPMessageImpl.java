@@ -64,7 +64,7 @@ public abstract class I2NPMessageImpl extends DataStructureImpl implements I2NPM
         _log = context.logManager().getLog(I2NPMessageImpl.class);
         _expiration = _context.clock().now() + DEFAULT_EXPIRATION_MS;
         // FIXME/TODO set only for outbound, or only on write, or something, to not waste entropy
-        _uniqueId = _context.random().nextLong(MAX_ID_VALUE);
+        _uniqueId = -1;
         //_context.statManager().createRateStat("i2np.writeTime", "How long it takes to write an I2NP message", "I2NP", new long[] { 10*60*1000, 60*60*1000 });
         //_context.statManager().createRateStat("i2np.readTime", "How long it takes to read an I2NP message", "I2NP", new long[] { 10*60*1000, 60*60*1000 });
     }
@@ -254,7 +254,7 @@ public abstract class I2NPMessageImpl extends DataStructureImpl implements I2NPM
     public long getUniqueId() { return _uniqueId; }
 
     /**
-     *  The ID is set to a random value in the constructor but it can be overridden here.
+     *  The ID is set to -1 in the constructor. This will throw an error unless another ID is entered.
      */
     public void setUniqueId(long id) { _uniqueId = id; }
     
@@ -262,6 +262,11 @@ public abstract class I2NPMessageImpl extends DataStructureImpl implements I2NPM
      * Date after which the message should be dropped (and the associated uniqueId forgotten)
      *
      */
+    public void setRandomId(){setUniqueId(_context.random().nextLong(MAX_ID_VALUE));}
+    /**
+     * Generates a random number and passes it to setUniqueID.
+     * /
+    
     public long getMessageExpiration() { return _expiration; }
 
     /**
